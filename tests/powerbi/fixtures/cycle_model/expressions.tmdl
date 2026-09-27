@@ -36,3 +36,6 @@ expression Q10 =
 		a = 1
 	in
 		a
+
+expression OneLine =
+	let a = 1, b = a + 1 in b

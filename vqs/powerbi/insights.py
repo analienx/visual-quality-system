@@ -77,6 +77,16 @@ def _title(node: dict) -> str | None:
     return text or None
 
 
+def _slot_text(slot: object, *keys: str) -> str:
+    """Walk nested dicts defensively; non-dict links yield ""."""
+    node = slot
+    for key in keys:
+        if not isinstance(node, dict):
+            return ""
+        node = node.get(key)
+    return node if isinstance(node, str) else ""
+
+
 def _dotted(field: dict) -> tuple[str | None, str | None]:
     """Split a projection field into (kind, Entity.Property ref)."""
     if not isinstance(field, dict):
@@ -85,9 +95,8 @@ def _dotted(field: dict) -> tuple[str | None, str | None]:
         slot = field.get(kind)
         if not isinstance(slot, dict):
             continue
-        entity = (slot.get("Expression", {}) or {}).get("SourceRef", {})
-        entity = (entity or {}).get("Entity", "")
-        prop = slot.get("Property", "")
+        entity = _slot_text(slot, "Expression", "SourceRef", "Entity")
+        prop = _slot_text(slot, "Property")
         if entity and prop:
             return kind, f"{entity}.{prop}"
         return kind, None
@@ -109,7 +118,9 @@ def _query_fields(node: dict) -> dict[str, dict[str, list[str]]]:
     for role, content in state.items():
         slot = roles.setdefault(role, {"measures": [], "dimensions": [],
                                        "fields": []})
-        projections = (content or {}).get("projections", [])
+        if not isinstance(content, dict):
+            continue
+        projections = content.get("projections", [])
         if not isinstance(projections, list):
             continue
         for projection in projections:
@@ -211,12 +222,14 @@ def page_insights(report_dir: str, model_dir: str | None = None) -> dict:
                      "title": _title(node), "measures": measures,
                      "dimensions": dimensions, "roles": roles}
             entries.append(entry)
-            if not measures and not dimensions:
-                continue
-            visuals.append({"page": page["_dir"], "visual": visual["_id"],
-                            "type": visual_type, "measures": measures,
-                            "dimensions": dimensions,
-                            "valued_filters": _valued_filters(visual)})
+            if measures or dimensions:
+                visuals.append({"page": page["_dir"], "visual": visual["_id"],
+                                "type": visual_type, "measures": measures,
+                                "dimensions": dimensions,
+                                "valued_filters": _valued_filters(visual)})
+            # Tree/map classification is independent of parseable refs: a
+            # tree or map with no bindings is a broken visual the rules
+            # must see (missing_analyze / no_location_field), not a skip.
             folded = str(visual_type).casefold()
             if folded == TREE_TYPE:
                 lowered = {role.casefold(): refs

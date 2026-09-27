@@ -124,3 +124,30 @@ def test_bridge_timeout_becomes_block(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(capture.subprocess, "run", timeout)
     with pytest.raises(OSError, match="timed out"):
         capture._bridge(["status"], 1)
+
+def test_shell_fallback_refuses_metachars(monkeypatch) -> None:
+    monkeypatch.setattr(capture.shutil, "which", lambda _cmd: "C:\\fake\\bridge.cmd")
+    calls = []
+
+    def always_missing(*args, **kwargs):
+        calls.append(kwargs.get("shell", False))
+        raise OSError("not runnable")
+    monkeypatch.setattr(capture.subprocess, "run", always_missing)
+    with pytest.raises(OSError, match="Refusing shell fallback"):
+        capture._bridge(["status", "1&calc"], 5)
+    assert calls == [False]
+
+
+def test_shell_fallback_runs_safe_commands(monkeypatch) -> None:
+    import subprocess
+    monkeypatch.setattr(capture.shutil, "which", lambda _cmd: "C:\\fake\\bridge.cmd")
+    calls = []
+
+    def flaky(cmd, **kwargs):
+        calls.append(kwargs.get("shell", False))
+        if not kwargs.get("shell"):
+            raise OSError("needs a shell")
+        return subprocess.CompletedProcess(cmd, 0, stdout="ok", stderr="")
+    monkeypatch.setattr(capture.subprocess, "run", flaky)
+    assert capture._bridge(["status"], 5) == (0, "ok")
+    assert calls == [False, True]

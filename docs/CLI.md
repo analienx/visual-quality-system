@@ -125,7 +125,7 @@ Minimal `capture-manifest.json`:
 Run a measured-facts JSON document to a sealed verdict under
 `.vqs-runs/<run-id>/` (gitignored): `manifest.json` carries the terminal
 status plus a `verdict_sha256` digest, with `event_count` matching the
-event log. Facts sections: `rules` (the six design rules),
+event log. Facts sections: `rules` (the nine design rules),
 `oracles` (question answerability, scope matching), `documents` (DOCX
 well-formedness — structure only, never pagination), `models` (TMDL
 inventory, binding resolution, optional freshness and RLS role).

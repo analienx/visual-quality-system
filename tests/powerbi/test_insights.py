@@ -124,3 +124,49 @@ def test_measure_emits_insight_sections() -> None:
 def test_missing_report_dir_raises() -> None:
     with pytest.raises(OSError):
         page_insights(str(FIXTURES / "absent"))
+
+def test_malformed_query_shapes_do_not_crash(tmp_path: Path) -> None:
+    page = tmp_path / "definition" / "pages" / "P1"
+    (page / "visuals" / "weird").mkdir(parents=True)
+    (page / "page.json").write_text(json.dumps({"displayName": "W"}),
+                                     encoding="utf-8")
+    (page / "visuals" / "weird" / "visual.json").write_text(json.dumps({
+        "visual": {"visualType": "decompositionTreeVisual",
+                   "query": {"queryState": {
+                       "Values": ["not-a-dict"],
+                       "Analyze": {"projections": [
+                           {"field": {"Measure": {
+                               "Expression": {"SourceRef": "str-instead"},
+                               "Property": "M"}}},
+                           {"field": {"Measure": {
+                               "Expression": {"SourceRef": {"Entity": 5}},
+                               "Property": "M"}}},
+                           {"field": {"Measure": {"Property": "M"}}}]}}}}}),
+        encoding="utf-8")
+    inventory = page_insights(str(tmp_path))
+    assert inventory["visuals"] == []
+    assert inventory["trees"] == [{"page": "P1", "visual": "weird",
+                                   "analyze": [], "explain_by": [],
+                                   "unrecognized_roles": False}]
+
+
+def test_model_categories_flow_from_tmdl_to_map_verdict(tmp_path: Path) -> None:
+    from vqs.design_rules import map_location_binding
+    model = tmp_path / "model"
+    (model / "tables").mkdir(parents=True)
+    (model / "tables" / "Dim Store.tmdl").write_text(
+        "table 'Dim Store'\n\n\tcolumn 'Region'\n\t\tdataType: string\n"
+        "\t\tdataCategory: Country\n", encoding="utf-8")
+    inventory = page_insights(REPORT, str(model))
+    params = {"maps": [m for m in inventory["maps"]
+                       if m["visual"] == "mapvis"]}
+    assert params == {"maps": [{"page": "P1", "visual": "mapvis",
+                                "type": "map",
+                                "locations": ["Dim Store.Region"],
+                                "categories": {"Dim Store.Region": "Country"}}]}
+    assert map_location_binding(params["maps"])["status"] == "pass"
+    params["maps"][0]["categories"] = {"Dim Store.Region": "ImageUrl"}
+    failed = map_location_binding(params["maps"])
+    assert failed["status"] == "fail"
+    assert failed["evidence"]["conflicts"][0]["kind"] == \
+        "non_geographic_binding"

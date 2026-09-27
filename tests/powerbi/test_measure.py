@@ -22,6 +22,7 @@ def test_palette_omitted_without_declared_series_colors() -> None:
     # omitted instead of emitting page x slot fiction.
     rules = measure_report(REPORT)["rules"]
     assert "palette.semantic_consistency" not in rules
+    assert "typography.text_contrast" in rules  # emitter is alive
 
 
 def test_cohorts_carry_declared_values_and_default_nulls() -> None:
@@ -115,3 +116,34 @@ def test_unit_classification_proves_only_percent() -> None:
     assert _format_of(formats, "fact sales.revenue") == "$#,0"
     assert _format_of(formats, "Nope.Missing") == ""
     assert _format_of(formats, "not-dotted") == ""
+
+def test_non_hex_text_color_skipped(tmp_path: Path) -> None:
+    import json
+    import shutil
+    clone = tmp_path / "report"
+    shutil.copytree(REPORT, clone)
+    path = (clone / "definition" / "pages" / "P1" / "visuals" / "titlebox"
+            / "visual.json")
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    runs = doc["visual"]["objects"]["general"][0]["properties"]["paragraphs"]
+    runs[1]["textRuns"][0]["textStyle"]["color"] = "RED"
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    assert measure_report(str(clone))["rules"][
+        "typography.text_contrast"] == {"foreground": "#101828",
+                                        "background": "#FFFFFF"}
+
+
+def test_invalid_theme_background_omits_contrast(tmp_path: Path) -> None:
+    import json
+    import shutil
+    clone = tmp_path / "report"
+    shutil.copytree(REPORT, clone)
+    page_path = clone / "definition" / "pages" / "P1" / "page.json"
+    doc = json.loads(page_path.read_text(encoding="utf-8"))
+    doc.pop("objects", None)
+    page_path.write_text(json.dumps(doc), encoding="utf-8")
+    theme_path = next((clone / "StaticResources").rglob("*.json"))
+    theme = json.loads(theme_path.read_text(encoding="utf-8"))
+    theme["background"] = "WHITE"
+    theme_path.write_text(json.dumps(theme), encoding="utf-8")
+    assert "typography.text_contrast" not in measure_report(str(clone))["rules"]

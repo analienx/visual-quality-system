@@ -84,7 +84,9 @@ def _page_background(page: dict, theme: dict | None) -> str | None:
     if isinstance(color, str) and re.fullmatch(r"'#[0-9A-Fa-f]{6}'", color):
         return color.strip("'").upper()
     if theme is not None:
-        return str(theme["background"]).upper()
+        fallback = str(theme.get("background", "")).upper()
+        if re.fullmatch(r"#[0-9A-F]{6}", fallback):
+            return fallback
     return None
 
 
@@ -136,11 +138,20 @@ def _ratio(foreground: str, background: str) -> float:
     return (first + 0.05) / (second + 0.05)
 
 
+def _is_hex(color: str) -> bool:
+    return re.fullmatch(r"#[0-9A-F]{6}", color) is not None
+
+
 def _contrast(report_dir: str, theme: dict | None) -> dict | None:
-    """Weakest honestly-paired (foreground, background) across pages."""
+    """Weakest honestly-paired (foreground, background) across pages.
+
+    Non-hex text colors prove no luminance, so pairs using them are
+    skipped instead of crashing the ratio math.
+    """
     candidates = []
+    all_colors = _page_text_colors(report_dir)
     for page in _pages(report_dir):
-        colors = _page_text_colors(report_dir).get(page["_dir"]) or Counter()
+        colors = all_colors.get(page["_dir"]) or Counter()
         titles = Counter({c: n for (i, c), n in colors.items() if i == 0})
         subtitles = Counter({c: n for (i, c), n in colors.items() if i == 1})
         if not titles and not subtitles:
@@ -149,9 +160,13 @@ def _contrast(report_dir: str, theme: dict | None) -> dict | None:
         if background is None:
             continue
         if titles:
-            candidates.append((titles.most_common(1)[0][0], background))
+            foreground = titles.most_common(1)[0][0]
+            if _is_hex(foreground):
+                candidates.append((foreground, background))
         if subtitles:
-            candidates.append((subtitles.most_common(1)[0][0], background))
+            foreground = subtitles.most_common(1)[0][0]
+            if _is_hex(foreground):
+                candidates.append((foreground, background))
     if not candidates:
         return None
     foreground, background = min(candidates, key=lambda pair: _ratio(*pair))
@@ -290,6 +305,8 @@ def _cohort_nulls(report_dir: str, readings: list[dict]) -> list[dict]:
             declared = set(objects) if isinstance(objects, dict) else set()
             owners[(visual_type, page["_dir"], visual["_id"])] = declared
     seen = {(r["cohort"], r["page"], r["visual"]) for r in readings}
+    # Cohort ids embed "{visual_type}/{owner}.{prop}"; real PBIR
+    # visualType values never contain "/", so partition is exact.
     for cohort in names:
         visual_type, _, rest = cohort.partition("/")
         owner, _, _prop = rest.rpartition(".")

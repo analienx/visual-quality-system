@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -28,10 +29,16 @@ def _bridge(args: list[str], timeout: int) -> tuple[int, str]:
             completed = subprocess.run(
                 [binary, *args], capture_output=True, text=True,
                 timeout=timeout, check=False)
-        except OSError:
+        except OSError as exc:
+            # Fallback for .bat/.cmd shims un-runnable without a shell.
+            # list2cmdline quotes whitespace, not metachars: refuse the
+            # shell when hostile output could have smuggled one in.
+            command = subprocess.list2cmdline([binary, *args])
+            if re.search(r'[&|^<>%!`$;\r\n]', command):
+                raise OSError("Refusing shell fallback on metacharacters: "
+                              f"{' '.join(args)}") from exc
             completed = subprocess.run(
-                subprocess.list2cmdline([binary, *args]),
-                capture_output=True, text=True,
+                command, capture_output=True, text=True,
                 timeout=timeout, check=False, shell=True)
     except subprocess.TimeoutExpired as exc:
         raise OSError(f"Bridge timed out: {' '.join(args)}") from exc
@@ -163,8 +170,11 @@ def capture(report: str, renders: str, pid: int | None = None,
         source_after = source_digest(report_path)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise OSError(f"Cannot re-read report: {exc}") from exc
+    # Digest comparison cannot see A->B->A flaps or post-digest edits;
+    # no manifest is written here, so unmanifested renders can never
+    # pass evidence binding later.
     if source_after != source_before:
-        raise OSError("Report changed during capture; discarding renders")
+        raise OSError("Report changed during capture; no manifest written")
     manifest = {"source_sha256": source_after,
                 "page_images": page_images,
                 "files": files,

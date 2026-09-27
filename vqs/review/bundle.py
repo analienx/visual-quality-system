@@ -44,6 +44,10 @@ def pack(report: str, renders: str, out: str, fixer_id: str) -> dict:
     out_path = Path(out)
     if out_path.exists():
         raise OSError(f"Refusing to overwrite: {out}")
+    header = {"schema": SCHEMA, "kind": "vqs-review-bundle",
+              "fixer_id": fixer_id, "source_sha256": info["source_sha256"],
+              "policy_version": POLICY_VERSION, "pages": expected,
+              "created_utc": _utcnow()}
     try:
         out_path.mkdir(parents=True)
         shutil.copy2(Path(renders) / "capture-manifest.json",
@@ -53,15 +57,14 @@ def pack(report: str, renders: str, out: str, fixer_id: str) -> dict:
                          out_path / page["image"])
         (out_path / "inventory.json").write_text(
             json.dumps(info, indent=2, ensure_ascii=False), encoding="utf-8")
+        (out_path / "bundle.json").write_text(json.dumps(header, indent=2),
+                                              encoding="utf-8")
+    except FileExistsError as exc:
+        # A foreign dir appeared after the exists-check: never rmtree it.
+        raise OSError(f"Refusing to overwrite: {out}") from exc
     except (OSError, shutil.Error) as exc:
         shutil.rmtree(out_path, ignore_errors=True)
         raise OSError(f"Bundle assembly failed, rolled back: {exc}") from exc
-    header = {"schema": SCHEMA, "kind": "vqs-review-bundle",
-              "fixer_id": fixer_id, "source_sha256": info["source_sha256"],
-              "policy_version": POLICY_VERSION, "pages": expected,
-              "created_utc": _utcnow()}
-    (out_path / "bundle.json").write_text(json.dumps(header, indent=2),
-                                          encoding="utf-8")
     return {"status": "packed", "fixer_id": fixer_id,
             "source_sha256": info["source_sha256"],
             "pages": expected, "bundle": str(out_path),
@@ -92,7 +95,8 @@ def verify(bundle: str, report: str | None = None) -> dict:
         problems.append("bundle schema mismatch")
     if header.get("kind") != "vqs-review-bundle":
         problems.append("not a vqs review bundle")
-    for key in ("fixer_id", "policy_version", "created_utc", "pages"):
+    for key in ("fixer_id", "policy_version", "created_utc", "pages",
+              "source_sha256"):
         if not header.get(key):
             problems.append(f"bundle header missing {key}")
     inv_pages = inventory.get("pages", [])
@@ -102,6 +106,10 @@ def verify(bundle: str, report: str | None = None) -> dict:
             or [page.get("id") if isinstance(page, dict) else None
                 for page in inv_pages] != list(hdr_pages)):
         problems.append("inventory pages differ from bundle header")
+    inv_ids = [page.get("id") if isinstance(page, dict) else None
+               for page in inv_pages] if isinstance(inv_pages, list) else []
+    if len(set(hdr_pages)) != len(hdr_pages) or len(set(inv_ids)) != len(inv_ids):
+        problems.append("duplicate page ids in bundle")
     if manifest.get("source_sha256") != header.get("source_sha256"):
         problems.append("manifest source differs from bundle header")
     if inventory.get("source_sha256") != header.get("source_sha256"):
@@ -152,7 +160,14 @@ def unpack(bundle: str, dest: str) -> dict:
         raise OSError(f"Refusing to overwrite: {dest}")
     try:
         shutil.copytree(bundle, dest)
+    except FileExistsError as exc:
+        raise OSError(f"Refusing to overwrite: {dest}") from exc
     except (OSError, shutil.Error) as exc:
         shutil.rmtree(dest, ignore_errors=True)
         raise OSError(f"Bundle copy failed, rolled back: {exc}") from exc
-    return verify(dest)
+    try:
+        return verify(dest)
+    except (OSError, ValueError, TypeError) as exc:
+        shutil.rmtree(dest, ignore_errors=True)
+        raise OSError(f"Unpacked copy failed verification, rolled back: "
+                      f"{exc}") from exc

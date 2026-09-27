@@ -62,7 +62,9 @@ def safe_render_name(name: object) -> str | None:
     """Accept plain basenames only; reject traversal and absolute paths."""
     if not isinstance(name, str) or not name or name.startswith((".", "/")):
         return None
-    if "/" in name or "\\" in name or Path(name).name != name:
+    if "/" in name or "\\" in name or ":" in name:
+        return None
+    if Path(name).name != name:
         return None
     return name
 
@@ -111,7 +113,7 @@ def image_evidence(images: Path, source_sha: str, page_ids: list[str]) -> tuple[
 
 def review_template(kind: str, source_sha: str, pages: list[dict], fixer_id: str) -> dict:
     """Create an unapproved review form; pending observations never imply approval."""
-    if not source_sha or not fixer_id:
+    if not source_sha or not fixer_id or not fixer_id.strip():
         raise ValueError("Template needs a source hash and a fixer id")
     if kind not in REQUIRED:
         raise ValueError(f"Unsupported review surface: {kind}")

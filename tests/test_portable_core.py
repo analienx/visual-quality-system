@@ -4,7 +4,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from vqs.evidence import digest, load, review_template, verify_review
+import pytest
+
+from vqs.evidence import digest, load, review_template, safe_render_name, verify_review
 from vqs.pbir import report_context, source_digest
 from vqs.policy import CRITERIA, DOCUMENT, REPORT
 
@@ -58,3 +60,10 @@ def test_inventory_source_hash_and_explicit_unknowns(tmp_path: Path) -> None:
     record = tmp_path / "example.json"
     record.write_text('{"ok": true}', encoding="utf-8")
     assert load(record) == {"ok": True} and len(digest(record)) == 64
+
+def test_render_name_rejects_ads_and_whitespace_fixer() -> None:
+    assert safe_render_name("p1.png:evil") is None
+    assert safe_render_name("p1.png") == "p1.png"
+    pages = [{"id": "p1", "image": "p1.png", "sha256": "s"}]
+    with pytest.raises(ValueError, match="fixer id"):
+        review_template("report", "source", pages, "   ")

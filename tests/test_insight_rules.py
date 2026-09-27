@@ -149,3 +149,61 @@ def test_pipeline_runs_new_rules(tmp_path: Path) -> None:
     assert result["verdict"] == "fail"
     assert {f["check"] for f in result["findings"]} == {
         "insight.no_duplicate_grain", "chart.decomposition_tree_dimensions"}
+
+def test_same_grain_dimensioned_twins_fail() -> None:
+    result = insight_no_duplicate_grain([
+        _grain("P1", "chart-a", "columnChart", [SALES], [REGION]),
+        _grain("P1", "chart-b", "barChart", [SALES], [REGION])])
+    assert result["status"] == "fail"
+    assert result["evidence"]["conflicts"][0]["kind"] == "same_grain"
+
+
+def test_contained_grain_is_order_independent() -> None:
+    pair = [[SALES], [REGION, CATEGORY]]
+    flipped = insight_no_duplicate_grain([
+        _grain("P1", "tree", "decompositionTreeVisual", *pair),
+        _grain("P1", "map", "map", [SALES], [REGION])])
+    assert flipped["status"] == "fail"
+    assert flipped["evidence"]["conflicts"][0]["kind"] == "contained_grain"
+
+
+def test_tree_fail_survives_unrecognized_sibling() -> None:
+    result = decomposition_tree_dimensions([
+        {"page": "P1", "visual": "thin", "analyze": [SALES],
+         "explain_by": [REGION], "unrecognized_roles": False},
+        {"page": "P1", "visual": "odd", "analyze": [], "explain_by": [],
+         "unrecognized_roles": True}])
+    assert result["status"] == "fail"
+    assert result["evidence"]["conflicts"][0]["kind"] == "too_few_dimensions"
+    assert result["evidence"]["unverified"] == ["P1/odd"]
+
+
+def test_map_fail_needs_every_column_non_geographic() -> None:
+    mixed = map_location_binding([{
+        "page": "P1", "visual": "map", "type": "map",
+        "locations": [REGION, "Dim Store.Photo"],
+        "categories": {REGION: None, "Dim Store.Photo": "ImageUrl"}}])
+    assert mixed["status"] == "unknown"
+    geo = map_location_binding([{
+        "page": "P1", "visual": "map", "type": "map",
+        "locations": [REGION, "Dim Store.Country"],
+        "categories": {REGION: "ImageUrl", "Dim Store.Country": "Country"}}])
+    assert geo["status"] == "pass"
+    empty_cat = map_location_binding([{
+        "page": "P1", "visual": "map", "type": "map",
+        "locations": [REGION], "categories": {REGION: ""}}])
+    assert empty_cat["status"] == "unknown"
+    all_bad = map_location_binding([{
+        "page": "P1", "visual": "map", "type": "map",
+        "locations": [REGION, "Dim Store.Photo"],
+        "categories": {REGION: "WebUrl", "Dim Store.Photo": "ImageUrl"}}])
+    assert all_bad["status"] == "fail"
+
+
+def test_unhashable_and_untyped_elements_are_unknown() -> None:
+    assert map_location_binding([{
+        "page": "P1", "visual": "map", "type": "map",
+        "locations": [["nested"]], "categories": {}}])["status"] == "unknown"
+    assert decomposition_tree_dimensions([{
+        "page": "P1", "visual": "t", "analyze": [5],
+        "explain_by": [], "unrecognized_roles": False}])["status"] == "unknown"
