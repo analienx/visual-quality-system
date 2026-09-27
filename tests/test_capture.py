@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from vqs import desktop
+from vqs import capture
 from vqs.cli import main as vqs_main
 from vqs.pbir import source_digest
 
@@ -59,7 +59,7 @@ def _stub(monkeypatch, report, instances, png_pages=("p1",)):
         return 0, ("Capturing page 1/1" + chr(10) + json.dumps(
             {"status": "ok", "screenshots": shots})
             + chr(10) + "Captured 1 page in 12s")
-    monkeypatch.setattr(desktop, "_bridge", fake_bridge)
+    monkeypatch.setattr(capture, "_bridge", fake_bridge)
 
 def test_capture_writes_manifest(tmp_path: Path, monkeypatch, capsys) -> None:
     report = _make_report(tmp_path)
@@ -78,10 +78,10 @@ def test_bridge_missing_blocks(tmp_path: Path, monkeypatch, capsys) -> None:
     report = _make_report(tmp_path)
 
     def missing(args, timeout):
-        raise FileNotFoundError("powerbi-desktop not on PATH")
-    monkeypatch.setattr(desktop, "_bridge", missing)
+        raise FileNotFoundError("powerbi-capture not on PATH")
+    monkeypatch.setattr(capture, "_bridge", missing)
     assert vqs_main(["capture", str(report), str(tmp_path / "r")]) == 2
-    assert "powerbi-desktop" in capsys.readouterr().out
+    assert "powerbi-capture" in capsys.readouterr().out
 
 
 def test_wrong_report_and_unsaved_block(tmp_path: Path, monkeypatch,
@@ -117,10 +117,10 @@ def test_missing_png_blocks(tmp_path: Path, monkeypatch, capsys) -> None:
 
 def test_bridge_timeout_becomes_block(tmp_path: Path, monkeypatch) -> None:
     import subprocess
-    monkeypatch.setattr(desktop.shutil, "which", lambda name: "bridge")
+    monkeypatch.setattr(capture.shutil, "which", lambda name: "bridge")
 
     def timeout(*args, **kwargs):
         raise subprocess.TimeoutExpired(cmd=args[0], timeout=1)
-    monkeypatch.setattr(desktop.subprocess, "run", timeout)
+    monkeypatch.setattr(capture.subprocess, "run", timeout)
     with pytest.raises(OSError, match="timed out"):
-        desktop._bridge(["status"], 1)
+        capture._bridge(["status"], 1)

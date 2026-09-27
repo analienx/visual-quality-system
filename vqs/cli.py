@@ -165,7 +165,7 @@ def _cycles(model: Path) -> int:
 def _capture(report: Path, renders: Path, pid: int | None, scale: int,
              wait_seconds: int) -> int:
     """Capture every page via Bridge; exit 2 with reason when blocked."""
-    from vqs.desktop import capture
+    from vqs.capture import capture
 
     try:
         manifest = capture(str(report), str(renders), pid=pid,
