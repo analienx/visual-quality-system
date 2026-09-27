@@ -18,7 +18,7 @@
 | WP-11 | S7 | Independent two-PBIP + one-generated-DOCX end-to-end matrix | WP-02..WP-10 | [#16](https://github.com/analienx/visual-quality-system/issues/16) | planned / not run |
 | WP-12 | S8 | PBIPDocumenter consumer integration and owner-reviewed release | WP-11 | [#17](https://github.com/analienx/visual-quality-system/issues/17) | planned / not run |
 | WP-13 | S9 future | Rayfin/Fabric Apps/Playwright adapter | WP-12 + separate approval | [#18](https://github.com/analienx/visual-quality-system/issues/18) | **deferred / not run**; excluded from first release |
-| WP-19 | S5 | PBIR/TMDL measurement adapter plus source auto-checks | — | [#19](https://github.com/analienx/visual-quality-system/issues/19) | **active / merged to main** — emitter + `measure` + `doctor` done, independent verification pending |
+| WP-19 | S5 | PBIR/TMDL measurement adapter plus source auto-checks | — | [#19](https://github.com/analienx/visual-quality-system/issues/19) | **active / merged to main** — emitter, `measure`, `cycles`, `doctor`, `capture`, `bundle`, skill done; independent verification pending |
 
 **Phase verification:** none of S0–S8 has been newly verified under this program. **Work-package evidence:** 0 independently verified / 14 first-release packages; 1 deferred. **Next real task:** [#5 baseline](https://github.com/analienx/visual-quality-system/issues/5): inspect and test the actual standalone repo and current Desktop/Word environment, then update this status through an independently reviewed PR. Do not assume the prototype's earlier tests are part of these counts.
 

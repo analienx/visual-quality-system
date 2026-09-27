@@ -99,6 +99,7 @@ def review_template(kind: str, source_sha: str, pages: list[dict], fixer_id: str
             "source_sha256": source_sha, "fixer_id": fixer_id,
             "reviewer": {"id": "", "role": "independent_visual_reviewer"},
             "pages": [{"id": page["id"], "image": page["image"], "image_sha256": page["sha256"],
+                       "image_source_sha256": source_sha,
                        "visual_inventory": page.get("visual_inventory", []),
                        "observations": [{"id": check, "criterion": CRITERIA[check], "status": "pending", "reason": "",
                                          "severity": None, "region": None, "visual_id": "page", "proposed_fix": ""}

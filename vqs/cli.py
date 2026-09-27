@@ -162,6 +162,41 @@ def _cycles(model: Path) -> int:
     return 0 if report["acyclic"] else 1
 
 
+def _capture(report: Path, renders: Path, pid: int | None, scale: int,
+             wait_seconds: int) -> int:
+    """Capture every page via Bridge; exit 2 with reason when blocked."""
+    from vqs.desktop import capture
+
+    try:
+        manifest = capture(str(report), str(renders), pid=pid,
+                           scale=scale, wait_seconds=wait_seconds)
+    except (OSError, LookupError, ValueError) as exc:
+        print(json.dumps({"status": "blocked",
+                          "reason": f"{type(exc).__name__}: {exc}"}))
+        return 2
+    print(json.dumps(manifest, indent=2, ensure_ascii=False))
+    return 0
+
+
+def _bundle(action: str, args) -> int:
+    """Pack, verify, or unpack a review bundle; exit 2 when invalid."""
+    from vqs.review.bundle import pack, unpack, verify
+
+    try:
+        if action == "pack":
+            result = pack(args.report, args.renders, args.out, args.fixer_id)
+        elif action == "verify":
+            result = verify(args.bundle, args.report)
+        else:
+            result = unpack(args.bundle, args.dest)
+    except (OSError, ValueError) as exc:
+        print(json.dumps({"status": "blocked",
+                          "reason": f"{type(exc).__name__}: {exc}"}))
+        return 2
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="vqs", description="Visual Quality System pre-alpha tools")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -176,6 +211,27 @@ def main(argv: list[str] | None = None) -> int:
     cycles = commands.add_parser("cycles", help="Static DAX/M acyclicity gate for a model")
     cycles.add_argument("model", type=Path,
                         help="*.SemanticModel definition folder")
+    capture_cmd = commands.add_parser("capture", help="Bridge screenshots plus capture manifest")
+    capture_cmd.add_argument("report", type=Path, help="Enhanced-format *.Report folder")
+    capture_cmd.add_argument("renders", type=Path, help="Output directory for PNGs and manifest")
+    capture_cmd.add_argument("--pid", type=int, default=None,
+                             help="Target a specific PBIDesktop.exe process")
+    capture_cmd.add_argument("--scale", type=int, default=2)
+    capture_cmd.add_argument("--wait-seconds", type=int, default=60)
+    bundle_cmd = commands.add_parser("bundle", help="Portable review evidence bundles")
+    bundle_actions = bundle_cmd.add_subparsers(dest="bundle_action", required=True)
+    pack_cmd = bundle_actions.add_parser("pack", help="Assemble a verified bundle")
+    pack_cmd.add_argument("report", help="Enhanced-format *.Report folder")
+    pack_cmd.add_argument("renders", help="Renders directory with capture manifest")
+    pack_cmd.add_argument("out", help="Bundle output directory (must not exist)")
+    pack_cmd.add_argument("--fixer-id", required=True)
+    verify_cmd = bundle_actions.add_parser("verify", help="Re-hash and cross-check a bundle")
+    verify_cmd.add_argument("bundle", help="Bundle directory")
+    verify_cmd.add_argument("--report", default=None,
+                            help="Live report folder to check staleness against")
+    unpack_cmd = bundle_actions.add_parser("unpack", help="Copy a bundle and verify the copy")
+    unpack_cmd.add_argument("bundle", help="Bundle directory")
+    unpack_cmd.add_argument("dest", help="Destination directory (must not exist)")
     commands.add_parser("doctor", help="Report external tool capabilities; never installs")
     review = commands.add_parser("request-review", help="Require complete source-bound page images")
     review.add_argument("report", type=Path)
@@ -204,6 +260,11 @@ def main(argv: list[str] | None = None) -> int:
         return _measure(args.report, args.model, args.out)
     if args.command == "cycles":
         return _cycles(args.model)
+    if args.command == "capture":
+        return _capture(args.report, args.renders, args.pid, args.scale,
+                        args.wait_seconds)
+    if args.command == "bundle":
+        return _bundle(args.bundle_action, args)
     if args.command == "doctor":
         return _doctor()
     if args.command == "status":

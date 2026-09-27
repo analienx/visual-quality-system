@@ -1,54 +1,89 @@
 # Visual Quality System (VQS)
 
-**Design, repair and independently verify analytical experiences that answer the right questions.** VQS is a source-aware decision-quality system for Power BI Desktop reports **first**, rendered Word/DOCX documents **in the same initial delivery program**, and Fabric Apps/Rayfin **later**. It checks whether intended users can reach a defensible conclusion, whether data and visual design communicate it truthfully, and whether a source-level repair improves the *actual working artifact* without altering answers or hiding adjacent content. It is **not** a screenshot-to-AI taste prompt, a substitute for semantic-model validation, or a generic AI report creator.
+[![CI](https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml/badge.svg)](https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/analienx/visual-quality-system)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 
-> **Status: pre-alpha / partial extraction.** This repository currently contains a portable PBIR inventory, versioned observation policy, source/image integrity checks, a limited CLI and isolated quantitative rule primitives. The full Power BI Desktop review→repair loop, live data/refresh tests, comprehensive theme/palette engine, question/journey benchmarks and all-page Word pagination/repair acceptance **do not yet run end to end in this standalone package**. A one-report prototype remains in [PBIPDocumenter draft PR #12](https://github.com/analienx/pbidocumenter/pull/12). Product goals and a planning issue are not evidence of implementation.
+**Prove a Power BI report is good — from source, not vibes.** VQS measures check-ready facts straight from PBIR reports and TMDL models (contrast, palette, format consistency, metric units, bindings, DAX/M cycles), seals them into pass/fail/blocked verdicts, and binds rendered screenshots to exact source revisions so an independent reviewer can verify what actually shipped. No invented theme literals, no approval of your own fix, no pixel-only hand-waving.
 
-## Implementation program and honest status (start here)
-
-**[Detailed staged implementation plan](docs/IMPLEMENTATION_PROGRAM.md)** · **[per-component status ledger](roadmap/STATUS.md)** · **[machine-readable dependency and verification ledger](roadmap/work_packages.json)** · **[agent/issue/PR reporting protocol](docs/LEDGER_AND_AGENT_PROTOCOL.md)** · **[falsifiable acceptance matrix](docs/ACCEPTANCE_MATRIX.md)** · **[program issue #4](https://github.com/analienx/visual-quality-system/issues/4)** · **[AGENTS.md](AGENTS.md)**.
-
-First runnable work is [WP-00 / issue #5](https://github.com/analienx/visual-quality-system/issues/5): independently verify the baseline, available tools and fixtures. Freeze shared contracts; run a **real Desktop capture/data spike and genuine Word pagination spike in parallel**; then build semantic/style facts, measured design rules, independent visual review, typed isolated source repair, minimal question oracles and cross-surface end-to-end acceptance. A bounded set of implementation issues [#5–#18](https://github.com/analienx/visual-quality-system/issues/4) tracks owners, dependencies and exit evidence. Fabric Apps is explicitly deferred to [#18](https://github.com/analienx/visual-quality-system/issues/18), not an initial release blocker. As of this planning snapshot **0/13 initial-release work packages are newly independently verified**; existing extracted code and the older prototype require fresh assessment.
-
-## What makes VQS different?
-
-AI can increasingly generate reports and apps. VQS's durable responsibility is an executable **decision-quality contract**: `persona → decision → analytical question → scoped expected evidence → page/visual/document section and interaction → actual data/answer → perceived communication → action`. A user-provided task or brand profile takes precedence. Otherwise, propose only evidence-supported candidates from the model: **what** happened; **compared with what**; **when**; **where/who/which**; **how** (composition or decomposition); **why might it have happened** (hypotheses, not asserted causes); **so what** (materiality); **how sure**; **who/what is missing**; **what if** (eligible scenario); **what might happen next** (validated forecast); and **what should be investigated or done next**. If dates, targets, definitions, permissions or prediction history are absent, do not invent them to fill a template.
-
-**P0 is pragmatic:** review an existing Power BI report, diagnose specific visual/semantic defects, improve palette, typography, spacing, labeling or a supported chart configuration in a disposable PBIP, and independently verify actual Desktop output and unchanged data/task answers. In parallel, assess a real generated DOCX through OOXML **and every rendered page**, checking report figure and narrative revision consistency; apply only safe, testable document repairs. New Power BI visuals use validated templates only after the analytical purpose and field bindings are confirmed. Human approval controls promotion to the original project.
-
-## Scope, evidence and current implementation
-
-| Dimension | Intended evidence and outcome | Standalone state |
-| --- | --- | --- |
-| Visual design and safe repair | Effective colors/theme/overrides, palette roles, accessible contrast, fonts, hierarchy, whitespace, bounds, axes, label/category fit, table completeness and user-viewing size; source-bound real PBIR repair and fresh independent Desktop regression | Inventory/isolated axis/contrast/category-space primitives extracted; whole-report loop unverified |
-| Semantic/model truth | PBIR/TMDL facts, actual scoped DAX query and filters/RLS, loaded data, first-open vs fresh refresh, stable measure definitions and units | Source digest only; no standalone live data/refresh acceptance |
-| Question/decision coverage | User stories or conditional defaults, question-to-page/visual/interaction mapping, comparable baselines, uncertainty, alternative explanations and expected answers | Specified, not operational |
-| User journey and AI-answer testing | Overview→exception→comparison→investigation→action/return, supported interaction replay and answer consistency at identical population/filters | Planned; unavailable interactions must be declared unsupported |
-| Independent perceptual review | Correctly calibrated full page and chart crops, current source/data/design profile; capable image reviewer reports located observable symptoms and overall visual coherence | Review policy/image integrity extracted; full reviewer/Bridge adapter remains in prototype |
-| Word/DOCX quality | OOXML styles/relationships/figures plus backend-pinned actual pagination of every page and current report image/narrative lineage | Policy/evidence shared; real independent Word backend and all-page repair not verified |
-| Safe source changes and evidence | Typed allowlisted edits in disposable candidate, diff+rollback, source/data/render hashes, independent reviewer not the editor, fail/blocked kept distinct | Limited prototype; no standalone general repair engine |
-| Fabric Apps/Rayfin | Same question/design/evidence contract with separate React/TypeScript/Playwright and staged Fabric environment | Deferred until initial PBI+Word release and separate approval |
-
-A screenshot is evidence of what rendered, **not the sole design evaluator**. PBIR/semantic data and quantified design rules provide verifiable causes; a multimodal reviewer is useful for visual hierarchy, overall palette cohesion, legibility and storytelling when actual appearance matters. A successful JSON parse or model-generated approval cannot override a blank data model, stale figure, mis-scoped answer, clipped table, missing Word page or untested interaction.
-
-## How it would run
-
-The target runtime is one local Python coordinator with typed versioned contracts, reproducible run/evidence storage and optional tool adapters. A Windows worker uses installed Microsoft Power BI Desktop Bridge, validated PBIR tooling and authorized semantic-model queries. A separate document worker uses OOXML inspection and a **declared** pagination backend (e.g. isolated LibreOffice/PDF rasterization, with independently assessed Word compatibility). The planner proposes narrow typed source edits; the executor writes only to an isolated worktree/DOCX copy; an independent verifier checks real output and test oracles. No mandatory cloud-model upload, server-side Word COM automation, public-repo self-hosted runner on a private workstation, or production/Fabric deployment. See [execution architecture](docs/EXECUTION_ARCHITECTURE.md), [technical architecture](docs/ARCHITECTURE.md), and [implementation program](docs/IMPLEMENTATION_PROGRAM.md).
-
-## Existing pre-alpha commands
+## 60 seconds
 
 ```bash
-python -m pip install -e '.[test]'
-vqs inventory /path/to/Example.Report
-python -m pytest
+pip install -e ".[test]"
+vqs doctor                        # what external tools are present (never installs)
+vqs cycles tests/powerbi/fixtures/clean_model
+vqs measure tests/powerbi/fixtures/mini_report --model tests/powerbi/fixtures/mini_model/definition
+python -m pytest                  # 139 tests, plus ruff clean
 ```
 
-`vqs inventory` emits PBIR page/visual IDs, layout/bindings, explicitly stored properties and source SHA. `vqs request-review REPORT RENDERS --fixer-id EXECUTOR` checks a source-bound capture manifest and emits an **unapproved** observation template; it does not capture, repair or certify a report. The proposed `vqs run`, `vqs improve`, `vqs status` and independent Word renderer CLI are **not implemented** in this pre-alpha. Refer to the ledger for the implementation phase and do not cite these examples as a successful current E2E run.
+Real output (`vqs cycles`, exit 0):
 
-## Integrate existing tools; own the quality decision
+```json
+{
+  "model_dir": "tests\\powerbi\\fixtures\\clean_model",
+  "dax_objects": 2,
+  "m_queries": 1,
+  "dax_cycles": [],
+  "m_cycles": [],
+  "let_cycles": [],
+  "acyclic": true
+}
+```
 
-Use optional pinned [Fab Inspector](https://github.com/NatVanG/fab-inspector) findings for supported PBIR governance, [Microsoft PBIR authoring and schema tooling](https://github.com/microsoft/skills-for-fabric) and [Desktop Bridge](https://www.npmjs.com/package/@microsoft/powerbi-desktop-bridge-cli) for actual Power BI artifacts, an authorized separate model-query provider for DAX facts, and optionally a tested [Draco 2](https://github.com/cmudig/draco2) bridge for representable chart-design constraints. None supplies the complete decision/question/visual/Word evidence contract or is permitted to silently approve its own fix. See [integration strategy](docs/INTEGRATION_STRATEGY.md), [research](docs/RESEARCH.md), [default stories](docs/DEFAULT_STORIES_AND_AUTOMATED_DESIGN.md) and [product/design contract](docs/PRODUCT_AND_DESIGN_CONTRACT.md).
+## How it works
 
-## Reuse, security and migration
+```mermaid
+flowchart LR
+    PBIR[PBIR report] --> measure[vqs measure]
+    TMDL[TMDL model] --> measure
+    TMDL --> cycles[vqs cycles]
+    measure --> check[vqs check]
+    check --> verdict[sealed verdict]
+    PBIR --> capture[vqs capture]
+    capture --> review[vqs request-review]
+    review --> bundle[review bundle]
+    bundle --> adjudicate[vqs adjudicate-bundle]
+```
 
-VQS is a standalone Apache-2.0 package with [source extraction attribution](NOTICE). PBIPDocumenter becomes a pinned consumer **only after** two unrelated PBIPs and a real paginated generated DOCX pass independently verified end-to-end acceptance; the old draft PR remains intact until owner approval. Never move customer/Contoso cached data, real report images, credentials, local Desktop PID/config or third-party binaries into this public repository. The default run is local/private and source changes are candidate-only; external model transmission and publishing require explicit authorization. See [security and agent protocol](docs/LEDGER_AND_AGENT_PROTOCOL.md).
+Static facts come from parsing sources; rendered facts come from Desktop Bridge screenshots hashed against the source revision; the two meet in review bundles that a *different* reviewer adjudicates. Every observation is keyed to source hash, tool versions, and data scope. `pass`, `fail`, and `blocked` are distinct verdicts — unknowns block, they never pass.
+
+## What runs today
+
+| Command | Does | Status |
+| --- | --- | --- |
+| `vqs measure` | PBIR/TMDL facts: contrast, palette, cohorts, units, bindings | ✅ shipped (WP-19) |
+| `vqs cycles` | Static DAX/M/`let` acyclicity gate | ✅ shipped |
+| `vqs check` | Facts → sealed verdict under `.vqs-runs/` | ✅ shipped |
+| `vqs capture` | Bridge screenshots + capture manifest | ✅ shipped |
+| `vqs request-review` | Source-bound review template from renders | ✅ shipped |
+| `vqs bundle` | Portable fixer→reviewer evidence bundles | ✅ shipped |
+| `vqs adjudicate-bundle` | Independent static adjudication | ✅ shipped |
+| `vqs doctor` | Capability report (pbir, Bridge, MCP, Desktop) | ✅ shipped |
+| `vqs inventory` / `status` | PBIR inventory / ledger snapshot | ✅ shipped |
+| Typed PBIR repairs | Allowlisted edits in disposable candidates | 🔶 planned ([WP-09](https://github.com/analienx/visual-quality-system/issues/14)) |
+| Word/DOCX backend | Paginated all-page verification | 🔶 planned ([WP-08](https://github.com/analienx/visual-quality-system/issues/13)) |
+| Fabric Apps | React/TS adapter | ⏸ deferred ([WP-13](https://github.com/analienx/visual-quality-system/issues/18)) |
+
+Machine-readable status: [roadmap/STATUS.md](roadmap/STATUS.md) and [roadmap/work_packages.json](roadmap/work_packages.json). Program tracking: [issue #4](https://github.com/analienx/visual-quality-system/issues/4).
+
+## Docs
+
+- [User guide](docs/USER_GUIDE.md) — end-to-end workflows with copy-paste commands
+- [Command reference](docs/CLI.md) — every `vqs` command
+- [Architecture](docs/ARCHITECTURE.md) — system design + Power BI tool interfaces
+- [Acceptance matrix](docs/ACCEPTANCE_MATRIX.md) — falsifiable gates G0–G6
+- [Contributing](CONTRIBUTING.md) — setup, gates, PR rules
+- [Changelog](CHANGELOG.md)
+- [Agent/protocol rules](docs/LEDGER_AND_AGENT_PROTOCOL.md) · [AGENTS.md](AGENTS.md)
+
+## Ecosystem: VQS owns the quality decision
+
+VQS parses facts itself and uses first-party tools at arm's length: [pbir-cli](https://github.com/maxanatsko/pbir.tools) (optional, report-side only — [Custom Non-Commercial license](https://github.com/maxanatsko/pbir.tools/blob/main/LICENSE), VQS works without it), [Microsoft Power BI Modeling MCP](https://github.com/microsoft/powerbi-modeling-mcp) (live semantic models), [Desktop Bridge](https://www.npmjs.com/package/@microsoft/powerbi-desktop-bridge-cli) (captures). VQS has no ADOMD dependency. Details: [tool interfaces](docs/ARCHITECTURE.md#power-bi-tool-interfaces-decided-2026-09-26).
+
+## Security
+
+Default runs are local and private. Never commit business data, real screenshots, caches (`.abf`), credentials, or machine-local Desktop state — see [AGENTS.md](AGENTS.md) and the ledger protocol. Report security issues privately to the repo owner.
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE).
