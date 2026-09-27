@@ -41,6 +41,50 @@ def _pbir(report: Path) -> dict:
     return {"status": "valid", "detail": tail}
 
 
+def _summarize_bpa(payload: object) -> dict:
+    """Reduce `pbir bpa run -o json` to counts plus top rule ids."""
+    if not isinstance(payload, dict):
+        return {"status": "blocked", "reason": "unparseable bpa output"}
+    violations = payload.get("violations", [])
+    if not isinstance(violations, list):
+        return {"status": "blocked", "reason": "bpa violations are not a list"}
+    counts = {"error": 0, "warning": 0, "info": 0}
+    rules: dict[str, int] = {}
+    for item in violations:
+        if not isinstance(item, dict):
+            continue
+        severity = item.get("severity", 0)
+        if severity >= 3:
+            counts["error"] += 1
+        elif severity == 2:
+            counts["warning"] += 1
+        else:
+            counts["info"] += 1
+        rule_id = item.get("rule_id", "?")
+        rules[str(rule_id)] = rules.get(str(rule_id), 0) + 1
+    top = sorted(rules.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
+    return {"status": "ok", **counts,
+            "top_rules": [{"rule_id": rule_id, "count": count}
+                          for rule_id, count in top]}
+
+
+def _bpa(report: Path) -> dict:
+    """Run pbir BPA; missing binary degrades to skipped, never failure."""
+    if shutil.which("pbir") is None:
+        return {"status": "skipped", "reason": "pbir not on PATH"}
+    try:
+        completed = subprocess.run(
+            ["pbir", "bpa", "run", str(report), "-o", "json"],
+            capture_output=True, text=True, timeout=600, check=False)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"status": "blocked", "reason": f"{type(exc).__name__}: {exc}"}
+    try:
+        payload = json.loads(completed.stdout)
+    except ValueError as exc:
+        return {"status": "blocked", "reason": f"bpa output is not JSON: {exc}"}
+    return _summarize_bpa(payload)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Accept a PBIP report.")
     parser.add_argument("report", type=Path)
@@ -77,7 +121,9 @@ def main(argv: list[str] | None = None) -> int:
                            "bindings": len(facts.get("models", [{}])[0].get(
                                "bindings", [])) if facts.get("models") else 0},
                "pbir": {"status": "skipped", "reason": "--skip-pbir"}
-               if args.skip_pbir else _pbir(args.report)}
+               if args.skip_pbir else _pbir(args.report),
+               "bpa": {"status": "skipped", "reason": "--skip-pbir"}
+               if args.skip_pbir else _bpa(args.report)}
     empty = not rules
     pbir_bad = summary["pbir"]["status"] in ("error", "blocked")
     summary["verdict"] = "fail" if (empty or pbir_bad) else "pass"

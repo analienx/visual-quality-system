@@ -191,6 +191,51 @@ def cross_page_metric_units(readings: Sequence[dict] | None) -> dict:
                     measures=len(by_measure), conflicts=conflicts)
 
 
+def _grain_rows(visuals: Sequence[dict]) -> tuple[list[dict], str | None]:
+    """Validate grain readings; return (rows, None) or ([], reason)."""
+    rows = []
+    for item in visuals:
+        if not isinstance(item, dict):
+            return [], "Invalid grain observation"
+        page, visual, vtype = (item.get("page"), item.get("visual"),
+                               item.get("type"))
+        measures, dimensions = item.get("measures"), item.get("dimensions")
+        filtered = item.get("valued_filters", 0)
+        if not all(isinstance(v, str) and v for v in (page, visual, vtype)):
+            return [], "page, visual, and type must be nonempty strings"
+        if (not isinstance(measures, list) or not isinstance(dimensions, list)
+                or not all(isinstance(m, str) for m in measures)
+                or not all(isinstance(d, str) for d in dimensions)):
+            return [], "measures and dimensions must be string lists"
+        if not isinstance(filtered, int) or filtered < 0:
+            return [], "valued_filters must be a non-negative int"
+        rows.append({"page": page, "visual": visual, "type": vtype,
+                     "measures": set(measures), "dimensions": set(dimensions),
+                     "filtered": filtered})
+    return rows, None
+
+
+def _pair_kind(first: dict, second: dict, *, cross_page: bool) -> str | None:
+    """Classify a measure-sharing pair, or None when clearly distinct.
+
+    Cross-page pairs additionally require non-empty dimensions: a bare
+    card repeated on another page is the summary pattern, not a
+    duplicated breakdown.
+    """
+    if first["measures"] != second["measures"] or not first["measures"]:
+        return None
+    dims_a, dims_b = first["dimensions"], second["dimensions"]
+    if dims_a == dims_b:
+        if cross_page and not dims_a:
+            return None
+        return "same_grain"
+    if dims_a < dims_b or dims_b < dims_a:
+        if not (dims_a and dims_b):
+            return None
+        return "contained_grain"
+    return None
+
+
 def insight_no_duplicate_grain(visuals: Sequence[dict] | None) -> dict:
     """Two visuals on one page must not tell the same insight (INS-01).
 
@@ -208,28 +253,9 @@ def insight_no_duplicate_grain(visuals: Sequence[dict] | None) -> dict:
     if not visuals:
         return _finding(rule, "unknown",
                          reason="Measured page-visual grain readings required")
-    rows = []
-    for item in visuals:
-        if not isinstance(item, dict):
-            return _finding(rule, "unknown", reason="Invalid grain observation")
-        page, visual, vtype = (item.get("page"), item.get("visual"),
-                               item.get("type"))
-        measures, dimensions = item.get("measures"), item.get("dimensions")
-        filtered = item.get("valued_filters", 0)
-        if not all(isinstance(v, str) and v for v in (page, visual, vtype)):
-            return _finding(rule, "unknown",
-                             reason="page, visual, and type must be nonempty strings")
-        if (not isinstance(measures, list) or not isinstance(dimensions, list)
-                or not all(isinstance(m, str) for m in measures)
-                or not all(isinstance(d, str) for d in dimensions)):
-            return _finding(rule, "unknown",
-                             reason="measures and dimensions must be string lists")
-        if not isinstance(filtered, int) or filtered < 0:
-            return _finding(rule, "unknown",
-                             reason="valued_filters must be a non-negative int")
-        rows.append({"page": page, "visual": visual, "type": vtype,
-                     "measures": set(measures), "dimensions": set(dimensions),
-                     "filtered": filtered})
+    rows, error = _grain_rows(visuals)
+    if error is not None:
+        return _finding(rule, "unknown", reason=error)
     conflicts = []
     skipped_filtered = 0
     compared = 0
@@ -238,26 +264,19 @@ def insight_no_duplicate_grain(visuals: Sequence[dict] | None) -> dict:
             if first["page"] != second["page"]:
                 continue
             compared += 1
-            if first["measures"] != second["measures"] or not first["measures"]:
+            kind = _pair_kind(first, second, cross_page=False)
+            if kind is None:
                 continue
             if first["filtered"] or second["filtered"]:
                 skipped_filtered += 1
-                continue
-            dims_a, dims_b = first["dimensions"], second["dimensions"]
-            if dims_a == dims_b:
-                kind = "same_grain"
-            elif dims_a < dims_b or dims_b < dims_a:
-                if not (dims_a and dims_b):
-                    continue
-                kind = "contained_grain"
-            else:
                 continue
             conflicts.append({"kind": kind, "page": first["page"],
                               "visuals": sorted([first["visual"],
                                                  second["visual"]]),
                               "types": sorted([first["type"], second["type"]]),
                               "measures": sorted(first["measures"]),
-                              "dimensions": sorted(dims_a | dims_b)})
+                              "dimensions": sorted(first["dimensions"]
+                                                   | second["dimensions"])})
     return _finding(rule, "fail" if conflicts else "pass",
                     visuals=len(rows), pairs_compared=compared,
                     conflicts=conflicts,
@@ -388,3 +407,197 @@ def map_location_binding(maps: Sequence[dict] | None) -> dict:
                                 "geographic fit unproven",
                          maps=sorted(unverified))
     return _finding(rule, "pass", maps=len(maps))
+
+
+def insight_no_cross_page_duplicate_grain(
+        visuals: Sequence[dict] | None) -> dict:
+    """One breakdown must not repeat on another page (INS-02).
+
+    Same readings as INS-01. A pair fails when two visuals on different
+    pages carry an equal non-empty measure set and their dimension sets
+    are equal (non-empty) or one strictly contains the other. Bare
+    cards are exempt: a KPI repeated on an overview page is the summary
+    pattern, not a duplicated breakdown. Value-filtered pairs are
+    skipped, as in INS-01.
+    """
+    rule = "insight.no_cross_page_duplicate_grain"
+    if not visuals:
+        return _finding(rule, "unknown",
+                         reason="Measured page-visual grain readings required")
+    rows, error = _grain_rows(visuals)
+    if error is not None:
+        return _finding(rule, "unknown", reason=error)
+    conflicts = []
+    skipped_filtered = 0
+    compared = 0
+    for index, first in enumerate(rows):
+        for second in rows[index + 1:]:
+            if first["page"] == second["page"]:
+                continue
+            compared += 1
+            kind = _pair_kind(first, second, cross_page=True)
+            if kind is None:
+                continue
+            if first["filtered"] or second["filtered"]:
+                skipped_filtered += 1
+                continue
+            conflicts.append({"kind": kind,
+                              "pages": sorted([first["page"],
+                                               second["page"]]),
+                              "visuals": sorted(
+                                  [f"{first['page']}/{first['visual']}",
+                                   f"{second['page']}/{second['visual']}"]),
+                              "types": sorted([first["type"], second["type"]]),
+                              "measures": sorted(first["measures"]),
+                              "dimensions": sorted(first["dimensions"]
+                                                   | second["dimensions"])})
+    return _finding(rule, "fail" if conflicts else "pass",
+                    visuals=len(rows), pairs_compared=compared,
+                    conflicts=conflicts,
+                    skipped_filtered_pairs=skipped_filtered)
+
+
+def _geometry(item: dict) -> tuple[str, str, float, float, float, float]:
+    """Validate a positioned visual; raise ValueError(reason) if unusable."""
+    page, visual = item.get("page"), item.get("visual")
+    rect = [item.get(key) for key in ("x", "y", "width", "height")]
+    if not all(isinstance(v, str) and v for v in (page, visual)):
+        raise ValueError("page and visual must be nonempty strings")
+    if (not all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                for v in rect) or rect[2] < 0 or rect[3] < 0):
+        raise ValueError("x, y, width, height must be numbers with "
+                         "non-negative size")
+    x, y, width, height = (float(v) for v in rect)
+    return page, visual, x, y, width, height
+
+
+def layout_no_visual_overlap(visuals: Sequence[dict] | None) -> dict:
+    """Two visuals on one page must not overlap (LAY-01).
+
+    Each visual needs ``page``, ``visual``, and numeric ``x``/``y``/
+    ``width``/``height`` from PBIR positions. A pair fails when their
+    rectangles intersect with positive area; edge-touching (zero area)
+    passes.
+    """
+    rule = "layout.no_visual_overlap"
+    if not visuals:
+        return _finding(rule, "unknown",
+                         reason="Measured visual geometry required")
+    rows = []
+    for item in visuals:
+        if not isinstance(item, dict):
+            return _finding(rule, "unknown",
+                             reason="Invalid geometry observation")
+        try:
+            rows.append(_geometry(item))
+        except ValueError as exc:
+            return _finding(rule, "unknown", reason=str(exc))
+    conflicts = []
+    compared = 0
+    for index, first in enumerate(rows):
+        for second in rows[index + 1:]:
+            if first[0] != second[0]:
+                continue
+            compared += 1
+            left = max(first[2], second[2])
+            top = max(first[3], second[3])
+            right = min(first[2] + first[4], second[2] + second[4])
+            bottom = min(first[3] + first[5], second[3] + second[5])
+            if right > left and bottom > top:
+                conflicts.append({"page": first[0],
+                                  "visuals": sorted([first[1], second[1]]),
+                                  "overlap": {"x": left, "y": top,
+                                              "width": right - left,
+                                              "height": bottom - top}})
+    return _finding(rule, "fail" if conflicts else "pass",
+                    visuals=len(rows), pairs_compared=compared,
+                    conflicts=conflicts)
+
+
+def layout_visuals_within_page(pages: Sequence[dict] | None) -> dict:
+    """Every visual must fit inside its page (LAY-02).
+
+    Each page needs ``page``, numeric ``width``/``height``, and
+    ``visuals`` with ``visual``/``x``/``y``/``width``/``height``. A
+    visual fails when any edge crosses the page bounds. Pages with
+    missing size prove nothing and render the rule unknown unless a
+    proven violation already fails it.
+    """
+    rule = "layout.visuals_within_page"
+    if not pages:
+        return _finding(rule, "unknown",
+                         reason="Measured page bounds required")
+    conflicts = []
+    unverified = []
+    for item in pages:
+        if not isinstance(item, dict):
+            return _finding(rule, "unknown",
+                             reason="Invalid page-bounds observation")
+        name, width, height = (item.get("page"), item.get("width"),
+                               item.get("height"))
+        members = item.get("visuals")
+        if (not isinstance(name, str) or not name
+                or not isinstance(members, list)):
+            return _finding(rule, "unknown",
+                             reason="page must be a string and visuals a list")
+        if (not isinstance(width, (int, float))
+                or not isinstance(height, (int, float))
+                or isinstance(width, bool) or isinstance(height, bool)
+                or width <= 0 or height <= 0):
+            unverified.append(name)
+            continue
+        for member in members:
+            if not isinstance(member, dict):
+                return _finding(rule, "unknown",
+                                 reason="Invalid geometry observation")
+            try:
+                _, visual, x, y, w, h = _geometry(
+                    {"page": name, **member})
+            except ValueError as exc:
+                return _finding(rule, "unknown", reason=str(exc))
+            if x < 0 or y < 0 or x + w > width or y + h > height:
+                conflicts.append({"kind": "outside_page", "page": name,
+                                  "visual": visual,
+                                  "rect": {"x": x, "y": y, "width": w,
+                                           "height": h},
+                                  "page_size": {"width": width,
+                                                "height": height}})
+    if conflicts:
+        return _finding(rule, "fail", pages=len(pages), conflicts=conflicts,
+                         unverified=sorted(unverified))
+    if unverified:
+        return _finding(rule, "unknown",
+                         reason="Some pages lack a measurable size",
+                         pages=sorted(unverified))
+    return _finding(rule, "pass", pages=len(pages))
+
+
+def chart_map_location_labels(maps: Sequence[dict] | None) -> dict:
+    """A bubble map must label what its bubbles are (CHT-03).
+
+    Each map needs ``page``, ``visual``, ``labels_shown`` (whether
+    ``categoryLabels.show`` is true), and ``heatmap`` (whether a heatMap
+    layer is configured, which encodes values without labels). A plain
+    bubble map with no labels fails: unidentified bubbles are decoration.
+    """
+    rule = "chart.map_location_labels"
+    if not maps:
+        return _finding(rule, "unknown",
+                         reason="Measured map label bindings required")
+    conflicts = []
+    for item in maps:
+        if not isinstance(item, dict):
+            return _finding(rule, "unknown", reason="Invalid map observation")
+        page, visual = item.get("page"), item.get("visual")
+        shown, heat = item.get("labels_shown"), item.get("heatmap")
+        if not all(isinstance(v, str) and v for v in (page, visual)):
+            return _finding(rule, "unknown",
+                             reason="page and visual must be nonempty strings")
+        if not isinstance(shown, bool) or not isinstance(heat, bool):
+            return _finding(rule, "unknown",
+                             reason="labels_shown and heatmap must be booleans")
+        if not shown and not heat:
+            conflicts.append({"kind": "unlabeled_map", "page": page,
+                              "visual": visual})
+    return _finding(rule, "fail" if conflicts else "pass",
+                    maps=len(maps), conflicts=conflicts)

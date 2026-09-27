@@ -33,7 +33,8 @@ vqs inventory path/to/Example.Report
 Emit check-ready facts for a PBIR `*.Report` folder: text contrast,
 format-declaration cohorts, a per-page insight inventory (which visual
 delivers which measures/dimensions), duplicate-insight grain readings,
-and decomposition-tree/map best-practice bindings — plus metric units
+and decomposition-tree/map best-practice bindings, cross-page
+duplication grain, layout geometry, and page bounds — plus metric units
 and model bindings when `--model` points at a `*.SemanticModel`
 definition folder. Read-only; anything the sources cannot prove is
 omitted (per-page palette assignments stay absent until explicit
@@ -125,7 +126,7 @@ Minimal `capture-manifest.json`:
 Run a measured-facts JSON document to a sealed verdict under
 `.vqs-runs/<run-id>/` (gitignored): `manifest.json` carries the terminal
 status plus a `verdict_sha256` digest, with `event_count` matching the
-event log. Facts sections: `rules` (the nine design rules),
+event log. Facts sections: `rules` (the thirteen design rules),
 `oracles` (question answerability, scope matching), `documents` (DOCX
 well-formedness — structure only, never pagination), `models` (TMDL
 inventory, binding resolution, optional freshness and RLS role).

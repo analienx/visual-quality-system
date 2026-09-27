@@ -12,6 +12,8 @@ Shapes here are grounded in real PBIR: decomposition trees expose
 ``Analyze``/``ExplainBy`` roles, maps expose ``Category``/``Size``,
 titles live under ``visualContainerObjects.title``. Unknown roles and
 field kinds are carried through as unclassified facts, not guessed.
+Geometry (PBIR ``position`` blocks) and map label configuration are
+measured the same way: present numbers and literals only.
 """
 from __future__ import annotations
 
@@ -189,13 +191,59 @@ def _column_categories(model_dir: str) -> dict[tuple[str, str], str]:
     return categories
 
 
+def _number(value: object) -> float | None:
+    """PBIR position/size numbers; bools and strings never qualify."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _geometry(visual: dict) -> dict | None:
+    """Position rect, or None when the visual proves no geometry."""
+    pos = visual.get("position", {})
+    if not isinstance(pos, dict):
+        return None
+    rect = {key: _number(pos.get(key))
+            for key in ("x", "y", "width", "height")}
+    if any(v is None for v in rect.values()):
+        return None
+    if rect["width"] < 0 or rect["height"] < 0:
+        return None
+    return rect
+
+
+def _page_size(page: dict) -> dict | None:
+    width, height = _number(page.get("width")), _number(page.get("height"))
+    if width is None or height is None or width <= 0 or height <= 0:
+        return None
+    return {"width": width, "height": height}
+
+
+def _label_facts(node: dict) -> dict:
+    """Map label configuration: shown labels or a heatMap layer."""
+    objects = node.get("objects", {})
+    if not isinstance(objects, dict):
+        return {"labels_shown": False, "heatmap": False}
+    shown = False
+    try:
+        first = objects.get("categoryLabels", [])[0]
+        raw = first["properties"]["show"]["expr"]["Literal"]["Value"]
+        shown = raw == "true"
+    except (KeyError, IndexError, TypeError, AttributeError):
+        shown = False
+    return {"labels_shown": shown, "heatmap": "heatMap" in objects}
+
+
 def page_insights(report_dir: str, model_dir: str | None = None) -> dict:
     """Inventory what insight each page delivers, plus rule-ready params.
 
     Returns ``pages`` (full per-visual inventory with titles, roles,
-    measures, and dimensions), ``visuals`` (flat grain list for the
-    duplication rule), ``trees`` (decomposition-tree bindings), and
-    ``maps`` (map-family location bindings with model categories).
+    measures, dimensions, and a ``customized`` flag for visuals that
+    declare any format objects), ``visuals`` (flat grain list for the
+    duplication rules), ``trees`` (decomposition-tree bindings),
+    ``maps`` (map-family location bindings with model categories and
+    label facts), ``layout`` (flat geometry list for the overlap rule),
+    and ``page_bounds`` (per-page sizes with member geometry).
     Raises OSError when the report folder is unreadable.
     """
     if not os.path.isdir(report_dir):
@@ -205,6 +253,8 @@ def page_insights(report_dir: str, model_dir: str | None = None) -> dict:
     visuals = []
     trees = []
     maps = []
+    layout = []
+    page_bounds = []
     for page in _pages(report_dir):
         display = page.get("displayName")
         entries = []
@@ -218,10 +268,17 @@ def page_insights(report_dir: str, model_dir: str | None = None) -> dict:
                                for ref in role["measures"]})
             dimensions = sorted({ref for role in roles.values()
                                  for ref in role["dimensions"]})
+            objects = node.get("objects", {})
             entry = {"visual": visual["_id"], "type": visual_type,
                      "title": _title(node), "measures": measures,
-                     "dimensions": dimensions, "roles": roles}
+                     "dimensions": dimensions, "roles": roles,
+                     "customized": isinstance(objects, dict)
+                     and len(objects) > 0}
             entries.append(entry)
+            rect = _geometry(visual)
+            if rect is not None:
+                layout.append({"page": page["_dir"], "visual": visual["_id"],
+                               **rect})
             if measures or dimensions:
                 visuals.append({"page": page["_dir"], "visual": visual["_id"],
                                 "type": visual_type, "measures": measures,
@@ -256,9 +313,22 @@ def page_insights(report_dir: str, model_dir: str | None = None) -> dict:
                     resolved[ref] = hit
                 maps.append({"page": page["_dir"], "visual": visual["_id"],
                              "type": visual_type, "locations": locations,
-                             "categories": resolved})
+                             "categories": resolved,
+                             **_label_facts(node)})
         pages.append({"page": page["_dir"],
                       "display_name": display if isinstance(display, str)
                       else None,
                       "visuals": entries})
-    return {"pages": pages, "visuals": visuals, "trees": trees, "maps": maps}
+        size = _page_size(page)
+        members = [{"visual": v["visual"], "x": v["x"], "y": v["y"],
+                    "width": v["width"], "height": v["height"]}
+                   for v in layout if v["page"] == page["_dir"]]
+        if members:
+            # Pages without a measurable size stay in the list with null
+            # bounds so the rule reports unknown instead of passing blind.
+            size = size if size is not None else {"width": None,
+                                                 "height": None}
+            page_bounds.append({"page": page["_dir"], **size,
+                                "visuals": members})
+    return {"pages": pages, "visuals": visuals, "trees": trees,
+            "maps": maps, "layout": layout, "page_bounds": page_bounds}
