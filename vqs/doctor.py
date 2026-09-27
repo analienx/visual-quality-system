@@ -8,6 +8,7 @@ failing. Exit code is always 0: this command reports, it does not gate.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 from typing import Any
@@ -21,8 +22,11 @@ def _version(executable: str, *args: str, timeout: int = 30) -> str | None:
             timeout=timeout, check=False)
     except (OSError, subprocess.SubprocessError):
         try:  # Windows .CMD shims (npm globals) need a shell to launch.
+            command = subprocess.list2cmdline([executable, *args])
+            if re.search(r'[&|^<>%!`$;\r\n]', command):
+                return None
             completed = subprocess.run(
-                " ".join([executable, *args]), capture_output=True,
+                command, capture_output=True,
                 text=True, timeout=timeout, check=False, shell=True)
         except (OSError, subprocess.SubprocessError):
             return None
@@ -54,6 +58,9 @@ def _desktop_process() -> dict[str, Any]:
     except (OSError, subprocess.SubprocessError):
         return {"status": "unknown", "count": None,
                 "reason": "tasklist unavailable"}
+    if completed.returncode != 0:
+        return {"status": "unknown", "count": None,
+                "reason": f"tasklist exited {completed.returncode}"}
     rows = [line for line in completed.stdout.splitlines()
             if "PBIDesktop.exe" in line]
     return {"status": "running" if rows else "not_running",

@@ -1,7 +1,7 @@
 """60-second repo smoke test: CLI entry points on shipped fixtures.
 
-Exercises `measure`, `cycles`, and `doctor` in-process and asserts
-their exit codes. Fast, offline, no Desktop::
+Exercises `measure`, `cycles`, `check`, and `doctor` in-process and
+asserts their exit codes. Fast, offline, no Desktop::
 
     python scripts/smoke.py
 """
@@ -31,8 +31,16 @@ def main() -> int:
         if got != want:
             failures.append(name)
 
-    check("measure", ["measure", str(fixtures / "mini_report"), "--model",
-                      str(fixtures / "mini_model" / "definition")], 0)
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="vqs-smoke-") as tmp:
+        facts = str(Path(tmp) / "facts.json")
+        check("measure", ["measure", str(fixtures / "mini_report"), "--model",
+                          str(fixtures / "mini_model" / "definition"),
+                          "--out", facts], 0)
+        # mini_report fails format_declaration_consistency (mixed slicer
+        # textSize declarations), so the honest check verdict is fail.
+        check("check", ["check", facts, "--run-root", tmp,
+                        "--run-id", "smoke"], 1)
     check("cycles-clean", ["cycles", str(fixtures / "clean_model")], 0)
     check("cycles-loopy", ["cycles", str(fixtures / "cycle_model")], 1)
     check("cycles-missing", ["cycles", str(fixtures / "absent")], 2)
