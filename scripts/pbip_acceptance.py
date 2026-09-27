@@ -49,6 +49,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--skip-pbir", action="store_true")
     args = parser.parse_args(argv)
 
+    import tempfile
+
+    from vqs.pipeline import run_check
     from vqs.powerbi.measure import measure_report
 
     try:
@@ -58,9 +61,14 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"status": "blocked",
                           "reason": f"{type(exc).__name__}: {exc}"}))
         return 2
+    with tempfile.TemporaryDirectory(prefix="vqs-accept-") as tmp:
+        decided = run_check(facts, Path(tmp), run_id="acceptance")
+    check_summary = {"verdict": decided["verdict"],
+                     "findings": len(decided.get("findings", []))}
     rules = facts.get("rules", {})
     summary = {"report": str(args.report),
                "model": str(args.model) if args.model else None,
+               "check": check_summary,
                "measure": {"sections": sorted(rules),
                            "readings": sum(len(v) for section in rules.values()
                                            if isinstance(section, dict)
