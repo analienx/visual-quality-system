@@ -1,5 +1,9 @@
 table 'Loop'
 
-	measure A = [B] + 1
+	measure A = [B] + 1 + "see [LoopSelf] docs"
 
-	measure B = [A] * 2
+	measure 'A.B' = [A] + 1
+
+	measure B = [a] * 2
+
+	measure LoopSelf = [LoopSelf] + 1

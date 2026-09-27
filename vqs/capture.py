@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -28,10 +29,17 @@ def _bridge(args: list[str], timeout: int) -> tuple[int, str]:
             completed = subprocess.run(
                 [binary, *args], capture_output=True, text=True,
                 timeout=timeout, check=False)
-        except OSError:
+        except OSError as exc:
+            # Fallback for .bat/.cmd shims un-runnable without a shell.
+            # list2cmdline quotes whitespace, not metachars: refuse the
+            # shell when hostile output could have smuggled one in.
+            command = subprocess.list2cmdline([binary, *args])
+            if re.search(r'[&|^<>%!`$;\r\n]', command):
+                raise OSError("Refusing shell fallback on metacharacters: "
+                              f"{' '.join(args)}") from exc
             completed = subprocess.run(
-                " ".join([binary, *args]), capture_output=True,
-                text=True, timeout=timeout, check=False, shell=True)
+                command, capture_output=True, text=True,
+                timeout=timeout, check=False, shell=True)
     except subprocess.TimeoutExpired as exc:
         raise OSError(f"Bridge timed out: {' '.join(args)}") from exc
     return completed.returncode, (completed.stdout + completed.stderr).strip()
@@ -53,13 +61,20 @@ def select_instance(report_dir: str, pid: int | None,
     if code != 0:
         raise LookupError(f"Bridge status failed: {output[:300]}")
     try:
-        instances = json.loads(output).get("instances", [])
+        payload = json.loads(output)
     except ValueError as exc:
         raise LookupError(f"Bridge status is not JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise TypeError("Bridge status is not a JSON object")
+    instances = payload.get("instances", [])
+    if not isinstance(instances, list):
+        raise TypeError("Bridge status has no instances list")
+    instances = [i for i in instances if isinstance(i, dict)]
     if not instances:
         raise LookupError("No running Power BI Desktop instance found")
     if pid is not None:
-        matches = [i for i in instances if i.get("pid") == pid]
+        matches = [i for i in instances
+                   if str(i.get("pid")) == str(pid)]
         if not matches:
             raise LookupError(f"No Desktop instance with PID {pid}")
         instance = matches[0]
@@ -75,6 +90,9 @@ def select_instance(report_dir: str, pid: int | None,
         raise LookupError(
             f"Desktop PID {instance.get('pid')} has "
             f"{instance.get('currentFilePath')} open, not {report_dir}")
+    if "hasUnsavedChanges" not in instance:
+        raise LookupError("Bridge did not report a save state; refusing "
+                          "to capture against unknown staleness")
     if instance.get("hasUnsavedChanges"):
         raise LookupError("Desktop has unsaved changes; save or revert, "
                           "then capture again")
@@ -92,6 +110,8 @@ def _screenshot_map(output: str) -> dict[str, str]:
         payload, _ = json.JSONDecoder().raw_decode(output[start:])
     except (ValueError, IndexError) as exc:
         raise OSError("Cannot parse screenshot-all output") from exc
+    if not isinstance(payload, dict):
+        raise OSError("screenshot-all returned no screenshots list")
     shots = payload.get("screenshots", [])
     if not isinstance(shots, list):
         raise OSError("screenshot-all returned no screenshots list")
@@ -110,9 +130,10 @@ def capture(report: str, renders: str, pid: int | None = None,
     report_path = Path(report)
     try:
         info = report_context(report_path)
+        expected = [page["id"] for page in info["pages"]]
+        source_before = source_digest(report_path)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise OSError(f"Cannot read report: {exc}") from exc
-    expected = [page["id"] for page in info["pages"]]
     instance = select_instance(str(report_path), pid, wait_seconds)
     renders_path = Path(renders)
     renders_path.mkdir(parents=True, exist_ok=True)
@@ -129,23 +150,32 @@ def capture(report: str, renders: str, pid: int | None = None,
     missing = []
     for page_id in expected:
         raw = mapping.get(page_id, "")
-        source = Path(raw) if raw else renders_path / f"{page_id}.png"
         target = renders_path / f"{page_id}.png"
-        if not raw or not source.is_file():
+        if not raw or not Path(raw).is_file():
             missing.append(page_id)
             continue
+        source = Path(raw)
         if source.resolve() != target.resolve():
             os.replace(source, target)
         try:
             png_size(target)
-        except ValueError as exc:
+        except (ValueError, OSError) as exc:
             raise OSError(f"Corrupt capture for {page_id}: {exc}") from exc
         page_images[page_id] = target.name
         files[target.name] = _sha256(target)
     if missing:
         raise OSError("Bridge did not capture pages: "
                       + ", ".join(sorted(missing)))
-    manifest = {"source_sha256": source_digest(report_path),
+    try:
+        source_after = source_digest(report_path)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise OSError(f"Cannot re-read report: {exc}") from exc
+    # Digest comparison cannot see A->B->A flaps or post-digest edits;
+    # no manifest is written here, so unmanifested renders can never
+    # pass evidence binding later.
+    if source_after != source_before:
+        raise OSError("Report changed during capture; no manifest written")
+    manifest = {"source_sha256": source_after,
                 "page_images": page_images,
                 "files": files,
                 "desktop": {"pid": instance["pid"],

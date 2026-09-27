@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/github/license/analienx/visual-quality-system)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 
-**Prove a Power BI report is good — from source, not vibes.** VQS measures check-ready facts straight from PBIR reports and TMDL models (contrast, palette, format consistency, metric units, bindings, DAX/M cycles), seals them into pass/fail/blocked verdicts, and binds rendered screenshots to exact source revisions so an independent reviewer can verify what actually shipped. No invented theme literals, no approval of your own fix, no pixel-only hand-waving.
+**Prove a Power BI report is good — from source, not vibes.** VQS measures check-ready facts straight from PBIR reports and TMDL models (contrast, format consistency, metric units, bindings, page insights, DAX/M cycles), seals them into pass/fail/blocked verdicts, and binds rendered screenshots to exact source revisions so an independent reviewer can verify what actually shipped. No invented theme literals, no approval of your own fix, no pixel-only hand-waving.
 
 ## 60 seconds
 
@@ -13,7 +13,7 @@ pip install -e ".[test]"
 vqs doctor                        # what external tools are present (never installs)
 vqs cycles tests/powerbi/fixtures/clean_model
 vqs measure tests/powerbi/fixtures/mini_report --model tests/powerbi/fixtures/mini_model/definition
-python -m pytest                  # 139 tests, plus ruff clean
+python -m pytest                  # 199 tests, plus ruff clean
 ```
 
 Real output (`vqs cycles`, exit 0):
@@ -51,7 +51,7 @@ Static facts come from parsing sources; rendered facts come from Desktop Bridge 
 
 | Command | Does | Status |
 | --- | --- | --- |
-| `vqs measure` | PBIR/TMDL facts: contrast, palette, cohorts, units, bindings | ✅ shipped (WP-19) |
+| `vqs measure` | PBIR/TMDL facts: contrast, cohorts, units, bindings, page insights, duplication + chart-practice checks | ✅ shipped (WP-19) |
 | `vqs cycles` | Static DAX/M/`let` acyclicity gate | ✅ shipped |
 | `vqs check` | Facts → sealed verdict under `.vqs-runs/` | ✅ shipped |
 | `vqs capture` | Bridge screenshots + capture manifest | ✅ shipped |

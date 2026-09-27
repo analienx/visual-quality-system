@@ -99,3 +99,47 @@ def test_bundle_cli(tmp_path: Path, capsys) -> None:
     assert vqs_main(["bundle", "unpack", str(bundle),
                      str(tmp_path / "b2")]) == 0
     assert vqs_main(["bundle", "verify", str(tmp_path / "nope")]) == 2
+
+def test_missing_source_everywhere_is_value_error(tmp_path: Path) -> None:
+    report = _report(tmp_path)
+    renders = _renders(report, tmp_path)
+    bundle = tmp_path / "bundle"
+    pack(str(report), str(renders), str(bundle), "fixer-1")
+    for name in ("bundle.json", "capture-manifest.json", "inventory.json"):
+        path = bundle / name
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        doc.pop("source_sha256", None)
+        path.write_text(json.dumps(doc), encoding="utf-8")
+    with pytest.raises(ValueError, match="missing source_sha256"):
+        verify(str(bundle))
+
+
+def test_duplicate_page_ids_rejected(tmp_path: Path) -> None:
+    report = _report(tmp_path)
+    renders = _renders(report, tmp_path)
+    bundle = tmp_path / "bundle"
+    pack(str(report), str(renders), str(bundle), "fixer-1")
+    header_path = bundle / "bundle.json"
+    header = json.loads(header_path.read_text(encoding="utf-8"))
+    header["pages"] = ["p1", "p1"]
+    header_path.write_text(json.dumps(header), encoding="utf-8")
+    inv_path = bundle / "inventory.json"
+    inv = json.loads(inv_path.read_text(encoding="utf-8"))
+    inv["pages"] = inv["pages"] + inv["pages"]
+    inv_path.write_text(json.dumps(inv), encoding="utf-8")
+    with pytest.raises(ValueError, match="duplicate page ids"):
+        verify(str(bundle))
+
+
+def test_unpack_rolls_back_failed_verification(tmp_path: Path) -> None:
+    report = _report(tmp_path)
+    renders = _renders(report, tmp_path)
+    bundle = tmp_path / "bundle"
+    pack(str(report), str(renders), str(bundle), "fixer-1")
+    with open(bundle / "p1.png", "r+b") as handle:
+        handle.seek(100)
+        handle.write(b"XX")
+    dest = tmp_path / "copy"
+    with pytest.raises(OSError, match="rolled back"):
+        unpack(str(bundle), str(dest))
+    assert not dest.exists()

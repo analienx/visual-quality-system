@@ -28,6 +28,8 @@ def pack(report: str, renders: str, out: str, fixer_id: str) -> dict:
     from ..pbir import report_context, source_digest
     from ..policy import POLICY_VERSION
 
+    if not fixer_id or not fixer_id.strip():
+        raise ValueError("Bundle needs a non-empty fixer id")
     report_path = Path(report)
     try:
         info = report_context(report_path)
@@ -42,19 +44,27 @@ def pack(report: str, renders: str, out: str, fixer_id: str) -> dict:
     out_path = Path(out)
     if out_path.exists():
         raise OSError(f"Refusing to overwrite: {out}")
-    out_path.mkdir(parents=True)
-    shutil.copy2(Path(renders) / "capture-manifest.json",
-                 out_path / "capture-manifest.json")
-    for page in pages:
-        shutil.copy2(Path(renders) / page["image"], out_path / page["image"])
-    (out_path / "inventory.json").write_text(
-        json.dumps(info, indent=2, ensure_ascii=False), encoding="utf-8")
     header = {"schema": SCHEMA, "kind": "vqs-review-bundle",
               "fixer_id": fixer_id, "source_sha256": info["source_sha256"],
               "policy_version": POLICY_VERSION, "pages": expected,
               "created_utc": _utcnow()}
-    (out_path / "bundle.json").write_text(json.dumps(header, indent=2),
-                                          encoding="utf-8")
+    try:
+        out_path.mkdir(parents=True)
+        shutil.copy2(Path(renders) / "capture-manifest.json",
+                     out_path / "capture-manifest.json")
+        for page in pages:
+            shutil.copy2(Path(renders) / page["image"],
+                         out_path / page["image"])
+        (out_path / "inventory.json").write_text(
+            json.dumps(info, indent=2, ensure_ascii=False), encoding="utf-8")
+        (out_path / "bundle.json").write_text(json.dumps(header, indent=2),
+                                              encoding="utf-8")
+    except FileExistsError as exc:
+        # A foreign dir appeared after the exists-check: never rmtree it.
+        raise OSError(f"Refusing to overwrite: {out}") from exc
+    except (OSError, shutil.Error) as exc:
+        shutil.rmtree(out_path, ignore_errors=True)
+        raise OSError(f"Bundle assembly failed, rolled back: {exc}") from exc
     return {"status": "packed", "fixer_id": fixer_id,
             "source_sha256": info["source_sha256"],
             "pages": expected, "bundle": str(out_path),
@@ -77,19 +87,54 @@ def verify(bundle: str, report: str | None = None) -> dict:
             encoding="utf-8-sig"))
     except (OSError, ValueError) as exc:
         raise ValueError(f"Bundle unreadable: {exc}") from exc
+    if not all(isinstance(part, dict)
+               for part in (header, manifest, inventory)):
+        raise ValueError("Bundle unreadable: expected JSON objects")
     problems = []
     if header.get("schema") != SCHEMA:
         problems.append("bundle schema mismatch")
+    if header.get("kind") != "vqs-review-bundle":
+        problems.append("not a vqs review bundle")
+    for key in ("fixer_id", "policy_version", "created_utc", "pages",
+              "source_sha256"):
+        if not header.get(key):
+            problems.append(f"bundle header missing {key}")
+    inv_pages = inventory.get("pages", [])
+    hdr_pages = header.get("pages") or []
+    if (not isinstance(inv_pages, list)
+            or not isinstance(hdr_pages, list)
+            or [page.get("id") if isinstance(page, dict) else None
+                for page in inv_pages] != list(hdr_pages)):
+        problems.append("inventory pages differ from bundle header")
+    inv_ids = [page.get("id") if isinstance(page, dict) else None
+               for page in inv_pages] if isinstance(inv_pages, list) else []
+    if len(set(hdr_pages)) != len(hdr_pages) or len(set(inv_ids)) != len(inv_ids):
+        problems.append("duplicate page ids in bundle")
     if manifest.get("source_sha256") != header.get("source_sha256"):
         problems.append("manifest source differs from bundle header")
     if inventory.get("source_sha256") != header.get("source_sha256"):
         problems.append("inventory source differs from bundle header")
     files = manifest.get("files", {})
-    for page_id, name in (manifest.get("page_images") or {}).items():
+    if not isinstance(files, dict):
+        raise TypeError("Bundle invalid: manifest files is not an object")
+    mapping = manifest.get("page_images", {})
+    if not isinstance(mapping, dict):
+        raise TypeError("Bundle invalid: manifest page_images is not an object")
+    from ..evidence import safe_render_name
+    for page_id, name in mapping.items():
+        if safe_render_name(name) is None:
+            problems.append(f"unsafe render filename: {name}")
+            continue
         path = root / name
         if not path.is_file():
             problems.append(f"missing render: {name}")
-        elif files.get(name) != digest(path):
+            continue
+        try:
+            current = digest(path)
+        except OSError:
+            problems.append(f"unreadable render: {name}")
+            continue
+        if files.get(name) != current:
             problems.append(f"tampered render: {name}")
         if page_id not in (header.get("pages") or []):
             problems.append(f"render outside bundle pages: {page_id}")
@@ -106,12 +151,23 @@ def verify(bundle: str, report: str | None = None) -> dict:
     if problems:
         raise ValueError("Bundle invalid: " + "; ".join(sorted(problems)))
     return {"status": "valid", "source_sha256": header["source_sha256"],
-            "pages": header["pages"], "fixer_id": header.get("fixer_id")}
+            "pages": header["pages"], "fixer_id": header["fixer_id"]}
 
 
 def unpack(bundle: str, dest: str) -> dict:
     """Copy a bundle to a destination and verify the copy."""
     if Path(dest).exists():
         raise OSError(f"Refusing to overwrite: {dest}")
-    shutil.copytree(bundle, dest)
-    return verify(dest)
+    try:
+        shutil.copytree(bundle, dest)
+    except FileExistsError as exc:
+        raise OSError(f"Refusing to overwrite: {dest}") from exc
+    except (OSError, shutil.Error) as exc:
+        shutil.rmtree(dest, ignore_errors=True)
+        raise OSError(f"Bundle copy failed, rolled back: {exc}") from exc
+    try:
+        return verify(dest)
+    except (OSError, ValueError, TypeError) as exc:
+        shutil.rmtree(dest, ignore_errors=True)
+        raise OSError(f"Unpacked copy failed verification, rolled back: "
+                      f"{exc}") from exc

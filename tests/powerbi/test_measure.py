@@ -16,11 +16,13 @@ def test_contrast_picks_weakest_text_run_pair() -> None:
                                                  "background": "#FFFFFF"}
 
 
-def test_palette_assigns_theme_colors_per_page() -> None:
+def test_palette_omitted_without_declared_series_colors() -> None:
+    # A theme declares slot colors but never proves a page uses a slot,
+    # and no visual here declares explicit series colors: the rule stays
+    # omitted instead of emitting page x slot fiction.
     rules = measure_report(REPORT)["rules"]
-    assert rules["palette.semantic_consistency"] == {"assignments": [
-        {"state": "series-index-0", "color": "#6C8FF0", "page": "P1"},
-        {"state": "series-index-1", "color": "#6B7280", "page": "P1"}]}
+    assert "palette.semantic_consistency" not in rules
+    assert "typography.text_contrast" in rules  # emitter is alive
 
 
 def test_cohorts_carry_declared_values_and_default_nulls() -> None:
@@ -37,7 +39,7 @@ def test_cohorts_carry_declared_values_and_default_nulls() -> None:
 def test_model_sections_needs_model_dir() -> None:
     facts = measure_report(REPORT, MODEL)
     assert facts["rules"]["encoding.metric_unit_consistency"] == {"readings": [
-        {"measure": "Fact Sales.Revenue", "page": "P1", "unit": "USD"}]}
+        {"measure": "Fact Sales.Revenue", "page": "P1", "unit": "raw:$#,0"}]}
     assert facts["models"] == [{"bindings": [{"query_ref": "Dim Date.Year"},
                                              {"query_ref": "Fact Sales.Revenue"}],
                                 "model_dir": MODEL}]
@@ -70,3 +72,78 @@ def test_emitted_facts_pass_pipeline_shape(tmp_path: Path) -> None:
     result = run_check(facts, tmp_path, run_id="emitter-shape")
     assert result["verdict"] == "pass"
     assert result["findings"]
+
+def test_nulls_only_cover_visuals_declaring_the_owner() -> None:
+    readings = measure_report(REPORT)["rules"][
+        "typography.format_declaration_consistency"]["readings"]
+    # slicera declares header (without textSize) -> proven null.
+    # slicerc is a slicer without any header object -> no reading at all.
+    assert {"cohort": "slicer/header.textSize", "page": "P1", "value": None,
+            "visual": "slicera"} in readings
+    assert [r for r in readings if r["visual"] == "slicerc"] == []
+
+
+def test_contrast_pairs_colors_within_their_page(tmp_path: Path) -> None:
+    import json
+    import shutil
+    clone = tmp_path / "report"
+    shutil.copytree(REPORT, clone)
+    dark = clone / "definition" / "pages" / "P2"
+    (dark / "visuals" / "darkbox").mkdir(parents=True)
+    (dark / "page.json").write_text(json.dumps({
+        "objects": {"outspace": [{"properties": {"color": {"solid": {"color": {
+            "expr": {"Literal": {"Value": "'#000000'"}}}}}}}]}}),
+        encoding="utf-8")
+    (dark / "visuals" / "darkbox" / "visual.json").write_text(json.dumps({
+        "visual": {"objects": {"general": [{"properties": {"paragraphs": [
+            {"textRuns": [{"text": "t", "textStyle": {"color": "#FFFFFF"}}]},
+            {"textRuns": [{"text": "s", "textStyle": {"color": "#EEEEEE"}}]}]}}]},
+            "visualType": "textbox"}}), encoding="utf-8")
+    # Cross-page pairing would pick P1's #101828 on P2's #000000 (ratio
+    # ~1.2). Honest per-page pairing keeps P1's weakest real pair.
+    assert measure_report(str(clone))["rules"][
+        "typography.text_contrast"] == {"foreground": "#52617A",
+                                        "background": "#FFFFFF"}
+
+
+def test_unit_classification_proves_only_percent() -> None:
+    from vqs.powerbi.measure import _format_of, _measure_formats, _unit_of
+    assert _unit_of("0.0%") == "percent"
+    assert _unit_of("") == "undeclared"
+    assert _unit_of("$#,0") == "raw:$#,0"
+    assert _unit_of("#,0") == "raw:#,0"
+    formats = _measure_formats(MODEL)
+    assert _format_of(formats, "fact sales.revenue") == "$#,0"
+    assert _format_of(formats, "Nope.Missing") == ""
+    assert _format_of(formats, "not-dotted") == ""
+
+def test_non_hex_text_color_skipped(tmp_path: Path) -> None:
+    import json
+    import shutil
+    clone = tmp_path / "report"
+    shutil.copytree(REPORT, clone)
+    path = (clone / "definition" / "pages" / "P1" / "visuals" / "titlebox"
+            / "visual.json")
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    runs = doc["visual"]["objects"]["general"][0]["properties"]["paragraphs"]
+    runs[1]["textRuns"][0]["textStyle"]["color"] = "RED"
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    assert measure_report(str(clone))["rules"][
+        "typography.text_contrast"] == {"foreground": "#101828",
+                                        "background": "#FFFFFF"}
+
+
+def test_invalid_theme_background_omits_contrast(tmp_path: Path) -> None:
+    import json
+    import shutil
+    clone = tmp_path / "report"
+    shutil.copytree(REPORT, clone)
+    page_path = clone / "definition" / "pages" / "P1" / "page.json"
+    doc = json.loads(page_path.read_text(encoding="utf-8"))
+    doc.pop("objects", None)
+    page_path.write_text(json.dumps(doc), encoding="utf-8")
+    theme_path = next((clone / "StaticResources").rglob("*.json"))
+    theme = json.loads(theme_path.read_text(encoding="utf-8"))
+    theme["background"] = "WHITE"
+    theme_path.write_text(json.dumps(theme), encoding="utf-8")
+    assert "typography.text_contrast" not in measure_report(str(clone))["rules"]

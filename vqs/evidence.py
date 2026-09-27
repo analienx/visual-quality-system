@@ -58,21 +58,41 @@ def load(path: Path) -> dict:
     return value
 
 
+def safe_render_name(name: object) -> str | None:
+    """Accept plain basenames only; reject traversal and absolute paths."""
+    if not isinstance(name, str) or not name or name.startswith((".", "/")):
+        return None
+    if "/" in name or "\\" in name or ":" in name:
+        return None
+    if Path(name).name != name:
+        return None
+    return name
+
+
 def image_evidence(images: Path, source_sha: str, page_ids: list[str]) -> tuple[list[dict], list[dict]]:
     """Validate rendered page PNGs against a source-linked capture manifest."""
     manifest_path = images / "capture-manifest.json"
     if not manifest_path.is_file():
         return [], [{"rule": "render_manifest_missing", "path": str(manifest_path)}]
-    manifest = load(manifest_path)
+    try:
+        manifest = load(manifest_path)
+    except (OSError, ValueError, TypeError) as error:
+        return [], [{"rule": "render_manifest_invalid", "detail": str(error)}]
     issues: list[dict] = []
     if manifest.get("source_sha256") != source_sha:
         issues.append({"rule": "render_source_stale"})
     files = manifest.get("files")
-    if not isinstance(files, dict):
+    mapping = manifest.get("page_images")
+    if not isinstance(files, dict) or not isinstance(mapping, dict):
         return [], issues + [{"rule": "render_manifest_invalid"}]
     pages = []
     for page_id in page_ids:
-        name = page_id if page_id.lower().endswith(".png") else page_id + ".png"
+        fallback = page_id if page_id.lower().endswith(".png") else page_id + ".png"
+        name = safe_render_name(mapping.get(page_id, fallback))
+        if name is None:
+            issues.append({"rule": "page_render_invalid", "page": page_id,
+                           "detail": "unsafe render filename in manifest"})
+            continue
         path = images / name
         if not path.is_file():
             issues.append({"rule": "page_render_missing", "page": page_id})
@@ -82,7 +102,7 @@ def image_evidence(images: Path, source_sha: str, page_ids: list[str]) -> tuple[
             if min(dimensions) < 450:
                 raise ValueError("Image too small to review")
             sha = digest(path)
-        except ValueError as error:
+        except (ValueError, OSError) as error:
             issues.append({"rule": "page_render_invalid", "page": page_id, "detail": str(error)})
             continue
         if files.get(name) != sha:
@@ -93,6 +113,8 @@ def image_evidence(images: Path, source_sha: str, page_ids: list[str]) -> tuple[
 
 def review_template(kind: str, source_sha: str, pages: list[dict], fixer_id: str) -> dict:
     """Create an unapproved review form; pending observations never imply approval."""
+    if not source_sha or not fixer_id or not fixer_id.strip():
+        raise ValueError("Template needs a source hash and a fixer id")
     if kind not in REQUIRED:
         raise ValueError(f"Unsupported review surface: {kind}")
     return {"schema": 1, "policy_version": POLICY_VERSION, "surface": kind,
@@ -115,7 +137,9 @@ def verify_review(kind: str, source_sha: str, pages: list[dict], review: dict, f
             review.get("surface") != kind or review.get("source_sha256") != source_sha):
         return [{"rule": "review_policy_or_source_mismatch"}]
     reviewer = review.get("reviewer", {})
-    reviewer_id = reviewer.get("id", "") if isinstance(reviewer, dict) else ""
+    if not isinstance(reviewer, dict):
+        reviewer = {}
+    reviewer_id = reviewer.get("id", "")
     if not reviewer_id or reviewer_id == fixer_id or reviewer.get("role") != "independent_visual_reviewer":
         findings.append({"rule": "independent_reviewer_required"})
     rows = review.get("pages", [])

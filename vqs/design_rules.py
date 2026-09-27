@@ -189,3 +189,202 @@ def cross_page_metric_units(readings: Sequence[dict] | None) -> dict:
     ]
     return _finding(rule, "fail" if conflicts else "pass",
                     measures=len(by_measure), conflicts=conflicts)
+
+
+def insight_no_duplicate_grain(visuals: Sequence[dict] | None) -> dict:
+    """Two visuals on one page must not tell the same insight (INS-01).
+
+    Each visual needs ``page``, ``visual``, ``type``, ``measures`` and
+    ``dimensions`` (bound ``Entity.Property`` refs), and
+    ``valued_filters`` (visual-level filters that may restrict rows).
+    A pair fails when it carries an equal non-empty measure set and either the
+    dimension sets are equal (same grain -- including twin cards) or one
+    strictly contains the other with a non-empty smaller side (a map of
+    sales by region inside a tree rooted at sales by region). Pairs
+    where either side carries value-bearing filters are skipped: the
+    filters may differentiate the numbers, so sameness is unproven.
+    """
+    rule = "insight.no_duplicate_grain"
+    if not visuals:
+        return _finding(rule, "unknown",
+                         reason="Measured page-visual grain readings required")
+    rows = []
+    for item in visuals:
+        if not isinstance(item, dict):
+            return _finding(rule, "unknown", reason="Invalid grain observation")
+        page, visual, vtype = (item.get("page"), item.get("visual"),
+                               item.get("type"))
+        measures, dimensions = item.get("measures"), item.get("dimensions")
+        filtered = item.get("valued_filters", 0)
+        if not all(isinstance(v, str) and v for v in (page, visual, vtype)):
+            return _finding(rule, "unknown",
+                             reason="page, visual, and type must be nonempty strings")
+        if (not isinstance(measures, list) or not isinstance(dimensions, list)
+                or not all(isinstance(m, str) for m in measures)
+                or not all(isinstance(d, str) for d in dimensions)):
+            return _finding(rule, "unknown",
+                             reason="measures and dimensions must be string lists")
+        if not isinstance(filtered, int) or filtered < 0:
+            return _finding(rule, "unknown",
+                             reason="valued_filters must be a non-negative int")
+        rows.append({"page": page, "visual": visual, "type": vtype,
+                     "measures": set(measures), "dimensions": set(dimensions),
+                     "filtered": filtered})
+    conflicts = []
+    skipped_filtered = 0
+    compared = 0
+    for index, first in enumerate(rows):
+        for second in rows[index + 1:]:
+            if first["page"] != second["page"]:
+                continue
+            compared += 1
+            if first["measures"] != second["measures"] or not first["measures"]:
+                continue
+            if first["filtered"] or second["filtered"]:
+                skipped_filtered += 1
+                continue
+            dims_a, dims_b = first["dimensions"], second["dimensions"]
+            if dims_a == dims_b:
+                kind = "same_grain"
+            elif dims_a < dims_b or dims_b < dims_a:
+                if not (dims_a and dims_b):
+                    continue
+                kind = "contained_grain"
+            else:
+                continue
+            conflicts.append({"kind": kind, "page": first["page"],
+                              "visuals": sorted([first["visual"],
+                                                 second["visual"]]),
+                              "types": sorted([first["type"], second["type"]]),
+                              "measures": sorted(first["measures"]),
+                              "dimensions": sorted(dims_a | dims_b)})
+    return _finding(rule, "fail" if conflicts else "pass",
+                    visuals=len(rows), pairs_compared=compared,
+                    conflicts=conflicts,
+                    skipped_filtered_pairs=skipped_filtered)
+
+
+def decomposition_tree_dimensions(trees: Sequence[dict] | None) -> dict:
+    """A decomposition tree must earn its depth (CHT-01).
+
+    Each tree needs ``page``, ``visual``, ``analyze`` (measure refs),
+    ``explain_by`` (dimension refs), and ``unrecognized_roles``. Fails
+    when Analyze is empty (including trees with no bindings at all),
+    when ExplainBy holds fewer than two distinct dimensions (a single
+    breakdown is a bar chart's job, and one dimension cannot decompose),
+    or when ExplainBy repeats a field. A tree whose non-empty query
+    roles match neither Analyze nor ExplainBy is unknown -- its
+    bindings cannot be proven. Proven fails win over unknowns.
+    """
+    rule = "chart.decomposition_tree_dimensions"
+    if not trees:
+        return _finding(rule, "unknown",
+                         reason="Measured decomposition-tree bindings required")
+    conflicts = []
+    unverified = []
+    for item in trees:
+        if not isinstance(item, dict):
+            return _finding(rule, "unknown", reason="Invalid tree observation")
+        page, visual = item.get("page"), item.get("visual")
+        analyze, explain = item.get("analyze"), item.get("explain_by")
+        if not all(isinstance(v, str) and v for v in (page, visual)):
+            return _finding(rule, "unknown",
+                             reason="page and visual must be nonempty strings")
+        if (not isinstance(analyze, list) or not isinstance(explain, list)
+                or not all(isinstance(a, str) for a in analyze)
+                or not all(isinstance(e, str) for e in explain)):
+            return _finding(rule, "unknown",
+                             reason="analyze and explain_by must be string lists")
+        if item.get("unrecognized_roles"):
+            unverified.append(f"{page}/{visual}")
+            continue
+        if not analyze:
+            conflicts.append({"kind": "missing_analyze", "page": page,
+                              "visual": visual})
+            continue
+        distinct = []
+        for ref in explain:
+            if ref not in distinct:
+                distinct.append(ref)
+        if len(distinct) < len(explain):
+            conflicts.append({"kind": "duplicate_dimension", "page": page,
+                              "visual": visual, "explain_by": list(explain)})
+        if len(distinct) < 2:
+            conflicts.append({"kind": "too_few_dimensions", "page": page,
+                              "visual": visual,
+                              "distinct_dimensions": len(distinct)})
+    if conflicts:
+        return _finding(rule, "fail", trees=len(trees), conflicts=conflicts,
+                         unverified=sorted(unverified))
+    if unverified:
+        return _finding(rule, "unknown",
+                         reason="Unrecognized tree query roles; bindings unproven",
+                         trees=sorted(unverified))
+    return _finding(rule, "pass", trees=len(trees))
+
+
+_GEO_CATEGORIES = frozenset({
+    "address", "city", "continent", "country", "county", "latitude",
+    "longitude", "place", "postalcode", "stateorprovince",
+})
+
+
+def map_location_binding(maps: Sequence[dict] | None) -> dict:
+    """A map must bind a location field, ideally a geographic one (CHT-02).
+
+    Each map needs ``page``, ``visual``, ``type``, ``locations``
+    (bound column refs), and ``categories`` (ref to TMDL dataCategory
+    or null). Locations span every role's dimensions: role names vary
+    across map types, so scoping to one role could miss the location.
+    Fails when a map binds no column at all, or when every bound
+    column carries a provably non-geographic data category. Maps with
+    any geographic or uncategorized column -- or measured without a
+    model -- are unknown or pass: geocoding by name may still resolve
+    them.
+    """
+    rule = "chart.map_location_binding"
+    if not maps:
+        return _finding(rule, "unknown",
+                         reason="Measured map location bindings required")
+    conflicts = []
+    unverified = []
+    for item in maps:
+        if not isinstance(item, dict):
+            return _finding(rule, "unknown", reason="Invalid map observation")
+        page, visual, vtype = (item.get("page"), item.get("visual"),
+                               item.get("type"))
+        locations, categories = item.get("locations"), item.get("categories")
+        if not all(isinstance(v, str) and v for v in (page, visual, vtype)):
+            return _finding(rule, "unknown",
+                             reason="page, visual, and type must be nonempty strings")
+        if (not isinstance(locations, list) or not isinstance(categories, dict)
+                or not all(isinstance(ref, str) for ref in locations)):
+            return _finding(rule, "unknown",
+                             reason="locations must be a string list and "
+                                    "categories an object")
+        if not locations:
+            conflicts.append({"kind": "no_location_field", "page": page,
+                              "visual": visual, "type": vtype})
+            continue
+        known = [categories.get(ref) for ref in locations]
+        if any(isinstance(cat, str) and cat.casefold() in _GEO_CATEGORIES
+               for cat in known):
+            continue
+        if all(isinstance(cat, str) and cat
+               and cat.casefold() not in _GEO_CATEGORIES for cat in known):
+            conflicts.append({"kind": "non_geographic_binding", "page": page,
+                              "visual": visual, "type": vtype,
+                              "locations": list(locations),
+                              "categories": {ref: categories.get(ref)
+                                             for ref in locations}})
+        else:
+            unverified.append(f"{page}/{visual}")
+    if conflicts:
+        return _finding(rule, "fail", maps=len(maps), conflicts=conflicts,
+                         unverified=sorted(unverified))
+    if unverified:
+        return _finding(rule, "unknown",
+                         reason="Some maps bind uncategorized columns; "
+                                "geographic fit unproven",
+                         maps=sorted(unverified))
+    return _finding(rule, "pass", maps=len(maps))
