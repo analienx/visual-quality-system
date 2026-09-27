@@ -41,7 +41,7 @@ def _table_name(text: str) -> str | None:
 
 
 def _whole_word(name: str, code: str) -> bool:
-    return re.search(r"(?<![\w#\.])" + re.escape(name) + r"(?![\w])",
+    return re.search(r"(?<![\w#\.])" + re.escape(name) + r"(?![\w\.])",
                      code) is not None
 
 
@@ -85,7 +85,7 @@ def dax_objects(model_dir: str) -> dict[str, str]:
         try:
             with open(path, encoding="utf-8-sig") as handle:
                 text = handle.read()
-        except OSError:
+        except (OSError, ValueError):
             continue
         table = _table_name(text)
         if table is None:
@@ -109,23 +109,36 @@ def dax_objects(model_dir: str) -> dict[str, str]:
     return objects
 
 
+def _split_node(node: str) -> tuple[str, str, str]:
+    """Split kind:Table.Name; rsplit tolerates dotted table names."""
+    kind, dotted = node.split(":", 1)
+    table, name = dotted.rsplit(".", 1)
+    return kind, table, name
+
+
 def dax_edges(objects: dict[str, str]) -> dict[str, set[str]]:
-    """Reference edges from ``[Name]`` uses; same-table names win."""
-    by_table: dict[tuple[str, str], str] = {}
+    """Reference edges from ``[Name]`` uses; same-table names win.
+
+    Matching is case-insensitive like DAX; node ids keep exact case.
+    """
+    by_table: dict[tuple[str, str], tuple[str, str, str]] = {}
     for node in objects:
-        kind, dotted = node.split(":", 1)
-        table, name = dotted.split(".", 1)
-        by_table[(table, name)] = kind
+        kind, table, name = _split_node(node)
+        by_table[(table.casefold(), name.casefold())] = (kind, table, name)
     edges: dict[str, set[str]] = {node: set() for node in objects}
     for node, expr in objects.items():
-        table = node.split(":", 1)[1].split(".", 1)[0]
+        _, table, _ = _split_node(node)
         for ref in set(re.findall(r"\[([^\[\]]+)\]", expr)):
-            if (table, ref) in by_table:
-                edges[node].add(f"{by_table[(table, ref)]}:{table}.{ref}")
+            key = (table.casefold(), ref.casefold())
+            if key in by_table:
+                kind, found_table, found_name = by_table[key]
+                edges[node].add(f"{kind}:{found_table}.{found_name}")
             else:
-                for (other_table, other_name), kind in by_table.items():
-                    if other_name == ref:
-                        edges[node].add(f"{kind}:{other_table}.{ref}")
+                for (other_table, other_name), found in by_table.items():
+                    if other_name == ref.casefold():
+                        kind, found_table, found_name = found
+                        edges[node].add(f"{kind}:{found_table}.{found_name}")
+                        break
     return edges
 
 
@@ -136,7 +149,7 @@ def m_queries(model_dir: str) -> dict[str, str]:
         with open(os.path.join(model_dir, "expressions.tmdl"),
                   encoding="utf-8-sig") as handle:
             shared = handle.read()
-    except OSError:
+    except (OSError, ValueError):
         shared = ""
     for match in _EXPRESSION.finditer(shared):
         name = match.group(2) or match.group(3)
@@ -148,7 +161,7 @@ def m_queries(model_dir: str) -> dict[str, str]:
         try:
             with open(path, encoding="utf-8-sig") as handle:
                 text = handle.read()
-        except OSError:
+        except (OSError, ValueError):
             continue
         table = _table_name(text)
         if table is None:
@@ -165,8 +178,6 @@ def m_edges(queries: dict[str, str]) -> dict[str, set[str]]:
     for name, code in queries.items():
         bare = _STRING_LITERAL.sub('""', code)
         for candidate in queries:
-            if candidate == name:
-                continue
             if _whole_word(candidate.split("|")[-1], bare):
                 edges[name].add(candidate)
     return edges
@@ -178,7 +189,7 @@ def within_let_cycles(code: str) -> list[list[str]]:
     segments = _LET.split(code)
     for segment in segments[1:]:
         has_in = _IN.search(segment)
-        scope = segment.split(has_in.group(0))[0] if has_in else segment
+        scope = segment[:has_in.start()] if has_in else segment
         bindings = [match.group(1).strip('"').lstrip("#").strip('"')
                     for match in _BINDING.finditer(scope)]
         if not bindings:
@@ -191,25 +202,50 @@ def within_let_cycles(code: str) -> list[list[str]]:
                 continue
             expr = _STRING_LITERAL.sub('""', chunks[position + 1])
             for candidate in names:
-                if candidate != binding and _whole_word(candidate, expr):
+                if _whole_word(candidate, expr):
                     edges[binding].add(candidate)
         found.extend(find_cycles(edges))
     return found
 
 
+def _tables_parsed(model_dir: str) -> int:
+    """Count table files with a readable table declaration."""
+    count = 0
+    pattern = os.path.join(model_dir, "tables", "*.tmdl")
+    for path in sorted(glob.glob(pattern)):
+        try:
+            with open(path, encoding="utf-8-sig") as handle:
+                text = handle.read()
+        except (OSError, ValueError):
+            continue
+        if _table_name(text) is not None:
+            count += 1
+    return count
+
+
 def check_model(model_dir: str) -> dict:
-    """Run the static gate; raises OSError when the folder is unreadable."""
+    """Run the static gate; raises OSError when the folder is unreadable.
+
+    ``tables``/``dax_objects``/``m_queries`` count what was actually
+    parsed: an empty folder reports ``acyclic: true`` with zero counts,
+    which callers must read as "nothing to check", not as a clean bill.
+    """
     if not os.path.isdir(model_dir):
         raise OSError(f"model folder not found: {model_dir}")
+    tables = _tables_parsed(model_dir)
     dax = dax_objects(model_dir)
     queries = m_queries(model_dir)
-    dax_loops = find_cycles(dax_edges(dax))
-    m_loops = find_cycles(m_edges(queries))
-    let_loops = []
-    for name, code in sorted(queries.items()):
-        for cycle in within_let_cycles(code):
-            let_loops.append({"query": name, "cycle": cycle})
+    try:
+        dax_loops = find_cycles(dax_edges(dax))
+        m_loops = find_cycles(m_edges(queries))
+        let_loops = []
+        for name, code in sorted(queries.items()):
+            for cycle in within_let_cycles(code):
+                let_loops.append({"query": name, "cycle": cycle})
+    except RecursionError as exc:
+        raise OSError("Reference graph too deep to analyze") from exc
     return {"model_dir": model_dir,
+            "tables": tables,
             "dax_objects": len(dax),
             "m_queries": len(queries),
             "dax_cycles": dax_loops,

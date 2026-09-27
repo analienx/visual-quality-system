@@ -1,7 +1,7 @@
 expression Q1 =
 	let
 		a = Q2,
-		b = 1
+		b = Q10
 	in
 		a
 
@@ -19,6 +19,19 @@ expression Loopy =
 		a
 
 expression Solo =
+	let
+		a = 1,
+		note = "Q1 is only a string, not a reference"
+	in
+		a
+
+expression SelfQ =
+	let
+		x = SelfQ
+	in
+		x
+
+expression Q10 =
 	let
 		a = 1
 	in

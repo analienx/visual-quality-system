@@ -14,16 +14,33 @@ CLEAN = str(FIXTURES / "clean_model")
 def test_dax_cycle_reports_both_measures() -> None:
     result = check_model(LOOPY)
     assert result["acyclic"] is False
+    # B references [a] lowercase: DAX matching is case-insensitive.
+    # LoopSelf references itself: self-loops are cycles, not skipped.
     assert result["dax_cycles"] == [
-        ["measure:Loop.A", "measure:Loop.B", "measure:Loop.A"]]
+        ["measure:Loop.A", "measure:Loop.B", "measure:Loop.A"],
+        ["measure:Loop.LoopSelf", "measure:Loop.LoopSelf"]]
     assert all("Clean" not in node for cycle in result["dax_cycles"]
                for node in cycle)
 
 
 def test_m_query_cycle_found() -> None:
     result = check_model(LOOPY)
-    assert result["m_cycles"] == [["Q1", "Q2", "Q1"]]
-    assert result["m_queries"] == 5
+    assert result["m_cycles"] == [["Q1", "Q2", "Q1"],
+                                  ["SelfQ", "SelfQ"]]
+    assert result["m_queries"] == 7
+
+
+def test_m_string_literal_is_not_a_reference() -> None:
+    from vqs.powerbi.cycles import m_edges, m_queries
+    edges = m_edges(m_queries(LOOPY))
+    assert edges["Solo"] == set(), edges["Solo"]
+
+
+def test_m_prefix_names_do_not_collide() -> None:
+    from vqs.powerbi.cycles import m_edges, m_queries
+    edges = m_edges(m_queries(LOOPY))
+    assert edges["Q1"] == {"Q2", "Q10"}, edges["Q1"]
+    assert edges["Q10"] == set(), edges["Q10"]
 
 
 def test_within_let_cycle_names_query() -> None:
@@ -34,7 +51,8 @@ def test_within_let_cycle_names_query() -> None:
 
 def test_clean_model_is_acyclic() -> None:
     result = check_model(CLEAN)
-    assert result == {"model_dir": CLEAN, "dax_objects": 2, "m_queries": 1,
+    assert result == {"model_dir": CLEAN, "tables": 1,
+                      "dax_objects": 2, "m_queries": 1,
                       "dax_cycles": [], "m_cycles": [], "let_cycles": [],
                       "acyclic": True}
 

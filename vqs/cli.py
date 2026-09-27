@@ -170,7 +170,7 @@ def _capture(report: Path, renders: Path, pid: int | None, scale: int,
     try:
         manifest = capture(str(report), str(renders), pid=pid,
                            scale=scale, wait_seconds=wait_seconds)
-    except (OSError, LookupError, ValueError) as exc:
+    except (OSError, LookupError, ValueError, TypeError) as exc:
         print(json.dumps({"status": "blocked",
                           "reason": f"{type(exc).__name__}: {exc}"}))
         return 2
@@ -189,7 +189,7 @@ def _bundle(action: str, args) -> int:
             result = verify(args.bundle, args.report)
         else:
             result = unpack(args.bundle, args.dest)
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, TypeError) as exc:
         print(json.dumps({"status": "blocked",
                           "reason": f"{type(exc).__name__}: {exc}"}))
         return 2

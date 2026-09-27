@@ -2,9 +2,15 @@
 
 `measure_report` walks a ``*.Report`` folder (plus an optional
 ``*.SemanticModel`` definition dir) and returns a facts document shaped
-for `vqs check`: text contrast, palette assignments, metric units, TMDL
-bindings, and format-declaration cohorts. Anything the sources cannot
-prove is omitted — never inferred, never defaulted.
+for `vqs check`: text contrast, metric units, TMDL bindings, and
+format-declaration cohorts. Anything the sources cannot prove is
+omitted — never inferred, never defaulted.
+
+Known adapter gaps (omitted, not guessed): per-page series-color
+assignments (a theme declares slot colors but never proves a page uses
+a slot, so ``palette.semantic_consistency`` stays absent until explicit
+per-visual series colors are measured); per-visual display-unit
+overrides (units come from the model's ``formatString`` only).
 """
 from __future__ import annotations
 
@@ -82,29 +88,39 @@ def _page_background(page: dict, theme: dict | None) -> str | None:
     return None
 
 
-def _text_run_colors(report_dir: str) -> Counter:
-    colors: Counter = Counter()
+def _page_text_colors(report_dir: str) -> dict[str, Counter]:
+    """Map each page dir to its own (paragraph-index, color) counts.
 
-    def visit(node: Any) -> None:
+    Colors stay scoped to the page that declares them: pairing page
+    A's text with page B's background would invent evidence.
+    """
+    by_page: dict[str, Counter] = {}
+
+    def visit(node: Any, colors: Counter) -> None:
         if isinstance(node, dict):
             paragraphs = node.get("paragraphs")
             if isinstance(paragraphs, list):
                 for index, para in enumerate(paragraphs):
                     runs = para.get("textRuns") if isinstance(para, dict) else None
                     for run in runs or []:
-                        color = (run.get("textStyle") or {}).get("color")
+                        if not isinstance(run, dict):
+                            continue
+                        style = run.get("textStyle") or {}
+                        color = style.get("color") if isinstance(style, dict) else None
                         if isinstance(color, str):
                             colors[(index, color.upper())] += 1
             for value in node.values():
-                visit(value)
+                visit(value, colors)
         elif isinstance(node, list):
             for value in node:
-                visit(value)
+                visit(value, colors)
 
     for page in _pages(report_dir):
+        colors: Counter = Counter()
         for visual in _visuals(report_dir, page["_dir"]):
-            visit(visual.get("visual", {}).get("objects", {}))
-    return colors
+            visit(visual.get("visual", {}).get("objects", {}), colors)
+        by_page[page["_dir"]] = colors
+    return by_page
 
 
 def _luminance(hex_color: str) -> float:
@@ -121,13 +137,14 @@ def _ratio(foreground: str, background: str) -> float:
 
 
 def _contrast(report_dir: str, theme: dict | None) -> dict | None:
-    colors = _text_run_colors(report_dir)
-    titles = Counter({c: n for (i, c), n in colors.items() if i == 0})
-    subtitles = Counter({c: n for (i, c), n in colors.items() if i == 1})
-    if not titles and not subtitles:
-        return None
+    """Weakest honestly-paired (foreground, background) across pages."""
     candidates = []
     for page in _pages(report_dir):
+        colors = _page_text_colors(report_dir).get(page["_dir"]) or Counter()
+        titles = Counter({c: n for (i, c), n in colors.items() if i == 0})
+        subtitles = Counter({c: n for (i, c), n in colors.items() if i == 1})
+        if not titles and not subtitles:
+            continue
         background = _page_background(page, theme)
         if background is None:
             continue
@@ -139,18 +156,6 @@ def _contrast(report_dir: str, theme: dict | None) -> dict | None:
         return None
     foreground, background = min(candidates, key=lambda pair: _ratio(*pair))
     return {"foreground": foreground, "background": background}
-
-
-def _palette(theme: dict | None, pages: list[dict]) -> list[dict] | None:
-    if theme is None or not isinstance(theme.get("dataColors"), list):
-        return None
-    assignments = []
-    for page in pages:
-        for index, color in enumerate(theme["dataColors"]):
-            assignments.append({"state": f"series-index-{index}",
-                                "color": str(color).upper(),
-                                "page": page["_dir"]})
-    return assignments or None
 
 
 def _measure_formats(model_dir: str) -> dict[tuple[str, str], str]:
@@ -173,19 +178,34 @@ def _measure_formats(model_dir: str) -> dict[tuple[str, str], str]:
         for match in blocks:
             measure = match.group(2) or match.group(3)
             found = re.search(r"formatString: (.*)$", match.group(4), re.MULTILINE)
-            formats[(name, measure)] = found.group(1).strip() if found else ""
+            value = found.group(1).strip() if found else ""
+            formats[(name, measure)] = value
+            formats[(name.casefold(), measure.casefold())] = value
     return formats
 
 
+def _format_of(formats: dict[tuple[str, str], str], dotted: str) -> str:
+    """Look up a PBIR Entity.Property ref, tolerating case drift."""
+    key = tuple(dotted.split(".", 1))
+    if len(key) != 2:
+        return ""
+    hit = formats.get(key)
+    if hit is None:
+        hit = formats.get((key[0].casefold(), key[1].casefold()), "")
+    return hit
+
+
 def _unit_of(format_string: str) -> str:
+    """Classify only what the format string proves.
+
+    A ``%`` scales the value (percent); anything else is carried
+    through verbatim so regrouping stays exact without inventing
+    currency codes, counts, or point semantics.
+    """
+    if not format_string:
+        return "undeclared"
     if "%" in format_string:
         return "percent"
-    if format_string.startswith("$"):
-        return "USD"
-    if "#,0" in format_string or format_string == "0":
-        return "count"
-    if "pp" in format_string:
-        return "pp"
     return "raw:" + format_string
 
 
@@ -238,8 +258,6 @@ def _bindings_and_cohorts(report_dir: str) -> tuple[list[dict], list[dict], list
                 size = [s for s in segments if re.fullmatch(r"(fontSize|textSize)", s)]
                 if not size:
                     continue
-                if not segments:
-                    continue
                 owner = segments[0]
                 cohort = f"{visual_type}/{owner}.{size[0]}"
                 slot = cohorts.setdefault(cohort, {})
@@ -254,18 +272,30 @@ def _bindings_and_cohorts(report_dir: str) -> tuple[list[dict], list[dict], list
 
 
 def _cohort_nulls(report_dir: str, readings: list[dict]) -> list[dict]:
-    """Add explicit nulls for cohort members that leave a property default."""
+    """Add explicit nulls where a declared owner leaves a property default.
+
+    A null means "this visual declares the owner object (e.g. ``header``)
+    but not the property", which the sources prove. Visuals without the
+    owner object are not members — inventing nulls for them would fail
+    cohorts over properties that never applied.
+    """
     names = sorted({reading["cohort"] for reading in readings})
     nulls = []
-    members: dict[str, list[tuple[str, str]]] = {}
+    owners: dict[tuple[str, str, str], set[str]] = {}
     for page in _pages(report_dir):
         for visual in _visuals(report_dir, page["_dir"]):
-            visual_type = visual.get("visual", {}).get("visualType", "?")
-            members.setdefault(visual_type, []).append((page["_dir"], visual["_id"]))
+            node = visual.get("visual", {})
+            visual_type = node.get("visualType", "?")
+            objects = node.get("objects", {})
+            declared = set(objects) if isinstance(objects, dict) else set()
+            owners[(visual_type, page["_dir"], visual["_id"])] = declared
     seen = {(r["cohort"], r["page"], r["visual"]) for r in readings}
     for cohort in names:
-        visual_type = cohort.split("/", 1)[0]
-        for page_id, visual_id in members.get(visual_type, []):
+        visual_type, _, rest = cohort.partition("/")
+        owner, _, _prop = rest.rpartition(".")
+        for (member_type, page_id, visual_id), declared in owners.items():
+            if member_type != visual_type or owner not in declared:
+                continue
             if (cohort, page_id, visual_id) not in seen:
                 nulls.append({"cohort": cohort, "visual": visual_id,
                               "page": page_id, "value": None})
@@ -282,16 +312,13 @@ def measure_report(report_dir: str, model_dir: str | None = None) -> dict:
     if not os.path.isdir(report_dir):
         raise OSError(f"report folder not found: {report_dir}")
     theme = _theme(report_dir)
-    pages = _pages(report_dir)
     rules: dict[str, dict] = {}
-    # Contrast and palette are theme rules: without a theme the color
-    # roles cannot be proven, so both stay omitted.
+    # Contrast is a theme rule: without a theme the color roles cannot
+    # be proven, so it stays omitted. Palette assignments stay omitted
+    # unconditionally — see the module docstring.
     contrast = _contrast(report_dir, theme) if theme is not None else None
     if contrast is not None:
         rules["typography.text_contrast"] = contrast
-    palette = _palette(theme, pages)
-    if palette is not None:
-        rules["palette.semantic_consistency"] = {"assignments": palette}
     bindings, unit_refs, cohort_readings = _bindings_and_cohorts(report_dir)
     cohorts = _cohort_nulls(report_dir, cohort_readings)
     if cohorts:
@@ -300,7 +327,7 @@ def measure_report(report_dir: str, model_dir: str | None = None) -> dict:
     if model_dir is not None:
         formats = _measure_formats(model_dir)
         readings = [{"measure": ref["measure"],
-                     "unit": _unit_of(formats.get(tuple(ref["measure"].split(".", 1)), "")),
+                     "unit": _unit_of(_format_of(formats, ref["measure"])),
                      "page": ref["page"]} for ref in unit_refs]
         if readings:
             facts["rules"]["encoding.metric_unit_consistency"] = {"readings": readings}
