@@ -4,7 +4,7 @@ title: "WP-XX [Sx] Short independently testable deliverable"
 body:
   - type: markdown
     attributes:
-      value: "Read docs/IMPLEMENTATION_PROGRAM.md, docs/LEDGER_AND_AGENT_PROTOCOL.md and AGENTS.md first. Opening an issue does not mark any capability implemented."
+      value: "Read docs/USER_GUIDE.md, docs/IMPLEMENTATION_PROGRAM.md, docs/LEDGER_AND_AGENT_PROTOCOL.md and AGENTS.md first. Opening an issue does not mark any capability implemented."
   - type: input
     id: id
     attributes:

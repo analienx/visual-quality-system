@@ -9,6 +9,8 @@ Editable paths / schema versions consumed and emitted:
 
 Describe the exact source-level change, expected design or analytical effect, and any rejected alternative. Is this code, documentation only, fixture only, or a real renderer result?
 
+Workflow pointers: [USER_GUIDE.md](docs/USER_GUIDE.md) for review flows, `vqs bundle` for remote evidence handoff.
+
 ## Acceptance test evidence
 
 | Test ID / gate | Fixture and environment | Command / manual method | Pass / fail / blocked / not run | Private evidence manifest ID |

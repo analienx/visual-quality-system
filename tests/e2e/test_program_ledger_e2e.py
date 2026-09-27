@@ -184,6 +184,7 @@ def test_e2e_request_review_success_and_stale_negative(tmp_path: Path, capsys) -
     template = json.loads(captured.out)
     assert template["source_sha256"] == sha
     assert template["fixer_id"] == "e2e"
+    assert template["pages"][0]["image_source_sha256"] == sha
 
     (renders / "capture-manifest.json").write_text(
         json.dumps(

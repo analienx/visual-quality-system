@@ -53,6 +53,35 @@ analysis; the live-engine confirmation stays a Modeling MCP step.
 vqs cycles path/to/Example.SemanticModel/definition
 ```
 
+## vqs capture
+
+Capture every report page through the Desktop Bridge and write
+`capture-manifest.json` (source hash, page images, file hashes) for
+`vqs request-review`. Selects the Desktop instance by exact PID +
+report path; unsaved changes, a wrong report, or several instances
+without `--pid` block with the reason. Needs Windows, Desktop, and
+the report open — otherwise use `vqs doctor` to see what is missing.
+
+```console
+vqs capture path/to/Example.Report path/to/renders
+vqs capture path/to/Example.Report path/to/renders --pid 1234 --scale 2
+```
+
+## vqs bundle
+
+Portable review evidence for cross-machine or cross-agent handoff: `pack`
+assembles renders + manifest + inventory + header after re-validating the
+evidence; `verify` re-hashes everything and rejects tampered, incomplete,
+or stale bundles (`--report` also binds to a live report folder);
+`unpack` copies and verifies. Bundles may contain business-data pixels:
+keep them private, never commit them.
+
+```console
+vqs bundle pack path/to/Example.Report path/to/renders path/to/bundle --fixer-id agent-a
+vqs bundle verify path/to/bundle --report path/to/Example.Report
+vqs bundle unpack path/to/bundle path/to/copy
+```
+
 ## vqs doctor
 
 Report which external Power BI tools are present (pbir version,
