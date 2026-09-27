@@ -207,3 +207,39 @@ def test_unhashable_and_untyped_elements_are_unknown() -> None:
     assert decomposition_tree_dimensions([{
         "page": "P1", "visual": "t", "analyze": [5],
         "explain_by": [], "unrecognized_roles": False}])["status"] == "unknown"
+
+def test_cross_page_same_grain_fails() -> None:
+    from vqs.design_rules import insight_no_cross_page_duplicate_grain
+    result = insight_no_cross_page_duplicate_grain([
+        _grain("P1", "chart-a", "columnChart", [SALES], [REGION]),
+        _grain("P2", "chart-b", "barChart", [SALES], [REGION])])
+    assert result["status"] == "fail"
+    assert result["evidence"]["conflicts"] == [{
+        "kind": "same_grain", "pages": ["P1", "P2"],
+        "visuals": ["P1/chart-a", "P2/chart-b"],
+        "types": ["barChart", "columnChart"],
+        "measures": [SALES], "dimensions": [REGION]}]
+
+
+def test_cross_page_cards_and_same_page_pass() -> None:
+    from vqs.design_rules import insight_no_cross_page_duplicate_grain
+    cards = insight_no_cross_page_duplicate_grain([
+        _grain("P1", "card-a", "card", [SALES], []),
+        _grain("P2", "card-b", "card", [SALES], [])])
+    assert cards["status"] == "pass"
+    same_page = insight_no_cross_page_duplicate_grain([
+        _grain("P1", "a", "card", [SALES], []),
+        _grain("P1", "b", "card", [SALES], [])])
+    assert same_page["status"] == "pass"
+    assert same_page["evidence"]["pairs_compared"] == 0
+    assert insight_no_cross_page_duplicate_grain([])["status"] == "unknown"
+
+
+def test_cross_page_contained_grain_fails() -> None:
+    from vqs.design_rules import insight_no_cross_page_duplicate_grain
+    result = insight_no_cross_page_duplicate_grain([
+        _grain("P1", "tree", "decompositionTreeVisual",
+               [SALES], [REGION, CATEGORY]),
+        _grain("P2", "map", "map", [SALES], [REGION])])
+    assert result["status"] == "fail"
+    assert result["evidence"]["conflicts"][0]["kind"] == "contained_grain"

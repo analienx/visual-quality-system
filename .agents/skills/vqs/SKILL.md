@@ -12,7 +12,7 @@ measures, or data values. Unknown provenance blocks; it never passes.
 
 | Need | Command | Needs |
 | --- | --- | --- |
-| Report facts (contrast, cohorts, units, bindings, page insights, duplication + chart practice) | `vqs measure REPORT --model MODELDIR` | sources only |
+| Report facts (contrast, cohorts, units, bindings, page insights, duplication + chart practice + layout) | `vqs measure REPORT --model MODELDIR` | sources only |
 | DAX/M acyclicity gate | `vqs cycles MODELDIR` (0 acyclic, 1 cycle, 2 blocked) | sources only |
 | Facts → sealed verdict | `vqs check facts.json --run-id ID` | sources only |
 | Screenshot evidence + manifest | `vqs capture REPORT RENDERS [--pid P]` | Windows + Desktop + Bridge |

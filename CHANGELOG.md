@@ -20,6 +20,18 @@
   traversal-safe render names, pack/unpack rollback, header/inventory
   cross-checks, tamper re-verification.
 
+## Unreleased (work/xpage-layout-maps)
+
+- New rules: `insight.no_cross_page_duplicate_grain` (one breakdown
+  must not repeat on another page; bare cards exempt as the summary
+  pattern), `layout.no_visual_overlap`, `layout.visuals_within_page`,
+  and `chart.map_location_labels` (bubble maps must show category
+  labels unless a heatMap layer carries the encoding).
+- `vqs measure` inventories geometry, page bounds, label configuration,
+  and a per-visual `customized` flag; `pbip_acceptance.py` reports a
+  `pbir bpa` summary section (titles/sizing/alt-text stay BPA's lane).
+- Shared grain validation core between the two duplication rules.
+
 ## Unreleased (work/topclass-repo)
 
 - Top-class repo front door: rewritten README (badges, quickstart,

@@ -67,6 +67,23 @@ def _map_binding(params: dict[str, Any]) -> dict:
     return design_rules.map_location_binding(params.get("maps"))
 
 
+def _xdup_grain(params: dict[str, Any]) -> dict:
+    return design_rules.insight_no_cross_page_duplicate_grain(
+        params.get("visuals"))
+
+
+def _overlap(params: dict[str, Any]) -> dict:
+    return design_rules.layout_no_visual_overlap(params.get("visuals"))
+
+
+def _within_page(params: dict[str, Any]) -> dict:
+    return design_rules.layout_visuals_within_page(params.get("pages"))
+
+
+def _map_labels(params: dict[str, Any]) -> dict:
+    return design_rules.chart_map_location_labels(params.get("maps"))
+
+
 RULES = {
     "axis.display_values_not_distinct": _axis,
     "typography.text_contrast": _contrast,
@@ -77,6 +94,10 @@ RULES = {
     "insight.no_duplicate_grain": _dup_grain,
     "chart.decomposition_tree_dimensions": _tree_dims,
     "chart.map_location_binding": _map_binding,
+    "insight.no_cross_page_duplicate_grain": _xdup_grain,
+    "layout.no_visual_overlap": _overlap,
+    "layout.visuals_within_page": _within_page,
+    "chart.map_location_labels": _map_labels,
 }
 
 

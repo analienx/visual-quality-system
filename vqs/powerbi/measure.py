@@ -346,11 +346,22 @@ def measure_report(report_dir: str, model_dir: str | None = None) -> dict:
     facts["insights"] = {"pages": inventory["pages"]}
     if inventory["visuals"]:
         rules["insight.no_duplicate_grain"] = {"visuals": inventory["visuals"]}
+        rules["insight.no_cross_page_duplicate_grain"] = {
+            "visuals": inventory["visuals"]}
+    if inventory["layout"]:
+        rules["layout.no_visual_overlap"] = {"visuals": inventory["layout"]}
+    if inventory["page_bounds"]:
+        rules["layout.visuals_within_page"] = {
+            "pages": inventory["page_bounds"]}
     if inventory["trees"]:
         rules["chart.decomposition_tree_dimensions"] = {
             "trees": inventory["trees"]}
     if inventory["maps"]:
         rules["chart.map_location_binding"] = {"maps": inventory["maps"]}
+        rules["chart.map_location_labels"] = {"maps": [
+            {"page": m["page"], "visual": m["visual"],
+             "labels_shown": m["labels_shown"], "heatmap": m["heatmap"]}
+            for m in inventory["maps"]]}
     if model_dir is not None:
         formats = _measure_formats(model_dir)
         readings = [{"measure": ref["measure"],

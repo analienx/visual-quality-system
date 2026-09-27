@@ -24,7 +24,8 @@ def test_inventory_records_titles_roles_and_refs() -> None:
         "Dim Store.Region", "Dim Product.Category"]
     assert by_id["note"] == {"visual": "note", "type": "textbox",
                              "title": None, "measures": [], "dimensions": [],
-                             "roles": {}}
+                             "roles": {}, "customized": False}
+    assert by_id["mapvis"]["customized"] is False
 
 
 def test_grain_list_skips_visuals_without_bindings() -> None:
@@ -49,9 +50,11 @@ def test_tree_and_map_params() -> None:
     assert inventory["maps"] == [
         {"page": "P1", "visual": "mapvis", "type": "map",
          "locations": ["Dim Store.Region"],
-         "categories": {"Dim Store.Region": None}},
+         "categories": {"Dim Store.Region": None},
+         "labels_shown": False, "heatmap": False},
         {"page": "P2", "visual": "lostmap", "type": "map",
-         "locations": [], "categories": {}}]
+         "locations": [], "categories": {},
+         "labels_shown": False, "heatmap": False}]
 
 
 def test_unrecognized_tree_roles_flagged(tmp_path: Path) -> None:
@@ -163,10 +166,55 @@ def test_model_categories_flow_from_tmdl_to_map_verdict(tmp_path: Path) -> None:
     assert params == {"maps": [{"page": "P1", "visual": "mapvis",
                                 "type": "map",
                                 "locations": ["Dim Store.Region"],
-                                "categories": {"Dim Store.Region": "Country"}}]}
+                                "categories": {"Dim Store.Region": "Country"},
+                                "labels_shown": False, "heatmap": False}]}
     assert map_location_binding(params["maps"])["status"] == "pass"
     params["maps"][0]["categories"] = {"Dim Store.Region": "ImageUrl"}
     failed = map_location_binding(params["maps"])
     assert failed["status"] == "fail"
     assert failed["evidence"]["conflicts"][0]["kind"] == \
         "non_geographic_binding"
+
+def test_geometry_and_label_facts(tmp_path: Path) -> None:
+    page = tmp_path / "definition" / "pages" / "P1"
+    (page / "visuals" / "mapx").mkdir(parents=True)
+    (page / "visuals" / "plain").mkdir(parents=True)
+    (page / "page.json").write_text(json.dumps(
+        {"displayName": "G", "width": 1280, "height": 720}), encoding="utf-8")
+    (page / "visuals" / "mapx" / "visual.json").write_text(json.dumps({
+        "position": {"x": 0, "y": 0, "width": 100, "height": 100},
+        "visual": {"visualType": "map",
+                   "objects": {"categoryLabels": [{"properties": {
+                       "show": {"expr": {"Literal": {"Value": "true"}}}}}]},
+                   "query": {"queryState": {"Category": {"projections": [{
+                       "field": {"Column": {
+                           "Expression": {"SourceRef": {"Entity": "D"}},
+                           "Property": "C"}}}]}}}}}), encoding="utf-8")
+    (page / "visuals" / "plain" / "visual.json").write_text(json.dumps({
+        "visual": {"visualType": "textbox", "objects": {}}}),
+        encoding="utf-8")
+    inventory = page_insights(str(tmp_path))
+    assert inventory["layout"] == [{"page": "P1", "visual": "mapx", "x": 0.0,
+                                    "y": 0.0, "width": 100.0, "height": 100.0}]
+    assert inventory["page_bounds"] == [{"page": "P1", "width": 1280.0,
+                                         "height": 720.0, "visuals": [
+                                             {"visual": "mapx", "x": 0.0,
+                                              "y": 0.0, "width": 100.0,
+                                              "height": 100.0}]}]
+    assert inventory["maps"][0]["labels_shown"] is True
+    by_id = {v["visual"]: v for v in inventory["pages"][0]["visuals"]}
+    assert by_id["mapx"]["customized"] is True
+    assert by_id["plain"]["customized"] is False
+
+
+def test_measure_emits_cross_page_and_label_sections() -> None:
+    rules = measure_report(REPORT)["rules"]
+    assert "insight.no_cross_page_duplicate_grain" in rules
+    assert rules["chart.map_location_labels"] == {"maps": [
+        {"page": "P1", "visual": "mapvis",
+         "labels_shown": False, "heatmap": False},
+        {"page": "P2", "visual": "lostmap",
+         "labels_shown": False, "heatmap": False}]}
+    # Fixture visuals carry no positions: layout sections stay omitted.
+    assert "layout.no_visual_overlap" not in rules
+    assert "layout.visuals_within_page" not in rules

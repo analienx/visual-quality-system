@@ -13,7 +13,7 @@ pip install -e ".[test]"
 vqs doctor                        # what external tools are present (never installs)
 vqs cycles tests/powerbi/fixtures/clean_model
 vqs measure tests/powerbi/fixtures/mini_report --model tests/powerbi/fixtures/mini_model/definition
-python -m pytest                  # 199 tests, plus ruff clean
+python -m pytest                  # 212 tests, plus ruff clean
 ```
 
 Real output (`vqs cycles`, exit 0):
@@ -51,7 +51,7 @@ Static facts come from parsing sources; rendered facts come from Desktop Bridge 
 
 | Command | Does | Status |
 | --- | --- | --- |
-| `vqs measure` | PBIR/TMDL facts: contrast, cohorts, units, bindings, page insights, duplication + chart-practice checks | ✅ shipped (WP-19) |
+| `vqs measure` | PBIR/TMDL facts: contrast, cohorts, units, bindings, page insights, duplication + chart-practice + layout checks | ✅ shipped (WP-19) |
 | `vqs cycles` | Static DAX/M/`let` acyclicity gate | ✅ shipped |
 | `vqs check` | Facts → sealed verdict under `.vqs-runs/` | ✅ shipped |
 | `vqs capture` | Bridge screenshots + capture manifest | ✅ shipped |
