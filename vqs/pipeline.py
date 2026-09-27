@@ -55,6 +55,18 @@ def _consistency(params: dict[str, Any]) -> dict:
     return design_rules.format_declaration_consistency(params.get("readings"))
 
 
+def _dup_grain(params: dict[str, Any]) -> dict:
+    return design_rules.insight_no_duplicate_grain(params.get("visuals"))
+
+
+def _tree_dims(params: dict[str, Any]) -> dict:
+    return design_rules.decomposition_tree_dimensions(params.get("trees"))
+
+
+def _map_binding(params: dict[str, Any]) -> dict:
+    return design_rules.map_location_binding(params.get("maps"))
+
+
 RULES = {
     "axis.display_values_not_distinct": _axis,
     "typography.text_contrast": _contrast,
@@ -62,6 +74,9 @@ RULES = {
     "palette.semantic_consistency": _palette,
     "encoding.metric_unit_consistency": _units,
     "typography.format_declaration_consistency": _consistency,
+    "insight.no_duplicate_grain": _dup_grain,
+    "chart.decomposition_tree_dimensions": _tree_dims,
+    "chart.map_location_binding": _map_binding,
 }
 
 

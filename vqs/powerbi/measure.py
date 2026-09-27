@@ -324,6 +324,16 @@ def measure_report(report_dir: str, model_dir: str | None = None) -> dict:
     if cohorts:
         rules["typography.format_declaration_consistency"] = {"readings": cohorts}
     facts: dict[str, Any] = {"rules": rules}
+    from .insights import page_insights
+    inventory = page_insights(report_dir, model_dir)
+    facts["insights"] = {"pages": inventory["pages"]}
+    if inventory["visuals"]:
+        rules["insight.no_duplicate_grain"] = {"visuals": inventory["visuals"]}
+    if inventory["trees"]:
+        rules["chart.decomposition_tree_dimensions"] = {
+            "trees": inventory["trees"]}
+    if inventory["maps"]:
+        rules["chart.map_location_binding"] = {"maps": inventory["maps"]}
     if model_dir is not None:
         formats = _measure_formats(model_dir)
         readings = [{"measure": ref["measure"],

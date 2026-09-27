@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased (work/vqs-hardening-insights)
+
+- `vqs measure` now records a per-page insight inventory (visual,
+  title, bound measures/dimensions/roles) and runs three new checks:
+  `insight.no_duplicate_grain` (same/contained insight twice on one
+  page fails), `chart.decomposition_tree_dimensions` (Analyze plus at
+  least two distinct ExplainBy dimensions), and
+  `chart.map_location_binding` (map needs a location column; TMDL data
+  category proves or withholds the geographic verdict).
+- Honest-facts hardening: per-page palette assignments omitted until
+  explicit per-visual series colors are measurable; contrast pairs each
+  page's text with its own background; unit classification proves only
+  percent (`%`) and carries other formats verbatim; cohort nulls cover
+  only visuals declaring the owner object; cycle gate is case-insensitive,
+  reports self-loops and string/prefix-safe M edges, and counts tables.
+- Capture/bundle/evidence hardening: quoted shell fallback, bridge
+  payload shape guards, save-state and source-staleness checks,
+  traversal-safe render names, pack/unpack rollback, header/inventory
+  cross-checks, tamper re-verification.
+
 ## Unreleased (work/topclass-repo)
 
 - Top-class repo front door: rewritten README (badges, quickstart,

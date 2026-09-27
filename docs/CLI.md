@@ -31,10 +31,13 @@ vqs inventory path/to/Example.Report
 ## vqs measure
 
 Emit check-ready facts for a PBIR `*.Report` folder: text contrast,
-palette assignments, format-declaration cohorts, plus metric units and
-model bindings when `--model` points at a `*.SemanticModel` definition
-folder. Read-only; anything the sources cannot prove is omitted. Feed
-the output to `vqs check`.
+format-declaration cohorts, a per-page insight inventory (which visual
+delivers which measures/dimensions), duplicate-insight grain readings,
+and decomposition-tree/map best-practice bindings — plus metric units
+and model bindings when `--model` points at a `*.SemanticModel`
+definition folder. Read-only; anything the sources cannot prove is
+omitted (per-page palette assignments stay absent until explicit
+per-visual series colors are measured). Feed the output to `vqs check`.
 
 ```console
 vqs measure path/to/Example.Report
