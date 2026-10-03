@@ -3,7 +3,8 @@
 Usage: fake_modeling_mcp.py SCRIPT_JSON [REQUEST_LOG]
 SCRIPT_JSON: {"responses": {"<tool>/<operation>": <payload or
 {"__error__": {...}} | {"__raw__": "<line>"} |
-{"__sequence__": [<payload per call in order>]}>}, "sleep": <seconds>}
+{"__sequence__": [<payload per call in order>]} |
+{"__text__": "<verbatim content text>"}>}, "sleep": <seconds>}
 Responds to tools/call with MCP content blocks; logs every request to
 REQUEST_LOG when given. Never touches live models.
 """
@@ -75,6 +76,13 @@ def main() -> int:
                 continue
             if isinstance(scripted, dict) and "__raw__" in scripted:
                 sys.stdout.write(str(scripted["__raw__"]) + "\n")
+                sys.stdout.flush()
+                continue
+            if isinstance(scripted, dict) and "__text__" in scripted:
+                result = {"content": [{"type": "text",
+                                       "text": str(scripted["__text__"])}]}
+                sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": rid,
+                                             "result": result}) + "\n")
                 sys.stdout.flush()
                 continue
             if sleep:

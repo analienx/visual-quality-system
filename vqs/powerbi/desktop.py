@@ -40,7 +40,12 @@ def gate_bridge_version(version_text: str,
         return {"verdict": "blocked",
                 "reason": "Bridge version unparseable; refusing to run",
                 "observed": (version_text or "")[:120]}
-    if parsed < minimum:
+    have = tuple(parsed)
+    want = tuple(minimum)
+    span = max(len(have), len(want))
+    have += (0,) * (span - len(have))
+    want += (0,) * (span - len(want))
+    if have < want:
         return {"verdict": "blocked",
                 "reason": f"Bridge {'.'.join(map(str, parsed))} below "
                           f"minimum {'.'.join(map(str, minimum))}",
@@ -58,7 +63,9 @@ def desktop_spike_readiness() -> dict:
 
 
 def _canonical(path: str) -> str:
-    return os.path.normcase(os.path.normpath(path))
+    # Same normalization as capture._same_path so spike checks and
+    # captures agree on relative-vs-absolute spellings of one report.
+    return os.path.normcase(os.path.abspath(path))
 
 
 def check_target_match(opened_pid: int, opened_path: str,

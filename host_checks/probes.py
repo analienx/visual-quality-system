@@ -12,7 +12,14 @@ def probe_tools() -> dict[str, Any]:
     for name in ("pbir", "powerbi-desktop", "powerbi-modeling-mcp"):
         path = shutil.which(name)
         version = None
-        if path is not None and name != "powerbi-modeling-mcp":
+        entry: dict[str, Any] = {"path": path, "version": version,
+                                 "status": "present" if path else "missing"}
+        if name == "powerbi-modeling-mcp":
+            # No --version probe: stdio MCP servers answer tools/call, and
+            # live connectivity is proven per run via ListLocalInstances.
+            entry["version_note"] = ("version probe not attempted for "
+                                     "stdio MCP server")
+        elif path is not None:
             try:
                 completed = subprocess.run(
                     [path, "--version"], capture_output=True, text=True,
@@ -21,9 +28,9 @@ def probe_tools() -> dict[str, Any]:
                 completed = None
             if completed is not None and completed.returncode == 0:
                 lines = (completed.stdout + completed.stderr).strip()
-                version = lines.splitlines()[0][:120] if lines else None
-        tools[name] = {"path": path, "version": version,
-                       "status": "present" if path else "missing"}
+                entry["version"] = (lines.splitlines()[0][:120]
+                                    if lines else None)
+        tools[name] = entry
     return tools
 
 

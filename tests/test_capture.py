@@ -11,14 +11,50 @@ from vqs.cli import main as vqs_main
 from vqs.pbir import source_digest
 
 
+def _forward_filter(rows: list, channels: int, filt: int) -> bytes:
+    if filt == 0:
+        return b"".join(b"\x00" + row for row in rows)
+    out = b""
+    prev = bytes(len(rows[0]))
+    for row in rows:
+        out += bytes([filt])
+        filtered = bytearray(row)
+        for i in range(len(filtered)):
+            left = row[i - channels] if i >= channels else 0
+            up = prev[i]
+            upper_left = prev[i - channels] if i >= channels else 0
+            if filt == 1:
+                sub = left
+            elif filt == 2:
+                sub = up
+            elif filt == 3:
+                sub = (left + up) >> 1
+            elif filt == 4:
+                pick = left + up - upper_left
+                dist_left = abs(pick - left)
+                dist_up = abs(pick - up)
+                dist_corner = abs(pick - upper_left)
+                if dist_left <= dist_up and dist_left <= dist_corner:
+                    sub = left
+                elif dist_up <= dist_corner:
+                    sub = up
+                else:
+                    sub = upper_left
+            else:
+                sub = 0
+            filtered[i] = (filtered[i] - sub) & 0xFF
+        out += bytes(filtered)
+        prev = bytes(row)
+    return out
+
+
 def _write_png(path: Path, width: int = 500, height: int = 500,
-                 blank: bool = False) -> None:
+               blank: bool = False, filt: int = 0) -> None:
     ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
     first = b"\x00\x00\x00" if not blank else b"\x20\x60\xc0"
-    rest = b"\x20\x60\xc0" * width
-    rows = [b"\x00" + first + b"\x20\x60\xc0" * (width - 1)]
-    rows += [b"\x00" + rest for _ in range(height - 1)]
-    raw = b"".join(rows)
+    plain = [first + b"\x20\x60\xc0" * (width - 1)]
+    plain += [b"\x20\x60\xc0" * width for _ in range(height - 1)]
+    raw = _forward_filter(plain, 3, filt)
     payload = (b"\x89PNG\r\n\x1a\n"
                + struct.pack(">I", 13) + b"IHDR" + ihdr
                + struct.pack(">I", zlib.crc32(b"IHDR" + ihdr) & 0xFFFFFFFF)
@@ -75,6 +111,8 @@ def _stub(monkeypatch, report, instances, png_pages=("p1",)):
         return 0, ("Capturing page 1/1" + chr(10) + json.dumps(
             {"status": "ok", "screenshots": shots})
             + chr(10) + "Captured 1 page in 12s")
+    monkeypatch.setattr(capture.tempfile, "gettempdir",
+                        lambda: str(Path(report).parent / "vqs-leases"))
     monkeypatch.setattr(capture, "_bridge", fake_bridge)
 
 def test_capture_writes_manifest(tmp_path: Path, monkeypatch, capsys) -> None:

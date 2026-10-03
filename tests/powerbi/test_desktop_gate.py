@@ -1,6 +1,9 @@
 """Bridge version gate tests: proven minimum only, fail closed."""
+import os
+
 from vqs.powerbi.desktop import (
     MIN_BRIDGE_VERSION,
+    check_target_match,
     gate_bridge_version,
     parse_bridge_version,
 )
@@ -32,3 +35,17 @@ def test_gate_blocks_below_minimum_and_unparseable() -> None:
     assert unknown["observed"] == "Bridge version one"
     assert gate_bridge_version("", minimum=(2, 0, 0))["verdict"] == "blocked"
     assert gate_bridge_version("1.9.9", minimum=(2, 0, 0))["verdict"] == "blocked"
+
+
+def test_gate_pads_short_minimums() -> None:
+    assert gate_bridge_version("1.9.9", minimum=(2, 0))["verdict"] == "blocked"
+    assert gate_bridge_version("2.0.0", minimum=(2, 0))["verdict"] == "pass"
+    assert gate_bridge_version("2.0.1", minimum=(2,))["verdict"] == "pass"
+
+
+def test_target_match_accepts_relative_spelling(tmp_path) -> None:
+    target = tmp_path / "R.Report"
+    target.mkdir()
+    verdict = check_target_match(7, os.path.relpath(str(target)),
+                                 7, str(target))
+    assert verdict["verdict"] == "pass"

@@ -6,4 +6,7 @@ host_checks record-calibration`` turns operator-supplied canvas/PNG
 dimensions into a recorded scale-fit verdict (Q1). Nothing here opens,
 drives, or screenshots Desktop: calibration numbers come from an
 operator-run capture, and this module only judges them.
+
+Checkout-only operator tooling: host_checks ships in the source tree,
+not in built distributions (pyproject packages vqs* only).
 """

@@ -157,6 +157,85 @@ def test_readiness_blocks_on_empty_or_unstable(tmp_path: Path) -> None:
     assert "unstable" in ready["detail"]
 
 
+def test_readiness_countrows_first_named_table(tmp_path: Path) -> None:
+    client = _client(tmp_path, _connected({
+        "model_operations/GetStats": {"tables": ["Sales", "Costs"]},
+        "dax_query_operations/Execute": {"rows": [{"n": 42}]}}))
+    try:
+        ready = client.readiness(ModelingScope())
+    finally:
+        client.close()
+    assert ready["populated"] is True
+    assert ready["probe_table"] == "Sales"
+    assert ready["data_rows"] == 42
+    queries = [entry["request"]["query"] for entry in _logged(client)
+               if entry["request"].get("operation") == "Execute"]
+    assert queries == ["EVALUATE ROW(\"n\", COUNTROWS('Sales'))"] * 2
+
+
+def test_readiness_countrows_zero_or_nonnumeric_blocks(
+        tmp_path: Path) -> None:
+    stats = {"model_operations/GetStats": {"tables": ["Sales"]}}
+    client = _client(tmp_path, _connected({
+        **stats, "dax_query_operations/Execute": {"rows": [{"n": 0}]}}))
+    try:
+        ready = client.readiness(ModelingScope())
+    finally:
+        client.close()
+    assert ready["populated"] is False
+    assert "has no rows" in ready["detail"]
+    client = _client(tmp_path, _connected({
+        **stats, "dax_query_operations/Execute": {"rows": [{"n": "many"}]}}))
+    try:
+        ready = client.readiness(ModelingScope())
+    finally:
+        client.close()
+    assert ready["populated"] is False
+    assert "no number" in ready["detail"]
+
+
+def test_readiness_accepts_stats_shapes_honestly(tmp_path: Path) -> None:
+    listed = _connected({
+        "model_operations/GetStats": {"tables": [{"name": "T"}]},
+        "dax_query_operations/Execute": {"rows": [{"n": 7}]}})
+    client = _client(tmp_path, listed)
+    try:
+        ready = client.readiness(ModelingScope())
+    finally:
+        client.close()
+    assert ready["populated"] is True
+    assert ready["probe_table"] == "T"
+    declared = _connected({
+        "model_operations/GetStats": {"tables": 2, "tableNames": ["A"]},
+        "dax_query_operations/Execute": {"rows": [{"n": 1}]}})
+    client = _client(tmp_path, declared)
+    try:
+        ready = client.readiness(ModelingScope())
+    finally:
+        client.close()
+    assert ready["probe_table"] == "A"
+    for raw, shape in ((True, "bool"), ("x", "str"), (None, "NoneType")):
+        client = _client(tmp_path, _connected({
+            "model_operations/GetStats": {"tables": raw},
+            "dax_query_operations/Execute": {"rows": [{"ok": 1}]}}))
+        try:
+            ready = client.readiness(ModelingScope())
+        finally:
+            client.close()
+        assert ready["populated"] is False
+        assert ready["tables_shape"] == shape
+
+
+def test_query_scoped_rejects_non_json_answer(tmp_path: Path) -> None:
+    client = _client(tmp_path, _connected(
+        {"dax_query_operations/Execute": {"__text__": "GARBAGE"}}))
+    try:
+        with pytest.raises(ModelingError, match="non-JSON"):
+            client.query_scoped("EVALUATE T", ModelingScope())
+    finally:
+        client.close()
+
+
 def test_query_scoped_echoes_bound_context(tmp_path: Path) -> None:
     rows = [{"city": "Paris"}, {"city": "Lima"}]
     client = _client(tmp_path, _connected({

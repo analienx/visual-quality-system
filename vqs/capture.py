@@ -8,12 +8,13 @@ the exact missing piece: no binary, no instance, wrong report,
 unsaved changes, several instances without ``--pid``, missing or
 corrupt page PNGs.
 
-Manifest v2 additionally binds measured full-canvas calibration
-(PBIR canvas cross-checked against PNG pixels at the requested
-scale) and scoped data readiness (modeling-port row evidence queried
-twice). Capture refuses to manifest blank captures, partial canvas,
-below-minimum pixels, unproven data, pre/post drift (source, target,
-or readiness), stale staging, unsupported interactions, non-default
+Manifest v2 additionally binds a canvas-size fit (PNG dimensions equal
+PBIR canvas x scale; content coverage is NOT proven - a same-size
+viewport slice passes the size gate) and scoped data readiness
+(modeling-port row evidence queried twice). Capture refuses to manifest
+blank captures, canvas size mismatch, below-minimum pixels, unproven
+data, pre/post drift (source, target, or readiness), stale staging,
+unsupported interactions, non-default
 saved states, and mixed-size page sets. An exclusive per-PID lease
 serializes captures on one host. Set VQS_MODELING_AUTO=1 to attempt
 a live modeling connection; otherwise pass a modeling port explicitly
@@ -48,12 +49,15 @@ def _bridge(args: list[str], timeout: int) -> tuple[int, str]:
                 timeout=timeout, check=False)
         except OSError as exc:
             # Fallback for .bat/.cmd shims un-runnable without a shell.
-            # list2cmdline quotes whitespace, not metachars: refuse the
-            # shell when hostile output could have smuggled one in.
-            command = subprocess.list2cmdline([binary, *args])
-            if re.search(r'[&|^<>%!`$;\r\n]', command):
+            # Inspect argv, not the rendered command line: list2cmdline
+            # legitimately emits quotes around paths with spaces, so a
+            # quote in the rendering is not hostile - but a metachar in
+            # an argument means hostile output smuggled one in.
+            if any(re.search(r'[&|^<>%!`$;()"\x00-\x1f]', arg)
+                   for arg in args):
                 raise OSError("Refusing shell fallback on metacharacters: "
                               f"{' '.join(args)}") from exc
+            command = subprocess.list2cmdline([binary, *args])
             completed = subprocess.run(
                 command, capture_output=True, text=True,
                 timeout=timeout, check=False, shell=True)
@@ -103,6 +107,10 @@ def select_instance(report_dir: str, pid: int | None,
             raise LookupError("Several Desktop instances open; pass --pid. "
                               f"Open: {open_files}")
         instance = instances[0]
+    if (not isinstance(instance.get("pid"), int)
+            or isinstance(instance.get("pid"), bool)):
+        raise TypeError("Bridge did not report a numeric PID; "
+                        "refusing to capture")
     if not _same_path(str(instance.get("reportDir", "")), report_dir):
         raise LookupError(
             f"Desktop PID {instance.get('pid')} has "
@@ -147,9 +155,15 @@ def _require_fresh_staging(renders_path: Path) -> None:
 
 
 def _safe_page_id(page_id: str) -> str:
-    """Reject page ids that escape the renders dir as filenames."""
+    """Reject page ids that escape the renders dir as filenames.
+
+    Aligned with evidence.safe_render_name (leading dots, slashes,
+    backslashes, drive colons rejected) so a manifest accepted here is
+    never rejected downstream.
+    """
     if (not isinstance(page_id, str) or not page_id or page_id != page_id.strip()
-            or "/" in page_id or "\\" in page_id or page_id in (".", "..")):
+            or page_id.startswith(".") or "/" in page_id or "\\" in page_id
+            or ":" in page_id):
         raise OSError(f"Unsafe page id for evidence filename: {page_id!r}")
     return page_id
 
@@ -173,6 +187,8 @@ def _png_pixels(path: Path) -> tuple[int, int, bool]:
         if len(body) != size:
             raise ValueError("truncated PNG chunk")
         if kind == b"IHDR":
+            if len(body) != 13:
+                raise ValueError("invalid PNG header length")
             (width, height, depth, color, _comp, _filt,
              interlace) = struct.unpack(">IIBBBBB", body)
         elif kind == b"IDAT":
@@ -185,6 +201,8 @@ def _png_pixels(path: Path) -> tuple[int, int, bool]:
         raise ValueError("unsupported PNG pixel format for blank detection")
     if interlace != 0:
         raise ValueError("interlaced PNG is unsupported for blank detection")
+    if height * (width * channels + 1) > 256 * 1024 * 1024:
+        raise ValueError("PNG pixel budget exceeded; refusing to inflate")
     try:
         inflated = zlib.decompress(raw_idat)
     except zlib.error as exc:
@@ -288,6 +306,7 @@ def capture(report: str, renders: str, pid: int | None = None,
     ``calibration`` always and ``data_readiness`` when a modeling port
     proves it.
     """
+    from .evidence import load as load_json
     from .evidence import png_size
     from .pbir import report_context, source_digest
     from .powerbi.modeling import ModelingScope, compare_scope
@@ -301,6 +320,10 @@ def capture(report: str, renders: str, pid: int | None = None,
     bridge_version = _require_bridge()
     report_path = Path(report)
     try:
+        precheck = load_json(report_path / "definition" / "pages"
+                             / "pages.json")
+        for raw_id in precheck["pageOrder"]:
+            _safe_page_id(raw_id)
         info = report_context(report_path)
         expected = [page["id"] for page in info["pages"]]
         sizes = {page["id"]: ((page.get("canvas") or [None, None])[0],
@@ -349,6 +372,8 @@ def capture(report: str, renders: str, pid: int | None = None,
                     roles=tuple(expected_scope.get("roles", []) or []),
                     filters=expected_scope.get("filters"),
                     period=expected_scope.get("period"))
+                # Source binding is enforced by the pre/post source_digest
+                # equality check, not by compare_scope (see its docstring).
                 mismatched = compare_scope(
                     wanted, readiness_before.get("scope_echo", {}))
                 if mismatched:
@@ -367,11 +392,15 @@ def capture(report: str, renders: str, pid: int | None = None,
             if not readiness_after.get("populated"):
                 raise OSError("Data not populated after capture: "
                               f"{readiness_after.get('detail', 'no rows')}")
-            assert readiness_before is not None
-            if (readiness_after.get("rowcount")
-                    != readiness_before.get("rowcount")
-                    or readiness_after.get("query_hash")
-                    != readiness_before.get("query_hash")):
+            if readiness_before is None:
+                raise OSError("Readiness evidence missing; no manifest written")
+            for key in ("rowcount", "query_hash"):
+                if key not in readiness_after or key not in readiness_before:
+                    raise OSError("Readiness evidence incomplete; "
+                                  "no manifest written")
+            if (readiness_after["rowcount"] != readiness_before["rowcount"]
+                    or readiness_after["query_hash"]
+                    != readiness_before["query_hash"]):
                 raise OSError("Data changed during capture; no manifest written")
         recheck = select_instance(str(report_path), instance["pid"],
                                   wait_seconds)
@@ -389,15 +418,21 @@ def capture(report: str, renders: str, pid: int | None = None,
                 missing.append(page_id)
                 continue
             source = Path(raw)
+            if renders_path.resolve() not in source.resolve().parents:
+                raise OSError("Bridge screenshot outside output dir: "
+                              f"{raw[:200]}")
             if source.resolve() != target.resolve():
                 os.replace(source, target)
             try:
                 png_size(target)
                 width, height, uniform = _png_pixels(target)
             except (ValueError, OSError) as exc:
-                raise OSError(f"Corrupt capture for {page_id}: {exc}") from exc
+                kind = ("Unsupported capture"
+                        if "unsupported" in str(exc).lower()
+                        else "Corrupt capture")
+                raise OSError(f"{kind} for {page_id}: {exc}") from exc
             if (width, height) != (canvas_width * scale, canvas_height * scale):
-                raise OSError(f"Partial canvas for {page_id}: expected "
+                raise OSError(f"Canvas size mismatch for {page_id}: expected "
                               f"{canvas_width * scale}x{canvas_height * scale}, "
                               f"got {width}x{height}")
             if min(width, height) < MIN_REVIEWABLE_PIXELS:
@@ -435,16 +470,21 @@ def capture(report: str, renders: str, pid: int | None = None,
             "calibration": {
                 "canvas_width": canvas_width, "canvas_height": canvas_height,
                 "scale": scale,
-                "viewport": f"{first_pixels[0]}x{first_pixels[1]}",
-                "method": "pbir-canvas-png-pixels-crosscheck"},
+                "png_pixels": f"{first_pixels[0]}x{first_pixels[1]}",
+                "method": "pbir-canvas-png-size-crosscheck"},
         }
         if port is not None:
-            assert readiness_before is not None
+            if readiness_before is None:
+                raise OSError("Readiness evidence missing; no manifest written")
             manifest["data_readiness"] = {
-                "populated": True,
+                "populated": bool(readiness_before.get("populated")),
                 "method": readiness_before.get(
                     "method", "modeling-mcp:repeat-query"),
-                "scope": readiness_before.get("scope_echo", {})}
+                "scope": readiness_before.get("scope_echo", {}),
+                "rowcount": readiness_before.get("rowcount"),
+                "query_hash": readiness_before.get("query_hash"),
+                "probe_table": readiness_before.get("probe_table"),
+                "data_rows": readiness_before.get("data_rows")}
             manifest["modeling"] = {"status": "ready"}
         else:
             manifest["modeling"] = {

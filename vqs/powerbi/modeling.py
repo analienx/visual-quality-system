@@ -65,9 +65,13 @@ class ModelingPort(Protocol):
         ...  # pragma: no cover - protocol
 
 
+_request_id_lock = threading.Lock()
+
+
 def _request_id() -> str:
-    _request_id.counter += 1
-    return f"vqs-{_request_id.counter}"
+    with _request_id_lock:
+        _request_id.counter += 1
+        return f"vqs-{_request_id.counter}"
 
 
 _request_id.counter = 0
@@ -163,15 +167,32 @@ class StdioModelingClient:
             raise ModelingError(f"modeling {tool} returned empty content")
         try:
             return json.loads(text)
-        except ValueError:
-            return {"text": text}
+        except ValueError as exc:
+            raise ModelingError(
+                f"modeling {tool} returned non-JSON content: {text[:200]}"
+            ) from exc
 
     def _kill(self) -> None:
+        # Order matters: kill and reap first (this EOFs the pipes and
+        # releases any thread blocked in readline), close handles after.
+        # Closing a pipe with a pending blocking read hangs on Windows.
         process, self._process = self._process, None
-        if process is not None and process.poll() is None:
+        if process is None:
+            return
+        if process.poll() is None:
             try:
                 process.kill()
             except OSError:
+                pass
+        try:
+            process.wait(timeout=5)
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            pass
+        for stream in (process.stdin, process.stdout):
+            try:
+                if stream is not None:
+                    stream.close()
+            except (OSError, ValueError):
                 pass
 
     def close(self) -> None:
@@ -248,34 +269,56 @@ class StdioModelingClient:
         return rows if isinstance(rows, list) else []
 
     def readiness(self, scope: ModelingScope) -> dict[str, Any]:
-        """Prove populated + repeatable: stats plus a twice-run probe query."""
+        """Prove populated + repeatable: stats plus a twice-run probe query.
+
+        When GetStats names tables, the probe COUNTROWS the first table
+        twice: equal counts above zero prove data, not just a live engine.
+        Otherwise the constant probe only proves the engine answers
+        repeatably (probe_table None says so honestly); rowcount is probe
+        rows, data_rows the counted data rows or None.
+        """
         if self._model is None:
             self.connect()
         stats = self._stats()
-        tables = stats.get("tables", stats.get("tableCount", 0))
-        if not isinstance(tables, int) or tables <= 0:
-            return {"populated": False, "method": "modeling-mcp:repeat-query",
-                    "scope_echo": scope.as_dict(),
+        count, names, shape = _table_inventory(stats)
+        base: dict[str, Any] = {"method": "modeling-mcp:repeat-query",
+                                "scope_echo": scope.as_dict(),
+                                "probe_table": names[0] if names else None,
+                                "tables_shape": shape}
+        if count <= 0:
+            return {"populated": False, **base,
                     "detail": "model reports no tables"}
-        probe = 'EVALUATE ROW("ok", 1)'
+        probe_table = names[0] if names else None
+        if probe_table is None:
+            probe = 'EVALUATE ROW("ok", 1)'
+        else:
+            quoted = probe_table.replace("'", "''")
+            probe = f"EVALUATE ROW(\"n\", COUNTROWS('{quoted}'))"
         first = self._rows_of(self._execute(probe, scope, 10))
         second = self._rows_of(self._execute(probe, scope, 10))
-        if not first:
-            return {"populated": False,
-                    "method": "modeling-mcp:repeat-query",
-                    "scope_echo": scope.as_dict(),
-                    "detail": "probe query returned no rows"}
         if first != second:
-            return {"populated": False,
-                    "method": "modeling-mcp:repeat-query",
-                    "scope_echo": scope.as_dict(),
+            return {"populated": False, **base,
                     "detail": "probe answers unstable across repeats"}
+        data_rows: int | None = None
+        if probe_table is None:
+            if not first:
+                return {"populated": False, **base,
+                        "detail": "probe query returned no rows"}
+        else:
+            data_rows = _count_of(first)
+            if data_rows is None:
+                return {"populated": False, **base,
+                        "detail": f"COUNTROWS probe on '{probe_table}' "
+                                  "returned no number"}
+            if data_rows <= 0:
+                return {"populated": False, **base,
+                        "detail": f"table '{probe_table}' has no rows"}
         row_text = json.dumps(first, sort_keys=True, ensure_ascii=False,
                               default=str)
         echo = scope.as_dict()
         echo["model"] = echo.get("model") or self._model
-        return {"populated": True, "method": "modeling-mcp:repeat-query",
-                "scope_echo": echo, "rowcount": len(first),
+        return {"populated": True, **base, "scope_echo": echo,
+                "rowcount": len(first), "data_rows": data_rows,
                 "query_hash": hashlib.sha256(row_text.encode("utf-8")
                                              ).hexdigest()}
 
@@ -293,6 +336,46 @@ class StdioModelingClient:
         context["query_sha256"] = hashlib.sha256(
             dax.encode("utf-8")).hexdigest()
         return {"rows": rows, "rowcount": len(rows), "context": context}
+
+
+def _table_inventory(stats: dict[str, Any]) -> tuple[int, list[str], str]:
+    """(table count, table names, observed shape) across GetStats shapes."""
+    raw = stats.get("tables", stats.get("tableCount", 0))
+    shape = type(raw).__name__
+    names: list[str] = []
+    if isinstance(raw, bool):
+        count = 0
+    elif isinstance(raw, int):
+        count = max(raw, 0)
+    elif isinstance(raw, list):
+        count = len(raw)
+        for entry in raw:
+            if isinstance(entry, str) and entry:
+                names.append(entry)
+            elif (isinstance(entry, dict)
+                    and isinstance(entry.get("name"), str)
+                    and entry["name"]):
+                names.append(entry["name"])
+    elif (isinstance(raw, dict) and isinstance(raw.get("count"), int)
+            and not isinstance(raw.get("count"), bool)):
+        count = max(raw["count"], 0)
+    else:
+        count = 0
+    if not names:
+        declared = stats.get("tableNames", [])
+        if isinstance(declared, list):
+            names = [n for n in declared if isinstance(n, str) and n]
+    return count, names, shape
+
+
+def _count_of(rows: list[Any]) -> int | None:
+    """The single number of a COUNTROWS probe answer, else None."""
+    if len(rows) != 1 or not isinstance(rows[0], dict) or len(rows[0]) != 1:
+        return None
+    value = next(iter(rows[0].values()))
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return int(value)
 
 
 def _first_key(mapping: dict[str, Any], *names: str) -> Any:
@@ -327,7 +410,12 @@ def scope_from_dict(data: Any) -> ModelingScope:
 
 def compare_scope(expected: ModelingScope,
                   actual: dict[str, Any]) -> list[str]:
-    """Names of bound scope fields that differ (model/roles/filters/period)."""
+    """Names of bound scope fields that differ (model/roles/filters/period).
+
+    source_sha256 is deliberately NOT compared here: source binding is
+    enforced by capture's pre/post source_digest equality check, while
+    this compares live-model scope only.
+    """
     mismatches = []
     if expected.model is not None and actual.get("model") != expected.model:
         mismatches.append("model")
