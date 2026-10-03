@@ -1,10 +1,10 @@
 """Page-insight inventory emitter: what each page delivers, per visual.
 
-Walks a ``*.Report`` folder and records, for every page and visual, the
-bound measures, dimensions, and query roles straight from PBIR
-``queryState`` projections — the machine-readable "what insight lives
-where" record. An optional ``*.SemanticModel`` definition dir adds
-TMDL ``dataCategory`` values so map rules can prove (or fail to prove)
+Walks a ``*.Report`` folder through the unified PBIR reader and records,
+for every page and visual, the bound measures, dimensions, and query roles
+straight from PBIR ``queryState`` projections — the machine-readable "what
+insight lives where" record. An optional ``*.SemanticModel`` definition dir
+adds TMDL ``dataCategory`` values so map rules can prove (or fail to prove)
 geographic bindings. Read-only; anything unproven stays ``None`` or is
 omitted, never inferred.
 
@@ -12,55 +12,27 @@ Shapes here are grounded in real PBIR: decomposition trees expose
 ``Analyze``/``ExplainBy`` roles, maps expose ``Category``/``Size``,
 titles live under ``visualContainerObjects.title``. Unknown roles and
 field kinds are carried through as unclassified facts, not guessed.
-Geometry (PBIR ``position`` blocks) and map label configuration are
-measured the same way: present numbers and literals only.
+Geometry (PBIR ``position`` blocks incl. ``z`` layering) and map label
+configuration are measured the same way: finite numbers and literals
+only — NaN/Infinity prove no geometry. Filters count at visual, page, and report scope. Bookmark snapshots
+(name, targets, active section, filter entities, groups) and per-page
+visual interactions are exposed as static facts for repair invariants;
+only their live *effects* still need Desktop behavior.
 """
 from __future__ import annotations
 
-import glob
-import json
-import os
-import re
+import math
 
 TREE_TYPE = "decompositiontreevisual"
 MAP_TYPES = frozenset({"map", "filledmap", "shapemap", "azuremap", "arcgismap"})
 
-# PBIR filter entries carrying only these keys prove no restriction, so
-# they cannot differentiate two visuals' numbers. Any extra key (values,
-# conditions, operators, ...) means the filter may restrict rows.
-_FILTER_STRUCTURAL_KEYS = frozenset({"name", "field", "type"})
 
-
-def _read_json(path: str) -> dict | None:
-    try:
-        with open(path, encoding="utf-8-sig") as handle:
-            data = json.load(handle)
-    except (OSError, ValueError):
+def _finite(value: object) -> float | None:
+    """Finite PBIR numbers; bools, strings, NaN, and infinities never qualify."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
-    return data if isinstance(data, dict) else None
-
-
-def _pages(report_dir: str) -> list[dict]:
-    found = []
-    for path in sorted(glob.glob(os.path.join(
-            report_dir, "definition", "pages", "*", "page.json"))):
-        page = _read_json(path)
-        if page is not None:
-            page["_dir"] = os.path.basename(os.path.dirname(path))
-            found.append(page)
-    return found
-
-
-def _visuals(report_dir: str, page_dir: str) -> list[dict]:
-    found = []
-    pattern = os.path.join(report_dir, "definition", "pages", page_dir,
-                           "visuals", "*", "visual.json")
-    for path in sorted(glob.glob(pattern)):
-        visual = _read_json(path)
-        if visual is not None:
-            visual["_id"] = os.path.basename(os.path.dirname(path))
-            found.append(visual)
-    return found
+    number = float(value)
+    return number if math.isfinite(number) else None
 
 
 def _title(node: dict) -> str | None:
@@ -89,10 +61,10 @@ def _slot_text(slot: object, *keys: str) -> str:
     return node if isinstance(node, str) else ""
 
 
-def _dotted(field: dict) -> tuple[str | None, str | None]:
-    """Split a projection field into (kind, Entity.Property ref)."""
+def _ref_parts(field: dict) -> tuple[str | None, str | None, str | None]:
+    """Split a projection field into (kind, entity, property)."""
     if not isinstance(field, dict):
-        return None, None
+        return None, None, None
     for kind in ("Measure", "Column"):
         slot = field.get(kind)
         if not isinstance(slot, dict):
@@ -100,26 +72,29 @@ def _dotted(field: dict) -> tuple[str | None, str | None]:
         entity = _slot_text(slot, "Expression", "SourceRef", "Entity")
         prop = _slot_text(slot, "Property")
         if entity and prop:
-            return kind, f"{entity}.{prop}"
-        return kind, None
-    return None, None
+            return kind, entity, prop
+        return kind, None, None
+    return None, None, None
 
 
-def _query_fields(node: dict) -> dict[str, dict[str, list[str]]]:
+def _query_fields(node: dict) -> dict[str, dict[str, list]]:
     """Map each query role to its measure/dimension/field refs.
 
     Refs whose field shape is unknown keep their ``queryRef`` label under
     ``fields`` so grain rules can see something is bound without guessing
-    its kind.
+    its kind. Dotted refs keep the historical ``Entity.Property`` string
+    form; structured ``*_structured`` lists preserve entity/property
+    separately so dotted table names never mis-split downstream.
     """
-    roles: dict[str, dict[str, list[str]]] = {}
+    roles: dict[str, dict[str, list]] = {}
     state = node.get("query", {})
     state = state.get("queryState", {}) if isinstance(state, dict) else {}
     if not isinstance(state, dict):
         return roles
     for role, content in state.items():
         slot = roles.setdefault(role, {"measures": [], "dimensions": [],
-                                       "fields": []})
+                                       "fields": [], "measures_structured": [],
+                                       "dimensions_structured": []})
         if not isinstance(content, dict):
             continue
         projections = content.get("projections", [])
@@ -128,27 +103,32 @@ def _query_fields(node: dict) -> dict[str, dict[str, list[str]]]:
         for projection in projections:
             if not isinstance(projection, dict):
                 continue
-            kind, dotted = _dotted(projection.get("field", {}))
+            kind, entity, prop = _ref_parts(projection.get("field", {}))
             label = (projection.get("queryRef")
                      or projection.get("query_ref")
                      or projection.get("nativeQueryRef"))
-            if kind == "Measure" and dotted:
-                slot["measures"].append(dotted)
-            elif kind == "Column" and dotted:
-                slot["dimensions"].append(dotted)
+            if kind == "Measure" and entity and prop:
+                slot["measures"].append(f"{entity}.{prop}")
+                slot["measures_structured"].append({"entity": entity,
+                                                   "property": prop})
+            elif kind == "Column" and entity and prop:
+                slot["dimensions"].append(f"{entity}.{prop}")
+                slot["dimensions_structured"].append({"entity": entity,
+                                                     "property": prop})
             elif isinstance(label, str) and label:
                 slot["fields"].append(label)
     return roles
 
 
-def _valued_filters(visual: dict) -> int:
-    """Count visual-level filters that may restrict rows.
+# PBIR filter entries carrying only these keys prove no restriction, so
+# they cannot differentiate two visuals' numbers. Any extra key (values,
+# conditions, operators, ...) means the filter may restrict rows.
+_FILTER_STRUCTURAL_KEYS = frozenset({"name", "field", "type"})
 
-    Entries with only structural keys (name/field/type) prove no
-    restriction — typically field bookkeeping or cleared filters — and
-    do not count. Anything richer may change the numbers.
-    """
-    config = visual.get("filterConfig", {})
+
+def _valued_filters_in(doc: dict) -> int:
+    """Count valued filters in one filterConfig-bearing document."""
+    config = doc.get("filterConfig", {})
     filters = config.get("filters", []) if isinstance(config, dict) else []
     if not isinstance(filters, list):
         return 0
@@ -161,59 +141,115 @@ def _valued_filters(visual: dict) -> int:
     return count
 
 
+def _bookmark_filter_entities(doc: dict) -> tuple[list[str], bool]:
+    """Entity names a bookmark snapshot filters; (entities, malformed).
+
+    Each filter group list is guarded independently: one malformed key
+    never crashes the inventory and never hides the well-formed half.
+    """
+    state = doc.get("explorationState", {})
+    filters = state.get("filters", {}) if isinstance(state, dict) else {}
+    if not isinstance(filters, dict):
+        return [], True
+    entities: set[str] = set()
+    malformed = False
+    for key in ("byExpr", "byColumn"):
+        part = filters.get(key, [])
+        if not isinstance(part, list):
+            malformed = True
+            continue
+        for group in part:
+            if not isinstance(group, dict):
+                continue
+            expr = group.get("expression", {})
+            if not isinstance(expr, dict):
+                continue
+            for kind in ("Column", "Measure"):
+                slot = expr.get(kind, {})
+                name = _slot_text(slot, "Expression", "SourceRef", "Entity")
+                if name:
+                    entities.add(name)
+    return sorted(entities), malformed
+
+
+def _bookmark_facts(found: dict) -> tuple[list[dict], list[dict]]:
+    """Shape bookmark snapshots + groups for repair invariants.
+
+    Identity falls back to the file key when ``name`` is missing (the
+    reader records the gap); nothing is inferred beyond the snapshot.
+    Malformed filter shapes yield an issue plus the proven entities,
+    never a crash.
+    """
+    groups: dict[str, str] = {}
+    for group in found.get("bookmark_groups", []) or []:
+        if not isinstance(group, dict):
+            continue
+        gid = group.get("name", "")
+        gname = group.get("displayName", gid)
+        label = gname if isinstance(gname, str) else gid
+        children = group.get("children", [])
+        for child in children if isinstance(children, list) else []:
+            if isinstance(child, dict) and child.get("name"):
+                groups[child["name"]] = label
+    facts = []
+    issues = []
+    for key in sorted(found.get("bookmarks", {}) or {}):
+        doc = found["bookmarks"][key]
+        name = doc.get("name") if isinstance(doc.get("name"), str) else key
+        display = doc.get("displayName")
+        options = doc.get("options", {})
+        targets = options.get("targetVisualNames", []) if isinstance(
+            options, dict) else []
+        state = doc.get("explorationState", {})
+        section = state.get("activeSection") if isinstance(state, dict) else None
+        entities, malformed = _bookmark_filter_entities(doc)
+        if malformed:
+            issues.append({"rule": "bookmark_filters_unsupported",
+                           "bookmark": name})
+        facts.append({
+            "id": name,
+            "display_name": display if isinstance(display, str) else None,
+            "target_visuals": targets if isinstance(targets, list) else [],
+            "active_section": section if isinstance(section, str) else None,
+            "filter_entities": entities,
+            "group": groups.get(name)})
+    return facts, issues
+
+
 def _column_categories(model_dir: str) -> dict[tuple[str, str], str]:
     """Map (table, column) to TMDL dataCategory, exact and folded keys."""
+    from vqs.data.tmdl import inventory_model
+
     categories: dict[tuple[str, str], str] = {}
-    pattern = os.path.join(model_dir, "**", "*.tmdl")
-    for path in sorted(glob.glob(pattern, recursive=True)):
-        try:
-            with open(path, encoding="utf-8-sig") as handle:
-                text = handle.read()
-        except OSError:
-            continue
-        table = re.search(r"^table '(.+)'$", text, re.MULTILINE)
-        if table is None:
-            table = re.search(r"^table (\S+)$", text, re.MULTILINE)
-        if table is None:
-            continue
-        name = table.group(1)
-        blocks = re.finditer(
-            r"^\tcolumn ('([^']+)'|([^\s=]+))(.*?)(?=^\t\S|\Z)",
-            text, re.MULTILINE | re.DOTALL)
-        for match in blocks:
-            column = match.group(2) or match.group(3)
-            found = re.search(r"dataCategory: (\S+)\s*$", match.group(4),
-                              re.MULTILINE)
-            if found:
-                value = found.group(1).strip().strip("'\"")
-                categories[(name, column)] = value
-                categories[(name.casefold(), column.casefold())] = value
+    inventory = inventory_model(model_dir)
+    for table, content in inventory.get("tables", {}).items():
+        props = content.get("column_props", {})
+        for column, values in props.items():
+            found = values.get("dataCategory")
+            if isinstance(found, str) and found.strip():
+                value = found.strip().strip("'\"")
+                categories[(table, column)] = value
+                categories[(table.casefold(), column.casefold())] = value
     return categories
 
 
-def _number(value: object) -> float | None:
-    """PBIR position/size numbers; bools and strings never qualify."""
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return None
-    return float(value)
-
-
 def _geometry(visual: dict) -> dict | None:
-    """Position rect, or None when the visual proves no geometry."""
+    """Position rect incl. z layer, or None when the visual proves none."""
     pos = visual.get("position", {})
     if not isinstance(pos, dict):
         return None
-    rect = {key: _number(pos.get(key))
-            for key in ("x", "y", "width", "height")}
+    rect = {key: _finite(pos.get(key)) for key in ("x", "y", "width", "height")}
     if any(v is None for v in rect.values()):
         return None
     if rect["width"] < 0 or rect["height"] < 0:
         return None
+    z_value = _finite(pos.get("z"))
+    rect["z"] = z_value if z_value is not None else 0.0
     return rect
 
 
 def _page_size(page: dict) -> dict | None:
-    width, height = _number(page.get("width")), _number(page.get("height"))
+    width, height = _finite(page.get("width")), _finite(page.get("height"))
     if width is None or height is None or width <= 0 or height <= 0:
         return None
     return {"width": width, "height": height}
@@ -242,23 +278,50 @@ def page_insights(report_dir: str, model_dir: str | None = None) -> dict:
     declare any format objects), ``visuals`` (flat grain list for the
     duplication rules), ``trees`` (decomposition-tree bindings),
     ``maps`` (map-family location bindings with model categories and
-    label facts), ``layout`` (flat geometry list for the overlap rule),
-    and ``page_bounds`` (per-page sizes with member geometry).
+    label facts), ``layout`` (flat geometry list with z layers for the
+    overlap rule), ``page_bounds`` (per-page sizes with member geometry),
+    ``bookmarks`` (snapshot id, targets, active section, filter entities,
+    group), per-page ``interactions`` (raw visualInteractions), and
+    ``coverage`` (parse issues plus parsed counts; malformed files
+    are skipped with issues, never silently and never crashing).
+    ``filter_scopes`` carries visual/page/report valued-filter counts;
+    ``valued_filters`` stays visual+page because a report-level filter
+    restricts every visual equally and cannot differentiate a pair.
     Raises OSError when the report folder is unreadable.
     """
+    import os
+
+    from vqs.data.tmdl import split_table_field
+    from vqs.pbir import read_report_files
+
     if not os.path.isdir(report_dir):
         raise OSError(f"report folder not found: {report_dir}")
+    found = read_report_files(report_dir)
+    if any(issue["rule"] == "report_unreadable" for issue in found["issues"]):
+        raise OSError(f"report folder not found: {report_dir}")
+    report_doc = found.get("report")
+    report_filters = (_valued_filters_in(report_doc)
+                      if isinstance(report_doc, dict) else 0)
+    extra_issues: list[dict] = []
     categories = _column_categories(model_dir) if model_dir else {}
+    known_tables = {table for table, _ in categories}
     pages = []
     visuals = []
     trees = []
     maps = []
     layout = []
     page_bounds = []
-    for page in _pages(report_dir):
+    for page_id in found["order"]:
+        page = found["pages"].get(page_id)
+        if page is None:
+            continue
         display = page.get("displayName")
+        page_filters = _valued_filters_in(page)
         entries = []
-        for visual in _visuals(report_dir, page["_dir"]):
+        for (pid, visual_id) in sorted(found["visuals"]):
+            if pid != page_id:
+                continue
+            visual = found["visuals"][(pid, visual_id)]
             node = visual.get("visual", {})
             if not isinstance(node, dict):
                 continue
@@ -269,7 +332,7 @@ def page_insights(report_dir: str, model_dir: str | None = None) -> dict:
             dimensions = sorted({ref for role in roles.values()
                                  for ref in role["dimensions"]})
             objects = node.get("objects", {})
-            entry = {"visual": visual["_id"], "type": visual_type,
+            entry = {"visual": visual_id, "type": visual_type,
                      "title": _title(node), "measures": measures,
                      "dimensions": dimensions, "roles": roles,
                      "customized": isinstance(objects, dict)
@@ -277,13 +340,17 @@ def page_insights(report_dir: str, model_dir: str | None = None) -> dict:
             entries.append(entry)
             rect = _geometry(visual)
             if rect is not None:
-                layout.append({"page": page["_dir"], "visual": visual["_id"],
-                               **rect})
+                layout.append({"page": page_id, "visual": visual_id,
+                               "bound": bool(measures or dimensions), **rect})
+            visual_filters = _valued_filters_in(visual)
             if measures or dimensions:
-                visuals.append({"page": page["_dir"], "visual": visual["_id"],
+                visuals.append({"page": page_id, "visual": visual_id,
                                 "type": visual_type, "measures": measures,
                                 "dimensions": dimensions,
-                                "valued_filters": _valued_filters(visual)})
+                                "valued_filters": visual_filters + page_filters,
+                                "filter_scopes": {"visual": visual_filters,
+                                                  "page": page_filters,
+                                                  "report": report_filters}})
             # Tree/map classification is independent of parseable refs: a
             # tree or map with no bindings is a broken visual the rules
             # must see (missing_analyze / no_location_field), not a skip.
@@ -291,7 +358,7 @@ def page_insights(report_dir: str, model_dir: str | None = None) -> dict:
             if folded == TREE_TYPE:
                 lowered = {role.casefold(): refs
                            for role, refs in roles.items()}
-                trees.append({"page": page["_dir"], "visual": visual["_id"],
+                trees.append({"page": page_id, "visual": visual_id,
                               "analyze": sorted(
                                   lowered.get("analyze", {}).get(
                                       "measures", [])),
@@ -308,27 +375,46 @@ def page_insights(report_dir: str, model_dir: str | None = None) -> dict:
                     table, _, column = ref.partition(".")
                     hit = categories.get((table, column))
                     if hit is None:
+                        table_guess, column_guess = split_table_field(
+                            ref, {t: True for t in known_tables})
+                        if table_guess and column_guess:
+                            hit = categories.get((table_guess, column_guess))
+                    if hit is None:
                         hit = categories.get(
                             (table.casefold(), column.casefold()))
                     resolved[ref] = hit
-                maps.append({"page": page["_dir"], "visual": visual["_id"],
+                maps.append({"page": page_id, "visual": visual_id,
                              "type": visual_type, "locations": locations,
                              "categories": resolved,
                              **_label_facts(node)})
-        pages.append({"page": page["_dir"],
+        raw_interactions = page.get("visualInteractions", [])
+        if raw_interactions is None:
+            raw_interactions = []
+        if not isinstance(raw_interactions, list):
+            extra_issues.append({"rule": "interactions_unsupported",
+                                 "page": page_id})
+            raw_interactions = []
+        pages.append({"page": page_id,
                       "display_name": display if isinstance(display, str)
                       else None,
-                      "visuals": entries})
+                      "visuals": entries,
+                      "interactions": raw_interactions})
         size = _page_size(page)
         members = [{"visual": v["visual"], "x": v["x"], "y": v["y"],
                     "width": v["width"], "height": v["height"]}
-                   for v in layout if v["page"] == page["_dir"]]
+                   for v in layout if v["page"] == page_id]
         if members:
             # Pages without a measurable size stay in the list with null
             # bounds so the rule reports unknown instead of passing blind.
             size = size if size is not None else {"width": None,
                                                  "height": None}
-            page_bounds.append({"page": page["_dir"], **size,
+            page_bounds.append({"page": page_id, **size,
                                 "visuals": members})
+    bookmark_facts, bookmark_issues = _bookmark_facts(found)
+    coverage = {"issues": [*found["issues"], *extra_issues,
+                              *bookmark_issues],
+                "parsed_pages": len(pages),
+                "parsed_visuals": sum(len(p["visuals"]) for p in pages)}
     return {"pages": pages, "visuals": visuals, "trees": trees,
-            "maps": maps, "layout": layout, "page_bounds": page_bounds}
+            "maps": maps, "layout": layout, "page_bounds": page_bounds,
+            "bookmarks": bookmark_facts, "coverage": coverage}

@@ -194,8 +194,10 @@ def test_geometry_and_label_facts(tmp_path: Path) -> None:
         "visual": {"visualType": "textbox", "objects": {}}}),
         encoding="utf-8")
     inventory = page_insights(str(tmp_path))
-    assert inventory["layout"] == [{"page": "P1", "visual": "mapx", "x": 0.0,
-                                    "y": 0.0, "width": 100.0, "height": 100.0}]
+    assert inventory["layout"] == [{"page": "P1", "visual": "mapx",
+                                    "bound": True, "x": 0.0, "y": 0.0,
+                                    "width": 100.0, "height": 100.0,
+                                    "z": 0.0}]
     assert inventory["page_bounds"] == [{"page": "P1", "width": 1280.0,
                                          "height": 720.0, "visuals": [
                                              {"visual": "mapx", "x": 0.0,

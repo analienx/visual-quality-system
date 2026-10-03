@@ -10,10 +10,16 @@ REPORT = str(FIXTURES / "mini_report")
 MODEL = str(FIXTURES / "mini_model" / "definition")
 
 
-def test_contrast_picks_weakest_text_run_pair() -> None:
+def test_contrast_exposes_every_text_run_reading() -> None:
+    # GOAL 10 (fact side): the emitter pairs every honestly-resolvable
+    # text run with its own page background -- majority and minority
+    # alike -- instead of collapsing to one weakest pair.
     rules = measure_report(REPORT)["rules"]
-    assert rules["typography.text_contrast"] == {"foreground": "#52617A",
-                                                 "background": "#FFFFFF"}
+    assert rules["typography.text_contrast"] == {"readings": [
+        {"foreground": "#52617A", "background": "#FFFFFF", "page": "P1",
+         "role": "subtitle", "count": 1},
+        {"foreground": "#101828", "background": "#FFFFFF", "page": "P1",
+         "role": "title", "count": 1}]}
 
 
 def test_palette_omitted_without_declared_series_colors() -> None:
@@ -65,13 +71,26 @@ def test_missing_theme_omits_theme_rules(tmp_path: Path) -> None:
     assert "typography.format_declaration_consistency" in rules
 
 
-def test_emitted_facts_pass_pipeline_shape(tmp_path: Path) -> None:
+def test_emitted_facts_block_honestly_before_pipeline_wiring(
+        tmp_path: Path) -> None:
+    # The facts lane emits readings-shaped contrast; the base pipeline
+    # (CLI/MCP lane, read-only here) still invokes the rule with the
+    # legacy single pair, so the rule honestly reports unknown/blocked
+    # instead of passing blind. All other emitted facts evaluate.
     from vqs.pipeline import run_check
     facts = measure_report(REPORT, MODEL)
     facts["rules"].pop("typography.format_declaration_consistency")
     result = run_check(facts, tmp_path, run_id="emitter-shape")
-    assert result["verdict"] == "pass"
+    assert result["verdict"] == "blocked"
     assert result["findings"]
+    by_check = {item["check"]: item for item in result["findings"]}
+    contrast = by_check["typography.text_contrast"]
+    assert contrast["status"] == "blocked"
+    assert contrast["detail"]["status"] == "unknown"
+    assert contrast["detail"]["evidence"]["reason"] == (
+        "Resolved colors are not both available")
+    assert all(item["status"] == "pass" for item in result["findings"]
+               if item["check"] != "typography.text_contrast")
 
 def test_nulls_only_cover_visuals_declaring_the_owner() -> None:
     readings = measure_report(REPORT)["rules"][
@@ -99,11 +118,19 @@ def test_contrast_pairs_colors_within_their_page(tmp_path: Path) -> None:
             {"textRuns": [{"text": "t", "textStyle": {"color": "#FFFFFF"}}]},
             {"textRuns": [{"text": "s", "textStyle": {"color": "#EEEEEE"}}]}]}}]},
             "visualType": "textbox"}}), encoding="utf-8")
-    # Cross-page pairing would pick P1's #101828 on P2's #000000 (ratio
-    # ~1.2). Honest per-page pairing keeps P1's weakest real pair.
+    # Cross-page pairing would test P1's #101828 on P2's #000000
+    # (ratio ~1.2). Honest per-page pairing keeps every run on its own
+    # page background.
     assert measure_report(str(clone))["rules"][
-        "typography.text_contrast"] == {"foreground": "#52617A",
-                                        "background": "#FFFFFF"}
+        "typography.text_contrast"] == {"readings": [
+            {"foreground": "#52617A", "background": "#FFFFFF",
+             "page": "P1", "role": "subtitle", "count": 1},
+            {"foreground": "#101828", "background": "#FFFFFF",
+             "page": "P1", "role": "title", "count": 1},
+            {"foreground": "#EEEEEE", "background": "#000000",
+             "page": "P2", "role": "subtitle", "count": 1},
+            {"foreground": "#FFFFFF", "background": "#000000",
+             "page": "P2", "role": "title", "count": 1}]}
 
 
 def test_unit_classification_proves_only_percent() -> None:
@@ -129,8 +156,9 @@ def test_non_hex_text_color_skipped(tmp_path: Path) -> None:
     runs[1]["textRuns"][0]["textStyle"]["color"] = "RED"
     path.write_text(json.dumps(doc), encoding="utf-8")
     assert measure_report(str(clone))["rules"][
-        "typography.text_contrast"] == {"foreground": "#101828",
-                                        "background": "#FFFFFF"}
+        "typography.text_contrast"] == {"readings": [
+            {"foreground": "#101828", "background": "#FFFFFF",
+             "page": "P1", "role": "title", "count": 1}]}
 
 
 def test_invalid_theme_background_omits_contrast(tmp_path: Path) -> None:

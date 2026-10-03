@@ -10,6 +10,12 @@ confirmation (step 3) stays a Modeling MCP procedure, not code here.
 A returned cycle is a list of node ids forming the loop, last element
 repeating the first. DAX nodes look like ``measure:Table.Name``;
 M nodes are query names (``Table|Partition`` for partitions).
+
+DAX extraction shares :mod:`vqs.data.tmdl` with the binding checker so
+multiline expressions, calculated columns, and quoted identifiers parse
+one way. Qualified ``'Table'[Name]`` references resolve exactly;
+unsupported or unreadable model files block the gate (``OSError``)
+instead of silently narrowing the graph.
 """
 from __future__ import annotations
 
@@ -17,7 +23,8 @@ import glob
 import os
 import re
 
-_DAX_HEADER = re.compile(r"^\t(measure|column) ('([^']+)'|([^\s=]+)) = (.*)$")
+from vqs.data.tmdl import extract_objects
+
 _TABLE_QUOTED = re.compile(r"^table '(.+)'$", re.MULTILINE)
 _TABLE_BARE = re.compile(r"^table (\S+)$", re.MULTILINE)
 _EXPRESSION = re.compile(
@@ -26,7 +33,9 @@ _EXPRESSION = re.compile(
 _PARTITION_M = re.compile(
     r"^\tpartition\s+('([^']+)'|([^\s=]+))\s*=\s*m\s*$(.*?)(?=^\t\S|\Z)",
     re.MULTILINE | re.DOTALL)
-_DAX_STRING = re.compile(r'"(?:[^"]|"")*"')
+_QUALIFIED = re.compile(
+    r"'((?:[^']|'')+)'\s*\[([^\[\]]+)\]|([A-Za-z_][\w]*)\s*\[([^\[\]]+)\]")
+_BARE_REF = re.compile(r"\[([^\[\]]+)\]")
 _LET = re.compile(r"(?<![\w])let(?![\w])")
 _IN = re.compile(r"(?<![\w])in(?![\w])")
 _M_PLACEHOLDER = re.compile(r"\x00(\d+)\x00")
@@ -114,6 +123,49 @@ def _m_clean(code: str) -> tuple[str, list[str]]:
     return "".join(out), quoted
 
 
+def _dax_clean(expr: str) -> str:
+    """Blank DAX strings and comments so only real references remain.
+
+    Handles "..." strings with "" escapes, // and -- line comments, and
+    /* */ block comments. Unterminated constructs stay verbatim (fail
+    closed: more edges, never fewer).
+    """
+    out: list[str] = []
+    index, size = 0, len(expr)
+    while index < size:
+        pair = expr[index:index + 2]
+        if pair in ("//", "--"):
+            end = expr.find("\n", index)
+            if end == -1:
+                break
+            out.append(" ")
+            index = end
+        elif pair == "/*":
+            end = expr.find("*/", index + 2)
+            if end == -1:
+                out.append(expr[index:])
+                break
+            out.append(" ")
+            index = end + 2
+        elif expr[index] == '"':
+            end = _m_string_end(expr, index + 1)
+            if end == -1:
+                out.append(expr[index:])
+                break
+            out.append('""')
+            index = end
+        elif expr[index] == "'":
+            end = index + 1
+            while end < size and expr[end] != "'":
+                end += 1
+            out.append("''" if end < size else expr[index:])
+            index = end + 1 if end < size else size
+        else:
+            out.append(expr[index])
+            index += 1
+    return "".join(out)
+
+
 def _restore(name: str, quoted: list[str]) -> str:
     match = _M_PLACEHOLDER.fullmatch(name)
     if match:
@@ -160,51 +212,53 @@ def find_cycles(edges: dict[str, set[str]]) -> list[list[str]]:
     return unique
 
 
+def _read_table_texts(model_dir: str) -> tuple[dict[str, str], list[str]]:
+    """Read every tables/*.tmdl; return (path->text, unreadable paths)."""
+    texts: dict[str, str] = {}
+    skipped: list[str] = []
+    pattern = os.path.join(model_dir, "tables", "*.tmdl")
+    for path in sorted(glob.glob(pattern)):
+        try:
+            with open(path, encoding="utf-8-sig") as handle:
+                texts[path] = handle.read()
+        except (OSError, ValueError):
+            skipped.append(path)
+    return texts, skipped
+
+
 def dax_objects(model_dir: str) -> dict[tuple[str, str, str], str]:
     """Map ``(kind, table, name)`` to full DAX source.
 
     Nodes stay tuples through edge detection so dotted table or measure
     names can never be mis-split; ``check_model`` renders display labels.
+    Extraction is shared with the binding checker (multiline, calculated
+    columns, quoted identifiers); unreadable files are skipped here and
+    reported by :func:`check_model` coverage.
     """
-    objects: dict[str, str] = {}
-    pattern = os.path.join(model_dir, "tables", "*.tmdl")
-    for path in sorted(glob.glob(pattern)):
-        try:
-            with open(path, encoding="utf-8-sig") as handle:
-                text = handle.read()
-        except (OSError, ValueError):
-            continue
-        table = _table_name(text)
-        if table is None:
-            continue
-        lines = text.splitlines()
-        index = 0
-        while index < len(lines):
-            header = _DAX_HEADER.match(lines[index])
-            if header is None:
-                index += 1
-                continue
-            kind = header.group(1)
-            name = header.group(3) or header.group(4)
-            body = [header.group(5)]
-            index += 1
-            while (index < len(lines)
-                   and not re.match(r"^\t\S", lines[index])):
-                body.append(lines[index])
-                index += 1
-            objects[(kind, table, name)] = "\n".join(body)
+    objects: dict[tuple[str, str, str], str] = {}
+    texts, _ = _read_table_texts(model_dir)
+    for path in sorted(texts):
+        extracted = extract_objects(texts[path])
+        for table, content in extracted["tables"].items():
+            for name, expr in content["measures"].items():
+                objects[("measure", table, name)] = expr
+            for name, expr in content["columns"].items():
+                if expr:
+                    objects[("column", table, name)] = expr
     return objects
 
 
 def dax_edges(
         objects: dict[tuple[str, str, str], str]
 ) -> dict[tuple[str, str, str], set[tuple[str, str, str]]]:
-    """Reference edges from ``[Name]`` uses; same-table names win.
+    """Reference edges from qualified and bare ``[Name]`` uses.
 
-    Matching is case-insensitive like DAX; node ids keep exact case.
-    String literals are blanked first so ``"see [B] docs"`` adds no
-    edge. Duplicated bare names across tables resolve to first parsed
-    (documented approximation); nothing is silently dropped.
+    ``'Table'[Name]`` (or bare ``Table[Name]``) resolves exactly, so a
+    qualifier can never silently redirect to a same-table lookalike.
+    Bare ``[Name]`` prefers the same table, then the first parsed table
+    (documented approximation); nothing is silently dropped. Matching is
+    case-insensitive like DAX; node ids keep exact case. Strings and
+    comments are blanked first so prose adds no edges.
     """
     by_table: dict[tuple[str, str], tuple[str, str, str]] = {}
     for node in objects:
@@ -213,8 +267,17 @@ def dax_edges(
     edges = {node: set() for node in objects}
     for node, expr in objects.items():
         _kind, table, _name = node
-        clean = _DAX_STRING.sub('""', expr)
-        for ref in set(re.findall(r"\[([^\[\]]+)\]", clean)):
+        remaining = expr
+        for match in _QUALIFIED.finditer(expr):
+            qualifier = match.group(1) or match.group(3) or ""
+            if match.group(1):
+                qualifier = qualifier.replace("''", "'")
+            key = (qualifier.casefold(), (match.group(2) or match.group(4)).casefold())
+            if key in by_table:
+                edges[node].add(by_table[key])
+            remaining = remaining.replace(match.group(0), " ", 1)
+        clean = _dax_clean(remaining)
+        for ref in set(_BARE_REF.findall(clean)):
             key = (table.casefold(), ref.casefold())
             if key in by_table:
                 edges[node].add(by_table[key])
@@ -240,13 +303,9 @@ def m_queries(model_dir: str) -> dict[str, str]:
         body = re.sub(r"^\tannotation.*$", "", match.group(4),
                       flags=re.MULTILINE)
         queries[name] = body
-    pattern = os.path.join(model_dir, "tables", "*.tmdl")
-    for path in sorted(glob.glob(pattern)):
-        try:
-            with open(path, encoding="utf-8-sig") as handle:
-                text = handle.read()
-        except (OSError, ValueError):
-            continue
+    texts, _ = _read_table_texts(model_dir)
+    for path in sorted(texts):
+        text = texts[path]
         table = _table_name(text)
         if table is None:
             continue
@@ -325,16 +384,28 @@ def within_let_cycles(code: str) -> list[list[str]]:
 def _tables_parsed(model_dir: str) -> int:
     """Count table files with a readable table declaration."""
     count = 0
-    pattern = os.path.join(model_dir, "tables", "*.tmdl")
-    for path in sorted(glob.glob(pattern)):
-        try:
-            with open(path, encoding="utf-8-sig") as handle:
-                text = handle.read()
-        except (OSError, ValueError):
-            continue
-        if _table_name(text) is not None:
+    texts, _ = _read_table_texts(model_dir)
+    for path in sorted(texts):
+        if _table_name(texts[path]) is not None:
             count += 1
     return count
+
+
+def _coverage(model_dir: str) -> dict:
+    """Report which model files parsed; skipped files block the gate."""
+    texts, skipped = _read_table_texts(model_dir)
+    unparsed = [path for path in sorted(texts)
+                if _table_name(texts[path]) is None]
+    shared = os.path.join(model_dir, "expressions.tmdl")
+    if os.path.isfile(shared):
+        try:
+            with open(shared, encoding="utf-8-sig") as handle:
+                handle.read()
+        except (OSError, ValueError):
+            skipped = [*skipped, shared]
+    return {"parsed": sorted(texts), "skipped": sorted(skipped),
+            "unparsed": sorted(unparsed),
+            "complete": not skipped and not unparsed}
 
 
 def check_model(model_dir: str) -> dict:
@@ -343,9 +414,16 @@ def check_model(model_dir: str) -> dict:
     ``tables``/``dax_objects``/``m_queries`` count what was actually
     parsed: an empty folder reports ``acyclic: true`` with zero counts,
     which callers must read as "nothing to check", not as a clean bill.
+    Any present-but-unreadable or table-less file raises ``OSError`` so
+    partial parses block instead of passing narrowed.
     """
     if not os.path.isdir(model_dir):
         raise OSError(f"model folder not found: {model_dir}")
+    coverage = _coverage(model_dir)
+    if not coverage["complete"]:
+        raise OSError("model parse coverage incomplete: "
+                      f"skipped={coverage['skipped']} "
+                      f"unparsed={coverage['unparsed']}")
     tables = _tables_parsed(model_dir)
     dax = dax_objects(model_dir)
     queries = m_queries(model_dir)
@@ -366,4 +444,5 @@ def check_model(model_dir: str) -> dict:
             "dax_cycles": dax_loops,
             "m_cycles": m_loops,
             "let_cycles": let_loops,
-            "acyclic": not (dax_loops or m_loops or let_loops)}
+            "acyclic": not (dax_loops or m_loops or let_loops),
+            "coverage": coverage}
