@@ -418,15 +418,23 @@ def capture(report: str, renders: str, pid: int | None = None,
                 missing.append(page_id)
                 continue
             source = Path(raw)
-            if renders_path.resolve() not in source.resolve().parents:
+            renders_norm = os.path.normcase(renders_path.resolve())
+            inside = [os.path.normcase(parent)
+                      for parent in source.resolve().parents]
+            if renders_norm not in inside:
                 raise OSError("Bridge screenshot outside output dir: "
                               f"{raw[:200]}")
             if source.resolve() != target.resolve():
                 os.replace(source, target)
             try:
                 png_size(target)
+            except (ValueError, OSError) as exc:
+                raise OSError(f"Corrupt capture for {page_id}: {exc}") from exc
+            try:
                 width, height, uniform = _png_pixels(target)
             except (ValueError, OSError) as exc:
+                # _png_pixels messages carry no paths, so this sniff
+                # cannot misfire on directory names.
                 kind = ("Unsupported capture"
                         if "unsupported" in str(exc).lower()
                         else "Corrupt capture")

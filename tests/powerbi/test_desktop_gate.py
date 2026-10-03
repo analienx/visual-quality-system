@@ -41,6 +41,10 @@ def test_gate_pads_short_minimums() -> None:
     assert gate_bridge_version("1.9.9", minimum=(2, 0))["verdict"] == "blocked"
     assert gate_bridge_version("2.0.0", minimum=(2, 0))["verdict"] == "pass"
     assert gate_bridge_version("2.0.1", minimum=(2,))["verdict"] == "pass"
+    # Discriminating: bare tuples compare (1,0,0) < (1,0,0,0) as blocked;
+    # padding proves equality and passes.
+    assert gate_bridge_version("1.0.0",
+                               minimum=(1, 0, 0, 0))["verdict"] == "pass"
 
 
 def test_target_match_accepts_relative_spelling(tmp_path) -> None:

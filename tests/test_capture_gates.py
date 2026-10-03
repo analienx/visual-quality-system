@@ -403,6 +403,15 @@ def test_short_ihdr_blocks_without_crash(
         capture_mod._png_pixels(broken)
 
 
+def test_corrupt_label_ignores_directory_name(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    report = _make_report(tmp_path)
+    _stub(monkeypatch, report, actions={"p1": "corrupt"})
+    renders = tmp_path / "unsupported-case" / "r"
+    with pytest.raises(OSError, match="Corrupt capture"):
+        capture_mod.capture(str(report), str(renders))
+
+
 def test_huge_dimensions_refuse_before_inflate(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     report = _make_report(tmp_path, {"p1": (20000, 20000)})
