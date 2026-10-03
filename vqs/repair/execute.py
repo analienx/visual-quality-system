@@ -22,7 +22,12 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from .allowlist import validate_materialized_roots, validate_plan
+from .allowlist import (
+    normalize_targets,
+    validate_materialized_roots,
+    validate_plan,
+    within_root,
+)
 from .recipes import RecipeError, affected_pages, bind_operation
 from .templates import TemplateError, get_template, verify_bindings
 
@@ -45,8 +50,9 @@ def tree_digest(report: str | Path) -> str:
         entries = sorted(root.rglob("*"))
     except OSError as exc:
         raise RepairError(f"cannot walk {root}: {exc}") from exc
+    root_real = os.path.normcase(os.path.realpath(root))
     for path in entries:
-        if path.is_symlink():
+        if path.is_symlink() or not within_root(root_real, str(path)):
             raise RepairError(f"link inside repair tree: {path}")
         if path.is_file():
             digest.update(path.relative_to(root).as_posix().encode("utf-8"))
@@ -89,17 +95,37 @@ def materialize_candidate(original: str, candidate_root: str) -> dict:
         root_issues = validate_materialized_roots(original, candidate_root)
         if root_issues:
             raise RepairError(f"repair roots rejected: {root_issues[0]}")
+        original_real = os.path.normcase(os.path.realpath(original))
+        failures: list[OSError] = []
+
+        def _on_error(exc: OSError) -> None:
+            failures.append(exc)
+
+        seen: set[str] = {original_real}
         count = 0
-        for current, _dirs, files in os.walk(original, followlinks=False):
+        walker = os.walk(original, followlinks=False, onerror=_on_error)
+        for current, dirs, files in walker:
+            for name in list(dirs):
+                marker = os.path.normcase(os.path.realpath(
+                    os.path.join(current, name)))
+                if marker in seen:
+                    raise RepairError("original contains a directory loop: "
+                                      f"{os.path.join(current, name)}")
+                seen.add(marker)
             for name in files:
                 source = os.path.join(current, name)
                 if os.path.islink(source):
                     raise RepairError(f"original contains a link: {source}")
+                if not within_root(original_real, source):
+                    raise RepairError("original entry escapes its root: "
+                                      f"{source}")
                 rel = os.path.relpath(source, original)
                 target = os.path.join(candidate_root, rel)
                 os.makedirs(os.path.dirname(target), exist_ok=True)
                 shutil.copyfile(source, target)
                 count += 1
+        if failures:
+            raise RepairError(f"original unreadable: {failures[0]}")
     except Exception:
         shutil.rmtree(candidate_root, ignore_errors=True)
         raise
@@ -116,8 +142,11 @@ def _visual_file(candidate: Path, page: str, visual: str) -> Path:
 def _canvas_of(candidate: Path, page: str) -> tuple[int, int]:
     page_doc = _read_json(candidate / "definition" / "pages" / page
                           / "page.json")
+    if not isinstance(page_doc, dict):
+        raise RepairError(f"page {page} has no positive integer canvas")
     width, height = page_doc.get("width"), page_doc.get("height")
-    if (not isinstance(width, int) or not isinstance(height, int)
+    if (not isinstance(width, int) or isinstance(width, bool)
+            or not isinstance(height, int) or isinstance(height, bool)
             or width <= 0 or height <= 0):
         raise RepairError(f"page {page} has no positive integer canvas")
     return width, height
@@ -160,19 +189,23 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
     snapshot: dict[str, bytes] = {}
     edits: list[dict[str, Any]] = []
     pages: list[str] = []
+    rescan = validate_materialized_roots(original, candidate_root)
+    if rescan:
+        shutil.rmtree(candidate_root, ignore_errors=True)
+        return {"verdict": "blocked", "stage": "materialize",
+                "reason": f"roots rejected after copy: {rescan[0]}"}
     try:
         from vqs.pbir import report_context
         info = report_context(candidate)
         all_pages = [page["id"] for page in info["pages"]]
-    except (OSError, ValueError, KeyError, TypeError) as exc:
+    except Exception as exc:  # noqa: BLE001 - any unreadable shape blocks
         shutil.rmtree(candidate_root, ignore_errors=True)
         return {"verdict": "blocked", "stage": "materialize",
                 "reason": f"candidate report unreadable: {exc}"}
     covered = set()
-    for entry in plan.get("write_targets", []):
-        target = str(entry)
-        absolute = target if os.path.isabs(target) else os.path.join(
-            candidate_root, target)
+    for entry in normalize_targets(plan.get("write_targets")):
+        absolute = entry if os.path.isabs(entry) else os.path.join(
+            candidate_root, entry)
         covered.add(os.path.realpath(absolute))
     for index, op in enumerate(operations):
         try:
@@ -183,6 +216,10 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
             shutil.rmtree(candidate_root, ignore_errors=True)
             return {"verdict": "blocked", "stage": "apply", "index": index,
                     "reason": f"{type(exc).__name__}: {exc}"}
+        except Exception as exc:  # noqa: BLE001 - structural crash blocks
+            shutil.rmtree(candidate_root, ignore_errors=True)
+            return {"verdict": "blocked", "stage": "apply", "index": index,
+                    "reason": f"operation crashed: {type(exc).__name__}: {exc}"}
     for edit in edits:
         for page in edit["affected"]["pages"]:
             if page not in pages:
@@ -214,8 +251,18 @@ def _apply_op(op: dict, candidate: Path, all_pages: list[str],
     from vqs.pbir import report_context
 
     selector = op.get("selector", {})
-    page = selector.get("page", "")
-    visual = selector.get("visual", "")
+    if not isinstance(selector, dict):
+        raise RepairError("op selector must be a {page, visual} object")
+    page, visual = selector.get("page", ""), selector.get("visual", "")
+    for segment, label in ((page, "page"), (visual, "visual")):
+        if (not isinstance(segment, str) or not segment
+                or segment != segment.strip() or segment.startswith(".")
+                or "/" in segment or "\\" in segment or ":" in segment
+                or ".." in segment):
+            raise RepairError(f"selector {label} escapes or is empty: "
+                              f"{segment!r}")
+    if page not in all_pages:
+        raise RepairError(f"bound page {page} is not in the page order")
     target_file = _visual_file(candidate, page, visual)
     try:
         rel = target_file.relative_to(candidate).as_posix()
@@ -286,6 +333,14 @@ def rollback_candidate(original: str, candidate_root: str,
     """
     from .allowlist import rollback_ok
 
+    original_real = os.path.realpath(original)
+    candidate_real = os.path.realpath(candidate_root)
+    if (original_real == candidate_real
+            or original_real.startswith(candidate_real + os.sep)
+            or candidate_real.startswith(original_real + os.sep)):
+        return {"rule": "rollback_refused", "status": "blocked",
+                "reason": "rollback candidate must not overlap the original; "
+                          "nothing was touched"}
     shutil.rmtree(candidate_root, ignore_errors=True)
     try:
         staged = materialize_candidate(original, candidate_root)

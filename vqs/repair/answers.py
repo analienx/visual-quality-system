@@ -51,8 +51,12 @@ def collect_answers(query: Any, questions: Sequence[dict]) -> dict:
     missing evidence never passes.
     """
     answers: dict[str, Any] = {}
-    for question in questions:
-        qid = str(question.get("id", ""))
+    for position, question in enumerate(questions):
+        if not isinstance(question, dict):
+            answers[f"question-{position}"] = {
+                "verdict": "blocked", "reason": "malformed oracle question"}
+            continue
+        qid = str(question.get("id", f"question-{position}"))
         try:
             result = query.query_scoped(str(question.get("dax", "")),
                                         question.get("scope", {}))

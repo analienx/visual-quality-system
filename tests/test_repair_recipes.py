@@ -120,16 +120,40 @@ def test_geometry_stays_finite_and_in_canvas() -> None:
     with pytest.raises(RecipeError, match="no position"):
         bind_operation(_op("chart.resize", ["position", "width"], 5),
                        {"name": "c"}, (1280, 720))
+    poisoned = _visual()
+    poisoned["position"]["x"] = float("nan")
+    with pytest.raises(RecipeError, match="lacks finite"):
+        bind_operation(_op("spacing.adjust", ["position", "y"], 110),
+                       poisoned, (1280, 720))
+    stringy = _visual()
+    stringy["position"]["width"] = "296"
+    with pytest.raises(RecipeError, match="lacks finite"):
+        bind_operation(_op("spacing.adjust", ["position", "y"], 110),
+                       stringy, (1280, 720))
 
 
 def test_sort_definition_and_replace_shapes() -> None:
     path = ["visual", "query", "sortDefinition"]
-    bound = bind_operation(_op("sort.set", path, {"by": "Revenue"}),
-                           _visual())
+    sort = {"sort": [{"field": {"Measure": {"ref": "Revenue"}},
+                      "direction": 1}],
+            "isDefaultSort": True}
+    bound = bind_operation(_op("sort.set", path, sort), _visual())
     assert bound["old"] is None
-    assert bound["new"] == {"by": "Revenue"}
+    assert bound["new"] == sort
     with pytest.raises(RecipeError, match="must be a JSON object"):
         bind_operation(_op("sort.set", path, ["x"]), _visual())
+    with pytest.raises(RecipeError, match="allows only"):
+        bind_operation(_op("sort.set", path, {"by": "Revenue"}),
+                       _visual())
+    with pytest.raises(RecipeError, match="non-empty 'sort' array"):
+        bind_operation(_op("sort.set", path, {"sort": []}), _visual())
+    with pytest.raises(RecipeError, match="integer 'direction'"):
+        bind_operation(_op("sort.set", path,
+                           {"sort": [{"field": {}, "direction": "up"}]}),
+                       _visual())
+    with pytest.raises(RecipeError, match="'field' object"):
+        bind_operation(_op("sort.set", path,
+                           {"sort": [{"direction": 1}]}), _visual())
     with pytest.raises(RecipeError, match="no query"):
         bind_operation(_op("sort.set", path, {}), {"visual": {}})
     replace = {"type": "chart.replace", "target": "visual",

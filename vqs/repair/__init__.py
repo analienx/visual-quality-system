@@ -1,4 +1,3 @@
-"""WP-09 repair allowlist: plan validation before execution."""
 """WP-09 visual candidate repair: validate, apply, verify, roll back."""
 
 from .allowlist import (

@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from vqs.repair.allowlist import validate_plan
-from vqs.repair.answers import answers_preserved
+from vqs.repair.answers import answers_preserved, collect_answers
 from vqs.repair.execute import apply_plan, rollback_candidate
 from vqs.repair.regress import (
     rerender_requirements,
@@ -31,6 +31,28 @@ def _load(scenario):
     return root / "original.Report", plan, oracle
 
 
+class _AnswerPort:
+    """Stub scoped-query port serving rows from a sidecar file.
+
+    Each side (original, candidate) gets its own port bound to its
+    own rows file, so the chain compares two independently collected
+    answers -- never the fixture to itself.
+    """
+
+    def __init__(self, rows_file):
+        self._rows_file = rows_file
+
+    def query_scoped(self, dax, scope):
+        rows = json.loads(Path(self._rows_file).read_text(
+            encoding="utf-8"))
+        return {"rows": rows, "context": {"dax": dax, "scope": scope}}
+
+
+def _questions(oracle):
+    return [{"id": oracle["id"], "dax": oracle["dax"],
+            "scope": oracle["scope"]}]
+
+
 def _run_chain(tmp_path, scenario):
     fixture_report, plan, oracle = _load(scenario)
     original = tmp_path / "original.Report"
@@ -46,9 +68,24 @@ def _run_chain(tmp_path, scenario):
                          role=oracle["scope"].get("role", ""),
                          period=oracle["scope"].get("period", ""),
                          measure=oracle["scope"].get("measure", ""))
-    assert answers_preserved(scope, scope, oracle["rows"], oracle["rows"],
-                             oracle["tolerance"],
-                             ordered=oracle["ordered"])["verdict"] == "pass"
+    questions = _questions(oracle)
+    original_rows = tmp_path / f"{scenario}-original-rows.json"
+    candidate_rows = tmp_path / f"{scenario}-candidate-rows.json"
+    original_rows.write_text(json.dumps(oracle["rows"]), encoding="utf-8")
+    # The repair preserves answers, so both sides serve the oracle
+    # rows; the divergent-rows test proves corruption would fail.
+    shutil.copy(original_rows, candidate_rows)
+    before = collect_answers(_AnswerPort(original_rows),
+                             questions)[oracle["id"]]
+    after = collect_answers(_AnswerPort(candidate_rows),
+                            questions)[oracle["id"]]
+    assert before["verdict"] == "observed"
+    assert after["verdict"] == "observed"
+    preserved = answers_preserved(scope, scope, before["rows"],
+                                  after["rows"], oracle["tolerance"],
+                                  ordered=oracle["ordered"],
+                                  oracle_rows=oracle["rows"])
+    assert preserved["verdict"] == "pass"
     return original, candidate, applied, oracle
 
 
@@ -99,3 +136,40 @@ def test_scenarios_require_renders_explicitly(tmp_path, scenario):
         "reason": "fresh complete renders required for affected pages "
                   "and neighbors",
         "missing_pages": required["pages"]}
+
+
+@pytest.mark.parametrize("scenario", ["scenario_tick", "scenario_type"])
+def test_scenario_divergent_candidate_rows_fail(tmp_path, scenario):
+    _original, _candidate, _applied, oracle = _run_chain(tmp_path,
+                                                         scenario)
+    scope = scope_digest(oracle["scope"].get("filters"),
+                         role=oracle["scope"].get("role", ""),
+                         period=oracle["scope"].get("period", ""),
+                         measure=oracle["scope"].get("measure", ""))
+    questions = _questions(oracle)
+    good = tmp_path / "good-rows.json"
+    bad = tmp_path / "bad-rows.json"
+    good.write_text(json.dumps(oracle["rows"]), encoding="utf-8")
+    corrupted = []
+    bumped = False
+    for row in oracle["rows"]:
+        clone = dict(row)
+        if not bumped:
+            for key, value in clone.items():
+                if (isinstance(value, (int, float))
+                        and not isinstance(value, bool)):
+                    clone[key] = value + 1
+                    bumped = True
+                    break
+        corrupted.append(clone)
+    assert bumped
+    bad.write_text(json.dumps(corrupted), encoding="utf-8")
+    before = collect_answers(_AnswerPort(good),
+                             questions)[oracle["id"]]["rows"]
+    after = collect_answers(_AnswerPort(bad),
+                            questions)[oracle["id"]]["rows"]
+    verdict = answers_preserved(scope, scope, before, after,
+                                oracle["tolerance"],
+                                ordered=oracle["ordered"])
+    assert verdict["verdict"] == "fail"
+    assert verdict["rows"]["reason"] == "repair changed answers"

@@ -6,7 +6,10 @@ rejected. Link tests monkeypatch the link predicate (creating real
 links needs privileges on some hosts); nesting uses real directories.
 """
 import os
+import subprocess
 from pathlib import Path
+
+import pytest
 
 from vqs.repair import validate_materialized_roots, validate_plan
 
@@ -30,10 +33,23 @@ def test_missing_write_targets_rejected() -> None:
     assert validate_plan(_plan(write_targets=[]),
                          ORIGINAL, CANDIDATE) == [
         {"rule": "plan_has_no_write_targets"}]
-    assert validate_plan(_plan(write_targets=None),
-                         ORIGINAL, CANDIDATE) == [
-        {"rule": "plan_has_no_write_targets"}]
+    for bad in (None, "definition/pages/P1", {"targets": []}, 7):
+        assert validate_plan(_plan(write_targets=bad),
+                             ORIGINAL, CANDIDATE) == [
+            {"rule": "plan_write_targets_not_a_list"}], bad
     assert validate_plan(_plan(), ORIGINAL, CANDIDATE) == []
+
+
+def test_model_match_requires_qualifiers() -> None:
+    for target in ("measured", "models/x", "daxy", "tablespoon"):
+        op = {"type": "theme.set", "target": target}
+        assert validate_plan(_plan(operations=[op]),
+                             ORIGINAL, CANDIDATE) == [], target
+    for target in ("model", "dax", "dataset[col]", "measure.X", "rls"):
+        op = {"type": "theme.set", "target": target}
+        assert any(row["rule"] == "dax_rls_unapproved"
+                   for row in validate_plan(_plan(operations=[op]),
+                                             ORIGINAL, CANDIDATE)), target
 
 
 def test_roots_overlap_rejected_both_directions() -> None:
@@ -97,3 +113,110 @@ def test_materialized_overlap_and_links_rejected(
     flagged = validate_materialized_roots(str(original), str(candidate))
     assert [row["rule"] for row in flagged] == ["link_escape"]
     assert flagged[0]["root"] == "candidate"
+
+
+def test_realpath_escape_caught_without_link_flags(
+        tmp_path: Path, monkeypatch) -> None:
+    original = tmp_path / "orig.Report"
+    candidate = tmp_path / "cand"
+    original.mkdir()
+    candidate.mkdir()
+    (candidate / "page.json").write_text("{}", encoding="utf-8")
+    real = os.path.realpath
+
+    def fake(path):
+        if str(path).endswith("page.json"):
+            return os.path.join(str(tmp_path), "elsewhere", "page.json")
+        return real(path)
+
+    monkeypatch.setattr(os.path, "realpath", fake)
+    monkeypatch.setattr(os.path, "islink", lambda path: False)
+    monkeypatch.setattr(os.path, "isjunction", lambda path: False,
+                        raising=False)
+    flagged = validate_materialized_roots(str(original), str(candidate))
+    assert [row["rule"] for row in flagged] == ["link_escape"]
+
+
+def test_junction_branch_refuses_on_any_version(
+        tmp_path: Path, monkeypatch) -> None:
+    original = tmp_path / "orig.Report"
+    candidate = tmp_path / "cand"
+    original.mkdir()
+    candidate.mkdir()
+    (candidate / "page.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(os.path, "islink", lambda path: False)
+    monkeypatch.setattr(os.path, "isjunction",
+                        lambda path: str(path).endswith("page.json"),
+                        raising=False)
+    flagged = validate_materialized_roots(str(original), str(candidate))
+    assert [row["rule"] for row in flagged] == ["link_escape"]
+
+
+def test_walk_errors_fail_closed(tmp_path: Path, monkeypatch) -> None:
+    original = tmp_path / "orig.Report"
+    candidate = tmp_path / "cand"
+    original.mkdir()
+    candidate.mkdir()
+
+    def failing_walk(top, followlinks=False, onerror=None):
+        if onerror is not None:
+            onerror(OSError("simulated EACCES"))
+        return iter(())
+
+    monkeypatch.setattr(os, "walk", failing_walk)
+    flagged = validate_materialized_roots(str(original), str(candidate))
+    assert [row["rule"] for row in flagged] == ["roots_unreadable"]
+
+
+def test_real_symlink_escape_refused(tmp_path: Path) -> None:
+    original = tmp_path / "orig.Report"
+    candidate = tmp_path / "cand"
+    original.mkdir()
+    candidate.mkdir()
+    (tmp_path / "outside.json").write_text("{}", encoding="utf-8")
+    try:
+        os.symlink(str(tmp_path / "outside.json"),
+                   str(candidate / "evil.json"))
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"cannot create links on this host: {exc}")
+    flagged = validate_materialized_roots(str(original), str(candidate))
+    assert [row["rule"] for row in flagged] == ["link_escape"]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="junctions are Windows-only")
+def test_real_junction_escape_refused(tmp_path: Path) -> None:
+    original = tmp_path / "orig.Report"
+    candidate = tmp_path / "cand"
+    outside = tmp_path / "outside"
+    original.mkdir()
+    candidate.mkdir()
+    outside.mkdir()
+    (outside / "smuggled.json").write_text("{}", encoding="utf-8")
+    completed = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(candidate / "jdir"), str(outside)],
+        capture_output=True, text=True, check=False)
+    if completed.returncode != 0:
+        pytest.skip(f"mklink /J unavailable: {completed.stderr[:200]}")
+    flagged = validate_materialized_roots(str(original), str(candidate))
+    assert [row["rule"] for row in flagged] == ["link_escape"]
+
+
+def test_missing_isjunction_still_refuses_escape(
+        tmp_path: Path, monkeypatch) -> None:
+    original = tmp_path / "orig.Report"
+    candidate = tmp_path / "cand"
+    original.mkdir()
+    candidate.mkdir()
+    (candidate / "page.json").write_text("{}", encoding="utf-8")
+    real = os.path.realpath
+
+    def fake(path):
+        if str(path).endswith("page.json"):
+            return os.path.join(str(tmp_path), "elsewhere", "page.json")
+        return real(path)
+
+    monkeypatch.setattr(os.path, "realpath", fake)
+    monkeypatch.setattr(os.path, "islink", lambda path: False)
+    monkeypatch.delattr(os.path, "isjunction", raising=False)
+    flagged = validate_materialized_roots(str(original), str(candidate))
+    assert [row["rule"] for row in flagged] == ["link_escape"]

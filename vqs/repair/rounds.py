@@ -37,6 +37,7 @@ def run_rounds(plan_variants: list[dict], original: str,
         return {"verdict": "stopped",
                 "reason": "defect fingerprint missing", "records": []}
     records: list[dict] = []
+    previous = baseline_print
     for number, plan in enumerate(plan_variants[:max_rounds], start=1):
         candidate = f"{candidate_base}-round{number}"
         applied = apply_plan(plan, original, candidate)
@@ -59,25 +60,26 @@ def run_rounds(plan_variants: list[dict], original: str,
         record = {"round": number, "candidate": candidate,
                   "applied": applied, "verify": result}
         records.append(record)
-        if result.get("ok"):
-            return {"verdict": "repaired", "candidate": candidate,
-                    "rounds": number, "records": records}
         if result.get("failed_invariants"):
             shutil.rmtree(candidate, ignore_errors=True)
             return {"verdict": "stopped",
                     "reason": "failed invariants; candidate restored",
                     "records": records}
+        if result.get("ok"):
+            return {"verdict": "repaired", "candidate": candidate,
+                    "rounds": number, "records": records}
         if not fingerprint:
             shutil.rmtree(candidate, ignore_errors=True)
             return {"verdict": "stopped",
                     "reason": "defect fingerprint missing; candidate restored",
                     "records": records}
-        if fingerprint == baseline_print:
+        if fingerprint == baseline_print or fingerprint == previous:
             shutil.rmtree(candidate, ignore_errors=True)
             return {"verdict": "stopped",
                     "reason": "defect fingerprint unchanged; "
                               "candidate restored",
                     "records": records}
+        previous = fingerprint
         shutil.rmtree(candidate, ignore_errors=True)
     return {"verdict": "stopped", "reason": "rounds exhausted",
             "records": records}

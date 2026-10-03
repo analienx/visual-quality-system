@@ -121,6 +121,40 @@ def test_failed_invariants_and_verifier_errors_stop(tmp_path: Path) -> None:
     assert "verifier error" in result["reason"]
 
 
+def test_contradictory_ok_with_failed_invariants_stops(
+        tmp_path: Path) -> None:
+    original = _make_report(tmp_path)
+
+    def lying_verify(path):
+        if "round" in path:
+            return {"ok": True, "fingerprint": "fixed",
+                    "failed_invariants": ["answers"]}
+        return {"ok": False, "fingerprint": "defect"}
+
+    result = run_rounds([_plan("14D")], str(original),
+                        str(tmp_path / "cand"), lying_verify)
+    assert result["verdict"] == "stopped"
+    assert "invariants" in result["reason"]
+    assert not Path(str(tmp_path / "cand") + "-round1").exists()
+
+
+def test_repeated_non_baseline_fingerprint_stops(tmp_path: Path) -> None:
+    original = _make_report(tmp_path)
+    scripted = iter([{"ok": False, "fingerprint": "defect"},
+                     {"ok": False, "fingerprint": "closer"},
+                     {"ok": False, "fingerprint": "closer"}])
+
+    def verify(path):
+        return next(scripted)
+
+    result = run_rounds([_plan("12D"), _plan("14D"), _plan("16D")],
+                        str(original), str(tmp_path / "cand"), verify)
+    assert result["verdict"] == "stopped"
+    assert "unchanged" in result["reason"]
+    assert len(result["records"]) == 2
+    assert not Path(str(tmp_path / "cand") + "-round2").exists()
+
+
 def test_round_policy_bounds(tmp_path: Path) -> None:
     original = _make_report(tmp_path)
     assert MAX_ROUNDS == 3

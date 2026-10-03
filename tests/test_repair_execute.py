@@ -4,6 +4,9 @@ Synthetic PBIR reports only. Failures remove the candidate (atomic
 nothing); rollback re-materializes and proves the digest.
 """
 import json
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -18,6 +21,7 @@ from vqs.repair.execute import (
 from vqs.repair.templates import (
     TemplateError,
     clear_templates,
+    get_template,
     register_template,
 )
 
@@ -94,6 +98,7 @@ def test_invalid_plan_never_materializes(tmp_path: Path) -> None:
 
 def test_apply_failure_removes_candidate(tmp_path: Path) -> None:
     original = _make_report(tmp_path)
+    before = tree_digest(original)
     missing = _plan(operations=[{
         "type": "typography.size", "target": "visual",
         "selector": {"page": "P1", "visual": "ghost"},
@@ -105,7 +110,7 @@ def test_apply_failure_removes_candidate(tmp_path: Path) -> None:
     assert result["index"] == 0
     assert "ghost" in result["reason"]
     assert not (tmp_path / "cand").exists()
-    assert tree_digest(original) == tree_digest(original)
+    assert tree_digest(original) == before
 
 
 def test_derived_write_must_match_declared_targets(tmp_path: Path) -> None:
@@ -143,6 +148,125 @@ def test_rollback_restores_exact_digest(tmp_path: Path) -> None:
     assert tampered["status"] == "fail"
 
 
+def test_rollback_refuses_overlapping_roots(tmp_path: Path) -> None:
+    original = _make_report(tmp_path)
+    before = tree_digest(original)
+    refused = rollback_candidate(str(original), str(original), before)
+    assert refused["rule"] == "rollback_refused"
+    assert refused["status"] == "blocked"
+    assert original.is_dir()
+    assert tree_digest(original) == before
+    nested = rollback_candidate(str(original),
+                                str(original / "definition"), before)
+    assert nested["rule"] == "rollback_refused"
+    assert (original / "definition").is_dir()
+
+
+def test_structural_damage_blocks_without_leak(tmp_path: Path) -> None:
+    original = _make_report(tmp_path)
+    broken = tmp_path / "broken.Report"
+    shutil.copytree(original, broken)
+    visual = (broken / "definition/pages/P1/visuals/cardx/visual.json")
+    doc = json.loads(visual.read_text(encoding="utf-8"))
+    doc["visual"]["query"] = []
+    visual.write_text(json.dumps(doc), encoding="utf-8")
+    result = apply_plan(_plan(), str(broken), str(tmp_path / "cand"))
+    assert result["verdict"] == "blocked"
+    assert not (tmp_path / "cand").exists()
+    listed = tmp_path / "listed.Report"
+    shutil.copytree(original, listed)
+    (listed / "definition/pages/P1/page.json").write_text("[]",
+                                                         encoding="utf-8")
+    result = apply_plan(_plan(), str(listed), str(tmp_path / "cand2"))
+    assert result["verdict"] == "blocked"
+    assert not (tmp_path / "cand2").exists()
+
+
+def test_selector_escape_and_unknown_page_block_pre_write(
+        tmp_path: Path) -> None:
+    original = _make_report(tmp_path)
+    sneaky = _plan(operations=[{
+        "type": "typography.size", "target": "visual",
+        "selector": {"page": "P1/../P1", "visual": "cardx"},
+        "path": ["visual", "objects"], "value": "x", "writes": [VISUAL]}])
+    result = apply_plan(sneaky, str(original), str(tmp_path / "cand"))
+    assert result["verdict"] == "blocked"
+    assert "escapes" in result["reason"]
+    assert not (tmp_path / "cand").exists()
+    ghost = _plan(operations=[{
+        "type": "typography.size", "target": "visual",
+        "selector": {"page": "P9", "visual": "cardx"},
+        "path": ["visual", "objects"], "value": "x", "writes": [VISUAL]}])
+    result = apply_plan(ghost, str(original), str(tmp_path / "cand2"))
+    assert result["verdict"] == "blocked"
+    assert "not in the page order" in result["reason"]
+
+
+def test_bool_canvas_rejected(tmp_path: Path) -> None:
+    original = _make_report(tmp_path)
+    page_file = original / "definition/pages/P1/page.json"
+    page_file.write_text(json.dumps({"displayName": "O", "width": True,
+                                     "height": 720}), encoding="utf-8")
+    result = apply_plan(_plan(), str(original), str(tmp_path / "cand"))
+    assert result["verdict"] == "blocked"
+    assert "integer canvas" in result["reason"]
+
+
+def test_copy_walk_errors_fail_closed(tmp_path: Path, monkeypatch) -> None:
+    import os as _os
+
+    original = _make_report(tmp_path)
+    real_walk = _os.walk
+
+    def failing_walk(top, **kwargs):
+        yield from real_walk(top, **kwargs)
+        onerror = kwargs.get("onerror")
+        if onerror is not None:
+            onerror(OSError("simulated EACCES"))
+
+    monkeypatch.setattr(_os, "walk", failing_walk)
+    with pytest.raises(RepairError, match="unreadable|rejected"):
+        materialize_candidate(str(original), str(tmp_path / "cand"))
+    assert not (tmp_path / "cand").exists()
+
+
+def test_post_copy_rescan_blocks(tmp_path: Path, monkeypatch) -> None:
+    from vqs.repair import execute
+
+    original = _make_report(tmp_path)
+    calls = []
+    real = execute.validate_materialized_roots
+
+    def counting(original_path, candidate_root):
+        calls.append(candidate_root)
+        if len(calls) > 1:
+            return [{"rule": "link_escape", "path": "swapped-in"}]
+        return real(original_path, candidate_root)
+
+    monkeypatch.setattr(execute, "validate_materialized_roots", counting)
+    result = apply_plan(_plan(), str(original), str(tmp_path / "cand"))
+    assert result["verdict"] == "blocked"
+    assert "after copy" in result["reason"]
+    assert len(calls) == 2
+
+
+def test_tree_digest_refuses_escaped_entries(
+        tmp_path: Path, monkeypatch) -> None:
+    import os as _os
+
+    original = _make_report(tmp_path)
+    real = _os.path.realpath
+
+    def fake(path):
+        if str(path).endswith("page.json"):
+            return _os.path.join(str(tmp_path), "elsewhere", "page.json")
+        return real(path)
+
+    monkeypatch.setattr(_os.path, "realpath", fake)
+    with pytest.raises(RepairError, match="link inside repair tree"):
+        tree_digest(original)
+
+
 def test_chart_replace_needs_vetted_template(tmp_path: Path) -> None:
     clear_templates()
     original = _make_report(tmp_path)
@@ -173,3 +297,44 @@ def test_chart_replace_needs_vetted_template(tmp_path: Path) -> None:
         register_template("x", "1", "card", {"visual": {}}, [], "o")
     with pytest.raises(TemplateError, match="visual.json object"):
         register_template("x", "1", "card", {"nope": 1}, ["r"], "o")
+
+
+def test_template_bodies_and_copies() -> None:
+    clear_templates()
+    with pytest.raises(TemplateError, match="objects must be"):
+        register_template("x", "1", "card", {"visual": {"objects": []}}, ["r"], "o")
+    with pytest.raises(TemplateError, match="objects must be"):
+        register_template("x", "1", "card", {"visual": {}}, ["r"], "o")
+    with pytest.raises(TemplateError, match="non-finite"):
+        register_template("x", "1", "card", {"visual": {"objects": {"w": float("nan")}}}, ["r"], "o")
+    register_template("t", "1", "card", {"visual": {"objects": {"labels": []}}}, ["r"], "o")
+    try:
+        fetched = get_template("t", "1")
+        fetched["body"]["visual"]["objects"]["labels"].append(
+            "mutated")
+        fetched["required_bindings"].append("mutated")
+        again = get_template("t", "1")
+        assert again["body"]["visual"]["objects"] == {"labels": []}
+        assert again["required_bindings"] == ["r"]
+    finally:
+        clear_templates()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="junctions are Windows-only")
+def test_real_junction_inside_tree_refuses(
+        tmp_path: Path) -> None:
+    original = _make_report(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "smuggled.json").write_text("{}", encoding="utf-8")
+    completed = subprocess.run(
+        ["cmd", "/c", "mklink", "/J",
+         str(original / "definition" / "jdir"), str(outside)],
+        capture_output=True, text=True, check=False)
+    if completed.returncode != 0:
+        pytest.skip(f"mklink /J unavailable: {completed.stderr[:200]}")
+    with pytest.raises(RepairError, match="link inside repair tree"):
+        tree_digest(original)
+    with pytest.raises(RepairError, match="rejected|escapes|loop"):
+        materialize_candidate(str(original), str(tmp_path / "cand"))
+    assert not (tmp_path / "cand").exists()

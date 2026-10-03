@@ -8,6 +8,8 @@ registration stays an explicit, reviewed, test-scoped act.
 """
 from __future__ import annotations
 
+import copy
+import math
 from typing import Any
 
 
@@ -16,6 +18,24 @@ class TemplateError(ValueError):
 
 
 _registered: dict[tuple[str, str], dict[str, Any]] = {}
+
+
+def _check_body_finite(value: Any, depth: int = 0) -> None:
+    """Anti-abuse walk: template bodies stay finite and bounded."""
+    if depth > 12:
+        raise TemplateError("template body nests too deep")
+    if isinstance(value, float) and not math.isfinite(value):
+        raise TemplateError("template body holds a non-finite number")
+    if isinstance(value, dict):
+        if len(value) > 200:
+            raise TemplateError("template body object too large")
+        for entry in value.values():
+            _check_body_finite(entry, depth + 1)
+    elif isinstance(value, list):
+        if len(value) > 1000:
+            raise TemplateError("template body array too large")
+        for entry in value:
+            _check_body_finite(entry, depth + 1)
 
 
 def register_template(name: str, version: str, visual_type: str,
@@ -34,6 +54,9 @@ def register_template(name: str, version: str, visual_type: str,
                        for ref in required_bindings)):
         raise TemplateError("template needs a non-empty required_bindings "
                             "list of query refs")
+    if not isinstance(body["visual"].get("objects"), dict):
+        raise TemplateError("template body objects must be an object")
+    _check_body_finite(body)
     _registered[(name, version)] = {
         "name": name, "version": version, "visual_type": visual_type,
         "body": body, "required_bindings": list(required_bindings),
@@ -41,9 +64,12 @@ def register_template(name: str, version: str, visual_type: str,
 
 
 def get_template(name: str, version: str) -> dict[str, Any]:
-    """Fetch a registered template; missing versions block, never default."""
+    """Fetch a registered template; missing versions block, never default.
+
+    Returns a deep copy: callers cannot mutate registered state.
+    """
     try:
-        return _registered[(name, version)]
+        return copy.deepcopy(_registered[(name, version)])
     except KeyError as exc:
         raise TemplateError(
             f"no vetted template registered for {name} {version}; "

@@ -126,7 +126,7 @@ def test_added_or_removed_files_fail(tmp_path: Path) -> None:
     assert verdict["verdict"] == "fail"
     assert verdict["problems"][0]["rule"] == "file_removed"
     verdict = verify_candidate(original, candidate, edits,
-                               approved_removals={"cardx"})
+                               approved_removals={"P1/cardx"})
     assert verdict["verdict"] == "fail"
     assert any(row["rule"] == "declared_target_missing"
                for row in verdict["problems"])
@@ -138,8 +138,24 @@ def test_approved_removal_of_unedited_visual_passes(
     (candidate / "definition/pages/P1/visuals/neighbor"
      / "visual.json").unlink()
     verdict = verify_candidate(original, candidate, edits,
-                               approved_removals={"neighbor"})
+                               approved_removals={"P1/neighbor"})
     assert verdict["verdict"] == "pass"
+
+
+def test_wrong_page_approval_does_not_excuse(tmp_path: Path) -> None:
+    original, candidate, edits = _applied(tmp_path)
+    (candidate / "definition/pages/P1/visuals/neighbor"
+     / "visual.json").unlink()
+    verdict = verify_candidate(original, candidate, edits,
+                               approved_removals={"P2/neighbor"})
+    assert verdict["verdict"] == "fail"
+    assert any(row["rule"] == "file_removed"
+               for row in verdict["problems"])
+    verdict = verify_candidate(original, candidate, edits,
+                               approved_removals={"neighbor"})
+    assert verdict["verdict"] == "fail"
+    assert any(row["rule"] == "file_removed"
+               for row in verdict["problems"])
 
 
 def test_bad_geometry_fails(tmp_path: Path) -> None:
@@ -160,6 +176,70 @@ def test_bad_geometry_fails(tmp_path: Path) -> None:
                for row in verdict["problems"])
 
 
+def test_malformed_edits_fail_closed(tmp_path: Path) -> None:
+    original, candidate, _edits = _applied(tmp_path)
+    verdict = verify_candidate(original, candidate, [{}])
+    assert verdict["verdict"] == "fail"
+    assert verdict["problems"][0]["rule"] == "edits_unreadable"
+    verdict = verify_candidate(original, candidate, None)
+    assert verdict["verdict"] == "fail"
+    assert verdict["problems"][0]["rule"] == "edits_unreadable"
+    verdict = verify_candidate(
+        original, candidate, [{"file": VISUAL, "op": "typography.size"}])
+    assert verdict["verdict"] == "fail"
+    assert verdict["problems"][0]["rule"] == "edits_unreadable"
+
+
+def test_unreadable_file_blocks_confinement(
+        tmp_path: Path, monkeypatch) -> None:
+    original, candidate, edits = _applied(tmp_path)
+    real = Path.read_bytes
+
+    def boom(self):
+        if self.name == "bookmarks.json":
+            raise OSError("simulated EACCES")
+        return real(self)
+
+    monkeypatch.setattr(Path, "read_bytes", boom)
+    verdict = verify_candidate(original, candidate, edits)
+    assert verdict["verdict"] == "fail"
+    assert any(row["rule"] == "report_unreadable"
+               for row in verdict["problems"])
+
+
+def test_identity_changes_fail(tmp_path: Path) -> None:
+    original, candidate, edits = _applied(tmp_path)
+    order_file = candidate / "definition/pages/pages.json"
+    order_file.write_text(json.dumps({"pageOrder": ["P2"]}),
+                          encoding="utf-8")
+    verdict = verify_candidate(original, candidate, edits)
+    assert verdict["verdict"] == "fail"
+    assert any(row["rule"] == "page_order_changed"
+               for row in verdict["problems"])
+    order_file.write_text(json.dumps({"pageOrder": ["P1"]}),
+                          encoding="utf-8")
+    (candidate / "definition/pages/P1/visuals/neighbor"
+     / "visual.json").unlink()
+    verdict = verify_candidate(original, candidate, edits)
+    assert verdict["verdict"] == "fail"
+    assert any(row["rule"] == "visual_ids_changed"
+               for row in verdict["problems"])
+
+
+def test_malformed_canvas_fails_closed(tmp_path: Path) -> None:
+    original, candidate, edits = _applied(tmp_path)
+    page_file = candidate / "definition/pages/P1/page.json"
+    for width, height in (("1280", 720), (True, 720), (1280, 0),
+                          (1280.0, 720)):
+        page_file.write_text(json.dumps({"displayName": "O", "width": width,
+                                         "height": height}),
+                             encoding="utf-8")
+        verdict = verify_candidate(original, candidate, edits)
+        assert verdict["verdict"] == "fail", (width, height)
+        assert any(row["rule"] == "page_canvas_unreadable"
+                   for row in verdict["problems"]), (width, height)
+
+
 def test_rerender_requirements_cover_neighbors_and_shared(
         tmp_path: Path) -> None:
     op = _plan()["operations"][0]
@@ -175,6 +255,14 @@ def test_rerender_requirements_cover_neighbors_and_shared(
         "reasons": ["shared presentation change invalidates all pages"]}
     assert rerender_requirements([{"type": "theme.set"}],
                                  ["P1"])["verdict"] == "blocked"
+    assert rerender_requirements([], ["P1"]) == {
+        "verdict": "blocked",
+        "reason": "no operations; nothing requires a rerender"}
+    ghost = dict(op, selector={"page": "P9", "visual": "cardx"})
+    phantom = rerender_requirements([ghost], ["P1"])
+    assert phantom["verdict"] == "blocked"
+    assert phantom["reason"] == "unknown page in selector"
+    assert phantom["pages"] == ["P9"]
 
 
 def test_verify_renders_blocks_without_fresh_manifests() -> None:
@@ -193,3 +281,9 @@ def test_verify_renders_blocks_without_fresh_manifests() -> None:
                              "cand-digest")
     assert verdict["verdict"] == "blocked"
     assert verdict["missing_pages"] == ["P2"]
+    assert verify_renders([], [fresh], "cand-digest") == {
+        "verdict": "blocked",
+        "reason": "no pages required; refusing vacuous pass"}
+    empty = {"source_sha256": "", "page_images": {"P1": "p1.png"}}
+    assert verify_renders(["P1"], [empty], "") == {
+        "verdict": "blocked", "reason": "candidate digest required"}

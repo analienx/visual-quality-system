@@ -138,11 +138,15 @@ def bind_geometry(op: dict, visual_doc: dict,
         raise RecipeError(f"{op_type}: finite numeric value required")
     merged = dict(position)
     merged[path[1]] = new
-    try:
-        x, y = float(merged["x"]), float(merged["y"])
-        width, height = float(merged["width"]), float(merged["height"])
-    except (KeyError, TypeError, ValueError) as exc:
-        raise RecipeError(f"{op_type}: position lacks finite x/y/w/h") from exc
+    coords = {}
+    for key in ("x", "y", "width", "height"):
+        value = merged.get(key)
+        if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(value)):
+            raise RecipeError(f"{op_type}: position lacks finite x/y/w/h")
+        coords[key] = value
+    x, y, width, height = (coords["x"], coords["y"], coords["width"],
+                           coords["height"])
     if min(x, y) < 0 or min(width, height) <= 0:
         raise RecipeError(f"{op_type}: position must stay non-negative "
                           "with positive size")
@@ -169,6 +173,35 @@ def _finite_deep(value: Any, depth: int = 0) -> None:
             _finite_deep(entry, depth + 1)
 
 
+def _check_sort_shape(value: dict) -> None:
+    """Pin the sortDefinition envelope (PBIR visual.json query sorts).
+
+    A sort definition is an object with a non-empty "sort" array of
+    {field, direction} entries plus an optional "isDefaultSort" flag.
+    Deep field shapes stay opaque offline, but the envelope is fixed —
+    arbitrary dicts are not sorts.
+    """
+    if set(value) - {"sort", "isDefaultSort"}:
+        raise RecipeError("sort.set: sortDefinition allows only "
+                          "'sort' and 'isDefaultSort' keys")
+    entries = value.get("sort")
+    if not isinstance(entries, list) or not entries:
+        raise RecipeError("sort.set: sortDefinition needs a non-empty "
+                          "'sort' array")
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise RecipeError("sort.set: sort entries must be objects")
+        direction = entry.get("direction")
+        if isinstance(direction, bool) or not isinstance(direction, int):
+            raise RecipeError("sort.set: sort entry needs an integer "
+                              "'direction'")
+        if not isinstance(entry.get("field"), dict):
+            raise RecipeError("sort.set: sort entry needs a 'field' object")
+    default = value.get("isDefaultSort")
+    if default is not None and not isinstance(default, bool):
+        raise RecipeError("sort.set: 'isDefaultSort' must be a boolean")
+
+
 def bind_sort(op: dict, visual_doc: dict) -> dict:
     """Bind a sortDefinition replacement (the one allowed container write)."""
     page, visual = _require_selector(op)
@@ -182,6 +215,7 @@ def bind_sort(op: dict, visual_doc: dict) -> dict:
     new = op.get("value", None if "value" in op else ...)
     if new is ... or not isinstance(new, dict):
         raise RecipeError("sort.set: value must be a JSON object")
+    _check_sort_shape(new)
     _finite_deep(new)
     return {"page": page, "visual": visual, "path": list(path),
             "old": query.get("sortDefinition"), "new": new}

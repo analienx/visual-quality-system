@@ -76,6 +76,20 @@ def test_bool_and_type_strictness() -> None:
                                  [{"n": float("nan")}])["verdict"] == "blocked"
 
 
+def test_malformed_tolerance_blocks_without_raise() -> None:
+    for bad in ("x", 5, ["absolute"], 3.5, True):
+        verdict = answer_rows_preserved(ROWS, ROWS, bad)  # type: ignore[arg-type]
+        assert verdict["verdict"] == "blocked", bad
+        assert "must be an object" in verdict["reason"]
+
+
+def test_infinities_block_like_nan() -> None:
+    assert answer_rows_preserved([{"n": float("inf")}],
+                                 [{"n": float("inf")}])["verdict"] == "blocked"
+    assert answer_rows_preserved([{"n": 1}],
+                                 [{"n": float("inf")}])["verdict"] == "blocked"
+
+
 def test_scope_drift_and_baseline_block_or_fail() -> None:
     scope = scope_digest({"Year": "2024"}, measure="Revenue")
     other = scope_digest({"Year": "2023"}, measure="Revenue")
@@ -116,6 +130,14 @@ def test_collect_answers_blocks_port_failures() -> None:
     assert answers["q2"]["verdict"] == "blocked"
     assert "boom" in answers["q2"]["reason"]
     assert answers["q3"]["verdict"] == "blocked"
+
+
+def test_collect_answers_blocks_malformed_questions() -> None:
+    port = _Port([{"rows": ROWS, "context": {}}])
+    answers = collect_answers(port, ["not-a-question",
+                                     {"id": "q1", "dax": "E1", "scope": {}}])
+    assert answers["question-0"]["verdict"] == "blocked"
+    assert answers["q1"]["verdict"] == "observed"
 
 
 def test_criterion14_equal_scopes_without_rows_never_pass() -> None:

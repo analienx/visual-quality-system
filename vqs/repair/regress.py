@@ -65,14 +65,22 @@ def _inventory(report: Path) -> set[str]:
 
 def _declared_for(edits: list[dict]) -> dict[str, dict[str, set]]:
     declared: dict[str, dict[str, set]] = {}
-    for edit in edits:
-        slot = declared.setdefault(edit["file"], {"exact": set(),
-                                                  "prefixes": set()})
+    for index, edit in enumerate(edits):
+        if not isinstance(edit, dict):
+            raise _Unreadable(f"edit {index} is not an object")
+        target = edit.get("file")
+        if not isinstance(target, str) or not target:
+            raise _Unreadable(f"edit {index} has no file path")
+        slot = declared.setdefault(target, {"exact": set(),
+                                            "prefixes": set()})
         if edit.get("op") == "chart.replace":
             slot["prefixes"] |= {("visual", "visualType"),
                                  ("visual", "objects")}
         else:
-            slot["exact"].add(tuple(edit["path"]))
+            path = edit.get("path")
+            if not isinstance(path, list):
+                raise _Unreadable(f"edit {index} has no edit path")
+            slot["exact"].add(tuple(path))
     return declared
 
 
@@ -87,9 +95,12 @@ def _inventories(original: Path, candidate: Path,
         problems.append({"rule": "file_added", "file": rel})
     for rel in sorted(before - after):
         parts = rel.split("/")
-        visual_id = parts[-2] if len(parts) >= 2 and parts[-1] == "visual.json" \
-            and "visuals" in parts else ""
-        if visual_id and visual_id in approved_removals:
+        approval = ""
+        if parts[-1:] == ["visual.json"] and "visuals" in parts:
+            at = parts.index("visuals")
+            if 1 <= at and at + 1 < len(parts) - 1:
+                approval = f"{parts[at - 1]}/{parts[at + 1]}"
+        if approval and approval in approved_removals:
             continue
         problems.append({"rule": "file_removed", "file": rel})
     return problems
@@ -98,7 +109,10 @@ def _inventories(original: Path, candidate: Path,
 def _confinement(original: Path, candidate: Path,
                  edits: list[dict]) -> list[dict]:
     problems: list[dict] = []
-    declared = _declared_for(edits)
+    try:
+        declared = _declared_for(edits)
+    except _Unreadable as exc:
+        return [{"rule": "edits_unreadable", "detail": str(exc)}]
     try:
         before_files = _inventory(original)
         after_files = _inventory(candidate)
@@ -111,8 +125,13 @@ def _confinement(original: Path, candidate: Path,
         return problems
     common = before_files & after_files
     for rel in sorted(common):
-        old_bytes = (original / rel).read_bytes()
-        new_bytes = (candidate / rel).read_bytes()
+        try:
+            old_bytes = (original / rel).read_bytes()
+            new_bytes = (candidate / rel).read_bytes()
+        except OSError as exc:
+            problems.append({"rule": "report_unreadable", "file": rel,
+                             "detail": str(exc)})
+            continue
         if rel not in declared:
             if old_bytes != new_bytes:
                 problems.append({"rule": "undeclared_change", "file": rel})
@@ -138,24 +157,65 @@ def _confinement(original: Path, candidate: Path,
     return problems
 
 
-def _identities(candidate: Path) -> list[dict]:
-    """Page/visual ID sets must be intact (additions/removals fail)."""
-    problems = []
-    pages_root = candidate / "definition" / "pages"
+def _page_order(pages_root: Path) -> list[str]:
+    order = _load(pages_root / "pages.json")["pageOrder"]
+    if not isinstance(order, list) or not all(
+            isinstance(entry, str) for entry in order):
+        raise _Unreadable("pageOrder is not a string list")
+    return order
+
+
+def _visual_ids(pages_root: Path, page_id: str) -> set[str]:
+    visuals_root = pages_root / page_id / "visuals"
+    if not visuals_root.is_dir():
+        return set()
     try:
-        order = _load(pages_root / "pages.json")["pageOrder"]
+        return {child.name for child in visuals_root.iterdir()
+                if (child / "visual.json").is_file()}
+    except OSError as exc:
+        raise _Unreadable(f"visuals of {page_id}: {exc}") from exc
+
+
+def _identities(original: Path, candidate: Path,
+                approved_removals: set[str]) -> list[dict]:
+    """Page order and per-page visual IDs must match the original exactly.
+
+    Owner-approved removals are "page/visual" pairs; anything else added
+    or removed fails.
+    """
+    problems = []
+    try:
+        before = _page_order(original / "definition" / "pages")
+        after = _page_order(candidate / "definition" / "pages")
     except (_Unreadable, KeyError, TypeError) as exc:
         return [{"rule": "report_unreadable",
                  "detail": f"pages.json: {exc}"}]
-    if not isinstance(order, list) or not all(
-            isinstance(entry, str) for entry in order):
-        return [{"rule": "report_unreadable",
-                 "detail": "pageOrder is not a string list"}]
-    for page_id in order:
+    if before != after:
+        return [{"rule": "page_order_changed",
+                 "expected": before, "actual": after}]
+    pages_root = candidate / "definition" / "pages"
+    for page_id in after:
         visuals_root = pages_root / page_id / "visuals"
         if not visuals_root.is_dir():
             problems.append({"rule": "page_visuals_missing",
                              "page": page_id})
+            continue
+        try:
+            old_ids = _visual_ids(original / "definition" / "pages",
+                                  page_id)
+            new_ids = _visual_ids(pages_root, page_id)
+        except _Unreadable as exc:
+            problems.append({"rule": "report_unreadable",
+                             "detail": str(exc)})
+            continue
+        excused = {entry.split("/", 1)[1]
+                   for entry in approved_removals
+                   if entry.startswith(page_id + "/")}
+        removed = sorted(old_ids - new_ids - excused)
+        added = sorted(new_ids - old_ids)
+        if removed or added:
+            problems.append({"rule": "visual_ids_changed", "page": page_id,
+                             "removed": removed, "added": added})
     return problems
 
 
@@ -174,6 +234,12 @@ def _geometry(candidate: Path) -> list[dict]:
             page = _load(pages_root / page_id / "page.json")
             width, height = page["width"], page["height"]
         except (_Unreadable, KeyError, TypeError):
+            problems.append({"rule": "page_canvas_unreadable",
+                             "page": page_id})
+            continue
+        if (isinstance(width, bool) or not isinstance(width, int)
+                or isinstance(height, bool) or not isinstance(height, int)
+                or width <= 0 or height <= 0):
             problems.append({"rule": "page_canvas_unreadable",
                              "page": page_id})
             continue
@@ -209,12 +275,20 @@ def _geometry(candidate: Path) -> list[dict]:
 def verify_candidate(original: str | Path, candidate: str | Path,
                      edits: list[dict],
                      approved_removals: set[str] | None = None) -> dict:
-    """Pass only when the candidate differs solely by declared edits."""
+    """Pass only when the candidate differs solely by declared edits.
+
+    approved_removals holds owner-approved "page/visual" pairs; global
+    visual ids are not accepted.
+    """
     original_path, candidate_path = Path(original), Path(candidate)
     approved = set(approved_removals or ())
+    if not isinstance(edits, list):
+        return {"verdict": "fail",
+                "problems": [{"rule": "edits_unreadable",
+                              "detail": "edits must be a list"}]}
     problems = _inventories(original_path, candidate_path, approved)
     problems += _confinement(original_path, candidate_path, edits)
-    problems += _identities(candidate_path)
+    problems += _identities(original_path, candidate_path, approved)
     problems += _geometry(candidate_path)
     if problems:
         return {"verdict": "fail", "problems": problems[:20]}
@@ -233,6 +307,9 @@ def rerender_requirements(operations: list[dict],
     affected: list[str] = []
     shared = False
     reasons = []
+    if not operations:
+        return {"verdict": "blocked",
+                "reason": "no operations; nothing requires a rerender"}
     for index, op in enumerate(operations):
         try:
             result = affected_pages(op, ordered_page_ids)
@@ -245,6 +322,10 @@ def rerender_requirements(operations: list[dict],
         for page in result["pages"]:
             if page not in affected:
                 affected.append(page)
+    unknown = [page for page in affected if page not in ordered_page_ids]
+    if unknown:
+        return {"verdict": "blocked", "reason": "unknown page in selector",
+                "pages": unknown}
     if shared:
         pages = list(ordered_page_ids)
     else:
@@ -271,7 +352,15 @@ def verify_renders(required_pages: list[str], manifests: list[dict],
     A manifest counts for a page only when its source_sha256 equals the
     candidate digest and its page_images names the page. Malformed
     manifests are not evidence; missing pages block with exact names.
+    Empty requirements or a missing digest block instead of passing
+    vacuously.
     """
+    if not required_pages:
+        return {"verdict": "blocked",
+                "reason": "no pages required; refusing vacuous pass"}
+    if not candidate_digest:
+        return {"verdict": "blocked",
+                "reason": "candidate digest required"}
     covered: set[str] = set()
     for manifest in manifests:
         if not isinstance(manifest, dict):

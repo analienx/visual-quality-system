@@ -59,6 +59,8 @@ def ambiguity_check(question: str | None, known_measures: Sequence[str] | None,
         return {"verdict": "needs_clarification",
                 "reason": "Question implies a target with no target evidence"}
     return {"verdict": "answerable", "question": question}
+
+
 def _cell_equal(want: Any, got: Any, absolute: float,
                 relative: float) -> bool:
     """One answer cell: exact, except declared numeric tolerance."""
@@ -91,6 +93,9 @@ def answer_rows_preserved(expected: Sequence[dict] | None,
     be exactly equal. Unordered (default) compares as multisets; ordered
     compares positionally (rankings, top-N answers).
     """
+    if tolerance is not None and not isinstance(tolerance, dict):
+        return {"verdict": "blocked",
+                "reason": "tolerance declaration invalid: must be an object"}
     declared: dict[str, Any] = dict(tolerance or {})
     absolute = declared.get("absolute", 0)
     relative = declared.get("relative", 0)
@@ -127,11 +132,12 @@ def answer_rows_preserved(expected: Sequence[dict] | None,
                     "actual_columns": sorted(got_row)}
         for column in want_row:
             want, got = want_row[column], got_row[column]
-            if isinstance(want, float) and math.isnan(want):
-                return {"verdict": "blocked",
-                        "reason": "non-finite answer cell",
-                        "row": index, "column": column}
-            if isinstance(got, float) and math.isnan(got):
+            if ((isinstance(want, float) and not math.isfinite(want))
+                    or (isinstance(got, float)
+                        and not math.isfinite(got))):
+                # NaN and infinities alike: evidence present but
+                # uncomparable, so the gate blocks instead of passing or
+                # failing on an artifact of float representation.
                 return {"verdict": "blocked",
                         "reason": "non-finite answer cell",
                         "row": index, "column": column}

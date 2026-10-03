@@ -61,7 +61,13 @@ def _overlaps(first: str, second: str) -> bool:
             or right.startswith(left + "/"))
 
 
-def _as_targets(value: Any) -> list[str]:
+def normalize_targets(value: Any) -> list[str]:
+    """String entries of a write-target declaration (non-strings dropped).
+
+    A bare string coerces to one target here, but validate_plan rejects
+    non-list write_targets up front; this is the executor's belt-and-
+    braces normalization, not a second validation.
+    """
     if isinstance(value, str):
         return [value]
     if isinstance(value, list):
@@ -69,12 +75,18 @@ def _as_targets(value: Any) -> list[str]:
     return []
 
 
+def within_root(root_real: str, entry: str) -> bool:
+    """Realpath containment: entry resolves at or under the real root."""
+    target = os.path.normcase(os.path.realpath(entry))
+    return target == root_real or target.startswith(root_real + os.sep)
+
+
 def _touches_model(target: str) -> bool:
     """Case/whitespace-qualified match, including qualified refs like Dataset.T[col]."""
     norm = target.strip().casefold()
     delimiters = (".", "[", "(", " ", "/", ":")
     return any(norm == word or norm.startswith(word + mark)
-               for word in MODEL_TARGETS for mark in delimiters + ("",))
+               for word in MODEL_TARGETS for mark in delimiters)
 
 
 def validate_plan(plan: dict[str, Any], original_path: str, candidate_root: str,
@@ -86,7 +98,10 @@ def validate_plan(plan: dict[str, Any], original_path: str, candidate_root: str,
     operations = plan.get("operations")
     if not isinstance(operations, list) or not operations:
         return [{"rule": "plan_has_no_operations"}]
-    declared_targets = _as_targets(plan.get("write_targets"))
+    raw_targets = plan.get("write_targets")
+    if not isinstance(raw_targets, list):
+        return [{"rule": "plan_write_targets_not_a_list"}]
+    declared_targets = normalize_targets(raw_targets)
     if not declared_targets:
         return [{"rule": "plan_has_no_write_targets"}]
     if _overlaps(original_path, candidate_root):
@@ -117,7 +132,7 @@ def validate_plan(plan: dict[str, Any], original_path: str, candidate_root: str,
             issues.append({"rule": "intent_change_unapproved", "index": index})
         writes = op.get("writes")
         if writes is not None:
-            for entry in _as_targets(writes):
+            for entry in normalize_targets(writes):
                 if _resolve(candidate_root, entry) not in covered:
                     issues.append({"rule": "operation_write_mismatch",
                                    "index": index, "target": entry,
@@ -155,8 +170,13 @@ def validate_materialized_roots(original_path: str,
     """Realpath half of criterion 11 on existing roots; [] means proceed.
 
     Rejects realpath overlap (catches case/alias tricks the lexical check
-    cannot see) and any symlink/junction inside either root — repairs never
-    need links, so every link is a guardia refusal, not a case analysis.
+    cannot see) and any link inside either root. Detection is per-entry
+    realpath containment, which is version-independent: it catches
+    symlinks, junctions, and alias tricks on every supported Python,
+    including junctions on 3.11 where os.path.isjunction is missing.
+    Inside-pointing junctions are invisible on 3.11 (no API exists) but
+    cannot escape; directory loops are refused via visited-realpath
+    tracking. Walk errors fail closed as roots_unreadable.
     """
     issues: list[dict[str, Any]] = []
     for label, root in (("original", original_path),
@@ -177,19 +197,37 @@ def validate_materialized_roots(original_path: str,
         return issues
     for label, root in (("original", original_path),
                         ("candidate", candidate_root)):
-        try:
-            for current, dirs, files in os.walk(root, followlinks=False):
-                for name in (*dirs, *files):
-                    full = os.path.join(current, name)
-                    if _has_link(full):
-                        issues.append({"rule": "link_escape", "root": label,
-                                       "path": full,
-                                       "remediation": "Remove links from "
-                                                      "repair roots"})
-                        return issues
-        except OSError as exc:
+        root_real = os.path.normcase(os.path.realpath(root))
+        failures: list[OSError] = []
+
+        def _on_error(exc: OSError,
+                      _sink: list[OSError] = failures) -> None:
+            _sink.append(exc)
+
+        seen: set[str] = {root_real}
+        walker = os.walk(root, followlinks=False, onerror=_on_error)
+        for current, dirs, files in walker:
+            for name in (*dirs, *files):
+                full = os.path.join(current, name)
+                if _has_link(full) or not within_root(root_real, full):
+                    issues.append({"rule": "link_escape", "root": label,
+                                   "path": full,
+                                   "remediation": "Remove links from "
+                                                  "repair roots"})
+                    return issues
+            for name in list(dirs):
+                marker = os.path.normcase(os.path.realpath(
+                    os.path.join(current, name)))
+                if marker in seen:
+                    issues.append({"rule": "link_escape", "root": label,
+                                   "path": os.path.join(current, name),
+                                   "remediation": "Remove directory loops "
+                                                  "from repair roots"})
+                    return issues
+                seen.add(marker)
+        if failures:
             issues.append({"rule": "roots_unreadable", "root": label,
-                           "detail": str(exc)})
+                           "detail": str(failures[0])})
             return issues
     return issues
 
