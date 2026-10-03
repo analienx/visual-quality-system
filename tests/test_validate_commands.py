@@ -104,6 +104,7 @@ def test_adjudicate_bundle_pass_fail_blocked(tmp_path, capsys, monkeypatch):
     out = json.loads(capsys.readouterr().out)
     assert out["verdict"] == "fail"
     assert out["findings"][0]["check"] == "stale_image"
+    assert out["findings"][0]["status"] == "fail"
     nocap = _write(tmp_path / "nocap.json", _bundle(image_capability={}))
     assert main(["adjudicate-bundle", nocap, "--run-id", "ab2"]) == 2
     assert json.loads(capsys.readouterr().out)["verdict"] == "blocked"

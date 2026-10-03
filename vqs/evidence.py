@@ -177,7 +177,7 @@ def check_calibration(calibration: object,
     viewport = calibration.get("viewport")
     method = calibration.get("method")
     if (not _is_positive_int(width) or not _is_positive_int(height)
-            or scale not in (1, 2)
+            or isinstance(scale, bool) or scale not in (1, 2)
             or not isinstance(viewport, str) or not viewport.strip()
             or not isinstance(method, str) or not method.strip()):
         return [{"rule": "calibration_invalid", "verdict": "blocked"}]
@@ -199,6 +199,9 @@ def check_data_readiness(readiness: object) -> list[dict[str, Any]]:
         return [{"rule": "data_unpopulated", "verdict": "blocked"}]
     method = readiness.get("method")
     if not isinstance(method, str) or not method.strip():
+        return [{"rule": "data_readiness_invalid", "verdict": "blocked"}]
+    scope = readiness.get("scope")
+    if scope is not None and not isinstance(scope, dict):
         return [{"rule": "data_readiness_invalid", "verdict": "blocked"}]
     return []
 

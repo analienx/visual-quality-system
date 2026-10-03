@@ -111,7 +111,7 @@ def _adjudicate_bundle(bundle_path: Path, run_root: Path, run_id: str | None) ->
         findings = [{"check": "bundle", "status": "pass", "detail": {}}]
     else:
         findings = [{"check": finding.get("rule", "?"),
-                     "status": "fail" if finding.get("status") == "fail" else "blocked",
+                     "status": "fail" if finding.get("verdict") == "fail" else "blocked",
                      "detail": finding} for finding in decided["findings"]]
     return _sealed_exit(seal_verdict(run_root, run_id, "vqs.adjudicate-bundle/1",
                                      decided["verdict"], findings))

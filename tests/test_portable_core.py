@@ -60,6 +60,15 @@ def test_pending_self_review_or_stale_review_cannot_pass() -> None:
                verify_review("report", "source", pages, review, "executor"))
 
 
+def test_calibration_rejects_bool_scale_and_non_dict_scope() -> None:
+    bad_scale = dict(CALIBRATION)
+    bad_scale["scale"] = True
+    assert check_calibration(bad_scale, (500, 500)) != []
+    bad_scope = dict(READINESS)
+    bad_scope["scope"] = ["not-a-dict"]
+    assert check_data_readiness(bad_scope) != []
+
+
 def test_review_without_calibration_or_readiness_cannot_pass() -> None:
     pages = [{"id": "page-1", "image": "page-1.png", "sha256": "abc",
               "pixels": (500, 500)}]

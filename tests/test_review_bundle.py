@@ -101,6 +101,19 @@ def test_tampered_capture_metadata_rejected(tmp_path: Path) -> None:
         verify(str(tmp_path / "b1"))
 
 
+def test_dropped_member_hash_rejected(tmp_path: Path) -> None:
+    """Review finding: files must cover every fixed member and mapped render."""
+    report = _report(tmp_path)
+    renders = _renders(report, tmp_path)
+    pack(str(report), str(renders), str(tmp_path / "b1"), "fixer-1")
+    header_path = tmp_path / "b1" / "bundle.json"
+    header = json.loads(header_path.read_text(encoding="utf-8"))
+    del header["files"]["inventory.json"]
+    header_path.write_text(json.dumps(header), encoding="utf-8")
+    with pytest.raises(ValueError, match="member hash missing"):
+        verify(str(tmp_path / "b1"))
+
+
 def test_extra_member_rejected(tmp_path: Path) -> None:
     """Supervisor #22 P1-12: bundle membership is allowlisted."""
     report = _report(tmp_path)

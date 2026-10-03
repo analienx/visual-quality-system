@@ -405,3 +405,45 @@ def test_gate_without_environment_blocks(tmp_path: Path) -> None:
     verdict = run_acceptance(case.record(), case.store(tmp_path))
     assert verdict["verdict"] == "blocked"
     assert "gate_environment_incomplete" in _rules(verdict)
+
+
+def test_unhashable_gate_fields_block_without_raise(tmp_path: Path) -> None:
+    """Review finding: unhashable ids/controls fail closed, never raise."""
+    case = _Case()
+    case.add("G0", "p1", SOURCE_A, "pbip")
+    store = case.store(tmp_path)
+    gates = [dict(gate) for gate in case.gates]
+    gates[0]["id"] = ["G0"]
+    verdict = run_acceptance(case.record(gates=gates), store)
+    assert verdict["verdict"] == "blocked"
+    assert "unknown_gate" in _rules(verdict)
+    gates = [dict(gate) for gate in case.gates]
+    gates[0]["subject_id"] = ["p1"]
+    verdict = run_acceptance(case.record(gates=gates), store)
+    assert verdict["verdict"] == "blocked"
+    assert "gate_subject_unknown" in _rules(verdict)
+    gates = [dict(gate) for gate in case.gates]
+    gates[0]["negative_control"] = ["stale_image"]
+    gates[0]["caught"] = True
+    verdict = run_acceptance(case.record(gates=gates), store)
+    assert verdict["verdict"] == "blocked"
+    assert "invalid_negative_control" in _rules(verdict)
+
+
+def test_store_shadow_and_subclass_rejected(tmp_path: Path) -> None:
+    """Review finding: only the exact sealed store type is trusted."""
+    case = _full_case()
+    record = case.record()
+    shadowed = TestEvidenceStore({})
+    shadowed.TRUSTED = True  # type: ignore[attr-defined]
+    verdict = run_acceptance(record, shadowed)
+    assert verdict["verdict"] == "blocked"
+    assert "evidence_store_untrusted" in _rules(verdict)
+
+    class FakeSealed(SealedEvidenceStore):
+        def resolve(self, sha256: str):  # type: ignore[override]
+            return {"source_sha256": SOURCE_A, "environment": dict(ENV)}
+
+    verdict = run_acceptance(record, FakeSealed(tmp_path))
+    assert verdict["verdict"] == "blocked"
+    assert "evidence_store_untrusted" in _rules(verdict)

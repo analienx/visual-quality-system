@@ -9,15 +9,18 @@ negative controls present and caught on bound gates, reviewer different
 from editor, and explicit user promotion approval. Anything short of that
 fails or blocks — never passes.
 
-Caller labels and hex strings alone are never evidence: without a trusted
-:class:`vqs.evidence.EvidenceStore`, acceptance blocks. Mappings, callables,
-and the explicit unit-test double are rejected as untrusted.
+Caller labels and hex strings alone are never evidence: without an exact
+:class:`vqs.evidence.SealedEvidenceStore`, acceptance blocks. Mappings,
+callables, the explicit unit-test double, and store subclasses are rejected
+as untrusted. Residual assumption: the caller passes a root produced by seal
+paths — acceptance verifies bytes and bindings inside the root, not which
+process wrote the root. Producer-side envelope binding is later-lane work.
 """
 from __future__ import annotations
 
 from typing import Any
 
-from vqs.evidence import EvidenceStore
+from vqs.evidence import SealedEvidenceStore
 
 REQUIRED_NEGATIVES: frozenset[str] = frozenset({
     "stale_image", "wrong_pid", "blank_first_open", "partial_canvas",
@@ -54,7 +57,7 @@ def _is_hex64(value: object) -> bool:
 
 
 def run_acceptance(record: dict[str, Any],
-                   evidence_store: EvidenceStore | None = None
+                   evidence_store: SealedEvidenceStore | None = None
                    ) -> dict[str, Any]:
     """Adjudicate an acceptance record; see module docstring for the rules."""
     findings: list[dict[str, Any]] = []
@@ -65,10 +68,10 @@ def run_acceptance(record: dict[str, Any],
         findings.append({"rule": "evidence_store_missing", "status": "blocked",
                          "reason": "Release acceptance needs a trusted evidence store"})
         store_usable = False
-    elif (not isinstance(evidence_store, EvidenceStore)
-          or evidence_store.TRUSTED is not True):
+    elif type(evidence_store) is not SealedEvidenceStore:
         findings.append({"rule": "evidence_store_untrusted", "status": "blocked",
-                         "reason": "Only a trusted materialized store backs acceptance"})
+                         "reason": "Only a sealed materialized store backs acceptance; "
+                                   "mappings, doubles, and subclasses are rejected"})
         store_usable = False
     subjects = record.get("subjects", [])
     by_id: dict[str, dict[str, Any]] = {}
@@ -117,10 +120,11 @@ def run_acceptance(record: dict[str, Any],
             findings.append({"rule": "gate_not_green", "status": "blocked", "gate": gate_id,
                              "detail": status})
             continue
-        if gate_id not in REQUIRED_GATES:
+        if not isinstance(gate_id, str) or gate_id not in REQUIRED_GATES:
             findings.append({"rule": "unknown_gate", "status": "blocked", "gate": gate_id})
             continue
-        subject = by_id.get(gate.get("subject_id", ""))
+        subject_ref = gate.get("subject_id", "")
+        subject = by_id.get(subject_ref) if isinstance(subject_ref, str) else None
         if subject is None:
             findings.append({"rule": "gate_subject_unknown", "status": "blocked",
                              "gate": gate_id})
@@ -187,7 +191,10 @@ def run_acceptance(record: dict[str, Any],
         if gate_id == "G6":
             g6_covered = True
         control = gate.get("negative_control", "")
-        if control:
+        if control and not isinstance(control, str):
+            findings.append({"rule": "invalid_negative_control", "status": "blocked",
+                             "gate": gate_id})
+        elif control:
             if gate.get("caught", False) is True:
                 seen_negatives.add(control)
             else:

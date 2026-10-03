@@ -131,6 +131,11 @@ def verify(bundle: str, report: str | None = None) -> dict:
             problems.append(f"unexpected bundle member: {entry.name}")
             continue
         on_disk.add(entry.name)
+    required_members = set(FIXED_MEMBERS) | {
+        name for name in mapping.values() if safe_render_name(name) is not None}
+    for name in sorted(required_members):
+        if name not in member_hashes:
+            problems.append(f"member hash missing: {name}")
     for name, expected in member_hashes.items():
         if name not in allowed:
             problems.append(f"unexpected bundle member: {name}")
