@@ -11,9 +11,14 @@ from vqs.cli import main as vqs_main
 from vqs.pbir import source_digest
 
 
-def _write_png(path: Path, width: int = 500, height: int = 500) -> None:
+def _write_png(path: Path, width: int = 500, height: int = 500,
+                 blank: bool = False) -> None:
     ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
-    raw = b"".join(b"\x00" + b"\x20\x60\xc0" * width for _ in range(height))
+    first = b"\x00\x00\x00" if not blank else b"\x20\x60\xc0"
+    rest = b"\x20\x60\xc0" * width
+    rows = [b"\x00" + first + b"\x20\x60\xc0" * (width - 1)]
+    rows += [b"\x00" + rest for _ in range(height - 1)]
+    raw = b"".join(rows)
     payload = (b"\x89PNG\r\n\x1a\n"
                + struct.pack(">I", 13) + b"IHDR" + ihdr
                + struct.pack(">I", zlib.crc32(b"IHDR" + ihdr) & 0xFFFFFFFF)
@@ -46,15 +51,26 @@ def _instance(report: Path, pid: int = 111, unsaved: bool = False) -> dict:
 
 def _stub(monkeypatch, report, instances, png_pages=("p1",)):
     def fake_bridge(args, timeout):
+        if args[0] == "--version":
+            return 0, "1.0.0\n"
         if args[0] == "status":
             return 0, json.dumps({"status": "ready",
                                   "instances": instances})
         assert args[0] == "screenshot-all"
+        scale_arg = int(args[args.index("--scale") + 1])
         out = Path(args[args.index("--output-dir") + 1])
         shots = []
         for page in png_pages:
             raw = out / f"Display {page}.png"
-            _write_png(raw)
+            page_file = (report / "definition" / "pages" / page
+                         / "page.json")
+            try:
+                dims = json.loads(page_file.read_text(encoding="utf-8"))
+                size = (dims["width"] * scale_arg,
+                        dims["height"] * scale_arg)
+            except (OSError, ValueError, KeyError):
+                size = (500, 500)
+            _write_png(raw, *size)
             shots.append({"pageId": page, "outputPath": str(raw)})
         return 0, ("Capturing page 1/1" + chr(10) + json.dumps(
             {"status": "ok", "screenshots": shots})

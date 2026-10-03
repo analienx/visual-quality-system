@@ -10,10 +10,42 @@ fails before any pixel is trusted.
 from __future__ import annotations
 
 import os
+import re
 
 from vqs.adapters.ports import probe_executable, probe_file, readiness
 
 DESKTOP_BINARY = r"C:\Program Files\Microsoft Power BI Desktop\bin\PBIDesktop.exe"
+
+MIN_BRIDGE_VERSION = (1, 0, 0)
+
+
+def parse_bridge_version(text: str) -> tuple[int, ...] | None:
+    """Parse ``major.minor.patch`` from Bridge --version output, else None."""
+    match = re.search(r"(\d+)\.(\d+)\.(\d+)", text or "")
+    if match is None:
+        return None
+    return tuple(int(part) for part in match.groups())
+
+
+def gate_bridge_version(version_text: str,
+                        minimum: tuple[int, ...] = MIN_BRIDGE_VERSION
+                        ) -> dict:
+    """Block Bridge operations below the proven minimum version.
+
+    Spike #8 proved Bridge 1.0.0; older or unparseable versions fail
+    closed with the exact observation, never a claim of capability.
+    """
+    parsed = parse_bridge_version(version_text)
+    if parsed is None:
+        return {"verdict": "blocked",
+                "reason": "Bridge version unparseable; refusing to run",
+                "observed": (version_text or "")[:120]}
+    if parsed < minimum:
+        return {"verdict": "blocked",
+                "reason": f"Bridge {'.'.join(map(str, parsed))} below "
+                          f"minimum {'.'.join(map(str, minimum))}",
+                "observed": list(parsed)}
+    return {"verdict": "pass", "version": list(parsed)}
 
 
 def desktop_spike_readiness() -> dict:
