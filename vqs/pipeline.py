@@ -206,13 +206,17 @@ def seal_verdict(run_root: Path, run_id: str | None, pipeline_name: str,
     """Seal a single-verdict run; a duplicate run_id blocks without a run."""
     if verdict not in STATUS_BY_VERDICT:
         verdict = "blocked"
-    run_id = run_id or f"{pipeline_name}-{uuid.uuid4().hex[:12]}"
+    run_id = run_id or f"{pipeline_name}-{uuid.uuid4().hex[:12]}".replace("/", "-")
     try:
         run_dir = create_run(Path(run_root), run_id, {"pipeline": pipeline_name})
     except FileExistsError:
         return {"verdict": "blocked", "run_dir": None, "run_id": run_id,
                 "findings": [{"check": "run_id", "status": "blocked",
                               "reason": f"Run already exists: {run_id}"}]}
+    except ValueError as exc:
+        return {"verdict": "blocked", "run_dir": None, "run_id": run_id,
+                "findings": [{"check": "run_id", "status": "blocked",
+                              "reason": f"Unusable run id: {exc}"}]}
     append_event(run_dir, {"kind": "started", "checks": pipeline_name})
     terminal = STATUS_BY_VERDICT[verdict]
     append_event(run_dir, {"kind": terminal, "verdict": verdict})
@@ -236,6 +240,10 @@ def run_check(facts: Any, run_root: Path, run_id: str | None = None) -> dict[str
         return {"verdict": "blocked", "run_dir": None,
                 "findings": [{"check": "run_id", "status": "blocked",
                               "reason": f"Run already exists: {run_id}"}]}
+    except ValueError as exc:
+        return {"verdict": "blocked", "run_dir": None,
+                "findings": [{"check": "run_id", "status": "blocked",
+                              "reason": f"Unusable run id: {exc}"}]}
     append_event(run_dir, {"kind": "started",
                            "checks": "design_rules+oracles+documents+models"})
     findings: list[dict[str, Any]] = []

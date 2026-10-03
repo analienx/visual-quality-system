@@ -3,9 +3,10 @@
 Runs ``vqs measure`` against a PBIR report (plus optional TMDL model
 folder) and, unless ``--skip-pbir``, ``pbir validate --all`` for the
 same report. Prints a JSON summary and exits 0 when the emitter
-produces check-ready facts and pbir reports no errors (a missing pbir
-is reported as skipped, never a failure — VQS stays usable without
-it). Exit 1 on pbir errors, 2 when the report is unreadable::
+produces check-ready facts, the offline check passes, and pbir reports
+no errors (a missing pbir is reported as skipped, never a failure —
+VQS stays usable without it). Exit 1 when the check fails or pbir
+reports errors, 2 when the report is unreadable::
 
     python scripts/pbip_acceptance.py path/to/Example.Report
     python scripts/pbip_acceptance.py path/to/Example.Report --model path/to/Example.SemanticModel/definition --out summary.json
@@ -126,7 +127,8 @@ def main(argv: list[str] | None = None) -> int:
                if args.skip_pbir else _bpa(args.report)}
     empty = not rules
     pbir_bad = summary["pbir"]["status"] in ("error", "blocked")
-    summary["verdict"] = "fail" if (empty or pbir_bad) else "pass"
+    check_bad = check_summary["verdict"] != "pass"
+    summary["verdict"] = "fail" if (empty or pbir_bad or check_bad) else "pass"
     text = json.dumps(summary, indent=2)
     if args.out is None:
         print(text)
@@ -134,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
         args.out.write_text(text + "\n", encoding="utf-8")
     if empty:
         return 2
-    return 1 if pbir_bad else 0
+    return 1 if (pbir_bad or check_bad) else 0
 
 
 if __name__ == "__main__":

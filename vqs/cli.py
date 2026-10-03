@@ -111,7 +111,7 @@ def _adjudicate_bundle(bundle_path: Path, run_root: Path, run_id: str | None) ->
         findings = [{"check": "bundle", "status": "pass", "detail": {}}]
     else:
         findings = [{"check": finding.get("rule", "?"),
-                     "status": "fail" if finding.get("status") == "fail" else "blocked",
+                     "status": "fail" if finding.get("verdict") == "fail" else "blocked",
                      "detail": finding} for finding in decided["findings"]]
     return _sealed_exit(seal_verdict(run_root, run_id, "vqs.adjudicate-bundle/1",
                                      decided["verdict"], findings))
@@ -303,8 +303,11 @@ def main(argv: list[str] | None = None) -> int:
             page["id"] = page_id
             page["visual_inventory"] = [{"id": visual["visual_id"]} for visual in
                                         next(p for p in info["pages"] if p["id"] == page_id)["visuals"]]
-        print(json.dumps(review_template("report", info["source_sha256"], pages, args.fixer_id),
-                         indent=2, ensure_ascii=False))
+        template = review_template("report", info["source_sha256"], pages,
+                                     args.fixer_id,
+                                     calibration=manifest.get("calibration"),
+                                     data_readiness=manifest.get("data_readiness"))
+        print(json.dumps(template, indent=2, ensure_ascii=False))
         return 0
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(json.dumps({"status": "blocked", "reason": f"{type(exc).__name__}: {exc}"}))
