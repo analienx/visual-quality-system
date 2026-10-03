@@ -44,9 +44,10 @@ the original report, the semantic model, or any DAX/RLS object.
    `queryRef` present on the target visual's query.
 3. Intent gate: `identical_intent` or an owner-approved semantic
    change id; anything else blocks.
-4. Answer preservation: the candidate reproduces the original scoped
-   answers within declared tolerance (GOAL 14 comparator); missing or
-   divergent rows block or fail, never pass.
+4. Answer preservation (`answers_preserved` + `collect_answers`,
+   GOAL 14): the candidate reproduces the original scoped answers
+   within declared tolerance; missing or divergent rows block or
+   fail, never pass.
 5. Regression: untouched files byte-identical, touched files differ
    only at declared paths, IDs intact, every visual finite and
    in-canvas, neighbors included.
