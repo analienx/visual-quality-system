@@ -48,8 +48,12 @@ def collect_answers(query: Any, questions: Sequence[dict]) -> dict:
     The port needs ``query_scoped(dax, scope)`` returning {"rows": [...],
     "context": {...}} (the modeling-port shape); each question needs
     {"id", "dax", "scope"}. Any port failure blocks that question —
-    missing evidence never passes.
+    missing evidence never passes. A malformed questions collection
+    blocks the whole call instead of raising.
     """
+    if not isinstance(questions, (list, tuple)):
+        return {"questions": {"verdict": "blocked",
+                              "reason": "oracle questions required"}}
     answers: dict[str, Any] = {}
     for position, question in enumerate(questions):
         if not isinstance(question, dict):

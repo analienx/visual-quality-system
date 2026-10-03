@@ -42,7 +42,8 @@ def tree_digest(report: str | Path) -> str:
     Unlike source_digest (which binds the report's parent path and
     sibling models), this compares original and candidate CONTENT across
     different roots: identical trees digest identically wherever they
-    live. Any link inside refuses instead of hashing through it.
+    live. Any link or hardlink inside refuses instead of hashing
+    through it.
     """
     root = Path(report)
     digest = hashlib.sha256()
@@ -55,6 +56,12 @@ def tree_digest(report: str | Path) -> str:
         if path.is_symlink() or not within_root(root_real, str(path)):
             raise RepairError(f"link inside repair tree: {path}")
         if path.is_file():
+            try:
+                siblings = path.stat().st_nlink
+            except OSError as exc:
+                raise RepairError(f"cannot stat {path}: {exc}") from exc
+            if siblings > 1:
+                raise RepairError(f"hardlink inside repair tree: {path}")
             digest.update(path.relative_to(root).as_posix().encode("utf-8"))
             digest.update(b"\0")
             try:
@@ -126,12 +133,13 @@ def materialize_candidate(original: str, candidate_root: str) -> dict:
                 count += 1
         if failures:
             raise RepairError(f"original unreadable: {failures[0]}")
+        final = tree_digest(candidate_root)
     except Exception:
         shutil.rmtree(candidate_root, ignore_errors=True)
         raise
     return {"original": os.path.realpath(original),
             "candidate": os.path.realpath(candidate_root), "files": count,
-            "digest": tree_digest(candidate_root)}
+            "digest": final}
 
 
 def _visual_file(candidate: Path, page: str, visual: str) -> Path:
@@ -182,6 +190,7 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
     try:
         materialize_candidate(original, candidate_root)
     except RepairError as exc:
+        shutil.rmtree(candidate_root, ignore_errors=True)
         return {"verdict": "blocked", "stage": "materialize",
                 "reason": str(exc)}
     candidate = Path(candidate_root)

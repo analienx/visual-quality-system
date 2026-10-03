@@ -338,3 +338,73 @@ def test_real_junction_inside_tree_refuses(
     with pytest.raises(RepairError, match="rejected|escapes|loop"):
         materialize_candidate(str(original), str(tmp_path / "cand"))
     assert not (tmp_path / "cand").exists()
+
+
+def test_digest_failure_leaves_no_candidate(tmp_path: Path,
+                                            monkeypatch) -> None:
+    from vqs.repair import execute
+
+    original = _make_report(tmp_path)
+    before = tree_digest(original)
+
+    def boom(report):
+        raise RepairError("simulated planted link")
+
+    monkeypatch.setattr(execute, "tree_digest", boom)
+    with pytest.raises(RepairError, match="planted link"):
+        materialize_candidate(str(original), str(tmp_path / "cand"))
+    assert not (tmp_path / "cand").exists()
+    monkeypatch.setattr(execute, "tree_digest", boom)
+    result = apply_plan(_plan(), str(original), str(tmp_path / "cand2"))
+    assert result["verdict"] == "blocked"
+    assert result["stage"] == "materialize"
+    assert not (tmp_path / "cand2").exists()
+    monkeypatch.undo()
+    assert tree_digest(original) == before
+
+
+@pytest.mark.skipif(os.name != "nt", reason="junctions are Windows-only")
+def test_planted_junction_leaves_no_candidate(tmp_path: Path,
+                                              monkeypatch) -> None:
+    from vqs.repair import execute
+
+    original = _make_report(tmp_path)
+    before = tree_digest(original)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "smuggled.json").write_text("{}", encoding="utf-8")
+    real_validate = execute.validate_materialized_roots
+
+    def planting(original_path, candidate_root):
+        issues = real_validate(original_path, candidate_root)
+        target = Path(candidate_root) / "pdir"
+        if not issues and Path(candidate_root).is_dir() \
+                and not os.path.lexists(target):
+            completed = subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(target), str(outside)],
+                capture_output=True, text=True, check=False)
+            if completed.returncode != 0:
+                pytest.skip("mklink /J unavailable: "
+                            f"{completed.stderr[:200]}")
+        return issues
+
+    monkeypatch.setattr(execute, "validate_materialized_roots", planting)
+    result = apply_plan(_plan(), str(original), str(tmp_path / "cand"))
+    assert result["verdict"] == "blocked"
+    assert "link inside repair tree" in result["reason"]
+    assert not (tmp_path / "cand").exists()
+    assert (outside / "smuggled.json").is_file()
+    monkeypatch.undo()
+    assert tree_digest(original) == before
+
+
+def test_hardlink_inside_tree_refuses(tmp_path: Path) -> None:
+    original = _make_report(tmp_path)
+    (tmp_path / "outside.json").write_text("{}", encoding="utf-8")
+    try:
+        os.link(str(tmp_path / "outside.json"),
+                str(original / "definition" / "hard.json"))
+    except OSError as exc:
+        pytest.skip(f"hardlinks unsupported on this host: {exc}")
+    with pytest.raises(RepairError, match="hardlink inside repair tree"):
+        tree_digest(original)

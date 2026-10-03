@@ -165,12 +165,20 @@ def _has_link(path: str) -> bool:
     return bool(isjunction is not None and isjunction(path))
 
 
+def _nlink(path: str) -> int | None:
+    """Hardlink count of a file; None when it cannot be stated."""
+    try:
+        return os.stat(path).st_nlink
+    except OSError:
+        return None
+
+
 def validate_materialized_roots(original_path: str,
                                 candidate_root: str) -> list[dict[str, Any]]:
     """Realpath half of criterion 11 on existing roots; [] means proceed.
 
     Rejects realpath overlap (catches case/alias tricks the lexical check
-    cannot see) and any link inside either root. Detection is per-entry
+    cannot see) and any link or hardlink inside either root. Detection is per-entry
     realpath containment, which is version-independent: it catches
     symlinks, junctions, and alias tricks on every supported Python,
     including junctions on 3.11 where os.path.isjunction is missing.
@@ -215,6 +223,18 @@ def validate_materialized_roots(original_path: str,
                                    "remediation": "Remove links from "
                                                   "repair roots"})
                     return issues
+                if os.path.isfile(full):
+                    links = _nlink(full)
+                    if links is None:
+                        issues.append({"rule": "roots_unreadable",
+                                       "root": label, "path": full})
+                        return issues
+                    if links > 1:
+                        issues.append({"rule": "link_escape",
+                                       "root": label, "path": full,
+                                       "remediation": "Remove hardlinks "
+                                                      "from repair roots"})
+                        return issues
             for name in list(dirs):
                 marker = os.path.normcase(os.path.realpath(
                     os.path.join(current, name)))

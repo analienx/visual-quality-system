@@ -220,3 +220,19 @@ def test_missing_isjunction_still_refuses_escape(
     monkeypatch.delattr(os.path, "isjunction", raising=False)
     flagged = validate_materialized_roots(str(original), str(candidate))
     assert [row["rule"] for row in flagged] == ["link_escape"]
+
+
+def test_hardlink_escape_refused(tmp_path: Path) -> None:
+    original = tmp_path / "orig.Report"
+    candidate = tmp_path / "cand"
+    original.mkdir()
+    candidate.mkdir()
+    (tmp_path / "outside.json").write_text("{}", encoding="utf-8")
+    try:
+        os.link(str(tmp_path / "outside.json"),
+                str(candidate / "hard.json"))
+    except OSError as exc:
+        pytest.skip(f"hardlinks unsupported on this host: {exc}")
+    flagged = validate_materialized_roots(str(original), str(candidate))
+    assert [row["rule"] for row in flagged] == ["link_escape"]
+    assert "hardlink" in flagged[0]["remediation"]

@@ -307,9 +307,15 @@ def rerender_requirements(operations: list[dict],
     affected: list[str] = []
     shared = False
     reasons = []
+    if not isinstance(operations, list):
+        return {"verdict": "blocked",
+                "reason": "repair operations required"}
     if not operations:
         return {"verdict": "blocked",
                 "reason": "no operations; nothing requires a rerender"}
+    if (not isinstance(ordered_page_ids, list) or not all(
+            isinstance(entry, str) for entry in ordered_page_ids)):
+        return {"verdict": "blocked", "reason": "page order required"}
     for index, op in enumerate(operations):
         try:
             result = affected_pages(op, ordered_page_ids)
@@ -353,14 +359,21 @@ def verify_renders(required_pages: list[str], manifests: list[dict],
     candidate digest and its page_images names the page. Malformed
     manifests are not evidence; missing pages block with exact names.
     Empty requirements or a missing digest block instead of passing
-    vacuously.
+    vacuously. Malformed collections block with a reason; they never
+    raise into the caller.
     """
+    if not isinstance(required_pages, list):
+        return {"verdict": "blocked",
+                "reason": "required pages must be a list"}
     if not required_pages:
         return {"verdict": "blocked",
                 "reason": "no pages required; refusing vacuous pass"}
     if not candidate_digest:
         return {"verdict": "blocked",
                 "reason": "candidate digest required"}
+    if not isinstance(manifests, list):
+        return {"verdict": "blocked",
+                "reason": "render manifests required"}
     covered: set[str] = set()
     for manifest in manifests:
         if not isinstance(manifest, dict):

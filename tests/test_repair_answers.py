@@ -146,3 +146,16 @@ def test_criterion14_equal_scopes_without_rows_never_pass() -> None:
     assert verdict["verdict"] == "blocked"
     verdict = answers_preserved(scope, scope, None, None)
     assert verdict["verdict"] == "blocked"
+
+
+def test_collect_answers_blocks_malformed_collection() -> None:
+    class _Port:
+        def query_scoped(self, dax, scope):
+            raise AssertionError("port must not run")
+
+    assert collect_answers(_Port(), None) == {
+        "questions": {"verdict": "blocked",
+                      "reason": "oracle questions required"}}
+    assert collect_answers(_Port(), "dax") == {
+        "questions": {"verdict": "blocked",
+                      "reason": "oracle questions required"}}

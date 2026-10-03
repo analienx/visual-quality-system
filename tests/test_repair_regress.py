@@ -287,3 +287,19 @@ def test_verify_renders_blocks_without_fresh_manifests() -> None:
     empty = {"source_sha256": "", "page_images": {"P1": "p1.png"}}
     assert verify_renders(["P1"], [empty], "") == {
         "verdict": "blocked", "reason": "candidate digest required"}
+
+
+def test_malformed_collections_block_without_raise() -> None:
+    assert verify_renders(["P1"], None, "d") == {
+        "verdict": "blocked", "reason": "render manifests required"}
+    assert verify_renders(["P1"], 5, "d") == {
+        "verdict": "blocked", "reason": "render manifests required"}
+    assert verify_renders(5, [], "d") == {
+        "verdict": "blocked", "reason": "required pages must be a list"}
+    op = _plan()["operations"][0]
+    assert rerender_requirements([op], None) == {
+        "verdict": "blocked", "reason": "page order required"}
+    assert rerender_requirements([op], ["P1", 7]) == {
+        "verdict": "blocked", "reason": "page order required"}
+    assert rerender_requirements(5, ["P1"]) == {
+        "verdict": "blocked", "reason": "repair operations required"}
