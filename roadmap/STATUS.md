@@ -1,6 +1,6 @@
 # Delivery status ledger — planning baseline
 
-**Snapshot:** 2026-09-26. **Program:** [#4](https://github.com/analienx/visual-quality-system/issues/4). **Machine source:** [work_packages.json](work_packages.json). **State meaning:** [protocol](../docs/LEDGER_AND_AGENT_PROTOCOL.md). **WARNING:** this is the state at planning creation, not a claim any new code has run. The `snapshot_utc` inside the machine ledger is an edit timestamp, not current environmental verification. Future snapshots should be generated from the machine ledger, with independent verification before moving a package to `verified`.
+**Snapshot:** 2026-10-03 (WP-00 baseline observation; no package state changed by it). **Program:** [#4](https://github.com/analienx/visual-quality-system/issues/4). **Machine source:** [work_packages.json](work_packages.json). **Baseline:** [BASELINE.md](../docs/BASELINE.md) at `5fda4e5` (hosted CI run 36322211286: 212 passed × 3 Pythons, Ruff clean; portable only). **State meaning:** [protocol](../docs/LEDGER_AND_AGENT_PROTOCOL.md). **WARNING:** states below are workflow states, not verified-implementation claims. The `snapshot_utc` inside the machine ledger is an edit timestamp, not current environmental verification. Snapshots are generated from the machine ledger, with independent verification before moving a package to `verified`.
 
 | Work package | Phase | Component / acceptance focus | Depends on | GitHub | State / proof |
 | --- | --- | --- | --- | --- | --- |
