@@ -483,7 +483,7 @@ def inspect_report(report_dir: str, model_dir: str | None = None,
                         next_actions=["fix the unreadable sources and retry"])
     try:
         facts = measure_report(report_dir, model_dir)
-    except OSError as exc:
+    except (OSError, ValueError) as exc:
         return blocked_envelope("vqs.inspect", [f"unreadable report: {exc}"],
                         provenance=provenance,
                         next_actions=["fix the unreadable sources and retry"])
@@ -568,6 +568,23 @@ def review_report(*, report_dir: str | None = None,
             inspected["tool"] = "vqs.review"
             return inspected
         facts = inspected["facts"]
+    merged = dict(facts)
+    oracles = list(merged.get("oracles", [])) if isinstance(
+        merged.get("oracles", []), list) else []
+    questions = config.get("questions", [])
+    for question in questions if isinstance(questions, list) else [questions]:
+        oracles.append({"question": question} if isinstance(question, str)
+                       else question)
+    # Config oracles pass through unfiltered: malformed entries must
+    # block in _run_oracle, never vanish here.
+    extra_oracles = config.get("oracles", [])
+    oracles.extend(extra_oracles if isinstance(extra_oracles, list)
+                   else [extra_oracles])
+    if oracles:
+        merged["oracles"] = oracles
+    provenance["facts_sha256"] = hashlib.sha256(json.dumps(
+        merged, sort_keys=True, ensure_ascii=False, default=str).encode(
+            "utf-8")).hexdigest()
     if resume_from is not None:
         prior, error = _read_manifest(run_root, resume_from)
         if error is not None:
@@ -578,7 +595,13 @@ def review_report(*, report_dir: str | None = None,
                 "vqs.review",
                 [f"prior run {resume_from!r} has no sealed provenance"],
                 provenance=provenance)
-        changed = [name for name in ("source_sha256", "model_sha256")
+        if "facts_sha256" not in sealed:
+            return blocked_envelope(
+                "vqs.review",
+                [f"prior run {resume_from!r} has no sealed facts digest"],
+                provenance=provenance)
+        changed = [name for name in ("source_sha256", "model_sha256",
+                                     "facts_sha256")
                    if sealed.get(name) != provenance.get(name)]
         if changed:
             return blocked_envelope(
@@ -587,20 +610,11 @@ def review_report(*, report_dir: str | None = None,
                  f"{', '.join(changed)}; refusing blind resume")],
                 provenance=provenance,
                 next_actions=["re-run without resume_from to accept the new sources"])
-    merged = dict(facts)
-    oracles = list(merged.get("oracles", [])) if isinstance(
-        merged.get("oracles", []), list) else []
-    for question in config.get("questions", []):
-        oracles.append({"question": question} if isinstance(question, str)
-                       else question)
-    oracles.extend(o for o in config.get("oracles", [])
-                   if isinstance(o, dict))
-    if oracles:
-        merged["oracles"] = oracles
     manifest_extra = {"resumed_from": resume_from} if resume_from else None
     result = run_check(merged, Path(run_root), run_id,
                        artifacts={"source_sha256": provenance["source_sha256"],
-                                  "model_sha256": provenance["model_sha256"]},
+                                  "model_sha256": provenance["model_sha256"],
+                                  "facts_sha256": provenance["facts_sha256"]},
                        manifest_extra=manifest_extra)
     if result["verdict"] == "blocked" and result.get("run_dir") is None:
         return blocked_envelope("vqs.review",

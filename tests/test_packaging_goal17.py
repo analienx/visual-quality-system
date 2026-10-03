@@ -62,14 +62,18 @@ def test_installed_cli_mcp_parity_outside_checkout(tmp_path: Path) -> None:
 
     probe = subprocess.run(
         [sys.executable, "-c",
-         ("from importlib.metadata import distribution; "
+         ("import os; from importlib.metadata import distribution; "
+          "import vqs; "
           "d = distribution('visual-quality-system'); "
-          "print(sorted(f'{e.name}={e.value}' for e in d.entry_points))")],
+          "print(sorted(f'{e.name}={e.value}' for e in d.entry_points)); "
+          "print(os.path.realpath(vqs.__file__))")],
         capture_output=True, text=True, check=False, timeout=60, cwd=work,
         env=full_env)
     assert probe.returncode == 0, probe.stderr
     assert "vqs=vqs.cli:main" in probe.stdout
     assert "vqs-mcp=vqs.mcp.server:main" in probe.stdout
+    import os
+    assert os.path.realpath(str(target)) in probe.stdout
 
 
 def test_offline_review_without_optional_tools(tmp_path: Path,

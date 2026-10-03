@@ -9,6 +9,8 @@ import json
 import shutil
 from pathlib import Path
 
+import pytest
+
 POWERBI_FIX = Path(__file__).parent / "powerbi" / "fixtures"
 REPORT = str(POWERBI_FIX / "mini_report")
 MODEL = str(POWERBI_FIX / "mini_model" / "definition")
@@ -318,6 +320,76 @@ def test_cli_review_inspect_parity_and_exits(tmp_path: Path, capsys) -> None:
                      "--candidate-root", "/c"]) == 1
     assert vqs_main(["verify", "--original", "/o",
                      "--candidate", "/c"]) == 2
+
+
+def test_review_malformed_config_oracles_block(tmp_path: Path) -> None:
+    from vqs.pipeline import review_report
+
+    envelope = review_report(
+        facts={"rules": {}}, run_root=str(tmp_path), run_id="m1",
+        config={"oracles": ["junk", 7], "questions": "not-a-list"})
+    assert envelope["verdict"] == "blocked"
+    oracles = [f for f in envelope["findings"]
+               if f["check"].startswith("oracle:")]
+    assert len(oracles) == 3
+    assert all(f["status"] == "blocked" for f in oracles)
+
+
+def test_review_resume_changed_facts_blocks(tmp_path: Path) -> None:
+    from vqs.pipeline import review_report
+
+    run_root = str(tmp_path / "runs")
+    review_report(facts={"rules": {}}, run_root=run_root, run_id="a")
+    resumed = review_report(
+        facts={"rules": {"typography.text_contrast": {
+            "foreground": "#000000", "background": "#FFFFFF"}}},
+        run_root=run_root, run_id="b", resume_from="a")
+    assert resumed["verdict"] == "blocked"
+    assert any("facts_sha256" in reason
+               for reason in resumed["blocked_reasons"])
+
+
+def test_review_resume_changed_config_blocks(tmp_path: Path) -> None:
+    from vqs.pipeline import review_report
+
+    run_root = str(tmp_path / "runs")
+    review_report(facts={"rules": {}}, run_root=run_root, run_id="a")
+    resumed = review_report(
+        facts={"rules": {}}, run_root=run_root, run_id="b",
+        resume_from="a",
+        config={"oracles": [{"oracle_scope": "x", "run_scope": "x"}]})
+    assert resumed["verdict"] == "blocked"
+    assert any("facts_sha256" in reason
+               for reason in resumed["blocked_reasons"])
+
+
+def test_review_resume_legacy_run_without_facts_digest(tmp_path: Path) -> None:
+    from vqs.pipeline import review_report
+    from vqs.run_store import create_run, seal_run
+
+    run_dir = create_run(tmp_path / "runs", "legacy", {"pipeline": "t/1"})
+    seal_run(run_dir, "completed",
+             artifacts={"source_sha256": None, "model_sha256": None})
+    resumed = review_report(facts={"rules": {}},
+                            run_root=str(tmp_path / "runs"), run_id="b",
+                            resume_from="legacy")
+    assert resumed["verdict"] == "blocked"
+    assert any("no sealed facts digest" in reason
+               for reason in resumed["blocked_reasons"])
+
+
+def test_inspect_non_utf8_bytes_block(tmp_path: Path) -> None:
+    from vqs.pipeline import inspect_report
+    from vqs.powerbi.measure import measure_report
+
+    model = tmp_path / "model"
+    bad = model / "tables" / "T.tmdl"
+    bad.parent.mkdir(parents=True)
+    bad.write_bytes(b"table T\n\n\xff\xfe not utf-8")
+    with pytest.raises(UnicodeDecodeError):
+        measure_report(REPORT, str(model))
+    envelope = inspect_report(REPORT, str(model))
+    assert envelope["verdict"] == "blocked"
 
 
 def test_cli_review_report_out(tmp_path: Path, capsys) -> None:
