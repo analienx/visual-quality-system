@@ -21,14 +21,25 @@ def _plan(**overrides):
     return plan
 
 
+def _observations():
+    from vqs.policy import REQUIRED
+    return [{"id": check, "criterion": check, "status": "pass",
+             "reason": "All labels legible at the target size on the fresh render."}
+            for check in REQUIRED["report"]]
+
+
 def _bundle(**overrides):
-    bundle = {"source_sha256": "s", "fixer_id": "a", "reviewer": {"id": "b"},
+    bundle = {"source_sha256": "s", "surface": "report", "fixer_id": "a",
+              "reviewer": {"id": "b", "role": "independent_visual_reviewer"},
               "image_capability": {"available": True},
-              "calibration": {"full_canvas": True, "viewport": "1920x1080",
-                              "scale": 1.0},
+              "calibration": {"canvas_width": 500, "canvas_height": 500,
+                              "scale": 1, "viewport": "500x500@1x",
+                              "method": "bridge-screenshot-all"},
+              "data_readiness": {"populated": True, "method": "scoped-dax-probe",
+                                 "checked_at": "2026-10-03T00:00:00Z"},
               "pages": [{"id": "p1", "image_source_sha256": "s",
-                         "observations": [{"status": "pass", "criterion": "c",
-                                           "reason": "r"}]}]}
+                         "pixels": [500, 500],
+                         "observations": _observations()}]}
     bundle.update(overrides)
     return bundle
 

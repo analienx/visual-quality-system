@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import scripts.pbip_acceptance as pbip_acceptance
+from scripts import pbip_acceptance
 from scripts.pbip_acceptance import _summarize_bpa, main
 
 

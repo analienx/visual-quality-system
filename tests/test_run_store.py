@@ -94,7 +94,9 @@ def test_seal_after_post_terminal_event_rejected(tmp_path: Path) -> None:
     run_dir = run_store.create_run(tmp_path, "r1", {})
     run_store.append_event(run_dir, {"kind": "started"})
     run_store.append_event(run_dir, {"kind": "completed"})
-    run_store.append_event(run_dir, {"kind": "heartbeat"})
+    # Simulate the repro's post-terminal heartbeat beneath the append guard.
+    with (run_dir / "events.jsonl").open("a", encoding="utf-8") as stream:
+        stream.write('{"kind": "heartbeat"}\n')
     try:
         run_store.seal_run(run_dir, "completed")
     except ValueError:

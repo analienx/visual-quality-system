@@ -18,7 +18,7 @@ from vqs.evidence import (
 from vqs.pbir import report_context, source_digest
 from vqs.policy import CRITERIA, DOCUMENT, REPORT
 
-FIXTURES = (Path(__file__).resolve().parents[1] / "fixtures" / "vqs_agent_first"
+FIXTURES = (Path(__file__).resolve().parents[0] / "fixtures" / "vqs_agent_first"
             / "trust")
 CALIBRATION = {"canvas_width": 500, "canvas_height": 500, "scale": 1,
                "viewport": "500x500@1x", "method": "bridge-screenshot-all"}

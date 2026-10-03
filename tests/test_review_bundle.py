@@ -144,8 +144,9 @@ def test_pack_refuses_bad_renders(tmp_path: Path) -> None:
 
 
 def test_pack_refuses_renders_without_calibration(tmp_path: Path) -> None:
-    from vqs.pbir import source_digest
     import hashlib
+
+    from vqs.pbir import source_digest
     report = _report(tmp_path)
     renders = tmp_path / "renders"
     renders.mkdir()

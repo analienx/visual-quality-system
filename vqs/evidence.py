@@ -2,6 +2,12 @@
 
 A passed JSON checklist is not proof that the reviewer actually inspected pixels.
 The separate rule/data/render stages must also pass before release approval.
+
+This module additionally owns the trusted evidence-store abstraction used by
+release acceptance: a SHA-256 digest only becomes evidence when a trusted
+store resolves it to bytes, recomputes the digest, and returns the envelope
+for source/environment/scope binding. Caller-supplied mappings are never a
+store. :class:`TestEvidenceStore` is an explicitly untrusted unit-test double.
 """
 from __future__ import annotations
 
@@ -10,8 +16,19 @@ import json
 import struct
 import zlib
 from pathlib import Path
+from typing import Any
 
-from .policy import CRITERIA, OPTIONAL, POLICY_VERSION, REQUIRED, SEVERITIES, STATUSES
+from .policy import (
+    CRITERIA,
+    OPTIONAL,
+    POLICY_VERSION,
+    REQUIRED,
+    SEVERITIES,
+    STATUSES,
+    required_criteria,
+)
+
+REVIEWER_ROLE = "independent_visual_reviewer"
 
 
 def digest(path: Path) -> str:
@@ -69,6 +86,183 @@ def safe_render_name(name: object) -> str | None:
     return name
 
 
+class EvidenceStore:
+    """Resolve evidence digests to sealed envelopes; base type, untrusted."""
+
+    TRUSTED = False
+
+    def resolve(self, sha256: str) -> dict[str, Any]:
+        """Return the envelope for a digest; raise when unresolvable."""
+        raise NotImplementedError
+
+
+class SealedEvidenceStore(EvidenceStore):
+    """Production store: content-addressed sealed files under ``root/objects``.
+
+    ``resolve`` reads ``objects/<sha256>``, refuses symlinks, recomputes the
+    digest over the raw bytes, and parses the envelope as a JSON object.
+    Missing digests raise :class:`LookupError`; tampered or malformed
+    envelopes raise :class:`ValueError`.
+    """
+
+    TRUSTED = True
+
+    def __init__(self, root: str | Path) -> None:
+        self.root = Path(root)
+
+    def resolve(self, sha256: str) -> dict[str, Any]:
+        digest_ok = (
+            isinstance(sha256, str)
+            and len(sha256) == 64
+            and all(c in "0123456789abcdefABCDEF" for c in sha256)
+        )
+        if not digest_ok:
+            raise ValueError(f"Evidence digest is not hex64: {sha256!r}")
+        path = self.root / "objects" / sha256
+        if path.is_symlink():
+            raise ValueError(f"Evidence member is a symlink: {sha256}")
+        try:
+            raw = path.read_bytes()
+        except OSError as exc:
+            raise LookupError(f"Evidence not materialized: {sha256}") from exc
+        if hashlib.sha256(raw).hexdigest() != sha256.lower():
+            raise ValueError(f"Evidence bytes do not match digest: {sha256}")
+        try:
+            envelope = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise ValueError(f"Evidence envelope is not JSON: {sha256}") from exc
+        envelope_ok = isinstance(envelope, dict)
+        if not envelope_ok:
+            raise ValueError(f"Evidence envelope is not an object: {sha256}")
+        return envelope
+
+
+class TestEvidenceStore(EvidenceStore):
+    """Explicit unit-test double; NEVER trusted production evidence.
+
+    ``TRUSTED`` is ``False`` so release acceptance always blocks on it.
+    Production callers must wire :class:`SealedEvidenceStore`.
+    """
+
+    TRUSTED = False
+    __test__ = False
+
+    def __init__(self, envelopes: dict[str, dict[str, Any]]) -> None:
+        self._envelopes = dict(envelopes)
+
+    def resolve(self, sha256: str) -> dict[str, Any]:
+        try:
+            envelope = self._envelopes[sha256]
+        except KeyError as exc:
+            raise LookupError(f"Evidence not materialized: {sha256}") from exc
+        envelope_ok = isinstance(envelope, dict)
+        if not envelope_ok:
+            raise ValueError(f"Evidence envelope is not an object: {sha256}")
+        return dict(envelope)
+
+
+def _is_positive_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
+def check_calibration(calibration: object,
+                      pixels: tuple[int, int] | list[int] | None = None
+                      ) -> list[dict[str, Any]]:
+    """Validate full-canvas calibration evidence, optionally against pixels."""
+    if not isinstance(calibration, dict):
+        return [{"rule": "calibration_missing", "verdict": "blocked"}]
+    width = calibration.get("canvas_width")
+    height = calibration.get("canvas_height")
+    scale = calibration.get("scale")
+    viewport = calibration.get("viewport")
+    method = calibration.get("method")
+    if (not _is_positive_int(width) or not _is_positive_int(height)
+            or scale not in (1, 2)
+            or not isinstance(viewport, str) or not viewport.strip()
+            or not isinstance(method, str) or not method.strip()):
+        return [{"rule": "calibration_invalid", "verdict": "blocked"}]
+    if pixels is None:
+        return []
+    actual = tuple(pixels) if isinstance(pixels, (list, tuple)) else None
+    if actual != (width * scale, height * scale):  # type: ignore[operator]
+        return [{"rule": "calibration_mismatch", "verdict": "blocked",
+                 "expected": [width * scale, height * scale],  # type: ignore[operator]
+                 "actual": list(actual) if actual is not None else pixels}]
+    return []
+
+
+def check_data_readiness(readiness: object) -> list[dict[str, Any]]:
+    """Validate scoped data-readiness evidence; unproven data never passes."""
+    if not isinstance(readiness, dict):
+        return [{"rule": "data_readiness_missing", "verdict": "blocked"}]
+    if readiness.get("populated") is not True:
+        return [{"rule": "data_unpopulated", "verdict": "blocked"}]
+    method = readiness.get("method")
+    if not isinstance(method, str) or not method.strip():
+        return [{"rule": "data_readiness_invalid", "verdict": "blocked"}]
+    return []
+
+
+def check_reviewer(reviewer: object, fixer_id: str) -> list[dict[str, Any]]:
+    """Canonical reviewer check: independent identity, never the fixer."""
+    if not isinstance(reviewer, dict):
+        return [{"rule": "independent_reviewer_required", "verdict": "blocked"}]
+    reviewer_id = reviewer.get("id", "")
+    if not reviewer_id:
+        return [{"rule": "independent_reviewer_required", "verdict": "blocked"}]
+    if fixer_id and reviewer_id == fixer_id:
+        return [{"rule": "own_review_forbidden", "verdict": "fail"}]
+    if reviewer.get("role") != REVIEWER_ROLE:
+        return [{"rule": "independent_reviewer_required", "verdict": "blocked"}]
+    return []
+
+
+def check_observations(kind: str, observations: object,
+                       valid_visual_ids: set[str],
+                       page_id: str = "?") -> list[dict[str, Any]]:
+    """Canonical observation check shared by verify_review and adjudication."""
+    if kind not in REQUIRED:
+        return [{"rule": "review_surface_unknown", "verdict": "blocked",
+                 "page": page_id}]
+    if not isinstance(observations, list):
+        return [{"rule": "review_observations_invalid", "verdict": "blocked",
+                 "page": page_id}]
+    answers = [answer for answer in observations if isinstance(answer, dict)]
+    by_id = {answer.get("id"): answer for answer in answers}
+    expected = set(REQUIRED[kind])
+    if len(answers) != len(observations) or len(by_id) != len(answers) or set(by_id) != expected:
+        return [{"rule": "review_observations_incomplete", "verdict": "blocked",
+                 "page": page_id}]
+    findings: list[dict[str, Any]] = []
+    for check in expected:
+        answer = by_id[check]
+        status, reason = answer.get("status"), answer.get("reason")
+        if status not in STATUSES or not isinstance(reason, str) or len(reason.strip()) < 32:
+            findings.append({"rule": "observation_unsubstantiated",
+                             "verdict": "blocked", "page": page_id, "check": check})
+        elif status == "not_applicable" and check not in OPTIONAL[kind]:
+            findings.append({"rule": "mandatory_observation_skipped",
+                             "verdict": "blocked", "page": page_id, "check": check})
+        elif status == "fail":
+            region = answer.get("region")
+            located = (isinstance(region, list) and len(region) == 4 and
+                       all(isinstance(x, (int, float)) and not isinstance(x, bool)
+                           and 0 <= x <= 1 for x in region) and
+                       region[0] < region[2] and region[1] < region[3])
+            if (answer.get("severity") not in SEVERITIES or not located or
+                    answer.get("visual_id") not in valid_visual_ids or
+                    len(str(answer.get("proposed_fix", "")).strip()) < 12):
+                findings.append({"rule": "issue_lacks_location_or_repair",
+                                 "verdict": "blocked", "page": page_id, "check": check})
+            else:
+                findings.append({"rule": "visual_defect", "verdict": "fail",
+                                 "page": page_id, "check": check,
+                                 "severity": answer["severity"], "region": region,
+                                 "visual_id": answer["visual_id"],
+                                 "detail": reason, "proposed_fix": answer["proposed_fix"]})
+    return findings
+
+
 def image_evidence(images: Path, source_sha: str, page_ids: list[str]) -> tuple[list[dict], list[dict]]:
     """Validate rendered page PNGs against a source-linked capture manifest."""
     manifest_path = images / "capture-manifest.json"
@@ -85,6 +279,11 @@ def image_evidence(images: Path, source_sha: str, page_ids: list[str]) -> tuple[
     mapping = manifest.get("page_images")
     if not isinstance(files, dict) or not isinstance(mapping, dict):
         return [], issues + [{"rule": "render_manifest_invalid"}]
+    calibration = manifest.get("calibration")
+    readiness = manifest.get("data_readiness")
+    shape_issues = check_calibration(calibration)
+    issues.extend(shape_issues)
+    issues.extend(check_data_readiness(readiness))
     pages = []
     for page_id in page_ids:
         fallback = page_id if page_id.lower().endswith(".png") else page_id + ".png"
@@ -107,18 +306,30 @@ def image_evidence(images: Path, source_sha: str, page_ids: list[str]) -> tuple[
             continue
         if files.get(name) != sha:
             issues.append({"rule": "page_render_unbound", "page": page_id})
+        if not shape_issues:
+            for row in check_calibration(calibration, dimensions):
+                issues.append({**row, "page": page_id})
         pages.append({"id": page_id, "image": name, "sha256": sha, "pixels": dimensions})
     return pages, issues
 
 
-def review_template(kind: str, source_sha: str, pages: list[dict], fixer_id: str) -> dict:
+def review_template(kind: str, source_sha: str, pages: list[dict], fixer_id: str,
+                    *, calibration: dict[str, Any], data_readiness: dict[str, Any]) -> dict:
     """Create an unapproved review form; pending observations never imply approval."""
+    required_criteria(kind)
     if not source_sha or not fixer_id or not fixer_id.strip():
         raise ValueError("Template needs a source hash and a fixer id")
-    if kind not in REQUIRED:
-        raise ValueError(f"Unsupported review surface: {kind}")
+    calibration_issues = check_calibration(calibration)
+    if calibration_issues:
+        raise ValueError("Template needs valid calibration evidence: "
+                         f"{calibration_issues[0]['rule']}")
+    readiness_issues = check_data_readiness(data_readiness)
+    if readiness_issues:
+        raise ValueError("Template needs valid data_readiness evidence: "
+                         f"{readiness_issues[0]['rule']}")
     return {"schema": 1, "policy_version": POLICY_VERSION, "surface": kind,
             "source_sha256": source_sha, "fixer_id": fixer_id,
+            "calibration": calibration, "data_readiness": data_readiness,
             "reviewer": {"id": "", "role": "independent_visual_reviewer"},
             "pages": [{"id": page["id"], "image": page["image"], "image_sha256": page["sha256"],
                        "image_source_sha256": source_sha,
@@ -130,18 +341,17 @@ def review_template(kind: str, source_sha: str, pages: list[dict], fixer_id: str
 
 def verify_review(kind: str, source_sha: str, pages: list[dict], review: dict, fixer_id: str) -> list[dict]:
     """Reject missing checks, stale images, self-approval and unlocated failures."""
-    if kind not in REQUIRED:
-        raise ValueError(f"Unsupported review surface: {kind}")
+    required_criteria(kind)
     findings: list[dict] = []
     if (review.get("schema") != 1 or review.get("policy_version") != POLICY_VERSION or
             review.get("surface") != kind or review.get("source_sha256") != source_sha):
         return [{"rule": "review_policy_or_source_mismatch"}]
-    reviewer = review.get("reviewer", {})
-    if not isinstance(reviewer, dict):
-        reviewer = {}
-    reviewer_id = reviewer.get("id", "")
-    if not reviewer_id or reviewer_id == fixer_id or reviewer.get("role") != "independent_visual_reviewer":
-        findings.append({"rule": "independent_reviewer_required"})
+    calibration = review.get("calibration")
+    readiness = review.get("data_readiness")
+    shape_issues = check_calibration(calibration)
+    findings.extend(shape_issues)
+    findings.extend(check_data_readiness(readiness))
+    findings.extend(check_reviewer(review.get("reviewer", {}), fixer_id))
     rows = review.get("pages", [])
     if not isinstance(rows, list) or len(rows) != len(pages):
         return findings + [{"rule": "review_page_inventory_mismatch"}]
@@ -153,34 +363,11 @@ def verify_review(kind: str, source_sha: str, pages: list[dict], review: dict, f
         if not item or item.get("image_sha256") != page["sha256"]:
             findings.append({"rule": "review_image_stale", "page": page["id"]})
             continue
-        answers = item.get("observations", [])
-        if not isinstance(answers, list):
-            findings.append({"rule": "review_observations_invalid", "page": page["id"]})
-            continue
-        by_id = {answer.get("id"): answer for answer in answers if isinstance(answer, dict)}
-        expected = set(REQUIRED[kind])
-        if len(by_id) != len(answers) or set(by_id) != expected:
-            findings.append({"rule": "review_observations_incomplete", "page": page["id"]})
-            continue
-        for check in expected:
-            answer = by_id[check]
-            status, reason = answer.get("status"), answer.get("reason")
-            if status not in STATUSES or not isinstance(reason, str) or len(reason.strip()) < 32:
-                findings.append({"rule": "observation_unsubstantiated", "page": page["id"], "check": check})
-            elif status == "not_applicable" and check not in OPTIONAL[kind]:
-                findings.append({"rule": "mandatory_observation_skipped", "page": page["id"], "check": check})
-            elif status == "fail":
-                region = answer.get("region")
-                located = (isinstance(region, list) and len(region) == 4 and
-                           all(isinstance(x, (int, float)) and 0 <= x <= 1 for x in region) and
-                           region[0] < region[2] and region[1] < region[3])
-                valid_ids = {"page"} | {v["id"] for v in page.get("visual_inventory", [])}
-                if (answer.get("severity") not in SEVERITIES or not located or
-                        answer.get("visual_id") not in valid_ids or
-                        len(str(answer.get("proposed_fix", "")).strip()) < 12):
-                    findings.append({"rule": "issue_lacks_location_or_repair", "page": page["id"], "check": check})
-                else:
-                    findings.append({"rule": "visual_defect", "page": page["id"], "check": check,
-                                     "severity": answer["severity"], "region": region, "visual_id": answer["visual_id"],
-                                     "detail": reason, "proposed_fix": answer["proposed_fix"]})
+        if not shape_issues and page.get("pixels") is not None:
+            for row in check_calibration(calibration, page["pixels"]):
+                findings.append({**row, "page": page["id"]})
+        valid_ids = {"page"} | {v["id"] for v in page.get("visual_inventory", [])
+                                if isinstance(v, dict) and v.get("id")}
+        findings.extend(check_observations(kind, item.get("observations"),
+                                           valid_ids, page["id"]))
     return findings

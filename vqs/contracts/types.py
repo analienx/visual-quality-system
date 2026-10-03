@@ -68,6 +68,8 @@ class Finding:
     component: ComponentRef
     data_scope: DataScope = field(default_factory=DataScope)
     detail: str = ""
+    finding_id: str = ""
+    render: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)

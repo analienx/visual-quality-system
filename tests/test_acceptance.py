@@ -377,3 +377,31 @@ def test_pbip_gate_without_data_scope_blocks(tmp_path: Path) -> None:
     verdict = run_acceptance(case.record(), case.store(tmp_path))
     assert verdict["verdict"] == "blocked"
     assert "gate_data_scope_incomplete" in _rules(verdict)
+
+
+def test_unknown_gate_subject_blocks(tmp_path: Path) -> None:
+    case = _Case()
+    gate = case.add("G0", "p1", SOURCE_A, "pbip")
+    gate["subject_id"] = "no-such-subject"
+    verdict = run_acceptance(case.record(), case.store(tmp_path))
+    assert verdict["verdict"] == "blocked"
+    assert "gate_subject_unknown" in _rules(verdict)
+
+
+def test_invalid_subject_blocks(tmp_path: Path) -> None:
+    case = _full_case()
+    store = case.store(tmp_path)
+    subjects = _subjects()
+    del subjects[0]["source_sha256"]
+    verdict = run_acceptance(case.record(subjects=subjects), store)
+    assert verdict["verdict"] == "blocked"
+    assert "subject_invalid" in _rules(verdict)
+
+
+def test_gate_without_environment_blocks(tmp_path: Path) -> None:
+    case = _Case()
+    gate = case.add("G5", "d1", SOURCE_D, "docx")
+    del gate["environment"]
+    verdict = run_acceptance(case.record(), case.store(tmp_path))
+    assert verdict["verdict"] == "blocked"
+    assert "gate_environment_incomplete" in _rules(verdict)
