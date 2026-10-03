@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased (agent-first review candidates — NOT merged)
+
+- Six draft PRs with green hosted CI (3.11/3.12/3.13) await Codex
+  review; none is merged and no work package is verified:
+  WP-00 baseline audit (#24 @ `e684078`), trust remediation #22 /
+  WP-01 contracts slice (#25 @ `34a768f`), unified PBIR/TMDL facts
+  (#26 @ `2e26fa1`), shared CLI/MCP engine (#27 @ `a8fe7c9`),
+  runtime/data interfaces (#28 @ `f2dc7af`), visual candidate
+  repair + answer preservation (#29 @ `d1f1c4d`).
+- Ledger carries draft-PR evidence pointers; workflow states stay
+  `planned`/`active` per the DAG prerequisite gate.
+- New `docs/TEMPLATE_AUTHORING_CONTRACT.md` defines the post-repair
+  authoring milestone (contract only, no implementation).
+
 ## Unreleased (work/vqs-hardening-insights)
 
 - `vqs measure` now records a per-page insight inventory (visual,
