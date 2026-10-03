@@ -60,7 +60,7 @@ Static facts come from parsing sources; rendered facts come from Desktop Bridge 
 | `vqs adjudicate-bundle` | Independent static adjudication | ✅ shipped |
 | `vqs doctor` | Capability report (pbir, Bridge, MCP, Desktop) | ✅ shipped |
 | `vqs inventory` / `status` | PBIR inventory / ledger snapshot | ✅ shipped |
-| Typed PBIR repairs | Allowlisted edits in disposable candidates | 🔶 planned ([WP-09](https://github.com/analienx/visual-quality-system/issues/14)) |
+| Typed PBIR repairs | Allowlisted edits in disposable candidates | 🔶 review candidate ([PR #29](https://github.com/analienx/visual-quality-system/pull/29), unmerged; [WP-09](https://github.com/analienx/visual-quality-system/issues/14)) |
 | Word/DOCX backend | Paginated all-page verification | 🔶 planned ([WP-08](https://github.com/analienx/visual-quality-system/issues/13)) |
 | Fabric Apps | React/TS adapter | ⏸ deferred ([WP-13](https://github.com/analienx/visual-quality-system/issues/18)) |
 
