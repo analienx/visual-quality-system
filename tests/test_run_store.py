@@ -52,6 +52,99 @@ def test_seal_pins_status_artifacts_and_count(tmp_path: Path) -> None:
     assert reread == sealed
 
 
+def test_run_id_traversal_rejected_windows_and_posix(tmp_path: Path) -> None:
+    """Supervisor #22 P0-1: run ids can never escape the private root."""
+    for bad in ("../escaped", "..\\escaped", "sub/dir", "sub\\dir", "..", ".",
+                "/abs", "C:\\abs", "a:b", "", "ok\x00"):
+        try:
+            run_store.create_run(tmp_path, bad, {})
+        except ValueError:
+            continue
+        raise AssertionError(f"run id accepted: {bad!r}")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_lock_id_traversal_rejected_windows_and_posix(tmp_path: Path) -> None:
+    """Supervisor #22 P0-2: lock ids can never escape the lock directory."""
+    locks = tmp_path / "locks"
+    for bad in ("../outside", "..\\outside", "a/b", "a\\b", "..", "/abs"):
+        try:
+            claimed = run_store.claim_artifact(locks, bad, "agent-a")
+        except ValueError:
+            continue
+        raise AssertionError(f"lock id accepted: {bad!r} -> {claimed}")
+
+
+def test_invalid_terminal_seal_rejected(tmp_path: Path) -> None:
+    """Supervisor #22 P0-3: only completed/failed/blocked seal a run."""
+    run_dir = run_store.create_run(tmp_path, "run-x", {})
+    run_store.append_event(run_dir, {"kind": "started"})
+    try:
+        run_store.seal_run(run_dir, "active")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("seal_run accepted a non-terminal status")
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest.get("sealed") is not True
+
+
+def test_seal_after_post_terminal_event_rejected(tmp_path: Path) -> None:
+    """Supervisor run-store repro 1: the FINAL event must be the terminal one."""
+    run_dir = run_store.create_run(tmp_path, "r1", {})
+    run_store.append_event(run_dir, {"kind": "started"})
+    run_store.append_event(run_dir, {"kind": "completed"})
+    run_store.append_event(run_dir, {"kind": "heartbeat"})
+    try:
+        run_store.seal_run(run_dir, "completed")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("seal accepted a run whose final event is not terminal")
+    assert run_store.run_status(run_dir) == "blocked"
+
+
+def test_append_after_seal_rejected(tmp_path: Path) -> None:
+    """Supervisor run-store repro 2: sealed runs are immutable."""
+    run_dir = run_store.create_run(tmp_path, "r2", {})
+    run_store.append_event(run_dir, {"kind": "started"})
+    run_store.append_event(run_dir, {"kind": "completed"})
+    sealed = run_store.seal_run(run_dir, "completed")
+    assert sealed["sealed"] is True
+    try:
+        run_store.append_event(run_dir, {"kind": "rogue-after-seal"})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("append_event mutated a sealed run")
+    assert run_store.read_events(run_dir)[-1]["kind"] == "completed"
+
+
+def test_append_after_terminal_event_rejected(tmp_path: Path) -> None:
+    run_dir = run_store.create_run(tmp_path, "r3", {})
+    run_store.append_event(run_dir, {"kind": "started"})
+    run_store.append_event(run_dir, {"kind": "failed"})
+    try:
+        run_store.append_event(run_dir, {"kind": "heartbeat"})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("events followed terminality without a new attempt")
+
+
+def test_seal_binds_event_log_digest_and_detects_tampering(tmp_path: Path) -> None:
+    run_dir = run_store.create_run(tmp_path, "r4", {})
+    run_store.append_event(run_dir, {"kind": "started"})
+    run_store.append_event(run_dir, {"kind": "completed"})
+    sealed = run_store.seal_run(run_dir, "completed")
+    assert len(sealed["events_sha256"]) == 64
+    assert run_store.verify_seal(run_dir) == []
+    with (run_dir / "events.jsonl").open("a", encoding="utf-8") as stream:
+        stream.write('{"kind": "forged"}\n')
+    problems = run_store.verify_seal(run_dir)
+    assert problems, "log tampering after sealing went undetected"
+
+
 def test_unknown_run_append_raises(tmp_path: Path) -> None:
     try:
         run_store.append_event(tmp_path / "no-such-run", {"kind": "started"})
