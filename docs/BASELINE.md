@@ -2,7 +2,7 @@
 
 **Program:** [#4](https://github.com/analienx/visual-quality-system/issues/4).
 **Work package:** WP-00, [issue #5](https://github.com/analienx/visual-quality-system/issues/5).
-**Kind:** baseline audit. **Status:** observed; no work package is marked verified by this baseline.
+**Kind:** baseline audit. **Status:** observed. No work package is marked verified by this baseline.
 **Coordinator branch:** `work/wp00-agent-first-coordinator` (isolated worktree; `main` untouched).
 
 **Probed:** 2026-10-03. **Base:** `main` at `5fda4e56bf7fa3d229e168db42508b90145b781e`
