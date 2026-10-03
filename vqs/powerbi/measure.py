@@ -1,34 +1,32 @@
 """PBIR/TMDL facts emitter (WP-19): read-only measurement, no renders.
 
 `measure_report` walks a ``*.Report`` folder (plus an optional
-``*.SemanticModel`` definition dir) and returns a facts document shaped
-for `vqs check`: text contrast, metric units, TMDL bindings, and
-format-declaration cohorts. Anything the sources cannot prove is
-omitted — never inferred, never defaulted.
+``*.SemanticModel`` definition dir) through the unified PBIR reader and
+returns a facts document shaped for `vqs check`: contrast readings for
+every honestly-paired text color (majority and minority alike), metric
+units, TMDL bindings, and format-declaration cohorts. Anything the
+sources cannot prove is omitted — never inferred, never defaulted.
+
+Theme resolution follows the report's own pointer
+(``definition/report.json`` themeCollection.customTheme); with no
+pointer, exactly one theme candidate is unambiguous, while several
+candidates leave selection unknown. Unparseable files are skipped with
+explicit coverage issues, never silently.
 
 Known adapter gaps (omitted, not guessed): per-page series-color
 assignments (a theme declares slot colors but never proves a page uses
 a slot, so ``palette.semantic_consistency`` stays absent until explicit
 per-visual series colors are measured); per-visual display-unit
-overrides (units come from the model's ``formatString`` only).
+overrides (units come from the model's ``formatString`` only);
+per-visual surface inheritance beyond page background plus theme
+(unresolvable dynamic styles stay unknown).
 """
 from __future__ import annotations
 
-import glob
-import json
 import os
 import re
 from collections import Counter
 from typing import Any
-
-
-def _read_json(path: str) -> dict | None:
-    try:
-        with open(path, encoding="utf-8-sig") as handle:
-            data = json.load(handle)
-    except (OSError, ValueError):
-        return None
-    return data if isinstance(data, dict) else None
 
 
 def _walk(node: Any, path: str = "") -> Any:
@@ -42,37 +40,50 @@ def _walk(node: Any, path: str = "") -> Any:
         yield path, node
 
 
-def _theme(report_dir: str) -> dict | None:
-    candidates = sorted(glob.glob(os.path.join(
-        report_dir, "StaticResources", "RegisteredResources", "*.json")))
-    for path in candidates:
-        theme = _read_json(path)
-        if theme and isinstance(theme.get("background"), str):
-            return theme
-    return None
+def _theme_candidates(report_dir: str) -> list[str]:
+    from vqs.pbir import read_report_files
+
+    found = read_report_files(report_dir)
+    return sorted(path for path in found["files"]
+                  if path.startswith("StaticResources/RegisteredResources/")
+                  and path.lower().endswith(".json"))
 
 
-def _pages(report_dir: str) -> list[dict]:
-    found = []
-    for path in sorted(glob.glob(os.path.join(
-            report_dir, "definition", "pages", "*", "page.json"))):
-        page = _read_json(path)
-        if page is not None:
-            page["_dir"] = os.path.basename(os.path.dirname(path))
-            found.append(page)
-    return found
+def _read_theme(report_dir: str, rel: str) -> dict | None:
+    import json
+
+    try:
+        with open(os.path.join(report_dir, rel), encoding="utf-8-sig") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
 
 
-def _visuals(report_dir: str, page_dir: str) -> list[dict]:
-    found = []
-    pattern = os.path.join(report_dir, "definition", "pages", page_dir,
-                           "visuals", "*", "visual.json")
-    for path in sorted(glob.glob(pattern)):
-        visual = _read_json(path)
-        if visual is not None:
-            visual["_id"] = os.path.basename(os.path.dirname(path))
-            found.append(visual)
-    return found
+def _active_theme(report_dir: str, report_doc: dict | None
+                  ) -> tuple[dict | None, dict]:
+    """Resolve the active theme: pointer, single candidate, else unknown."""
+    candidates = _theme_candidates(report_dir)
+    pointer = ((report_doc or {}).get("themeCollection", {}) or {}).get(
+        "customTheme", {}) or {}
+    name = pointer.get("name", "")
+    if isinstance(name, str) and name:
+        rel = f"StaticResources/RegisteredResources/{name}"
+        theme = _read_theme(report_dir, rel)
+        if theme is not None and isinstance(theme.get("background"), str):
+            return theme, {"selection": "pointer", "theme": name}
+        return None, {"selection": "pointer_unresolved", "theme": name}
+    usable = [(rel, _read_theme(report_dir, rel)) for rel in candidates]
+    usable = [(rel, theme) for rel, theme in usable
+              if isinstance((theme or {}).get("background"), str)]
+    if len(usable) == 1:
+        rel, theme = usable[0]
+        return theme, {"selection": "single",
+                       "theme": rel.rsplit("/", 1)[-1]}
+    if not usable:
+        return None, {"selection": "none", "theme": None}
+    return None, {"selection": "ambiguous", "theme": None,
+                  "candidates": len(usable)}
 
 
 def _page_background(page: dict, theme: dict | None) -> str | None:
@@ -90,8 +101,8 @@ def _page_background(page: dict, theme: dict | None) -> str | None:
     return None
 
 
-def _page_text_colors(report_dir: str) -> dict[str, Counter]:
-    """Map each page dir to its own (paragraph-index, color) counts.
+def _page_text_colors(found: dict) -> dict[str, Counter]:
+    """Map each page id to its own (paragraph-index, color) counts.
 
     Colors stay scoped to the page that declares them: pairing page
     A's text with page B's background would invent evidence.
@@ -117,11 +128,14 @@ def _page_text_colors(report_dir: str) -> dict[str, Counter]:
             for value in node:
                 visit(value, colors)
 
-    for page in _pages(report_dir):
+    for page_id in found["order"]:
         colors: Counter = Counter()
-        for visual in _visuals(report_dir, page["_dir"]):
-            visit(visual.get("visual", {}).get("objects", {}), colors)
-        by_page[page["_dir"]] = colors
+        for (pid, _vid), visual in sorted(found["visuals"].items()):
+            if pid != page_id:
+                continue
+            node = visual.get("visual", {})
+            visit(node.get("objects", {}) if isinstance(node, dict) else {}, colors)
+        by_page[page_id] = colors
     return by_page
 
 
@@ -142,71 +156,68 @@ def _is_hex(color: str) -> bool:
     return re.fullmatch(r"#[0-9A-F]{6}", color) is not None
 
 
-def _contrast(report_dir: str, theme: dict | None) -> dict | None:
-    """Weakest honestly-paired (foreground, background) across pages.
+def _contrast(found: dict, theme: dict | None) -> dict | None:
+    """Every honestly-paired (foreground, background) reading.
 
-    Non-hex text colors prove no luminance, so pairs using them are
-    skipped instead of crashing the ratio math.
+    Majority and minority colors alike: a minority white run on white
+    must surface, not hide behind the majority color. Non-hex text
+    colors prove no luminance, so pairs using them are skipped instead
+    of crashing the ratio math.
     """
-    candidates = []
-    all_colors = _page_text_colors(report_dir)
-    for page in _pages(report_dir):
-        colors = all_colors.get(page["_dir"]) or Counter()
-        titles = Counter({c: n for (i, c), n in colors.items() if i == 0})
-        subtitles = Counter({c: n for (i, c), n in colors.items() if i == 1})
-        if not titles and not subtitles:
+    readings = []
+    all_colors = _page_text_colors(found)
+    for page_id in found["order"]:
+        page = found["pages"].get(page_id)
+        if page is None:
+            continue
+        colors = all_colors.get(page_id) or Counter()
+        if not colors:
             continue
         background = _page_background(page, theme)
         if background is None:
             continue
-        if titles:
-            foreground = titles.most_common(1)[0][0]
-            if _is_hex(foreground):
-                candidates.append((foreground, background))
-        if subtitles:
-            foreground = subtitles.most_common(1)[0][0]
-            if _is_hex(foreground):
-                candidates.append((foreground, background))
-    if not candidates:
+        for (index, foreground), count in sorted(colors.items()):
+            if not _is_hex(foreground):
+                continue
+            role = "title" if index == 0 else "subtitle" if index == 1 else "body"
+            readings.append({"foreground": foreground, "background": background,
+                             "page": page_id, "role": role, "count": count})
+    if not readings:
         return None
-    foreground, background = min(candidates, key=lambda pair: _ratio(*pair))
-    return {"foreground": foreground, "background": background}
+    return {"readings": sorted(readings, key=lambda r: (r["page"], r["role"],
+                                                       r["foreground"]))}
 
 
 def _measure_formats(model_dir: str) -> dict[tuple[str, str], str]:
+    from vqs.data.tmdl import inventory_model
+
     formats: dict[tuple[str, str], str] = {}
-    pattern = os.path.join(model_dir, "**", "*.tmdl")
-    for path in sorted(glob.glob(pattern, recursive=True)):
-        try:
-            with open(path, encoding="utf-8-sig") as handle:
-                text = handle.read()
-        except OSError:
-            continue
-        table = re.search(r"^table '(.+)'$", text, re.MULTILINE)
-        if table is None:
-            table = re.search(r"^table (\S+)$", text, re.MULTILINE)
-        if table is None:
-            continue
-        name = table.group(1)
-        blocks = re.finditer(r"^\tmeasure ('([^']+)'|([^\s=]+)) =(.*?)(?=^\t\S|\Z)",
-                             text, re.MULTILINE | re.DOTALL)
-        for match in blocks:
-            measure = match.group(2) or match.group(3)
-            found = re.search(r"formatString: (.*)$", match.group(4), re.MULTILINE)
-            value = found.group(1).strip() if found else ""
-            formats[(name, measure)] = value
-            formats[(name.casefold(), measure.casefold())] = value
+    for table, content in inventory_model(model_dir).get("tables", {}).items():
+        for measure, props in content.get("measure_props", {}).items():
+            value = props.get("formatString", "")
+            value = value.strip() if isinstance(value, str) else ""
+            formats[(table, measure)] = value
+            formats[(table.casefold(), measure.casefold())] = value
     return formats
 
 
 def _format_of(formats: dict[tuple[str, str], str], dotted: str) -> str:
-    """Look up a PBIR Entity.Property ref, tolerating case drift."""
-    key = tuple(dotted.split(".", 1))
-    if len(key) != 2:
+    """Look up a PBIR Entity.Property ref, tolerating case drift.
+
+    Dotted table names resolve via longest-table match, never naive
+    first-dot splitting.
+    """
+    from vqs.data.tmdl import split_table_field
+
+    if not isinstance(dotted, str) or "." not in dotted:
         return ""
-    hit = formats.get(key)
+    tables = {table: True for table, _ in formats}
+    table, field = split_table_field(dotted, tables)
+    if not table or not field:
+        return ""
+    hit = formats.get((table, field))
     if hit is None:
-        hit = formats.get((key[0].casefold(), key[1].casefold()), "")
+        hit = formats.get((table.casefold(), field.casefold()), "")
     return hit
 
 
@@ -244,13 +255,17 @@ def _literal(raw: Any) -> Any:
     return text
 
 
-def _bindings_and_cohorts(report_dir: str) -> tuple[list[dict], list[dict], list[dict]]:
+def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dict]]:
     bindings: dict[str, dict] = {}
     units: list[dict] = []
     cohorts: dict[str, dict[str, Any]] = {}
-    for page in _pages(report_dir):
-        for visual in _visuals(report_dir, page["_dir"]):
+    for page_id in found["order"]:
+        for (pid, visual_id), visual in sorted(found["visuals"].items()):
+            if pid != page_id:
+                continue
             node = visual.get("visual", {})
+            if not isinstance(node, dict):
+                continue
             visual_type = node.get("visualType", "?")
             state = node.get("query", {}).get("queryState", {})
             for role, content in state.items() if isinstance(state, dict) else []:
@@ -264,7 +279,7 @@ def _bindings_and_cohorts(report_dir: str) -> tuple[list[dict], list[dict], list
                     prop = field.get("Property", "")
                     if entity and prop:
                         units.append({"measure": f"{entity}.{prop}",
-                                      "page": page["_dir"]})
+                                      "page": page_id})
             objects = node.get("objects", {})
             for path, value in _walk(objects):
                 segments = [s.split("[")[0] for s in path.split("/") if s]
@@ -276,7 +291,7 @@ def _bindings_and_cohorts(report_dir: str) -> tuple[list[dict], list[dict], list
                 owner = segments[0]
                 cohort = f"{visual_type}/{owner}.{size[0]}"
                 slot = cohorts.setdefault(cohort, {})
-                slot[f'{page["_dir"]}/{visual["_id"]}'] = _literal(value)
+                slot[f'{page_id}/{visual_id}'] = _literal(value)
     readings: list[dict] = []
     for cohort in sorted(cohorts):
         for key in sorted(cohorts[cohort]):
@@ -286,7 +301,7 @@ def _bindings_and_cohorts(report_dir: str) -> tuple[list[dict], list[dict], list
     return list(bindings.values()), units, readings
 
 
-def _cohort_nulls(report_dir: str, readings: list[dict]) -> list[dict]:
+def _cohort_nulls(found: dict, readings: list[dict]) -> list[dict]:
     """Add explicit nulls where a declared owner leaves a property default.
 
     A null means "this visual declares the owner object (e.g. ``header``)
@@ -297,13 +312,17 @@ def _cohort_nulls(report_dir: str, readings: list[dict]) -> list[dict]:
     names = sorted({reading["cohort"] for reading in readings})
     nulls = []
     owners: dict[tuple[str, str, str], set[str]] = {}
-    for page in _pages(report_dir):
-        for visual in _visuals(report_dir, page["_dir"]):
+    for page_id in found["order"]:
+        for (pid, visual_id), visual in sorted(found["visuals"].items()):
+            if pid != page_id:
+                continue
             node = visual.get("visual", {})
+            if not isinstance(node, dict):
+                continue
             visual_type = node.get("visualType", "?")
             objects = node.get("objects", {})
             declared = set(objects) if isinstance(objects, dict) else set()
-            owners[(visual_type, page["_dir"], visual["_id"])] = declared
+            owners[(visual_type, page_id, visual_id)] = declared
     seen = {(r["cohort"], r["page"], r["visual"]) for r in readings}
     # Cohort ids embed "{visual_type}/{owner}.{prop}"; real PBIR
     # visualType values never contain "/", so partition is exact.
@@ -324,26 +343,35 @@ def measure_report(report_dir: str, model_dir: str | None = None) -> dict:
     """Measure check-ready facts for a PBIR report (plus optional model).
 
     Returns a facts document for `vqs check`. Rules the sources cannot
-    prove are omitted. Raises OSError when the report folder is unreadable.
+    prove are omitted. ``coverage`` records parse issues, theme
+    resolution, and parsed counts so nothing is silently skipped.
+    Raises OSError when the report folder is unreadable.
     """
+    from vqs.pbir import read_report_files
+
     if not os.path.isdir(report_dir):
         raise OSError(f"report folder not found: {report_dir}")
-    theme = _theme(report_dir)
+    found = read_report_files(report_dir)
+    theme, theme_info = _active_theme(report_dir, found["report"])
     rules: dict[str, dict] = {}
-    # Contrast is a theme rule: without a theme the color roles cannot
-    # be proven, so it stays omitted. Palette assignments stay omitted
-    # unconditionally — see the module docstring.
-    contrast = _contrast(report_dir, theme) if theme is not None else None
+    # Contrast is a theme rule: without a resolved background the color
+    # roles cannot be proven, so it stays omitted. Palette assignments
+    # stay omitted unconditionally — see the module docstring.
+    contrast = _contrast(found, theme) if theme is not None else None
     if contrast is not None:
         rules["typography.text_contrast"] = contrast
-    bindings, unit_refs, cohort_readings = _bindings_and_cohorts(report_dir)
-    cohorts = _cohort_nulls(report_dir, cohort_readings)
+    bindings, unit_refs, cohort_readings = _bindings_and_cohorts(found)
+    cohorts = _cohort_nulls(found, cohort_readings)
     if cohorts:
         rules["typography.format_declaration_consistency"] = {"readings": cohorts}
     facts: dict[str, Any] = {"rules": rules}
     from .insights import page_insights
     inventory = page_insights(report_dir, model_dir)
     facts["insights"] = {"pages": inventory["pages"]}
+    facts["coverage"] = {"issues": inventory["coverage"]["issues"],
+                         "theme": theme_info,
+                         "parsed_pages": inventory["coverage"]["parsed_pages"],
+                         "parsed_visuals": inventory["coverage"]["parsed_visuals"]}
     if inventory["visuals"]:
         rules["insight.no_duplicate_grain"] = {"visuals": inventory["visuals"]}
         rules["insight.no_cross_page_duplicate_grain"] = {

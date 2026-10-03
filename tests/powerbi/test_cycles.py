@@ -1,5 +1,6 @@
 """Cycle-gate tests: synthetic TMDL with known loops and clean controls."""
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -54,7 +55,12 @@ def test_clean_model_is_acyclic() -> None:
     assert result == {"model_dir": CLEAN, "tables": 1,
                       "dax_objects": 2, "m_queries": 1,
                       "dax_cycles": [], "m_cycles": [], "let_cycles": [],
-                      "acyclic": True}
+                      "acyclic": True,
+                      "coverage": {
+                          "parsed": [os.path.join(CLEAN, "tables",
+                                                  "Clean.tmdl")],
+                          "skipped": [], "unparsed": [],
+                          "complete": True}}
 
 
 def test_missing_model_dir_raises() -> None:
