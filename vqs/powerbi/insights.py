@@ -14,9 +14,10 @@ titles live under ``visualContainerObjects.title``. Unknown roles and
 field kinds are carried through as unclassified facts, not guessed.
 Geometry (PBIR ``position`` blocks incl. ``z`` layering) and map label
 configuration are measured the same way: finite numbers and literals
-only — NaN/Infinity prove no geometry. Filters count at visual and page
-scope; bookmark snapshots and visual interactions are explicitly
-unsupported for static facts (only Desktop behavior proves them).
+only — NaN/Infinity prove no geometry. Filters count at visual, page, and report scope. Bookmark snapshots
+(name, targets, active section, filter entities, groups) and per-page
+visual interactions are exposed as static facts for repair invariants;
+only their live *effects* still need Desktop behavior.
 """
 from __future__ import annotations
 
@@ -140,33 +141,44 @@ def _valued_filters_in(doc: dict) -> int:
     return count
 
 
-def _bookmark_filter_entities(doc: dict) -> list[str]:
-    """Entity names a bookmark snapshot filters (Column/Measure refs)."""
+def _bookmark_filter_entities(doc: dict) -> tuple[list[str], bool]:
+    """Entity names a bookmark snapshot filters; (entities, malformed).
+
+    Each filter group list is guarded independently: one malformed key
+    never crashes the inventory and never hides the well-formed half.
+    """
     state = doc.get("explorationState", {})
     filters = state.get("filters", {}) if isinstance(state, dict) else {}
     if not isinstance(filters, dict):
-        return []
+        return [], True
     entities: set[str] = set()
-    groups = filters.get("byExpr", []) + filters.get("byColumn", [])
-    for group in groups if isinstance(groups, list) else []:
-        if not isinstance(group, dict):
+    malformed = False
+    for key in ("byExpr", "byColumn"):
+        part = filters.get(key, [])
+        if not isinstance(part, list):
+            malformed = True
             continue
-        expr = group.get("expression", {})
-        if not isinstance(expr, dict):
-            continue
-        for kind in ("Column", "Measure"):
-            slot = expr.get(kind, {})
-            name = _slot_text(slot, "Expression", "SourceRef", "Entity")
-            if name:
-                entities.add(name)
-    return sorted(entities)
+        for group in part:
+            if not isinstance(group, dict):
+                continue
+            expr = group.get("expression", {})
+            if not isinstance(expr, dict):
+                continue
+            for kind in ("Column", "Measure"):
+                slot = expr.get(kind, {})
+                name = _slot_text(slot, "Expression", "SourceRef", "Entity")
+                if name:
+                    entities.add(name)
+    return sorted(entities), malformed
 
 
-def _bookmark_facts(found: dict) -> list[dict]:
+def _bookmark_facts(found: dict) -> tuple[list[dict], list[dict]]:
     """Shape bookmark snapshots + groups for repair invariants.
 
     Identity falls back to the file key when ``name`` is missing (the
     reader records the gap); nothing is inferred beyond the snapshot.
+    Malformed filter shapes yield an issue plus the proven entities,
+    never a crash.
     """
     groups: dict[str, str] = {}
     for group in found.get("bookmark_groups", []) or []:
@@ -180,6 +192,7 @@ def _bookmark_facts(found: dict) -> list[dict]:
             if isinstance(child, dict) and child.get("name"):
                 groups[child["name"]] = label
     facts = []
+    issues = []
     for key in sorted(found.get("bookmarks", {}) or {}):
         doc = found["bookmarks"][key]
         name = doc.get("name") if isinstance(doc.get("name"), str) else key
@@ -189,14 +202,18 @@ def _bookmark_facts(found: dict) -> list[dict]:
             options, dict) else []
         state = doc.get("explorationState", {})
         section = state.get("activeSection") if isinstance(state, dict) else None
+        entities, malformed = _bookmark_filter_entities(doc)
+        if malformed:
+            issues.append({"rule": "bookmark_filters_unsupported",
+                           "bookmark": name})
         facts.append({
             "id": name,
             "display_name": display if isinstance(display, str) else None,
             "target_visuals": targets if isinstance(targets, list) else [],
             "active_section": section if isinstance(section, str) else None,
-            "filter_entities": _bookmark_filter_entities(doc),
+            "filter_entities": entities,
             "group": groups.get(name)})
-    return facts
+    return facts, issues
 
 
 def _column_categories(model_dir: str) -> dict[tuple[str, str], str]:
@@ -393,9 +410,11 @@ def page_insights(report_dir: str, model_dir: str | None = None) -> dict:
                                                  "height": None}
             page_bounds.append({"page": page_id, **size,
                                 "visuals": members})
-    coverage = {"issues": [*found["issues"], *extra_issues],
+    bookmark_facts, bookmark_issues = _bookmark_facts(found)
+    coverage = {"issues": [*found["issues"], *extra_issues,
+                              *bookmark_issues],
                 "parsed_pages": len(pages),
                 "parsed_visuals": sum(len(p["visuals"]) for p in pages)}
     return {"pages": pages, "visuals": visuals, "trees": trees,
             "maps": maps, "layout": layout, "page_bounds": page_bounds,
-            "bookmarks": _bookmark_facts(found), "coverage": coverage}
+            "bookmarks": bookmark_facts, "coverage": coverage}

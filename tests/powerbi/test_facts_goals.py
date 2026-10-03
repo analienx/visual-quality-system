@@ -325,3 +325,58 @@ def test_goal16_malformed_interactions_are_flagged(tmp_path: Path) -> None:
     assert inventory["pages"][0]["interactions"] == []
     rules = [issue["rule"] for issue in inventory["coverage"]["issues"]]
     assert "interactions_unsupported" in rules
+
+
+# Reviewer follow-up F1: malformed bookmark filter shapes cannot crash
+# the inventory; the well-formed half is still exposed plus an issue.
+def test_review_f1_malformed_bookmark_filters_flagged(tmp_path: Path) -> None:
+    from vqs.powerbi.insights import page_insights
+
+    bookmarks = tmp_path / "definition" / "bookmarks"
+    _write_json(bookmarks / "Odd.bookmark.json", {
+        "name": "Odd", "displayName": "Odd",
+        "explorationState": {"filters": {
+            "byExpr": [{"expression": {"Measure": {
+                "Expression": {"SourceRef": {"Entity": "S"}},
+                "Property": "Revenue"}}}],
+            "byColumn": {"not": "a list"}}}})
+    inventory = page_insights(str(tmp_path))
+    assert inventory["bookmarks"] == [{
+        "id": "Odd", "display_name": "Odd", "target_visuals": [],
+        "active_section": None, "filter_entities": ["S"],
+        "group": None}]
+    rules = [issue["rule"] for issue in inventory["coverage"]["issues"]]
+    assert "bookmark_filters_unsupported" in rules
+
+
+# Reviewer follow-up F2a: annotations and unknown properties are not
+# expression text; an expression-less measure stays unknown.
+def test_review_f2a_annotations_are_not_expressions() -> None:
+    from vqs.data.tmdl import check_bindings, parse_tmdl
+
+    parsed = parse_tmdl(
+        "table A\n"
+        "\n"
+        "\tmeasure M\n"
+        "\t\tdescription: hello\n"
+        "\t\tannotation 'PBI_Id' = 1\n"
+        "\t\tdetailRowsExpression: [X]\n")
+    assert parsed["tables"]["A"]["measures"]["M"] == ""
+    findings = check_bindings([{"query_ref": "A.M"}],
+                              {"tables": parsed["tables"]})
+    assert findings == [{"rule": "measure_without_expression",
+                         "status": "unknown", "query_ref": "A.M",
+                         "reason": "Values require a live authorized query"}]
+
+
+# Reviewer follow-up F2b: annotation prose adds no dependency edges.
+def test_review_f2b_annotations_add_no_cycle_edges(tmp_path: Path) -> None:
+    from vqs.powerbi.cycles import check_model, dax_edges, dax_objects
+
+    _write(tmp_path / "tables" / "A.tmdl",
+           "table A\n\n\tmeasure M = 1\n\t\tannotation 'note' = 'B'[Y]\n")
+    _write(tmp_path / "tables" / "B.tmdl", "table B\n\n\tmeasure Y = 2\n")
+    objects = dax_objects(str(tmp_path))
+    assert objects[("measure", "A", "M")] == "1"
+    assert dax_edges(objects)[("measure", "A", "M")] == set()
+    assert check_model(str(tmp_path))["acyclic"] is True

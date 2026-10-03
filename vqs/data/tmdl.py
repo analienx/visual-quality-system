@@ -132,6 +132,7 @@ def extract_objects(text: str) -> dict:
     seen_top = False
     member: tuple[str, str] | None = None
     member_indent = 0
+    annotation_indent: int | None = None
     continuation: list[str] = []
 
     def flush() -> None:
@@ -153,6 +154,7 @@ def extract_objects(text: str) -> dict:
         if indent == 0:
             flush()
             member = None
+            annotation_indent = None
             seen_top = True
             stripped = line.strip()
             if stripped.startswith("table "):
@@ -173,16 +175,28 @@ def extract_objects(text: str) -> dict:
             continue
         stripped = line.strip()
         if member is not None and indent > member_indent:
+            if stripped == "annotation" or stripped.startswith(
+                    ("annotation ", "annotation\t")):
+                annotation_indent = indent
+                continue
+            if annotation_indent is not None:
+                if indent > annotation_indent:
+                    continue
+                annotation_indent = None
             match = _PROPERTY.match(stripped)
-            if match and match.group(1) in KNOWN_PROPERTIES:
-                flush()
-                _record_prop(tables[current], member, match.group(1),
-                             match.group(2).strip())
+            if match:
+                if match.group(1) in KNOWN_PROPERTIES:
+                    flush()
+                    _record_prop(tables[current], member, match.group(1),
+                                 match.group(2).strip())
+                # Any other `name:` line is a (possibly unknown)
+                # property, never DAX expression text.
                 continue
             continuation.append(stripped)
             continue
         flush()
         member = None
+        annotation_indent = None
         if stripped.startswith(("measure ", "column ")):
             kind = "measure" if stripped.startswith("measure ") else "column"
             rest = stripped[len(kind) + 1:]
@@ -287,7 +301,7 @@ def check_bindings(bindings: list[dict], inventory: dict) -> list[dict]:
 
     Each binding needs ``query_ref`` like ``"Dim Product.Brand"``. Dotted
     table names resolve via longest-table match. Unknown tables/fields
-    fail; measures and calculated columns without a recorded expression
+    fail; measures without a recorded expression
     are ``unknown`` — their values require a live authorized query
     (blocked).
     """
