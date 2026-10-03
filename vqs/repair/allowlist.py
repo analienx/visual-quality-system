@@ -6,9 +6,14 @@ id, the write target must be a disposable candidate (never the original
 source), and a rollback recipe is mandatory. FIX-02 (shell/DAX smuggling),
 FIX-08 (original overwrite), and DES-07 (intent change without approval) are
 rejected here; live render, data, and regression gates belong downstream.
+Criterion 11 additionally requires non-empty write targets, no
+original/candidate overlap, per-operation write coverage, and link-escape
+rejection (static lexical half here, realpath half in
+validate_materialized_roots).
 """
 from __future__ import annotations
 
+import os
 import posixpath
 import re
 from typing import Any
@@ -48,6 +53,22 @@ def _inside(candidate_root: str, target: str) -> bool:
     return resolved.startswith(root.rstrip("/") + "/")
 
 
+def _overlaps(first: str, second: str) -> bool:
+    """Lexical root overlap: equal or nested in either direction."""
+    left = posixpath.normpath(_seps(first)).rstrip("/") or "/"
+    right = posixpath.normpath(_seps(second)).rstrip("/") or "/"
+    return (left == right or left.startswith(right + "/")
+            or right.startswith(left + "/"))
+
+
+def _as_targets(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        return [entry for entry in value if isinstance(entry, str)]
+    return []
+
+
 def _touches_model(target: str) -> bool:
     """Case/whitespace-qualified match, including qualified refs like Dataset.T[col]."""
     norm = target.strip().casefold()
@@ -65,6 +86,15 @@ def validate_plan(plan: dict[str, Any], original_path: str, candidate_root: str,
     operations = plan.get("operations")
     if not isinstance(operations, list) or not operations:
         return [{"rule": "plan_has_no_operations"}]
+    declared_targets = _as_targets(plan.get("write_targets"))
+    if not declared_targets:
+        return [{"rule": "plan_has_no_write_targets"}]
+    if _overlaps(original_path, candidate_root):
+        issues.append({"rule": "roots_overlap",
+                       "remediation": "Candidate and original roots must not "
+                                      "overlap in either direction"})
+    covered = {_resolve(candidate_root, target)
+               for target in declared_targets}
     for index, op in enumerate(operations):
         if not isinstance(op, dict):
             issues.append({"rule": "operation_not_an_object", "index": index})
@@ -85,6 +115,19 @@ def validate_plan(plan: dict[str, Any], original_path: str, candidate_root: str,
         if op_type == "chart.replace" and not (
                 op.get("identical_intent") is True or approved_semantic_change):
             issues.append({"rule": "intent_change_unapproved", "index": index})
+        writes = op.get("writes")
+        if writes is not None:
+            for entry in _as_targets(writes):
+                if _resolve(candidate_root, entry) not in covered:
+                    issues.append({"rule": "operation_write_mismatch",
+                                   "index": index, "target": entry,
+                                   "remediation": "Declare every operation "
+                                                  "write in write_targets"})
+            if not isinstance(writes, list) or not all(
+                    isinstance(entry, str) for entry in writes):
+                issues.append({"rule": "operation_write_mismatch",
+                               "index": index,
+                               "remediation": "writes must be a list of paths"})
     original = posixpath.normpath(_seps(original_path))
     for target in plan.get("write_targets", []):
         if not isinstance(target, str) or not _inside(candidate_root, target):
@@ -97,6 +140,57 @@ def validate_plan(plan: dict[str, Any], original_path: str, candidate_root: str,
         issues.append({"rule": "id_not_preserved", "removed": plan.get("removed_ids")})
     if not plan.get("rollback"):
         issues.append({"rule": "missing_rollback"})
+    return issues
+
+
+def _has_link(path: str) -> bool:
+    if os.path.islink(path):
+        return True
+    isjunction = getattr(os.path, "isjunction", None)
+    return bool(isjunction is not None and isjunction(path))
+
+
+def validate_materialized_roots(original_path: str,
+                                candidate_root: str) -> list[dict[str, Any]]:
+    """Realpath half of criterion 11 on existing roots; [] means proceed.
+
+    Rejects realpath overlap (catches case/alias tricks the lexical check
+    cannot see) and any symlink/junction inside either root — repairs never
+    need links, so every link is a guardia refusal, not a case analysis.
+    """
+    issues: list[dict[str, Any]] = []
+    for label, root in (("original", original_path),
+                        ("candidate", candidate_root)):
+        if not os.path.isdir(root):
+            issues.append({"rule": "roots_not_materialized", "root": label,
+                           "path": root})
+    if issues:
+        return issues
+    real_original = os.path.realpath(original_path)
+    real_candidate = os.path.realpath(candidate_root)
+    if (real_original == real_candidate
+            or real_original.startswith(real_candidate + os.sep)
+            or real_candidate.startswith(real_original + os.sep)):
+        issues.append({"rule": "roots_overlap",
+                       "remediation": "Candidate and original roots must not "
+                                      "overlap after link resolution"})
+        return issues
+    for label, root in (("original", original_path),
+                        ("candidate", candidate_root)):
+        try:
+            for current, dirs, files in os.walk(root, followlinks=False):
+                for name in (*dirs, *files):
+                    full = os.path.join(current, name)
+                    if _has_link(full):
+                        issues.append({"rule": "link_escape", "root": label,
+                                       "path": full,
+                                       "remediation": "Remove links from "
+                                                      "repair roots"})
+                        return issues
+        except OSError as exc:
+            issues.append({"rule": "roots_unreadable", "root": label,
+                           "detail": str(exc)})
+            return issues
     return issues
 
 
