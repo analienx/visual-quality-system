@@ -182,6 +182,110 @@ def _capture(report: Path, renders: Path, pid: int | None, scale: int,
     return 0
 
 
+def _verdict_exit(envelope: dict) -> int:
+    """Print a tool envelope; exit 0/1/2 for pass/fail/blocked."""
+    print(json.dumps(envelope, indent=2, ensure_ascii=False, default=str))
+    return {"pass": 0, "fail": 1, "blocked": 2}[envelope["verdict"]]
+
+
+def _tool_config(path: Path | None) -> tuple[dict, list[str]]:
+    from vqs.config import load_config
+
+    return load_config(path)
+
+
+def _inspect(report: Path, model: Path | None, config_path: Path | None,
+             out: Path | None) -> int:
+    """Measure facts for a report; same engine as vqs_inspect."""
+    from vqs.pipeline import blocked_envelope, inspect_report
+
+    config, issues = _tool_config(config_path)
+    if issues:
+        return _verdict_exit(blocked_envelope("vqs.inspect", issues))
+    envelope = inspect_report(str(report),
+                              str(model) if model is not None else None,
+                              config)
+    if out is not None:
+        try:
+            out.write_text(json.dumps(envelope, indent=2,
+                                      ensure_ascii=False) + chr(10),
+                           encoding="utf-8")
+        except OSError as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.inspect", [f"{type(exc).__name__}: {exc}"]))
+        return {"pass": 0, "fail": 1, "blocked": 2}[envelope["verdict"]]
+    return _verdict_exit(envelope)
+
+
+def _review(args) -> int:
+    """Review sources to a sealed verdict; same engine as vqs_review."""
+    from vqs.pipeline import blocked_envelope, render_report, review_report
+
+    config, issues = _tool_config(args.config)
+    if issues:
+        return _verdict_exit(blocked_envelope("vqs.review", issues))
+    facts = None
+    if args.facts is not None:
+        try:
+            facts = json.loads(args.facts.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.review", [f"{type(exc).__name__}: {exc}"]))
+    envelope = review_report(
+        report_dir=str(args.report) if args.report is not None else None,
+        model_dir=str(args.model) if args.model is not None else None,
+        facts=facts, scope=args.scope, state=args.state, config=config,
+        run_root=str(args.run_root), run_id=args.run_id,
+        resume_from=args.resume_from)
+    if args.report_out is not None:
+        try:
+            args.report_out.write_text(render_report(envelope),
+                                       encoding="utf-8")
+        except OSError as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.review", [f"{type(exc).__name__}: {exc}"]))
+    return _verdict_exit(envelope)
+
+
+def _propose(run_root: Path, run_id: str) -> int:
+    """Propose repairs for a run; blocked until the Task 6 engine."""
+    from vqs.pipeline import propose_candidates
+
+    return _verdict_exit(propose_candidates(str(run_root), run_id))
+
+
+def _repair(plan: Path, original: str, candidate_root: str) -> int:
+    """Validate a plan, then block: execution needs the Task 6 engine."""
+    from vqs.pipeline import repair_candidate
+
+    return _verdict_exit(repair_candidate(str(plan), original,
+                                         candidate_root))
+
+
+def _verify(args) -> int:
+    """Verify a candidate; blocked until the Task 6 engine."""
+    from vqs.pipeline import verify_candidate
+
+    return _verdict_exit(verify_candidate(
+        run_root=str(args.run_root) if args.run_root is not None else None,
+        run_id=args.run_id, original=args.original,
+        candidate=args.candidate))
+
+
+def _run_status(run_root: Path, run_id: str) -> int:
+    """Report a sealed run; same engine as vqs_run_status."""
+    from vqs.pipeline import run_status_report
+
+    return _verdict_exit(run_status_report(str(run_root), run_id))
+
+
+def _mcp() -> int:
+    """Launch the stdio MCP server on this process's stdio."""
+    from vqs.mcp.server import serve
+
+    return serve()
+
+
 def _bundle(action: str, args) -> int:
     """Pack, verify, or unpack a review bundle; exit 2 when invalid."""
     from vqs.review.bundle import pack, unpack, verify
@@ -259,6 +363,49 @@ def main(argv: list[str] | None = None) -> int:
     bundle_cmd.add_argument("bundle", type=Path, help="JSON review-bundle document")
     bundle_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
     bundle_cmd.add_argument("--run-id", default=None)
+    inspect_cmd = commands.add_parser("inspect", help="Measure check-ready facts (tool vqs.inspect)")
+    inspect_cmd.add_argument("report", type=Path, help="Enhanced-format *.Report folder")
+    inspect_cmd.add_argument("--model", type=Path, default=None,
+                             help="Optional *.SemanticModel definition folder")
+    inspect_cmd.add_argument("--config", type=Path, default=None,
+                             help="vqs.json project config (else ./vqs.json or defaults)")
+    inspect_cmd.add_argument("--out", type=Path, default=None,
+                             help="Write the envelope JSON here instead of stdout")
+    review_cmd = commands.add_parser("review", help="Review sources to a sealed verdict (tool vqs.review)")
+    review_cmd.add_argument("report", type=Path, nargs="?",
+                            help="Enhanced-format *.Report folder (or --facts)")
+    review_cmd.add_argument("--facts", type=Path, default=None,
+                            help="JSON measured-facts document (or REPORT)")
+    review_cmd.add_argument("--model", type=Path, default=None,
+                            help="Optional *.SemanticModel definition folder")
+    review_cmd.add_argument("--scope", default="static",
+                            help="static, desktop, or release (engine validates)")
+    review_cmd.add_argument("--state", default="default",
+                            help="Saved state; must be in supported_states")
+    review_cmd.add_argument("--config", type=Path, default=None,
+                            help="vqs.json project config (else ./vqs.json or defaults)")
+    review_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
+    review_cmd.add_argument("--run-id", default=None)
+    review_cmd.add_argument("--resume-from", default=None,
+                            help="Resume after revalidating sealed provenance")
+    review_cmd.add_argument("--report-out", type=Path, default=None,
+                            help="Write a readable local report here")
+    propose_cmd = commands.add_parser("propose", help="Propose repairs for a run (tool vqs.propose)")
+    propose_cmd.add_argument("--run-root", type=Path, required=True)
+    propose_cmd.add_argument("--run-id", required=True)
+    repair_cmd = commands.add_parser("repair", help="Validate then apply a repair plan (tool vqs.repair)")
+    repair_cmd.add_argument("plan", type=Path, help="JSON repair-plan document")
+    repair_cmd.add_argument("--original", required=True, help="Read-only original source path")
+    repair_cmd.add_argument("--candidate-root", required=True, help="Disposable write root")
+    verify_cmd = commands.add_parser("verify", help="Verify a candidate (tool vqs.verify)")
+    verify_cmd.add_argument("--run-root", type=Path, default=None)
+    verify_cmd.add_argument("--run-id", default=None)
+    verify_cmd.add_argument("--original", default=None)
+    verify_cmd.add_argument("--candidate", default=None)
+    run_status_cmd = commands.add_parser("run-status", help="Report a sealed run (tool vqs.run_status)")
+    run_status_cmd.add_argument("run_root", type=Path)
+    run_status_cmd.add_argument("run_id")
+    commands.add_parser("mcp", help="Launch the stdio MCP server (tools vqs_*)")
     args = parser.parse_args(argv)
     if args.command == "measure":
         return _measure(args.report, args.model, args.out)
@@ -280,6 +427,20 @@ def main(argv: list[str] | None = None) -> int:
                               args.approve_change, args.run_root, args.run_id)
     if args.command == "adjudicate-bundle":
         return _adjudicate_bundle(args.bundle, args.run_root, args.run_id)
+    if args.command == "inspect":
+        return _inspect(args.report, args.model, args.config, args.out)
+    if args.command == "review":
+        return _review(args)
+    if args.command == "propose":
+        return _propose(args.run_root, args.run_id)
+    if args.command == "repair":
+        return _repair(args.plan, args.original, args.candidate_root)
+    if args.command == "verify":
+        return _verify(args)
+    if args.command == "run-status":
+        return _run_status(args.run_root, args.run_id)
+    if args.command == "mcp":
+        return _mcp()
     try:
         info = report_context(args.report)
         if args.command == "inventory":
