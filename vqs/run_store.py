@@ -109,6 +109,13 @@ def read_events(run_dir: Path) -> list[dict]:
     return events
 
 
+def _canonical_manifest_sha256(manifest: dict) -> str:
+    """Canonical digest of the sealed payload (F19; excludes itself)."""
+    trimmed = {key: value for key, value in manifest.items()
+               if key != "sealed_sha256"}
+    return digest_bytes(json.dumps(trimmed, sort_keys=True, ensure_ascii=False).encode("utf-8"))
+
+
 def seal_run(run_dir: Path, status: str, artifacts: dict | None = None,
              environment: dict | None = None,
              bindings: dict[str, Any] | None = None) -> dict:
@@ -144,6 +151,7 @@ def seal_run(run_dir: Path, status: str, artifacts: dict | None = None,
     manifest["events_sha256"] = digest_bytes(
         (Path(run_dir) / "events.jsonl").read_bytes())
     manifest["sealed"] = True
+    manifest["sealed_sha256"] = _canonical_manifest_sha256(manifest)
     _atomic_write(manifest_path, json.dumps(manifest, indent=2))
     return manifest
 
@@ -158,6 +166,9 @@ def verify_seal(run_dir: Path) -> list[dict[str, Any]]:
     if not isinstance(manifest, dict) or manifest.get("sealed") is not True:
         return [{"rule": "seal_missing"}]
     issues: list[dict[str, Any]] = []
+    sealed = manifest.get("sealed_sha256")
+    if not isinstance(sealed, str) or sealed != _canonical_manifest_sha256(manifest):
+        issues.append({"rule": "seal_manifest_tampered"})
     try:
         events = read_events(run_dir)
         raw = (Path(run_dir) / "events.jsonl").read_bytes()
@@ -171,6 +182,29 @@ def verify_seal(run_dir: Path) -> list[dict[str, Any]]:
         issues.append({"rule": "seal_log_tampered"})
     if not events or events[-1].get("kind") != manifest.get("status"):
         issues.append({"rule": "seal_terminal_mismatch"})
+    artifacts = manifest.get("artifacts")
+    if isinstance(artifacts, dict):
+        for name, entry in artifacts.items():
+            if not (isinstance(entry, dict)
+                    and isinstance(entry.get("sha256"), str)
+                    and isinstance(entry.get("path"), str)):
+                continue
+            target = Path(run_dir) / entry["path"]
+            if not _within(Path(run_dir), target):
+                issues.append({"rule": "seal_artifact_unverifiable",
+                               "artifact": name,
+                               "detail": "path escapes the run directory"})
+                continue
+            try:
+                actual = digest_bytes(target.read_bytes())
+            except OSError:
+                issues.append({"rule": "seal_artifact_unverifiable",
+                               "artifact": name,
+                               "detail": "artifact bytes unreadable"})
+                continue
+            if actual != entry["sha256"]:
+                issues.append({"rule": "seal_artifact_tampered",
+                               "artifact": name})
     return issues
 
 

@@ -26,6 +26,7 @@ from typing import Any
 from . import design_rules
 from .data.tmdl import check_bindings, check_freshness, inventory_model, require_rls_identity
 from .document.inspect import inspect_docx
+from .policy import POLICY_VERSION
 from .run_store import append_event, create_run, seal_run
 from .stories.oracles import ambiguity_check, oracle_matches
 
@@ -208,6 +209,10 @@ def _run_model(entry: Any) -> dict:
     return {"verdict": "pass", "checks": checks}
 
 
+def _canonical_sha256(payload: Any) -> str:
+    """SHA256 over canonical JSON bytes (F18 seal input binding)."""
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()
+
 def seal_verdict(run_root: Path, run_id: str | None, pipeline_name: str,
                verdict: str, findings: list[dict[str, Any]]) -> dict[str, Any]:
     """Seal a single-verdict run; a duplicate run_id blocks without a run."""
@@ -229,7 +234,9 @@ def seal_verdict(run_root: Path, run_id: str | None, pipeline_name: str,
     append_event(run_dir, {"kind": terminal, "verdict": verdict})
     digest = hashlib.sha256(
         json.dumps(findings, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
-    manifest = seal_run(run_dir, terminal, artifacts={"verdict_sha256": digest})
+    sealed_input = {"pipeline": pipeline_name, "verdict": verdict, "findings": findings}
+    bindings = {"input_sha256": _canonical_sha256(sealed_input), "policy_version": POLICY_VERSION, "tool": pipeline_name}
+    manifest = seal_run(run_dir, terminal, artifacts={"verdict_sha256": digest}, bindings=bindings)
     return {"verdict": verdict, "run_dir": str(run_dir), "run_id": run_id,
             "findings": findings, "manifest": manifest}
 
@@ -372,8 +379,9 @@ def run_check(facts: Any, run_root: Path, run_id: str | None = None,
         json.dumps(findings, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
     sealed_artifacts = dict(artifacts or {})
     sealed_artifacts.setdefault("verdict_sha256", digest)
+    bindings = {"input_sha256": _canonical_sha256(facts), "policy_version": POLICY_VERSION, "tool": "vqs.check/1"}
     manifest = seal_run(run_dir, terminal, artifacts=sealed_artifacts,
-                        environment=environment)
+                        environment=environment, bindings=bindings)
     return {"verdict": verdict, "run_dir": str(run_dir), "run_id": run_id,
             "findings": findings, "manifest": manifest}
 

@@ -231,6 +231,9 @@ def check_observations(kind: str, observations: object,
         return [{"rule": "review_observations_invalid", "verdict": "blocked",
                  "page": page_id}]
     answers = [answer for answer in observations if isinstance(answer, dict)]
+    if any(not isinstance(answer.get("id"), str) for answer in answers):
+        return [{"rule": "review_observations_invalid", "verdict": "blocked",
+                 "page": page_id}]
     by_id = {answer.get("id"): answer for answer in answers}
     expected = set(REQUIRED[kind])
     if len(answers) != len(observations) or len(by_id) != len(answers) or set(by_id) != expected:
@@ -240,7 +243,8 @@ def check_observations(kind: str, observations: object,
     for check in expected:
         answer = by_id[check]
         status, reason = answer.get("status"), answer.get("reason")
-        if status not in STATUSES or not isinstance(reason, str) or len(reason.strip()) < 32:
+        if (not isinstance(status, str) or status not in STATUSES
+                or not isinstance(reason, str) or len(reason.strip()) < 32):
             findings.append({"rule": "observation_unsubstantiated",
                              "verdict": "blocked", "page": page_id, "check": check})
         elif status == "not_applicable" and check not in OPTIONAL[kind]:
@@ -252,9 +256,12 @@ def check_observations(kind: str, observations: object,
                        all(isinstance(x, (int, float)) and not isinstance(x, bool)
                            and 0 <= x <= 1 for x in region) and
                        region[0] < region[2] and region[1] < region[3])
-            if (answer.get("severity") not in SEVERITIES or not located or
-                    answer.get("visual_id") not in valid_visual_ids or
-                    len(str(answer.get("proposed_fix", "")).strip()) < 12):
+            severity = answer.get("severity")
+            visual_id = answer.get("visual_id")
+            if (not isinstance(severity, str) or severity not in SEVERITIES
+                    or not located or not isinstance(visual_id, str)
+                    or visual_id not in valid_visual_ids
+                    or len(str(answer.get("proposed_fix", "")).strip()) < 12):
                 findings.append({"rule": "issue_lacks_location_or_repair",
                                  "verdict": "blocked", "page": page_id, "check": check})
             else:

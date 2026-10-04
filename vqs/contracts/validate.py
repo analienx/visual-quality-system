@@ -101,6 +101,26 @@ def validate_manifest(manifest: dict[str, Any]) -> list[dict[str, Any]]:
             scope = finding.get("data_scope")
             if not isinstance(scope, dict) or not scope.get("query_context"):
                 issues.append({"rule": "missing_query_context", "index": index})
+        nested = component.get("artifact") if isinstance(component, dict) else None
+        contract = finding.get("cross_artifact_contract")
+        reviewed = False
+        if contract is not None:
+            if (isinstance(contract, dict)
+                    and isinstance(contract.get("reviewed_by"), str) and contract["reviewed_by"]
+                    and isinstance(contract.get("reason"), str) and contract["reason"]):
+                reviewed = True
+            else:
+                issues.append({"rule": "cross_artifact_contract_invalid", "index": index})
+        if isinstance(nested, dict) and not reviewed:
+            if nested.get("source_sha256") != artifact.get("source_sha256"):
+                issues.append({"rule": "component_source_mismatch", "index": index,
+                               "component": component_id})
+            if nested.get("surface") != artifact.get("surface"):
+                issues.append({"rule": "component_surface_mismatch", "index": index,
+                               "component": component_id})
+            if nested.get("contract_revision") != artifact.get("contract_revision"):
+                issues.append({"rule": "component_contract_revision_mismatch", "index": index,
+                               "component": component_id})
         render = finding.get("render")
         if render is not None:
             if (not isinstance(render, dict) or not _is_hex64(render.get("sha256"))

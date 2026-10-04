@@ -54,8 +54,11 @@ def adjudicate_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
         if not shape_issues and page.get("pixels") is not None:
             for row in check_calibration(calibration, page.get("pixels")):
                 findings.append({**row, "page": page_id})
-        valid_ids = {"page"} | {v.get("id") for v in page.get("visual_inventory", [])
-                                if isinstance(v, dict) and v.get("id")}
+        inventory = page.get("visual_inventory", [])
+        if not isinstance(inventory, list):
+            inventory = []
+        valid_ids = {"page"} | {v.get("id") for v in inventory
+                                if isinstance(v, dict) and isinstance(v.get("id"), str) and v.get("id")}
         findings.extend(check_observations(surface if isinstance(surface, str) else "",
                                            page.get("observations"), valid_ids,
                                            page_id))
