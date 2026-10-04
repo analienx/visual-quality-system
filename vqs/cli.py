@@ -89,8 +89,12 @@ def _validate_plan(plan_path: Path, original: str, candidate_root: str,
                            approved_semantic_change=approved)
     verdict = "pass" if not issues else "fail"
     findings = [{"check": "plan", "status": verdict, "detail": {"issues": issues}}]
+    inputs = {"actual": plan,
+              "identities": {"original": original,
+                             "candidate_root": candidate_root,
+                             "approved": approved}}
     return _sealed_exit(seal_verdict(run_root, run_id, "vqs.validate-plan/1",
-                                     verdict, findings))
+                                     verdict, findings, inputs=inputs))
 
 
 def _adjudicate_bundle(bundle_path: Path, run_root: Path, run_id: str | None) -> int:
@@ -113,8 +117,10 @@ def _adjudicate_bundle(bundle_path: Path, run_root: Path, run_id: str | None) ->
         findings = [{"check": finding.get("rule", "?"),
                      "status": "fail" if finding.get("verdict") == "fail" else "blocked",
                      "detail": finding} for finding in decided["findings"]]
+    inputs = {"actual": bundle, "identities": {}}
     return _sealed_exit(seal_verdict(run_root, run_id, "vqs.adjudicate-bundle/1",
-                                     decided["verdict"], findings))
+                                     decided["verdict"], findings,
+                                     inputs=inputs))
 
 
 def _measure(report: Path, model: Path | None, out: Path | None) -> int:
