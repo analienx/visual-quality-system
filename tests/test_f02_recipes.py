@@ -109,13 +109,12 @@ def _make_report(root: Path) -> Path:
     (pages / "P1" / "page.json").write_text(
         json.dumps({"displayName": "O", "width": 1280, "height": 720}),
         encoding="utf-8")
+    props = {"selector": {"metadata": {"id": "orig"}}}
+    visual_doc = {"name": "cardx",
+                  "visual": {"visualType": "card",
+                             "objects": {"labels": [{"properties": props}]}}}
     (pages / "P1" / "visuals" / "cardx" / "visual.json").write_text(
-        json.dumps({"name": "cardx",
-                    "visual": {
-                        "visualType": "card",
-                        "objects": {"labels": [{"properties": {
-                            "selector": {"metadata": {"id": "orig"}}}}}]}}}),
-        encoding="utf-8")
+        json.dumps(visual_doc), encoding="utf-8")
     return report
 
 
