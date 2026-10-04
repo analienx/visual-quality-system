@@ -41,14 +41,19 @@ def test_unclosed_backtick_blocks_model(tmp_path: Path) -> None:
 
 
 def _scrubbed(result: dict, root: Path) -> dict:
-    """Normalize volatile tmp paths so semantic equality is compared.
+    """Rebase volatile tmp paths onto a placeholder for comparison.
 
-    check_model embeds model_dir and parsed file paths; two sibling
-    tmp dirs can never match byte-for-byte, so the root prefix is
-    scrubbed and the issues/cycles/coverage content compared.
+    check_model embeds model_dir and parsed file paths; each result
+    is rebased onto its OWN root (both separator flavors, since
+    stored paths may use backslashes while ``str(root)`` uses
+    forward slashes), so equality proves identical semantic content
+    (issues, cycles, coverage shape) rather than identical scaffolds.
     """
-    return json.loads(json.dumps(result, sort_keys=True, default=str)
-                       .replace(str(root), "<root>"))
+    text = json.dumps(result, sort_keys=True, default=str)
+    root_text = str(root)
+    for variant in {root_text, root_text.replace("/", "\\")}:
+        text = text.replace(variant, "<root>")
+    return json.loads(text)
 
 
 def test_uppercase_declarations_match_lowercase(tmp_path: Path) -> None:
@@ -58,10 +63,10 @@ def test_uppercase_declarations_match_lowercase(tmp_path: Path) -> None:
     assert extract_objects(upper)["tables"] == extract_objects(lower)["tables"]
     checked_upper = _scrubbed(
         check_model(_model(tmp_path / "u", {"tables/T.tmdl": upper})),
-        tmp_path)
+        tmp_path / "u")
     checked_lower = _scrubbed(
         check_model(_model(tmp_path / "l", {"tables/T.tmdl": lower})),
-        tmp_path)
+        tmp_path / "l")
     assert checked_upper == checked_lower
 
 
