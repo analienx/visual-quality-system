@@ -165,7 +165,8 @@ def test_f27_replay_under_another_control_rejects(tmp_path: Path) -> None:
     bound = {"source_sha256": SOURCE_A, "environment": dict(ENV),
              "data_scope": {**SCOPE, "filters": {}},
              "producer": {"run_id": "prod-1", "gate": gate_id,
-                          "status": target["status"], "control": other}}
+                          "status": target["status"], "control": other},
+             "result": {"gate": gate_id, "status": target["status"]}}
     raw = _envelope_bytes(bound)
     sha = hashlib.sha256(raw).hexdigest()
     case.blobs[sha] = raw
