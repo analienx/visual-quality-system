@@ -62,21 +62,48 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                                       arguments["run_id"])
 
 
-def handle_message(message: Any) -> dict | None:
-    """Handle one parsed JSON-RPC message; None for notifications."""
+def handle_message(message: Any,
+                   session: dict[str, Any] | None = None) -> dict | None:
+    """Handle one parsed JSON-RPC message; None for notifications.
+
+    R23: tools/list and tools/call need a live session (initialize
+    followed by the initialized notification); without one they are
+    rejected with -32002 before touching anything. Session state
+    rides the call — this module keeps no session globals.
+    """
     if not isinstance(message, dict):
         return {"jsonrpc": "2.0", "id": None,
                 "error": {"code": -32600, "message": "Invalid Request"}}
     method = message.get("method")
     request_id = message.get("id", None)
     if "id" not in message:
+        if session is not None and method == "notifications/initialized":
+            session["notified"] = True
         return None  # notification: no response, even for unknown methods
     if method == "initialize":
+        params = message.get("params")
+        version = params.get("protocolVersion") if isinstance(params, dict) else None
+        if version is not None and version != PROTOCOL_VERSION:
+            return {"jsonrpc": "2.0", "id": request_id,
+                    "error": {"code": -32602,
+                              "message": f"Unsupported protocolVersion {version!r}; "
+                                         f"server speaks {PROTOCOL_VERSION}"}}
+        if session is not None:
+            session["initialized"] = True
+            if version is not None:
+                session["protocolVersion"] = version
         return {"jsonrpc": "2.0", "id": request_id,
                 "result": {"protocolVersion": PROTOCOL_VERSION,
                            "capabilities": {"tools": {}},
                            "serverInfo": {"name": SERVER_NAME,
                                           "version": __version__}}}
+    if method in ("tools/list", "tools/call"):
+        if (session is None or not session.get("initialized")
+                or not session.get("notified")):
+            return {"jsonrpc": "2.0", "id": request_id,
+                    "error": {"code": -32002,
+                              "message": "Server not initialized; send initialize "
+                                         "and notifications/initialized first"}}
     if method == "tools/list":
         return {"jsonrpc": "2.0", "id": request_id,
                 "result": {"tools": [
@@ -113,6 +140,7 @@ def serve(reader: Any = None, writer: Any = None) -> int:
     """Serve one stdio session; streams are injectable for tests."""
     reader = sys.stdin if reader is None else reader
     writer = sys.stdout if writer is None else writer
+    session: dict[str, Any] = {}
     for line in reader:
         if not line.strip():
             continue
@@ -125,7 +153,7 @@ def serve(reader: Any = None, writer: Any = None) -> int:
                            "message": "Parse error"}}) + "\n")
             writer.flush()
             continue
-        response = handle_message(message)
+        response = handle_message(message, session)
         if response is not None:
             writer.write(json.dumps(response, ensure_ascii=False) + "\n")
             writer.flush()

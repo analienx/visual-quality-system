@@ -1,4 +1,4 @@
-"""Tool schemas and strict argument validation for the MCP server."""
+﻿"""Tool schemas and strict argument validation for the MCP server."""
 from __future__ import annotations
 
 from typing import Any
@@ -61,8 +61,10 @@ TOOL_SPECS: tuple[dict[str, Any], ...] = (
              "run_id": {"type": ["string", "null"]},
              "original": {"type": ["string", "null"]},
              "candidate": {"type": ["string", "null"]},
-             "edits": {"type": ["array", "null"]},
-             "approved_removals": {"type": ["array", "null"]}},
+             "edits": {"type": ["array", "null"],
+                        "items": {"type": "object"}},
+             "approved_removals": {"type": ["array", "null"],
+                                  "items": {"type": "string"}}},
          "required": [],
          "additionalProperties": False}},
     {"name": "vqs_run_status", "tool": "vqs.run_status",
@@ -90,6 +92,8 @@ def _matches(value: Any, expected: Any) -> bool:
         return value is None
     if expected == "boolean":
         return isinstance(value, bool)
+    if expected == "array":
+        return isinstance(value, list)
     return True
 
 
@@ -112,4 +116,9 @@ def validate_call(name: Any, arguments: Any) -> tuple[dict | None, str | None]:
             return None, f"argument {key!r} has the wrong type"
         if "enum" in prop and value not in prop["enum"]:
             return None, f"argument {key!r} is not an allowed value"
+        items = prop.get("items")
+        if (isinstance(value, list) and isinstance(items, dict)
+                and any(not _matches(item, items.get("type", "string"))
+                        for item in value)):
+            return None, f"argument {key!r} has a wrongly typed element"
     return _BY_NAME[name], None
