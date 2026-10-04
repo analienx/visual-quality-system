@@ -455,10 +455,9 @@ def verify_renders(required_pages: list[str], renders_dirs: list[str | Path],
     are not evidence; missing pages block with exact names. Empty
     requirements or a missing digest block instead of passing
     vacuously. Malformed collections block with a reason; they never
-    raise into the caller. R11: authoritative per-page canvases ride
-    along when the caller has them; an inventoried manifest consumed
-    without canvases blocks inside image_evidence instead of
-    verifying blind.
+    raise into the caller. S11: authoritative per-page canvases are
+    required — a caller without source-derived dimensions cannot
+    verify, so canvases=None blocks instead of verifying blind.
     """
     if not isinstance(required_pages, list):
         return {"verdict": "blocked",
@@ -472,6 +471,10 @@ def verify_renders(required_pages: list[str], renders_dirs: list[str | Path],
     if not isinstance(renders_dirs, list):
         return {"verdict": "blocked",
                 "reason": "render manifests required"}
+    if canvases is None:
+        return {"verdict": "blocked",
+                "reason": "authoritative canvases required; "
+                          "derive per-page dimensions from source"}
     from vqs.evidence import image_evidence
     wanted = [page for page in required_pages if isinstance(page, str)]
     covered: set[str] = set()

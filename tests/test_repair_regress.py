@@ -309,15 +309,18 @@ def test_verify_renders_blocks_without_fresh_manifests(
     fresh = _renders(tmp_path, "fresh", "cand-digest",
                      {"P1": "p1.png", "P2": "p2.png"})
     assert verify_renders(["P1", "P2"], [fresh],
-                          "cand-digest")["verdict"] == "pass"
+                          "cand-digest",
+                          {"P1": (500, 500), "P2": (500, 500)})["verdict"] == "pass"
     stale = _renders(tmp_path, "stale", "orig-digest",
                      {"P1": "p1.png", "P2": "p2.png"})
-    verdict = verify_renders(["P1", "P2"], [stale], "cand-digest")
+    verdict = verify_renders(["P1", "P2"], [stale], "cand-digest",
+                             {"P1": (500, 500), "P2": (500, 500)})
     assert verdict["verdict"] == "blocked"
     assert verdict["missing_pages"] == ["P1", "P2"]
     partial = _renders(tmp_path, "partial", "cand-digest", {"P1": "p1.png"})
     verdict = verify_renders(["P1", "P2"], [partial, "junk", {}],
-                             "cand-digest")
+                             "cand-digest",
+                             {"P1": (500, 500), "P2": (500, 500)})
     assert verdict["verdict"] == "blocked"
     assert verdict["missing_pages"] == ["P2"]
     assert verify_renders([], [fresh], "cand-digest") == {

@@ -482,8 +482,9 @@ def main(argv: list[str] | None = None) -> int:
                     not name.endswith(".png") for name in mapping.values()) or
                 len(set(mapping.values())) != len(expected)):
             raise ValueError("Manifest requires a unique page_images entry for every PBIR page ID")
-        ordered_files = [mapping[page_id] for page_id in expected]
-        pages, issues = image_evidence(args.renders, info["source_sha256"], ordered_files)
+        canvases = {page["id"]: page.get("canvas") for page in info["pages"]}
+        pages, issues = image_evidence(args.renders, info["source_sha256"],
+                                       expected, canvases=canvases)
         if issues or len(pages) != len(expected):
             print(json.dumps({"status": "blocked", "findings": issues,
                               "reason": "Fresh complete source-bound page renders required"}, indent=2))

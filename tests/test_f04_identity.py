@@ -81,5 +81,6 @@ def test_f04_apply_to_verify_composes(tmp_path) -> None:
          "data_readiness": {"populated": True,
                            "method": "modeling-mcp:repeat-query"}}),
         encoding="utf-8")
-    verdict = verify_renders(["P1"], [renders], applied["source_sha256"])
+    verdict = verify_renders(["P1"], [renders], applied["source_sha256"],
+                             {"P1": (500, 500)})
     assert verdict["verdict"] == "pass"

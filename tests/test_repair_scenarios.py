@@ -131,7 +131,8 @@ def test_scenarios_require_renders_explicitly(tmp_path, scenario):
     required = rerender_requirements(plan["operations"], pages)
     assert required["verdict"] == "ready"
     assert "P1" in required["pages"]
-    assert verify_renders(required["pages"], [], applied["after"]) == {
+    assert verify_renders(required["pages"], [], applied["after"],
+                          {"P1": (500, 500), "P2": (500, 500)}) == {
         "verdict": "blocked",
         "reason": "fresh complete renders required for affected pages "
                   "and neighbors",

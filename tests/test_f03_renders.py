@@ -88,5 +88,6 @@ def test_f03_unknown_readiness_blocks(tmp_path: Path) -> None:
 def test_f03_complete_renders_pass(tmp_path: Path) -> None:
     renders = _renders(tmp_path, "r1", "d",
                        {"P1": "P1.png", "P2": "P2.png"})
-    verdict = verify_renders(["P1", "P2"], [renders], "d")
+    verdict = verify_renders(["P1", "P2"], [renders], "d",
+                             {"P1": (500, 500), "P2": (500, 500)})
     assert verdict == {"verdict": "pass", "pages": ["P1", "P2"]}
