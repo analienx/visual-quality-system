@@ -14,24 +14,34 @@ from vqs.repair.recipes import RecipeError, bind_operation
 LEAF = ["visual", "objects", "labels", 0, "properties"]
 
 
-def _visual() -> dict:
+def _labels_properties() -> dict:
     # Every RED path below addresses an EXISTING scalar leaf, so a
     # rejection proves recipe-schema enforcement, never a missing path.
+    return {
+        "fontSize": {"expr": {"Literal": {"Value": "11D"},
+                              "Conditional": {"branches": "b1"}}},
+        "title": {"expr": {"Literal": {"Value": "Old"}}},
+        "precision": {"expr": {"Literal": {"Value": 1}}},
+        "color": {"expr": {"Literal": {"Value": "#00FF00"}}},
+        "rotation": {"expr": {"Literal": {"Value": 0}}},
+        "selector": {"metadata": {"id": "sel-1"}},
+        "dataLabel": {"queryRef": "M.X"},
+        "filter": {"where": {"clause": "c0"}},
+    }
+
+
+def _visual() -> dict:
     return {
         "name": "cardx",
         "position": {"x": 1, "y": 2, "width": 3, "height": 4},
         "visual": {
             "visualType": "card",
-            "objects": {"labels": [{"properties": {
-                "fontSize": {"expr": {"Literal": {"Value": "11D"},
-                                     "Conditional": {"branches": "b1"}}},
-                "title": {"expr": {"Literal": {"Value": "Old"}}},
-                "precision": {"expr": {"Literal": {"Value": 1}}},
-                "color": {"expr": {"Literal": {"Value": "#00FF00"}}},
-                "rotation": {"expr": {"Literal": {"Value": 0}}},
-                "selector": {"metadata": {"id": "sel-1"}},
-                "dataLabel": {"queryRef": "M.X"},
-                "filter": {"where": {"clause": "c0"}}}}}]},
+            "objects": {
+                "labels": [{"properties": _labels_properties()}],
+                "categoryAxis": [{"properties": {
+                    "labelPrecision": {
+                        "expr": {"Literal": {"Value": "2"}}}}}],
+            },
             "query": {"queryState": {"Values": {"projections": [
                 {"queryRef": "M.X", "field": {"Measure": {}},
                  "active": True}]}}}},
@@ -47,32 +57,31 @@ def _op(op_type: str, path: list, value):
 
 def test_f02_selector_metadata_rejected() -> None:
     path = [*LEAF, "selector", "metadata", "id"]
-    with pytest.raises(RecipeError):
-        bind_operation(_op("typography.size", path, "x"), _visual())
+    with pytest.raises(RecipeError, match="recipe"):
+        bind_operation(_op("typography.size", path, "14D"), _visual())
 
 
 def test_f02_conditional_expression_rejected() -> None:
     path = [*LEAF, "fontSize", "expr", "Conditional", "branches"]
-    with pytest.raises(RecipeError):
-        bind_operation(_op("typography.size", path, "x"), _visual())
+    with pytest.raises(RecipeError, match="recipe|leaf"):
+        bind_operation(_op("typography.size", path, "14D"), _visual())
 
 
 def test_f02_query_reference_rejected() -> None:
     path = [*LEAF, "dataLabel", "queryRef"]
-    with pytest.raises(RecipeError):
-        bind_operation(_op("typography.size", path, "Sales[Amount]"),
-                       _visual())
+    with pytest.raises(RecipeError, match="recipe|leaf"):
+        bind_operation(_op("typography.size", path, "14D"), _visual())
 
 
 def test_f02_filter_path_rejected() -> None:
     path = [*LEAF, "filter", "where", "clause"]
-    with pytest.raises(RecipeError):
-        bind_operation(_op("typography.size", path, "x"), _visual())
+    with pytest.raises(RecipeError, match="recipe|leaf"):
+        bind_operation(_op("typography.size", path, "14D"), _visual())
 
 
 def test_f02_precision_on_rotation_rejected() -> None:
     path = [*LEAF, "rotation", "expr", "Literal", "Value"]
-    with pytest.raises(RecipeError):
+    with pytest.raises(RecipeError, match="rotation|property|axis|recipe"):
         bind_operation(_op("axis.precision", path, 2), _visual())
 
 
@@ -130,3 +139,39 @@ def test_f02_undeclared_forbidden_path_fails_verify(tmp_path: Path) -> None:
     verdict = verify_candidate(str(original), str(candidate), edits)
     assert verdict["verdict"] == "fail"
     assert verdict["problems"][0]["rule"] == "edits_unreadable"
+
+
+def test_f02_apply_plan_rejects_semantic_op(tmp_path: Path) -> None:
+    """A02: production apply_plan blocks a selector-mutating op at apply."""
+    from vqs.repair.execute import apply_plan
+
+    original = _make_report(tmp_path)
+    plan = {
+        "operations": [{
+            "type": "typography.size", "target": "visual",
+            "selector": {"page": "P1", "visual": "cardx"},
+            "path": [*LEAF, "selector", "metadata", "id"],
+            "value": "14D",
+            "writes": ["definition/pages/P1/visuals/cardx/visual.json"]}],
+        "write_targets": ["definition/pages/P1/visuals/cardx/visual.json"],
+        "rollback": "re-materialize from original",
+    }
+    result = apply_plan(plan, str(original), str(tmp_path / "cand"))
+    assert result["verdict"] == "blocked"
+    assert result["stage"] == "apply"
+    assert result["index"] == 0
+    assert "RecipeError" in result["reason"]
+
+
+def test_f02_label_format_scoped_to_labels_object() -> None:
+    """label.format v2 contract: labels leaves bind, others reject."""
+    size = [*LEAF, "fontSize", "expr", "Literal", "Value"]
+    assert bind_operation(
+        _op("label.format", size, "14D"), _visual())["new"] == "14D"
+    other = ["visual", "objects", "categoryAxis", 0, "properties",
+             "labelPrecision", "expr", "Literal", "Value"]
+    with pytest.raises(RecipeError, match="labels"):
+        bind_operation(_op("label.format", other, "3"), _visual())
+    selector = [*LEAF, "selector", "metadata", "id"]
+    with pytest.raises(RecipeError, match="recipe"):
+        bind_operation(_op("label.format", selector, "14D"), _visual())
