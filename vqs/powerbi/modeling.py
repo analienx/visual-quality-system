@@ -20,6 +20,7 @@ import json
 import shutil
 import subprocess
 import threading
+import time
 from dataclasses import asdict, dataclass
 from importlib import metadata as _metadata
 from typing import Any, Protocol
@@ -133,18 +134,7 @@ class StdioModelingClient:
             self._kill()
             raise ModelingError(
                 f"modeling handshake write failed: {exc}") from exc
-        line = self._read_line(process)
-        try:
-            response = json.loads(line)
-        except ValueError:
-            self._kill()
-            raise ModelingError(
-                "modeling handshake is not JSON: "
-                f"{line[:200]}")
-        if not isinstance(response, dict) or response.get("id") != rid:
-            self._kill()
-            raise ModelingError(
-                "modeling handshake mismatched response id")
+        response = self._read_response(process, rid)
         if "error" in response:
             self._kill()
             raise ModelingError(
@@ -196,26 +186,49 @@ class StdioModelingClient:
                 process.stdin.flush()
             except (OSError, ValueError) as exc:
                 raise ModelingError(f"modeling server write failed: {exc}") from exc
-            line = self._read_line(process)
-            try:
-                response = json.loads(line)
-            except ValueError as exc:
-                raise ModelingError(
-                    f"modeling server is not JSON: {line[:200]}") from exc
-            if not isinstance(response, dict) or response.get("id") != rid:
-                raise ModelingError("modeling server mismatched response id")
+            response = self._read_response(process, rid)
             if "error" in response:
                 detail = response["error"]
                 raise ModelingError(f"modeling {tool} error: {detail}")
             return self._payload(response.get("result"), tool)
 
-    def _read_line(self, process: subprocess.Popen[str]) -> str:
+    def _read_response(self, process: subprocess.Popen[str],
+                       rid: str) -> dict[str, Any]:
+        """Read until the response bearing rid; skip interleaved frames.
+
+        S18: legal logging/progress notifications (and any other
+        id-less or foreign-id frame) preceding the matching response
+        are consumed, never mistaken for the answer. One overall
+        deadline bounds the whole wait, so an endless notification
+        stream still times out instead of hanging.
+        """
+        deadline = time.monotonic() + self._timeout
+        while True:
+            line = self._read_line(process, deadline)
+            if not line.strip():
+                continue
+            try:
+                message = json.loads(line)
+            except ValueError:
+                self._kill()
+                raise ModelingError(
+                    "modeling server is not JSON: "
+                    f"{line[:200]}")
+            if isinstance(message, dict) and message.get("id") == rid:
+                return message
+
+    def _read_line(self, process: subprocess.Popen[str],
+                   deadline: float) -> str:
         assert process.stdout is not None
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            self._kill()
+            raise ModelingError("modeling server timed out or closed")
         box: dict[str, Any] = {}
         worker = threading.Thread(target=self._read_target,
                                   args=(process.stdout, box), daemon=True)
         worker.start()
-        worker.join(self._timeout)
+        worker.join(remaining)
         if worker.is_alive() or "error" in box:
             self._kill()
             raise ModelingError("modeling server timed out or closed")

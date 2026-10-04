@@ -268,7 +268,9 @@ def test_f26_installed_mcp_matches_engine(tmp_path: Path) -> None:
     engine = review_report(report_dir=str(report), model_dir=model_def,
                            run_root=runs, run_id="eng-1")
     requests = [
-        {"jsonrpc": "2.0", "id": 1, "method": "initialize"},
+        {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+         "params": {"protocolVersion": "2024-11-05", "capabilities": {},
+                    "clientInfo": {"name": "f26", "version": "0"}}},
         {"jsonrpc": "2.0", "method": "notifications/initialized"},
         {"jsonrpc": "2.0", "id": 2, "method": "tools/call",
          "params": {"name": "vqs_review",

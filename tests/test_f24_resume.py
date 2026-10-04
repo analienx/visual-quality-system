@@ -112,7 +112,10 @@ def test_f24_mcp_resume_and_status_block(tmp_path: Path) -> None:
     _session_state: dict = {}
     handle_message({"jsonrpc": "2.0", "id": 0, "method": "initialize",
                     "params": {"protocolVersion": _PROTOCOL_VERSION,
-                               "capabilities": {}}}, _session_state)
+                               "capabilities": {},
+                               "clientInfo": {"name": "f24",
+                                              "version": "0"}}},
+                   _session_state)
     handle_message({"jsonrpc": "2.0", "method": "notifications/initialized"},
                    _session_state)
 

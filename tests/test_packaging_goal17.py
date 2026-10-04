@@ -52,7 +52,9 @@ def test_installed_cli_mcp_parity_outside_checkout(tmp_path: Path) -> None:
                                         "run_id": "pkg-mcp"}}}
     # R23 session: initialize + initialized notification precede tools.
     messages = [{"jsonrpc": "2.0", "id": 0, "method": "initialize",
-                 "params": {"protocolVersion": "2024-11-05", "capabilities": {}}},
+                 "params": {"protocolVersion": "2024-11-05",
+                            "capabilities": {},
+                            "clientInfo": {"name": "pkg", "version": "0"}}},
                 {"jsonrpc": "2.0", "method": "notifications/initialized"},
                 request]
     mcp = subprocess.run(

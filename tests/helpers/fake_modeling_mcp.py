@@ -7,6 +7,8 @@ SCRIPT_JSON: {"responses": {"<tool>/<operation>": <payload or
 {"__text__": "<verbatim content text>"} |
 {"__isError__": <payload with tool-level isError>}>>},
 "sleep": <seconds>, "strict_handshake": <bool>,
+"notify_before": {"<tool>/<operation>": [<raw JSON lines>]},
+"notify_forever": ["<tool>/<operation>", ...],
 "capabilities": {...}, "protocolVersion": "<override, default
 2024-11-05>}. Notifications/initialized is tracked (strict mode
 requires it before tools/call) and logged as
@@ -88,6 +90,23 @@ def main() -> int:
                     log.write(json.dumps({"tool": tool, "request": request})
                               + "\n")
             key = f"{tool}/{operation}"
+            if key in script.get("notify_forever", []):
+                count = 0
+                try:
+                    while True:
+                        count += 1
+                        sys.stdout.write(json.dumps(
+                            {"jsonrpc": "2.0",
+                             "method": "notifications/progress",
+                             "params": {"progressToken": count}}) + "\n")
+                        sys.stdout.flush()
+                        time.sleep(0.01)
+                except (BrokenPipeError, OSError):
+                    pass
+                return 0
+            for prefix in script.get("notify_before", {}).get(key, []):
+                sys.stdout.write(str(prefix) + "\n")
+                sys.stdout.flush()
             if key not in responses:
                 sys.stdout.write(json.dumps(
                     {"jsonrpc": "2.0", "id": rid,

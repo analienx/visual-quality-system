@@ -27,7 +27,9 @@ def _open() -> list[str]:
 
     return [json.dumps({"jsonrpc": "2.0", "id": 0, "method": "initialize",
                         "params": {"protocolVersion": PROTOCOL_VERSION,
-                                   "capabilities": {}}}),
+                                   "capabilities": {},
+                                   "clientInfo": {"name": "vqs-mcp-test",
+                                                  "version": "0"}}}),
             json.dumps({"jsonrpc": "2.0",
                         "method": "notifications/initialized"})]
 
@@ -53,15 +55,15 @@ def test_tools_list_is_exactly_the_six() -> None:
         assert tool["inputSchema"]["additionalProperties"] is False
 
 
-def test_initialize_handshake() -> None:
-    from vqs import __version__
+def test_initialize_without_params_rejected() -> None:
+    # S18: a bare initialize with no params is not a lifecycle open.
 
     responses = _session([json.dumps({"jsonrpc": "2.0", "id": 1,
                                       "method": "initialize"})])
-    result = responses[0]["result"]
-    assert result["serverInfo"] == {"name": "vqs-mcp",
-                                   "version": __version__}
-    assert result["capabilities"] == {"tools": {}}
+    assert responses[0].get("error", {}).get("code") == -32602
+    assert "result" not in responses[0]
+    assert "protocolVersion" in responses[0]["error"]["message"]
+    assert len(responses) == 1  # rejected before any session exists
 
 
 def test_call_validation_errors() -> None:

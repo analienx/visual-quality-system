@@ -64,7 +64,8 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
 
 def handle_message(message: Any,
                    session: dict[str, Any] | None = None) -> dict | None:
-    """Handle one parsed JSON-RPC message; None for notifications.
+    """Handle one parsed JSON-RPC message; None for notifications and
+    response/error frames (S18: strict lifecycle order and envelope).
 
     R23: tools/list and tools/call need a live session (initialize
     followed by the initialized notification); without one they are
@@ -74,24 +75,43 @@ def handle_message(message: Any,
     if not isinstance(message, dict):
         return {"jsonrpc": "2.0", "id": None,
                 "error": {"code": -32600, "message": "Invalid Request"}}
+    if message.get("jsonrpc") != "2.0":
+        if "id" not in message:
+            return None  # invalid notification: ignore, never answer
+        return {"jsonrpc": "2.0", "id": message.get("id"),
+                "error": {"code": -32600, "message": "Invalid Request"}}
+    if "method" not in message:
+        return None  # response/error frame: never answer, no side effects
     method = message.get("method")
     request_id = message.get("id", None)
     if "id" not in message:
-        if session is not None and method == "notifications/initialized":
+        if (session is not None and method == "notifications/initialized"
+                and session.get("initialized")):
             session["notified"] = True
         return None  # notification: no response, even for unknown methods
     if method == "initialize":
         params = message.get("params")
         version = params.get("protocolVersion") if isinstance(params, dict) else None
-        if version is not None and version != PROTOCOL_VERSION:
+        fields = params if isinstance(params, dict) else {}
+        client_info = fields.get("clientInfo")
+        if version != PROTOCOL_VERSION:
             return {"jsonrpc": "2.0", "id": request_id,
                     "error": {"code": -32602,
                               "message": f"Unsupported protocolVersion {version!r}; "
                                          f"server speaks {PROTOCOL_VERSION}"}}
+        if (not isinstance(fields.get("capabilities"), dict)
+                or not isinstance(client_info, dict)
+                or not client_info.get("name")
+                or not client_info.get("version")):
+            return {"jsonrpc": "2.0", "id": request_id,
+                    "error": {"code": -32602,
+                              "message": "initialize requires capabilities "
+                                         "and clientInfo {name, version}"}}
         if session is not None:
             session["initialized"] = True
-            if version is not None:
-                session["protocolVersion"] = version
+            session["protocolVersion"] = version
+            session["clientInfo"] = {"name": client_info["name"],
+                                     "version": client_info["version"]}
         return {"jsonrpc": "2.0", "id": request_id,
                 "result": {"protocolVersion": PROTOCOL_VERSION,
                            "capabilities": {"tools": {}},
