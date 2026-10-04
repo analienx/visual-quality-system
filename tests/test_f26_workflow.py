@@ -105,7 +105,7 @@ def _size_plan(page: str, visual: str, value: str) -> dict:
 
 def _vqs(*argv: str, cwd: Path) -> tuple[int, dict]:
     proc = subprocess.run([VQS_BIN, *argv], cwd=cwd, capture_output=True,
-                          text=True, timeout=300)
+                          text=True, timeout=300, check=False)
     try:
         return proc.returncode, json.loads(proc.stdout)
     except ValueError:
@@ -281,7 +281,7 @@ def test_f26_installed_mcp_matches_engine(tmp_path: Path) -> None:
     proc = subprocess.run(
         [MCP_BIN], cwd=tmp_path, capture_output=True, text=True,
         input="".join(json.dumps(req) + "\n" for req in requests),
-        timeout=300)
+        timeout=300, check=False)
     assert proc.returncode == 0
     responses = [json.loads(line) for line in proc.stdout.splitlines()
                  if line.strip()]

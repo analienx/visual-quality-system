@@ -102,8 +102,7 @@ def _canvas_transparency(properties: dict) -> int | None:
         return int(raw)
     if isinstance(raw, str):
         text = raw.strip().upper()
-        if text.endswith("D"):
-            text = text[:-1]
+        text = text.removesuffix("D")
         if text.isdigit():
             return int(text)
     return None

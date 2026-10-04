@@ -17,11 +17,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from importlib import metadata as _metadata
 import shutil
 import subprocess
 import threading
 from dataclasses import asdict, dataclass
+from importlib import metadata as _metadata
 from typing import Any, Protocol
 
 

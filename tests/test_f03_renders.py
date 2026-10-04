@@ -35,7 +35,7 @@ def _renders(root: Path, name: str, digest: str, images: dict,
     renders = root / name
     renders.mkdir(parents=True)
     hashes = {}
-    for page_id, filename in images.items():
+    for filename in images.values():
         if not isinstance(filename, str):
             continue
         if png:

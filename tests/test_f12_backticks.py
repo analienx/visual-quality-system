@@ -9,8 +9,6 @@ cyclic expression must produce identical graphs.
 """
 from pathlib import Path
 
-import pytest
-
 from vqs.data.tmdl import extract_objects
 from vqs.powerbi.cycles import check_model
 

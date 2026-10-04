@@ -577,8 +577,8 @@ def inspect_report(report_dir: str, model_dir: str | None = None,
         parsed = (coverage.get("parsed_pages", "?"),
                   coverage.get("parsed_visuals", "?"))
         reasons = [
-            f"coverage: {parsed[0]} pages / {parsed[1]} visuals measured; "
-            f"{len(blockers)} blocking coverage issues",
+            (f"coverage: {parsed[0]} pages / {parsed[1]} visuals measured; "
+             f"{len(blockers)} blocking coverage issues"),
             *(_coverage_reason(issue) for issue in blockers)]
         blocked = blocked_envelope(
             "vqs.inspect", reasons, provenance=provenance,
@@ -832,8 +832,8 @@ def propose_candidates(run_root: str, run_id: str) -> dict[str, Any]:
     if manifest.get("pipeline") != "vqs.check/1":
         return blocked_envelope(
             "vqs.propose",
-            [f"run {run_id!r} is not a sealed review run "
-             f"(pipeline {manifest.get('pipeline')!r})"],
+            [(f"run {run_id!r} is not a sealed review run "
+              f"(pipeline {manifest.get('pipeline')!r})")],
             run_id=run_id, run_dir=str(Path(run_root) / run_id))
     entry = (manifest.get("artifacts") or {}).get("findings")
     if not (isinstance(entry, dict)
@@ -841,8 +841,8 @@ def propose_candidates(run_root: str, run_id: str) -> dict[str, Any]:
             and isinstance(entry.get("path"), str)):
         return blocked_envelope(
             "vqs.propose",
-            [f"run {run_id!r} predates persisted findings; "
-             "re-run review to propose"],
+            [(f"run {run_id!r} predates persisted findings; "
+              "re-run review to propose")],
             run_id=run_id, run_dir=str(Path(run_root) / run_id))
     try:
         findings = json.loads((Path(run_root) / run_id / entry["path"]
@@ -870,8 +870,8 @@ def propose_candidates(run_root: str, run_id: str) -> dict[str, Any]:
                                 "items": len(items),
                                 "actionable": actionable}],
                      next_actions=[
-                         "author an owner-approved plan for each actionable "
-                         "finding (no automatic plan author is implemented)",
+                         ("author an owner-approved plan for each actionable "
+                          "finding (no automatic plan author is implemented)"),
                          "execute it with vqs.repair, then vqs.verify"],
                      extra={"work_items": items, "candidates": []})
 
@@ -970,8 +970,8 @@ def _execute_repair(plan: dict[str, Any], original: str,
         return blocked_envelope(
             "vqs.repair", [f"repair {stage}: {detail}"],
             run_id=rid, run_dir=str(sealed_run_dir),
-            next_actions=["fix the refusal cause and retry with a fresh "
-                          "candidate root"])
+            next_actions=[("fix the refusal cause and retry with a fresh "
+                           "candidate root")])
     repairs_doc = {"edits": result.get("edits", []),
                    "affected_pages": result.get("affected_pages", []),
                    "before": result.get("before"),
@@ -1053,8 +1053,8 @@ def verify_candidate(*, run_root: str | None = None,
         if manifest.get("pipeline") != "vqs.repair/1":
             return blocked_envelope(
                 "vqs.verify",
-                [f"run {run_id!r} is not a sealed repair run "
-                 f"(pipeline {manifest.get('pipeline')!r})"])
+                [(f"run {run_id!r} is not a sealed repair run "
+                  f"(pipeline {manifest.get('pipeline')!r})")])
         repair = manifest.get("repair") or {}
         original = repair.get("original")
         candidate = repair.get("candidate")
@@ -1066,8 +1066,8 @@ def verify_candidate(*, run_root: str | None = None,
                         and isinstance(entry.get("path"), str))):
             return blocked_envelope(
                 "vqs.verify",
-                [f"run {run_id!r} predates verifiable repair evidence; "
-                 "re-run repair to verify"])
+                [(f"run {run_id!r} predates verifiable repair evidence; "
+                  "re-run repair to verify")])
         try:
             repairs = json.loads((Path(run_root) / run_id / entry["path"]
                                   ).read_text(encoding="utf-8"))
@@ -1083,8 +1083,8 @@ def verify_candidate(*, run_root: str | None = None,
         return blocked_envelope(
             "vqs.verify",
             ["provide the declared edits list to verify against"],
-            next_actions=["verify a sealed repair run, or pass the repair "
-                          "edits explicitly"])
+            next_actions=[("verify a sealed repair run, or pass the repair "
+                           "edits explicitly")])
     try:
         result = compare(original, candidate, edits, approvals)
     except Exception as exc:  # noqa: BLE001 - comparison crash blocks

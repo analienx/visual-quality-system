@@ -144,7 +144,7 @@ def test_f01_owned_partial_copy_still_removed(
         tmp_path: Path, monkeypatch) -> None:
     import shutil
 
-    import vqs.repair.execute as execute
+    from vqs.repair import execute
 
     original = _make_report(tmp_path)
     real_copy = shutil.copyfile
