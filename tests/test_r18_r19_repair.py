@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from vqs.repair import execute as execute_module
-from vqs.repair.execute import apply_plan, tree_digest
+from vqs.repair.execute import RepairError, apply_plan, tree_digest
 from vqs.repair.regress import verify_candidate as compare
 from vqs.pipeline import repair_candidate, verify_candidate
 
@@ -113,8 +113,43 @@ def test_same_parent_repair_applies(tmp_path: Path) -> None:
     assert result["verdict"] == "applied"
 
 
+def _guard(original: Path, candidate_root: Path) -> None:
+    func = getattr(execute_module, "check_relocation_model", None)
+    assert callable(func), "execute.check_relocation_model missing"
+    func(str(original), str(candidate_root))
+
+
+def test_relocation_guard_missing_model(tmp_path: Path) -> None:
+    """RED R18: the pre-copy guard refuses a missing model target."""
+    proj, report = _project(tmp_path, "table T\n")
+    with pytest.raises(RepairError):
+        _guard(report, tmp_path / "elsewhere" / "cand")
+
+
+def test_relocation_guard_switched_model(tmp_path: Path) -> None:
+    """RED R18: the pre-copy guard refuses a different same-name model."""
+    proj, report = _project(tmp_path, "table T\n")
+    other = tmp_path / "other"
+    tables = other / "Model.SemanticModel" / "tables"
+    tables.mkdir(parents=True)
+    (tables / "T.tmdl").write_text("table T\n\tmeasure M = 1\n",
+                                   encoding="utf-8")
+    with pytest.raises(RepairError):
+        _guard(report, other / "cand")
+
+
+def test_relocation_guard_intact_model(tmp_path: Path) -> None:
+    """Guard-shape test: intact same-parent relocation must be accepted."""
+    proj, report = _project(tmp_path, "table T\n")
+    _guard(report, tmp_path / "proj" / "cand")
+
+
 def test_missing_model_refused_before_mutation(tmp_path: Path) -> None:
-    """RED R18: other-parent candidate with no model must not mutate."""
+    """Layered R18: other-parent candidate with no model must not mutate.
+
+    (Passes vacuously until the report:3 schema block is fixed, then
+    exercises the guard end to end.)
+    """
     proj, report = _project(tmp_path, "table T\n")
     cand = tmp_path / "elsewhere" / "cand"
     result = apply_plan(_plan(proj), str(report), str(cand))
@@ -123,7 +158,7 @@ def test_missing_model_refused_before_mutation(tmp_path: Path) -> None:
 
 
 def test_switched_model_refused_before_mutation(tmp_path: Path) -> None:
-    """RED R18: other-parent same-name/different-model must not mutate."""
+    """Layered R18: same-name/different-model must not mutate (see above)."""
     proj, report = _project(tmp_path, "table T\n")
     other = tmp_path / "other"
     tables = other / "Model.SemanticModel" / "tables"

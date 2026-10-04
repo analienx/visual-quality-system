@@ -52,15 +52,15 @@ def test_quoted_let_cycle_detected() -> None:
     """RED R05: repeated quoted identifiers share one identity."""
     cycles = within_let_cycles(
         'let #"a x" = #"b x", #"b x" = #"a x" in #"a x"')
-    assert {frozenset(cycle) for cycle in cycles} == [{"a x", "b x"}]
+    assert {frozenset(cycle) for cycle in cycles} == {frozenset({"a x", "b x"})}
 
 
 def test_bare_and_quoted_cycles_agree() -> None:
     """Bare passes now (control); quoted must agree after the fix."""
     bare = within_let_cycles("let a = b, b = a in a")
-    assert {frozenset(cycle) for cycle in bare} == [{"a", "b"}]
+    assert {frozenset(cycle) for cycle in bare} == {frozenset({"a", "b"})}
     quoted = within_let_cycles('let #"a" = #"b", #"b" = #"a" in #"a"')
-    assert {frozenset(cycle) for cycle in quoted} == [{"a", "b"}]
+    assert {frozenset(cycle) for cycle in quoted} == {frozenset({"a", "b"})}
 
 
 def test_acyclic_let_stays_acyclic() -> None:
