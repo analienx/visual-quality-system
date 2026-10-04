@@ -178,8 +178,6 @@ def bind_leaf(op: dict, visual_doc: dict) -> dict:
     if not _same_json_type(old, new):
         raise RecipeError(f"{op_type}: value type {type(new).__name__} "
                           f"would replace {type(old).__name__}")
-    if op_type == "axis.precision":
-        _check_precision(op_type, old, "old")
     if isinstance(new, str):
         _check_string(op_type, new)
     elif isinstance(new, (int, float)) and not isinstance(new, bool):
@@ -190,6 +188,8 @@ def bind_leaf(op: dict, visual_doc: dict) -> dict:
     elif not isinstance(new, bool):
         raise RecipeError(f"{op_type}: value type {type(new).__name__} "
                           f"would replace {type(old).__name__}")
+    if op_type == "axis.precision":
+        _check_precision(op_type, old, "old")
     validate_leaf_path(op_type, path)
     return {"page": page, "visual": visual, "path": list(path),
             "old": old, "new": new}
