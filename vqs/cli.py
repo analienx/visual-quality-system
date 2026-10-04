@@ -248,28 +248,44 @@ def _review(args) -> int:
 
 
 def _propose(run_root: Path, run_id: str) -> int:
-    """Propose repairs for a run; blocked until the Task 6 engine."""
+    """Triage a sealed review run into plan-eligible work items."""
     from vqs.pipeline import propose_candidates
 
     return _verdict_exit(propose_candidates(str(run_root), run_id))
 
 
-def _repair(plan: Path, original: str, candidate_root: str) -> int:
-    """Validate a plan, then block: execution needs the Task 6 engine."""
+def _repair(args) -> int:
+    """Validate a plan, execute it, and seal the repair run."""
     from vqs.pipeline import repair_candidate
 
-    return _verdict_exit(repair_candidate(str(plan), original,
-                                         candidate_root))
+    return _verdict_exit(repair_candidate(
+        str(args.plan), args.original, args.candidate_root,
+        run_root=str(args.run_root), run_id=args.run_id))
 
 
 def _verify(args) -> int:
-    """Verify a candidate; blocked until the Task 6 engine."""
-    from vqs.pipeline import verify_candidate
+    """Verify a candidate against declared edits (same engine as MCP)."""
+    import json
 
+    from vqs.pipeline import blocked_envelope, verify_candidate
+
+    edits = None
+    if args.edits is not None:
+        try:
+            doc = json.loads(Path(args.edits).read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.verify", [f"unreadable edits file: {exc}"]))
+        edits = doc.get("edits") if isinstance(doc, dict) else doc
+    approvals = None
+    if args.approved_removals:
+        approvals = [p.strip() for p in args.approved_removals.split(",")]
+        approvals = [p for p in approvals if p]
     return _verdict_exit(verify_candidate(
         run_root=str(args.run_root) if args.run_root is not None else None,
         run_id=args.run_id, original=args.original,
-        candidate=args.candidate))
+        candidate=args.candidate, edits=edits,
+        approved_removals=approvals))
 
 
 def _run_status(run_root: Path, run_id: str) -> int:
@@ -397,11 +413,17 @@ def main(argv: list[str] | None = None) -> int:
     repair_cmd.add_argument("plan", type=Path, help="JSON repair-plan document")
     repair_cmd.add_argument("--original", required=True, help="Read-only original source path")
     repair_cmd.add_argument("--candidate-root", required=True, help="Disposable write root")
+    repair_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
+    repair_cmd.add_argument("--run-id", default=None)
     verify_cmd = commands.add_parser("verify", help="Verify a candidate (tool vqs.verify)")
     verify_cmd.add_argument("--run-root", type=Path, default=None)
     verify_cmd.add_argument("--run-id", default=None)
     verify_cmd.add_argument("--original", default=None)
     verify_cmd.add_argument("--candidate", default=None)
+    verify_cmd.add_argument("--edits", type=Path, default=None,
+                            help="JSON edits list (or a repair run's repairs.json)")
+    verify_cmd.add_argument("--approved-removals", default=None,
+                            help="Comma-separated owner-approved page/visual pairs")
     run_status_cmd = commands.add_parser("run-status", help="Report a sealed run (tool vqs.run_status)")
     run_status_cmd.add_argument("run_root", type=Path)
     run_status_cmd.add_argument("run_id")
@@ -434,7 +456,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "propose":
         return _propose(args.run_root, args.run_id)
     if args.command == "repair":
-        return _repair(args.plan, args.original, args.candidate_root)
+        return _repair(args)
     if args.command == "verify":
         return _verify(args)
     if args.command == "run-status":

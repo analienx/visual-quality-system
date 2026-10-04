@@ -47,12 +47,16 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         return pipeline.propose_candidates(arguments["run_root"],
                                            arguments["run_id"])
     if name == "vqs_repair":
-        return pipeline.repair_candidate(arguments["plan_path"],
-                                         arguments["original"],
-                                         arguments["candidate_root"])
+        params = {"plan_path": arguments["plan_path"],
+                  "original": arguments["original"],
+                  "candidate_root": arguments["candidate_root"]}
+        params.update({k: v for k, v in arguments.items()
+                       if k in ("run_root", "run_id") and v is not None})
+        return pipeline.repair_candidate(**params)
     if name == "vqs_verify":
         params = {k: v for k, v in arguments.items()
-                  if k in ("run_root", "run_id", "original", "candidate")}
+                  if k in ("run_root", "run_id", "original", "candidate",
+                           "edits", "approved_removals")}
         return pipeline.verify_candidate(**params)
     return pipeline.run_status_report(arguments["run_root"],
                                       arguments["run_id"])

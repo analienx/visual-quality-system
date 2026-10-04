@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shutil
 import uuid
 from pathlib import Path
 from typing import Any
@@ -27,7 +29,7 @@ from . import design_rules
 from .data.tmdl import check_bindings, check_freshness, inventory_model, require_rls_identity
 from .document.inspect import inspect_docx
 from .policy import POLICY_VERSION
-from .run_store import append_event, create_run, seal_run
+from .run_store import append_event, create_run, seal_run, verify_seal
 from .stories.oracles import ambiguity_check, oracle_matches
 
 STATUS_BY_VERDICT = {"pass": "completed", "fail": "failed", "blocked": "blocked"}
@@ -272,7 +274,8 @@ def _coverage_reason(issue: dict) -> str:
 def run_check(facts: Any, run_root: Path, run_id: str | None = None,
               artifacts: dict[str, Any] | None = None,
               environment: dict[str, Any] | None = None,
-              manifest_extra: dict[str, Any] | None = None) -> dict[str, Any]:
+              manifest_extra: dict[str, Any] | None = None,
+              config: dict[str, Any] | None = None) -> dict[str, Any]:
     """Run every requested check and seal the manifest; see module docstring.
 
     Optional sealed provenance: ``artifacts``/``environment`` merge into
@@ -366,6 +369,15 @@ def run_check(facts: Any, run_root: Path, run_id: str | None = None,
             append_event(run_dir, {"kind": "checked",
                                    "check": f"coverage:{rule}",
                                    "status": "blocked"})
+    findings_sha256: str | None = None
+    try:
+        findings_bytes = json.dumps(findings, sort_keys=True,
+                                   ensure_ascii=False, default=str).encode("utf-8")
+        (run_dir / "findings.json").write_bytes(findings_bytes)
+        findings_sha256 = hashlib.sha256(findings_bytes).hexdigest()
+    except OSError as exc:
+        findings.append({"check": "findings", "status": "blocked",
+                         "reason": f"cannot persist findings: {exc}"})
     if any(finding["status"] == "fail" for finding in findings):
         verdict = "fail"
     elif (not findings or
@@ -379,7 +391,11 @@ def run_check(facts: Any, run_root: Path, run_id: str | None = None,
         json.dumps(findings, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
     sealed_artifacts = dict(artifacts or {})
     sealed_artifacts.setdefault("verdict_sha256", digest)
-    bindings = {"input_sha256": _canonical_sha256(facts), "policy_version": POLICY_VERSION, "tool": "vqs.check/1"}
+    if findings_sha256 is not None:
+        sealed_artifacts["findings"] = {"sha256": findings_sha256,
+                                        "path": "findings.json"}
+    bindings = {"input_sha256": _canonical_sha256(facts), "policy_version": POLICY_VERSION, "tool": "vqs.check/1",
+                "config_sha256": _canonical_sha256(config) if isinstance(config, dict) else None}
     manifest = seal_run(run_dir, terminal, artifacts=sealed_artifacts,
                         environment=environment, bindings=bindings)
     return {"verdict": verdict, "run_dir": str(run_dir), "run_id": run_id,
@@ -584,13 +600,35 @@ def _check_scope(scope: Any, state: Any,
     states = config.get("supported_states", ["default"])
     if state not in states:
         return f"state {state!r} is not in supported_states {states!r}"
+    if state != "default":
+        return (f"state {state!r} has no implemented semantics; "
+                "only the default state is supported")
     return None
 
 
+def _run_id_error(run_id: object) -> str | None:
+    """Reject run IDs that are not confined single segments (F24)."""
+    if not isinstance(run_id, str) or not run_id or "\x00" in run_id:
+        return f"run_id must be a nonempty string: {run_id!r}"
+    if ("/" in run_id or "\\" in run_id or ":" in run_id
+            or run_id in (".", "..") or Path(run_id).name != run_id
+            or Path(run_id).is_absolute()):
+        return f"run_id escapes the run root: {run_id!r}"
+    return None
+
 def _read_manifest(run_root: str, run_id: str) -> tuple[dict | None, str | None]:
+    problem = _run_id_error(run_id)
+    if problem is not None:
+        return None, problem
     try:
-        text = (Path(run_root) / run_id / "manifest.json").read_text(
-            encoding="utf-8")
+        root = Path(run_root).resolve()
+        run_dir = (Path(run_root) / run_id).resolve()
+    except OSError as exc:
+        return None, f"unknown run {run_id!r}: {type(exc).__name__}"
+    if run_dir != root and root not in run_dir.parents:
+        return None, f"run {run_id!r} escapes the run root"
+    try:
+        text = (run_dir / "manifest.json").read_text(encoding="utf-8")
         data = json.loads(text)
     except (OSError, ValueError) as exc:
         return None, f"unknown run {run_id!r}: {type(exc).__name__}"
@@ -677,6 +715,13 @@ def review_report(*, report_dir: str | None = None,
                 "vqs.review",
                 [f"prior run {resume_from!r} has no sealed provenance"],
                 provenance=provenance)
+        seal_findings = verify_seal(Path(run_root) / resume_from)
+        if seal_findings:
+            rule = seal_findings[0].get("rule", "unknown")
+            return blocked_envelope(
+                "vqs.review",
+                [f"prior run {resume_from!r} seal invalid: {rule}"],
+                provenance=provenance)
         if "facts_sha256" not in sealed:
             return blocked_envelope(
                 "vqs.review",
@@ -692,12 +737,25 @@ def review_report(*, report_dir: str | None = None,
                  f"{', '.join(changed)}; refusing blind resume")],
                 provenance=provenance,
                 next_actions=["re-run without resume_from to accept the new sources"])
+        prior_bindings = prior.get("bindings") or {}
+        if not isinstance(prior_bindings, dict) or not prior_bindings.get("config_sha256"):
+            return blocked_envelope(
+                "vqs.review",
+                [f"prior run {resume_from!r} has no sealed config binding"],
+                provenance=provenance)
+        if prior_bindings.get("config_sha256") != _canonical_sha256(config):
+            return blocked_envelope(
+                "vqs.review",
+                [(f"effective config changed since {resume_from!r}; "
+                  "refusing blind resume")],
+                provenance=provenance,
+                next_actions=["re-run without resume_from to accept the new config"])
     manifest_extra = {"resumed_from": resume_from} if resume_from else None
     result = run_check(merged, Path(run_root), run_id,
                        artifacts={"source_sha256": provenance["source_sha256"],
                                   "model_sha256": provenance["model_sha256"],
                                   "facts_sha256": provenance["facts_sha256"]},
-                       manifest_extra=manifest_extra)
+                       manifest_extra=manifest_extra, config=config)
     if result["verdict"] == "blocked" and result.get("run_dir") is None:
         return blocked_envelope("vqs.review",
                         [f.get("reason", f.get("check", "?"))
@@ -727,6 +785,10 @@ def run_status_report(run_root: str, run_id: str) -> dict[str, Any]:
     manifest, error = _read_manifest(run_root, run_id)
     if error is not None:
         return blocked_envelope("vqs.run_status", [error])
+    seal_findings = verify_seal(run_dir)
+    if seal_findings:
+        rule = seal_findings[0].get("rule", "unknown")
+        return blocked_envelope("vqs.run_status", [f"run {run_id!r} seal invalid: {rule}"])
     try:
         events = read_events(run_dir)
         status = run_status(run_dir)
@@ -751,22 +813,85 @@ def run_status_report(run_root: str, run_id: str) -> dict[str, Any]:
 
 
 def propose_candidates(run_root: str, run_id: str) -> dict[str, Any]:
-    """Propose candidate repairs for a run; blocked until Task 6 engine."""
-    _manifest, error = _read_manifest(run_root, run_id)
+    """Triage a sealed review run into plan-eligible work items.
+
+    Reads the sealed findings artifact (never the live sources), so the
+    triage provably matches the reviewed verdict. There is no automatic
+    plan author: each actionable item needs an owner-authored plan that
+    vqs.repair validates before executing.
+    """
+    manifest, error = _read_manifest(run_root, run_id)
     if error is not None:
         return blocked_envelope("vqs.propose", [error])
-    return blocked_envelope(
-        "vqs.propose", ["repair engine unavailable (Task 6, WP-06/WP-09/WP-10)"],
-        run_id=run_id, run_dir=str(Path(run_root) / run_id),
-        next_actions=["re-run vqs.propose once the repair engine lands"])
+    assert manifest is not None
+    seal_findings = verify_seal(Path(run_root) / run_id)
+    if seal_findings:
+        rule = seal_findings[0].get("rule", "unknown")
+        return blocked_envelope("vqs.propose",
+                        [f"run {run_id!r} seal invalid: {rule}"])
+    if manifest.get("pipeline") != "vqs.check/1":
+        return blocked_envelope(
+            "vqs.propose",
+            [f"run {run_id!r} is not a sealed review run "
+             f"(pipeline {manifest.get('pipeline')!r})"],
+            run_id=run_id, run_dir=str(Path(run_root) / run_id))
+    entry = (manifest.get("artifacts") or {}).get("findings")
+    if not (isinstance(entry, dict)
+            and isinstance(entry.get("sha256"), str)
+            and isinstance(entry.get("path"), str)):
+        return blocked_envelope(
+            "vqs.propose",
+            [f"run {run_id!r} predates persisted findings; "
+             "re-run review to propose"],
+            run_id=run_id, run_dir=str(Path(run_root) / run_id))
+    try:
+        findings = json.loads((Path(run_root) / run_id / entry["path"]
+                               ).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return blocked_envelope(
+            "vqs.propose",
+            [f"run {run_id!r} findings unreadable: {exc}"],
+            run_id=run_id, run_dir=str(Path(run_root) / run_id))
+    if not isinstance(findings, list):
+        return blocked_envelope("vqs.propose",
+                        [f"run {run_id!r} findings are not a list"],
+                        run_id=run_id,
+                        run_dir=str(Path(run_root) / run_id))
+    items = [{"check": item.get("check", "?"),
+              "status": item.get("status", "unknown"),
+              "needs_plan": item.get("status") in ("fail", "blocked")}
+             for item in findings if isinstance(item, dict)]
+    actionable = sum(1 for item in items if item["needs_plan"])
+    return _envelope("vqs.propose", "pass", run_id=run_id,
+                     run_dir=str(Path(run_root) / run_id),
+                     findings=[{"check": item["check"],
+                                "status": item["status"]} for item in items],
+                     evidence=[{"kind": "triage", "run_id": run_id,
+                                "items": len(items),
+                                "actionable": actionable}],
+                     next_actions=[
+                         "author an owner-approved plan for each actionable "
+                         "finding (no automatic plan author is implemented)",
+                         "execute it with vqs.repair, then vqs.verify"],
+                     extra={"work_items": items, "candidates": []})
+
+
+def _repair_bindings(plan_sha: str) -> dict[str, Any]:
+    """Seal bindings for a repair run: plan input, policy, tool."""
+    return {"input_sha256": plan_sha, "policy_version": POLICY_VERSION,
+            "tool": "vqs.repair/1", "config_sha256": None}
 
 
 def repair_candidate(plan_path: str, original: str,
-                     candidate_root: str) -> dict[str, Any]:
-    """Validate a repair plan, then block: execution needs Task 6.
+                     candidate_root: str, *,
+                     run_root: str = ".vqs-runs",
+                     run_id: str | None = None) -> dict[str, Any]:
+    """Validate a repair plan, execute it, and seal the repair run.
 
-    Plan validation via the repair allowlist is real (invalid plans
-    fail here); only candidate execution is deferred.
+    Validation failures fail here without touching the filesystem.
+    Execution refuses half-applied candidates (the engine removes only
+    owned partial copies). The sealed run binds the plan, the
+    before/after digests, and the applied edits for vqs.verify.
     """
     from .repair.allowlist import validate_plan
 
@@ -790,29 +915,197 @@ def repair_candidate(plan_path: str, original: str,
                                     "detail": {"issues": issues}}],
                          blocked_reasons=[],
                          next_actions=["fix the plan issues and retry"])
-    return blocked_envelope("vqs.repair",
-                    ["plan valid; candidate execution needs Task 6 (WP-06/WP-09/WP-10)"],
-                    next_actions=["re-run vqs.repair once the engine lands"])
+    return _execute_repair(plan, original, candidate_root, run_root, run_id)
+
+
+def _execute_repair(plan: dict[str, Any], original: str,
+                    candidate_root: str, run_root: str,
+                    run_id: str | None) -> dict[str, Any]:
+    """Run an already-validated plan and seal the outcome; never raises."""
+    from .repair.execute import apply_plan
+
+    if not isinstance(run_root, str) or not run_root:
+        return blocked_envelope("vqs.repair",
+                        ["run_root must be a nonempty path"])
+    if run_id is not None and (not isinstance(run_id, str) or not run_id):
+        return blocked_envelope("vqs.repair",
+                        ["run_id must be a nonempty string"])
+    rid = run_id or f"repair-{uuid.uuid4().hex[:12]}"
+    plan_sha = _canonical_sha256(plan)
+    try:
+        sealed_run_dir = create_run(
+            Path(run_root), rid,
+            {"pipeline": "vqs.repair/1",
+             "repair": {"original": os.path.realpath(original),
+                        "candidate": os.path.realpath(candidate_root),
+                        "plan_sha256": plan_sha}})
+    except FileExistsError:
+        return blocked_envelope("vqs.repair",
+                        [f"Run already exists: {rid}"])
+    except ValueError as exc:
+        return blocked_envelope("vqs.repair",
+                        [f"Unusable run id: {exc}"])
+    append_event(sealed_run_dir, {"kind": "started",
+                                  "plan_sha256": plan_sha})
+    try:
+        result = apply_plan(plan, original, candidate_root)
+    except Exception as exc:  # noqa: BLE001 - engine crash seals blocked
+        append_event(sealed_run_dir, {"kind": "blocked", "verdict": "blocked"})
+        seal_run(sealed_run_dir, "blocked",
+                 artifacts={"plan_sha256": plan_sha},
+                 bindings=_repair_bindings(plan_sha))
+        return blocked_envelope(
+            "vqs.repair",
+            [f"repair execution crashed: {type(exc).__name__}: {exc}"],
+            run_id=rid, run_dir=str(sealed_run_dir))
+    if result.get("verdict") != "applied":
+        append_event(sealed_run_dir, {"kind": "blocked", "verdict": "blocked"})
+        seal_run(sealed_run_dir, "blocked",
+                 artifacts={"plan_sha256": plan_sha},
+                 bindings=_repair_bindings(plan_sha))
+        stage = result.get("stage", "?")
+        detail = result.get("reason")
+        if detail is None:
+            detail = json.dumps(result.get("issues", []), default=str)
+        return blocked_envelope(
+            "vqs.repair", [f"repair {stage}: {detail}"],
+            run_id=rid, run_dir=str(sealed_run_dir),
+            next_actions=["fix the refusal cause and retry with a fresh "
+                          "candidate root"])
+    repairs_doc = {"edits": result.get("edits", []),
+                   "affected_pages": result.get("affected_pages", []),
+                   "before": result.get("before"),
+                   "after": result.get("after"),
+                   "source_sha256": result.get("source_sha256")}
+    try:
+        repairs_bytes = json.dumps(repairs_doc, sort_keys=True,
+                                   ensure_ascii=False, default=str).encode("utf-8")
+        (sealed_run_dir / "repairs.json").write_bytes(repairs_bytes)
+        repairs_sha = hashlib.sha256(repairs_bytes).hexdigest()
+    except OSError as exc:
+        shutil.rmtree(candidate_root, ignore_errors=True)
+        append_event(sealed_run_dir, {"kind": "blocked", "verdict": "blocked"})
+        seal_run(sealed_run_dir, "blocked",
+                 artifacts={"plan_sha256": plan_sha},
+                 bindings=_repair_bindings(plan_sha))
+        return blocked_envelope(
+            "vqs.repair", [f"cannot persist repair evidence: {exc}"],
+            run_id=rid, run_dir=str(sealed_run_dir))
+    append_event(sealed_run_dir, {"kind": "completed", "verdict": "pass"})
+    seal_run(sealed_run_dir, "completed",
+             artifacts={"plan_sha256": plan_sha,
+                        "before": result.get("before"),
+                        "after": result.get("after"),
+                        "edits": {"sha256": repairs_sha,
+                                  "path": "repairs.json"}},
+             bindings=_repair_bindings(plan_sha))
+    return _envelope(
+        "vqs.repair", "pass", run_id=rid, run_dir=str(sealed_run_dir),
+        findings=[{"check": "repair", "status": "pass"}],
+        evidence=[{"kind": "sealed_repair", "run_id": rid,
+                   "candidate": result.get("candidate"),
+                   "before": result.get("before"),
+                   "after": result.get("after"),
+                   "source_sha256": result.get("source_sha256"),
+                   "affected_pages": result.get("affected_pages", []),
+                   "edits": len(result.get("edits", []))}],
+        provenance={"plan_sha256": plan_sha, "original": original,
+                    "candidate": result.get("candidate")},
+        next_actions=["verify the candidate with vqs.verify"])
 
 
 def verify_candidate(*, run_root: str | None = None,
                      run_id: str | None = None,
                      original: str | None = None,
-                     candidate: str | None = None) -> dict[str, Any]:
-    """Verify a candidate against its original; blocked until Task 6."""
+                     candidate: str | None = None,
+                     edits: list | None = None,
+                     approved_removals: list[str] | None = None
+                     ) -> dict[str, Any]:
+    """Verify a candidate differs solely by its declared edits.
+
+    Either verify a sealed vqs.repair run (``run_root`` + ``run_id``)
+    or compare explicit paths (``original`` + ``candidate`` + ``edits``).
+    ``approved_removals`` holds owner-approved "page/visual" pairs.
+    """
+    from .repair.regress import verify_candidate as compare
+
+    approvals: set[str] | None = None
+    if approved_removals is not None:
+        if (not isinstance(approved_removals, list)
+                or not all(isinstance(x, str)
+                           for x in approved_removals)):
+            return blocked_envelope("vqs.verify",
+                            ["approved_removals must be a list of strings"])
+        approvals = set(approved_removals)
     if run_id is not None:
         if not isinstance(run_root, str):
             return blocked_envelope("vqs.verify",
                             ["run_root must be a string when run_id is given"])
-        _manifest, error = _read_manifest(run_root, run_id)
+        manifest, error = _read_manifest(run_root, run_id)
         if error is not None:
             return blocked_envelope("vqs.verify", [error])
+        assert manifest is not None
+        seal_findings = verify_seal(Path(run_root) / run_id)
+        if seal_findings:
+            rule = seal_findings[0].get("rule", "unknown")
+            return blocked_envelope("vqs.verify",
+                            [f"run {run_id!r} seal invalid: {rule}"])
+        if manifest.get("pipeline") != "vqs.repair/1":
+            return blocked_envelope(
+                "vqs.verify",
+                [f"run {run_id!r} is not a sealed repair run "
+                 f"(pipeline {manifest.get('pipeline')!r})"])
+        repair = manifest.get("repair") or {}
+        original = repair.get("original")
+        candidate = repair.get("candidate")
+        entry = (manifest.get("artifacts") or {}).get("edits")
+        if (not isinstance(original, str)
+                or not isinstance(candidate, str)
+                or not (isinstance(entry, dict)
+                        and isinstance(entry.get("sha256"), str)
+                        and isinstance(entry.get("path"), str))):
+            return blocked_envelope(
+                "vqs.verify",
+                [f"run {run_id!r} predates verifiable repair evidence; "
+                 "re-run repair to verify"])
+        try:
+            repairs = json.loads((Path(run_root) / run_id / entry["path"]
+                                  ).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            return blocked_envelope(
+                "vqs.verify",
+                [f"run {run_id!r} repair evidence unreadable: {exc}"])
+        edits = repairs.get("edits") if isinstance(repairs, dict) else None
     elif not (isinstance(original, str) and isinstance(candidate, str)):
         return blocked_envelope("vqs.verify",
                         ["provide run_id or original+candidate paths"])
-    return blocked_envelope(
-        "vqs.verify", ["answer comparison needs Task 6 (WP-06/WP-09/WP-10)"],
-        next_actions=["re-run vqs.verify once the engine lands"])
+    if not isinstance(edits, list):
+        return blocked_envelope(
+            "vqs.verify",
+            ["provide the declared edits list to verify against"],
+            next_actions=["verify a sealed repair run, or pass the repair "
+                          "edits explicitly"])
+    try:
+        result = compare(original, candidate, edits, approvals)
+    except Exception as exc:  # noqa: BLE001 - comparison crash blocks
+        return blocked_envelope("vqs.verify",
+                        [f"verification crashed: {type(exc).__name__}: {exc}"])
+    if result.get("verdict") == "pass":
+        return _envelope(
+            "vqs.verify", "pass",
+            findings=[{"check": "verify", "status": "pass"}],
+            evidence=[{"kind": "verification",
+                       "checks": result.get("checks", [])}],
+            provenance={"original": original, "candidate": candidate})
+    problems = result.get("problems", [])
+    return _envelope(
+        "vqs.verify", "fail",
+        findings=[{"check": f"verify:{p.get('rule', '?')}",
+                   "status": "fail", "detail": p}
+                  for p in problems if isinstance(p, dict)],
+        blocked_reasons=[],
+        provenance={"original": original, "candidate": candidate},
+        next_actions=["inspect the problems and re-repair"])
 
 
 def render_report(envelope: dict[str, Any]) -> str:

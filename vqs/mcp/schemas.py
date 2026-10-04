@@ -32,7 +32,7 @@ TOOL_SPECS: tuple[dict[str, Any], ...] = (
          "required": [],
          "additionalProperties": False}},
     {"name": "vqs_propose", "tool": "vqs.propose",
-     "description": "Propose candidate repairs for a run (Task 6 engine).",
+     "description": "Triage a sealed review run into plan-eligible work items.",
      "inputSchema": {
          "type": "object",
          "properties": {
@@ -41,24 +41,28 @@ TOOL_SPECS: tuple[dict[str, Any], ...] = (
          "required": ["run_root", "run_id"],
          "additionalProperties": False}},
     {"name": "vqs_repair", "tool": "vqs.repair",
-     "description": "Validate then apply a repair plan (Task 6 engine).",
+     "description": "Validate a repair plan, execute it, and seal the run.",
      "inputSchema": {
          "type": "object",
          "properties": {
              "plan_path": {"type": "string"},
              "original": {"type": "string"},
-             "candidate_root": {"type": "string"}},
+             "candidate_root": {"type": "string"},
+             "run_root": {"type": ["string", "null"]},
+             "run_id": {"type": ["string", "null"]}},
          "required": ["plan_path", "original", "candidate_root"],
          "additionalProperties": False}},
     {"name": "vqs_verify", "tool": "vqs.verify",
-     "description": "Verify a candidate against its original (Task 6).",
+     "description": "Verify a candidate differs solely by declared edits.",
      "inputSchema": {
          "type": "object",
          "properties": {
              "run_root": {"type": ["string", "null"]},
              "run_id": {"type": ["string", "null"]},
              "original": {"type": ["string", "null"]},
-             "candidate": {"type": ["string", "null"]}},
+             "candidate": {"type": ["string", "null"]},
+             "edits": {"type": ["array", "null"]},
+             "approved_removals": {"type": ["array", "null"]}},
          "required": [],
          "additionalProperties": False}},
     {"name": "vqs_run_status", "tool": "vqs.run_status",

@@ -214,13 +214,14 @@ def test_review_resume_changed_sources_blocks(tmp_path: Path) -> None:
 
 def test_review_resume_validates_prior_run(tmp_path: Path) -> None:
     from vqs.pipeline import review_report
-    from vqs.run_store import create_run, seal_run
+    from vqs.run_store import append_event, create_run, seal_run
 
     run_root = str(tmp_path / "runs")
     missing = review_report(facts={}, run_root=run_root, run_id="x",
                             resume_from="nope")
     assert missing["verdict"] == "blocked"
     run_dir = create_run(tmp_path / "runs", "bare", {"pipeline": "t/1"})
+    append_event(run_dir, {"kind": "completed"})
     seal_run(run_dir, "completed")
     bare = review_report(facts={}, run_root=run_root, run_id="y",
                          resume_from="bare")
@@ -247,22 +248,32 @@ def test_propose_repair_verify_honesty(tmp_path: Path) -> None:
     from vqs.pipeline import propose_candidates, repair_candidate, review_report, verify_candidate
 
     run_root = str(tmp_path / "runs")
-    review_report(facts={"rules": {}}, run_root=run_root, run_id="p1")
+    review_report(facts={"rules": {"nope.rule": {}}}, run_root=run_root,
+                  run_id="p1")
     assert propose_candidates(run_root, "nope")["verdict"] == "blocked"
-    blocked = propose_candidates(run_root, "p1")
-    assert blocked["verdict"] == "blocked"
-    assert any("Task 6" in reason for reason in blocked["blocked_reasons"])
+    triage = propose_candidates(run_root, "p1")
+    assert triage["verdict"] == "pass"
+    assert triage["candidates"] == []
+    assert [item["check"] for item in triage["work_items"]] == ["nope.rule"]
+    assert all(item["needs_plan"] for item in triage["work_items"])
+    assert any("no automatic plan author" in action
+               for action in triage["next_actions"])
 
     plan_path = tmp_path / "plan.json"
     plan_path.write_text(json.dumps(_plan()), encoding="utf-8")
-    valid = repair_candidate(str(plan_path), "/orig.Report", "/cand")
-    assert valid["verdict"] == "blocked"
-    assert any("Task 6" in reason for reason in valid["blocked_reasons"])
+    refused = repair_candidate(str(plan_path), "/orig.Report", "/cand",
+                               run_root=run_root, run_id="r1")
+    assert refused["verdict"] == "blocked"
+    assert refused["run_dir"] is not None  # refusals seal too
+    assert any("materialize" in reason
+               for reason in refused["blocked_reasons"])
     shell_path = tmp_path / "shell.json"
     shell_path.write_text(json.dumps(_plan(operations=[
         {"type": "shell", "target": "os", "value": "x"}])), encoding="utf-8")
-    invalid = repair_candidate(str(shell_path), "/orig.Report", "/cand")
+    invalid = repair_candidate(str(shell_path), "/orig.Report", "/cand",
+                               run_root=run_root, run_id="r2")
     assert invalid["verdict"] == "fail"
+    assert invalid["run_dir"] is None  # invalid plans never seal a run
     assert invalid["findings"]
     assert repair_candidate(str(tmp_path / "nope"), "/o", "/c")[
         "verdict"] == "blocked"
@@ -312,7 +323,7 @@ def test_cli_review_inspect_parity_and_exits(tmp_path: Path, capsys) -> None:
                      "--run-root", run_root]) == 2
     assert vqs_main(["run-status", run_root, "nope"]) == 2
     assert vqs_main(["propose", "--run-root", run_root,
-                     "--run-id", "cli1"]) == 2
+                     "--run-id", "cli1"]) == 0
     shell_path = tmp_path / "shell.json"
     shell_path.write_text(json.dumps(_plan(operations=[
         {"type": "shell", "target": "os", "value": "x"}])), encoding="utf-8")
@@ -365,9 +376,10 @@ def test_review_resume_changed_config_blocks(tmp_path: Path) -> None:
 
 def test_review_resume_legacy_run_without_facts_digest(tmp_path: Path) -> None:
     from vqs.pipeline import review_report
-    from vqs.run_store import create_run, seal_run
+    from vqs.run_store import append_event, create_run, seal_run
 
     run_dir = create_run(tmp_path / "runs", "legacy", {"pipeline": "t/1"})
+    append_event(run_dir, {"kind": "completed"})
     seal_run(run_dir, "completed",
              artifacts={"source_sha256": None, "model_sha256": None})
     resumed = review_report(facts={"rules": {}},

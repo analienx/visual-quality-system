@@ -7,8 +7,10 @@ during development; see `tests/test_pipeline.py` and
 
 Exit codes: `0` pass, `1` demonstrated violation, `2` blocked
 (environment, capability, or input prevents a verdict). Nothing here
-renders pixels, queries live data, executes a repair, or approves a
+renders pixels, queries live data, or approves a
 release — those need leased backends plus owner promotion.
+Isolated static repair execution lives in the six-tool workflow
+(see QUICKSTART.md); the original is never modified.
 
 ## vqs status
 
