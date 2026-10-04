@@ -13,6 +13,7 @@ import hashlib
 import json
 import shutil
 import struct
+import zlib
 from pathlib import Path
 
 from vqs.pbir import source_digest
@@ -60,8 +61,16 @@ def test_f04_apply_to_verify_composes(tmp_path) -> None:
     assert applied["source_sha256"] == digest
     renders = tmp_path / "renders"
     renders.mkdir()
+    raw = b"".join(b"\x00" + b"\x80\x80\x80" * 500 for _ in range(500))
+    ihdr = struct.pack(">IIBBBBB", 500, 500, 8, 2, 0, 0, 0)
+    idat = zlib.compress(raw)
     png = (b"\x89PNG\r\n\x1a\n"
-           + struct.pack(">I4sII", 13, b"IHDR", 500, 500) + b"\x00" * 5)
+           + struct.pack(">I", 13) + b"IHDR" + ihdr
+           + struct.pack(">I", zlib.crc32(b"IHDR" + ihdr) & 0xFFFFFFFF)
+           + struct.pack(">I", len(idat)) + b"IDAT" + idat
+           + struct.pack(">I", zlib.crc32(b"IDAT" + idat) & 0xFFFFFFFF)
+           + struct.pack(">I", 0) + b"IEND"
+           + struct.pack(">I", zlib.crc32(b"IEND") & 0xFFFFFFFF))
     (renders / "P1.png").write_bytes(png)
     sha = hashlib.sha256(png).hexdigest()
     (renders / "capture-manifest.json").write_text(json.dumps(

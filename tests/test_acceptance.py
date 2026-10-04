@@ -40,15 +40,18 @@ def _envelope_bytes(envelope: dict[str, Any]) -> bytes:
 
 class _Case:
     """Accumulate gates plus the sealed envelopes that back them."""
+    _seq = 0
 
     def __init__(self) -> None:
+        type(self)._seq += 1
+        self._tag = type(self)._seq
         self.blobs: dict[str, bytes] = {}
         self.gates: list[dict[str, Any]] = []
         self.runs: dict[str, dict[str, Any]] = {}
 
     def add(self, gate_id: str, subject_id: str, source: str, kind: str,
             control: str | None = None, status: str = "pass") -> dict[str, Any]:
-        run_id = f"prod-{gate_id}-{subject_id}-{len(self.gates)}"
+        run_id = f"prod-{self._tag}-{gate_id}-{subject_id}-{len(self.gates)}"
         envelope: dict[str, Any] = {"source_sha256": source, "environment": dict(ENV),
                                     "producer": {"run_id": run_id, "gate": gate_id,
                                                "status": status, "control": control}}

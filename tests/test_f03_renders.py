@@ -8,6 +8,7 @@ valid evidence; every adverse control below blocks.
 import hashlib
 import json
 import struct
+import zlib
 from pathlib import Path
 
 from vqs.repair.regress import verify_renders
@@ -18,9 +19,14 @@ READINESS = {"populated": True, "method": "modeling-mcp:repeat-query"}
 
 
 def _png(width: int, height: int) -> bytes:
+    raw = b"".join(b"\x00" + b"\x80\x80\x80" * width for _ in range(height))
+    def _chunk(tag: bytes, payload: bytes) -> bytes:
+        return (struct.pack(">I", len(payload)) + tag + payload
+                + struct.pack(">I", zlib.crc32(tag + payload) & 0xFFFFFFFF))
     return (b"\x89PNG\r\n\x1a\n"
-            + struct.pack(">I4sII", 13, b"IHDR", width, height)
-            + b"\x00" * 5)
+            + _chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+            + _chunk(b"IDAT", zlib.compress(raw))
+            + _chunk(b"IEND", b""))
 
 
 def _renders(root: Path, name: str, digest: str, images: dict,
