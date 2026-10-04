@@ -365,7 +365,9 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
                 "reason": f"roots rejected after copy: {rescan[0]}"}
     try:
         from vqs.pbir import report_context
-        info = report_context(candidate)
+        info = report_context(
+            candidate,
+            allow_unresolved_model=allow_missing_relocated_model)
         all_pages = [page["id"] for page in info["pages"]]
     except Exception as exc:  # noqa: BLE001 - any unreadable shape blocks
         shutil.rmtree(candidate_root, ignore_errors=True)

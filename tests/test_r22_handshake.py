@@ -35,9 +35,11 @@ def _client(tmp_path: Path, responses: dict, name: str = "script.json",
 
 
 def _connected(**extra: object) -> dict:
-    return {"connection_operations/ListLocalInstances": ONE_INSTANCE,
+    base = {"connection_operations/ListLocalInstances": ONE_INSTANCE,
             "connection_operations/Connect": {"connection": "ok"},
             "dax_query_operations/Execute": {"rows": ROWS}}
+    base.update(extra)
+    return base
 
 
 def test_is_error_rows_rejected(tmp_path: Path) -> None:

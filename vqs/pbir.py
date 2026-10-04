@@ -85,6 +85,34 @@ def _display_name(pages: dict[str, dict[str, Any]], page_id: str) -> str:
     return name if isinstance(name, str) else page_id
 
 
+def _select_page_index(root: Path
+                       ) -> tuple[list[str], str, list[dict[str, Any]]]:
+    """Listed ids from the winning index file (dangling included).
+
+    Shared by the resolvable-order loader and the raw declared-order
+    reader so identity comparison sees exactly what the index
+    declares, including entries with no directory behind them.
+    """
+    canonical, issues = _read_index_file(
+        root / "definition" / "pages" / "pages.json")
+    if canonical is not None or issues:
+        return list(canonical or []), "canonical", issues
+    legacy, legacy_issues = _read_index_file(
+        root / "definition" / "pages.json")
+    issues = list(legacy_issues)
+    if legacy is not None or legacy_issues:
+        issues.append({"rule": "legacy_pages_index",
+                       "path": "definition/pages.json"})
+        return list(legacy or []), "legacy", issues
+    return [], "unindexed", []
+
+
+def listed_page_order(report_dir: str | Path) -> list[str]:
+    """Raw declared page ids from the winning index (dangling included)."""
+    listed, _origin, _issues = _select_page_index(Path(report_dir))
+    return listed
+
+
 def load_page_index(report_dir: str | Path, pages: dict[str, dict[str, Any]]
                     ) -> tuple[list[str], str, list[dict[str, Any]]]:
     """Order page ids from the canonical index, legacy index, or names.
@@ -99,26 +127,21 @@ def load_page_index(report_dir: str | Path, pages: dict[str, dict[str, Any]]
     defective unlisted page can never be silently omitted (R02);
     listed-but-missing pages are ``page_order_dangling`` (blocking) —
     the inventory cannot vouch for a page with no directory;
-    duplicated order ids are ``page_order_duplicate`` (blocking).
+    duplicated order ids are ``page_order_duplicate`` (blocking);
+    listed ids that cannot become evidence filenames are
+    ``page_order_unsafe`` (blocking, same predicate as
+    capture._safe_page_id).
     """
-    root = Path(report_dir)
-    canonical, issues = _read_index_file(root / "definition" / "pages" / "pages.json")
-    if canonical is not None or issues:
-        listed, origin = canonical or [], "canonical"
-    else:
-        legacy, legacy_issues = _read_index_file(root / "definition" / "pages.json")
-        issues = list(legacy_issues)
-        if legacy is not None or legacy_issues:
-            listed, origin = legacy or [], "legacy"
-            issues.append({"rule": "legacy_pages_index",
-                           "path": "definition/pages.json"})
-        else:
-            listed, origin = [], "unindexed"
+    listed, origin, issues = _select_page_index(Path(report_dir))
     seen: set[str] = set()
     for page_id in listed:
         if page_id in seen:
             issues.append({"rule": "page_order_duplicate", "page": page_id})
         seen.add(page_id)
+        if (not isinstance(page_id, str) or not page_id
+                or page_id != page_id.strip() or page_id.startswith(".")
+                or "/" in page_id or "\\" in page_id or ":" in page_id):
+            issues.append({"rule": "page_order_unsafe", "page": page_id})
     order = [page_id for page_id in listed if page_id in pages]
     for page_id in listed:
         if page_id not in pages:
@@ -191,8 +214,11 @@ def read_report_files(report_dir: str | Path) -> dict[str, Any]:
                 issues.append({"rule": "report_doc_invalid",
                                "path": "definition/report.json",
                                "missing": missing, "mistyped": mistyped})
-            else:
+            if isinstance(data, dict):
+                # Flagged but still readable: validation issues must
+                # never silently drop report content (filters, config).
                 report_doc = data
+            if not missing and not mistyped:
                 entity, major = _schema_major(data.get("$schema"))
                 if (entity and entity in KNOWN_SCHEMA_MAJORS
                         and major != KNOWN_SCHEMA_MAJORS[entity]):
@@ -486,21 +512,31 @@ def visual_context(item: dict) -> dict:
                                 "missing_property": "may be inherited from theme or Desktop defaults"}}
 
 
-def report_context(report: Path) -> dict:
+def report_context(report: Path, *,
+                   allow_unresolved_model: bool = False) -> dict:
     """Read native PBIR page/visual inventory without asserting design approval.
 
     Raises ValueError listing every metadata problem instead of KeyError on
     the first missing field; callers map it to blocked, never to approval.
+
+    ``allow_unresolved_model`` is only for relocated repair
+    candidates whose byPath model stays pinned at the original
+    location (the sealed repair records the original model digest
+    and sealed verify re-checks it): the candidate copy cannot
+    resolve a model that was never relocated with it, and that
+    must not block a visual-only repair whose identity basis is
+    the pin rather than candidate-side resolution.
     """
+    model_rules = ("model_reference_remote", "model_reference_unresolved")
     found = read_report_files(report)
     _model_dir, model_rule, model_detail = _resolve_model_dir(Path(report))
-    if model_rule in ("model_reference_remote", "model_reference_unresolved"):
+    if model_rule in model_rules:
         found["issues"].append({"rule": model_rule, "detail": model_detail})
     fatal = [issue for issue in found["issues"]
              if issue["rule"] in ("report_unreadable", "report_doc_unreadable",
                                   "report_doc_missing", "report_doc_invalid",
                                   "pages_index_invalid", "page_order_duplicate",
-                                  "page_order_dangling",
+                                  "page_order_dangling", "page_order_unsafe",
                                   "page_doc_unreadable",
                                   "page_metadata_incomplete",
                                   "visual_doc_unreadable",
@@ -509,7 +545,9 @@ def report_context(report: Path) -> dict:
                                   "visual_doc_missing", "unsupported_schema",
                                   "version_missing", "version_unreadable",
                                   "model_reference_remote",
-                                  "model_reference_unresolved")]
+                                  "model_reference_unresolved")
+             and not (allow_unresolved_model
+                      and issue["rule"] in model_rules)]
     if fatal:
         detail = "; ".join(sorted({f'{i["rule"]}:{i.get("page", "?")}/{i.get("visual", "")}'
                                    for i in fatal}))

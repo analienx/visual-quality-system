@@ -15,6 +15,7 @@ import math
 from pathlib import Path
 from typing import Any
 
+from ..pbir import listed_page_order
 from .recipes import (GEOMETRY_OPS, LEAF_OPS, RecipeError, affected_pages,
                       validate_leaf_path)
 
@@ -273,14 +274,20 @@ def _identities(original: Path, candidate: Path,
     """
     problems = []
     try:
+        declared_before = listed_page_order(original)
+        declared_after = listed_page_order(candidate)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return [{"rule": "report_unreadable",
+                 "detail": f"page index: {exc}"}]
+    if declared_before != declared_after:
+        return [{"rule": "page_order_changed",
+                 "expected": declared_before, "actual": declared_after}]
+    try:
         before = _page_order(original)
         after = _page_order(candidate)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         return [{"rule": "report_unreadable",
                  "detail": f"page index: {exc}"}]
-    if before != after:
-        return [{"rule": "page_order_changed",
-                 "expected": before, "actual": after}]
     pages_root = candidate / "definition" / "pages"
     for page_id in after:
         visuals_root = pages_root / page_id / "visuals"

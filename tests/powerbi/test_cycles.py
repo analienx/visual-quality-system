@@ -60,6 +60,7 @@ def test_clean_model_is_acyclic() -> None:
                           "parsed": [os.path.join(CLEAN, "tables",
                                                   "Clean.tmdl")],
                           "skipped": [], "unparsed": [],
+                          "extract_issues": [],
                           "complete": True}}
 
 

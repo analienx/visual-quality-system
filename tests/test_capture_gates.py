@@ -284,7 +284,10 @@ def test_unsafe_page_id_blocks(
     (report / "definition" / "pages.json").write_text(
         json.dumps({"pageOrder": ["../evil"]}), encoding="utf-8")
     _stub(monkeypatch, report, actions={})
-    with pytest.raises(OSError, match="Unsafe page id"):
+    # The inventory refuses the unsafe id before capture's own
+    # filename gate ever runs (page_order_unsafe names it; capture
+    # surfaces inventory failures as OSError).
+    with pytest.raises(OSError, match="page_order_unsafe"):
         capture_mod.capture(str(report), str(tmp_path / "r"))
 
 
@@ -476,7 +479,9 @@ def test_colon_and_leading_dot_page_ids_block(
         pages_file.write_text(json.dumps({"pageOrder": [bad_id]}),
                               encoding="utf-8")
         _stub(monkeypatch, report, actions={})
-        with pytest.raises(OSError, match="Unsafe page id"):
+        # Refused at inventory preflight with the unsafe-specific
+        # rule, before capture's filename gate (surfaced as OSError).
+        with pytest.raises(OSError, match="page_order_unsafe"):
             capture_mod.capture(str(report), str(tmp_path / f"r-{bad_id}"))
 
 

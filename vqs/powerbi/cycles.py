@@ -25,8 +25,8 @@ import re
 
 from vqs.data.tmdl import extract_objects
 
-_TABLE_QUOTED = re.compile(r"^table '(.+)'$", re.MULTILINE)
-_TABLE_BARE = re.compile(r"^table (\S+)$", re.MULTILINE)
+_TABLE_QUOTED = re.compile(r"^table '(.+)'$", re.MULTILINE | re.IGNORECASE)
+_TABLE_BARE = re.compile(r"^table (\S+)$", re.MULTILINE | re.IGNORECASE)
 _EXPRESSION = re.compile(
     r"^expression\s+('([^']+)'|([^\s=]+))\s*=\s*(.*?)(?=^expression\s|\Z)",
     re.MULTILINE | re.DOTALL)

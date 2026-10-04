@@ -88,13 +88,17 @@ def _active_theme(report_dir: str, report_doc: dict | None
 def _canvas_transparency(properties: dict) -> int | None:
     """Canvas transparency percent, 0 when absent, None when unparsed.
 
-    PBIR value shape mirrors the committed fixture outspace block:
-    transparency.expr.Literal.Value is "ND" (or a plain number).
+    PBIR carries transparency either as a plain number (0-100) or as
+    transparency.expr.Literal.Value ("ND" or a plain number).
     """
-    try:
-        raw = properties["transparency"]["expr"]["Literal"]["Value"]
-    except (KeyError, IndexError, TypeError):
+    if "transparency" not in properties:
         return 0
+    raw = properties["transparency"]
+    if isinstance(raw, dict):
+        try:
+            raw = raw["expr"]["Literal"]["Value"]
+        except (KeyError, IndexError, TypeError):
+            return 0
     if isinstance(raw, bool):
         return None
     if isinstance(raw, (int, float)):
@@ -482,7 +486,7 @@ def measure_report(report_dir: str, model_dir: str | None = None) -> dict:
     # Contrast is a theme rule: without a resolved background the color
     # roles cannot be proven, so it stays omitted. Palette assignments
     # stay omitted unconditionally — see the module docstring.
-    contrast = _contrast(found, theme) if theme is not None else None
+    contrast = _contrast(found, theme)
     if contrast is not None:
         rules["typography.text_contrast"] = contrast
     bindings, unit_refs, cohort_readings = _bindings_and_cohorts(found)

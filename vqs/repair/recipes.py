@@ -168,14 +168,14 @@ def bind_leaf(op: dict, visual_doc: dict) -> dict:
     old = _walk(visual_doc, path)
     if old is None or isinstance(old, (dict, list)):
         raise RecipeError(f"{op_type}: path {path!r} is not a scalar leaf")
-    if op_type == "axis.precision":
-        _check_precision(op_type, old, "old")
     new = op.get("value", None if "value" in op else ...)
     if new is ...:
         raise RecipeError(f"{op_type}: missing value")
     if not _same_json_type(old, new):
         raise RecipeError(f"{op_type}: value type {type(new).__name__} "
                           f"would replace {type(old).__name__}")
+    if op_type == "axis.precision":
+        _check_precision(op_type, old, "old")
     if isinstance(new, str):
         _check_string(op_type, new)
     elif isinstance(new, (int, float)) and not isinstance(new, bool):
