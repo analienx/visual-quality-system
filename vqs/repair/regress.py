@@ -15,8 +15,8 @@ import math
 from pathlib import Path
 from typing import Any
 
-from .recipes import GEOMETRY_OPS, LEAF_OPS, RecipeError, affected_pages, validate_leaf_path
 from ..pbir import listed_page_order
+from .recipes import GEOMETRY_OPS, LEAF_OPS, RecipeError, affected_pages, validate_leaf_path
 
 _MISSING = object()
 
