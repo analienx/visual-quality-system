@@ -97,7 +97,8 @@ def test_installed_cycles_uppercase_loop_exit_1(tmp_path: Path) -> None:
     model = _model(tmp_path, "EXPRESSION A = B\nEXPRESSION B = A\n",
                    {"T.tmdl": "table T\n"})
     completed = subprocess.run([VQS_BIN, "cycles", str(model)],
-                               capture_output=True, text=True, timeout=120)
+                               capture_output=True, text=True, timeout=120,
+                               check=False)
     assert completed.returncode == 1, completed.stderr
     assert json.loads(completed.stdout)["m_cycles"] == [["A", "B", "A"]]
 
@@ -108,7 +109,8 @@ def test_installed_cycles_shadow_exit_0(tmp_path: Path) -> None:
     model = _model(tmp_path, "expression Q = let Q = 1 in Q\n",
                    {"T.tmdl": "table T\n"})
     completed = subprocess.run([VQS_BIN, "cycles", str(model)],
-                               capture_output=True, text=True, timeout=120)
+                               capture_output=True, text=True, timeout=120,
+                               check=False)
     assert completed.returncode == 0, completed.stderr
     assert json.loads(completed.stdout)["acyclic"] is True
 
@@ -119,7 +121,8 @@ def test_installed_cycles_unbalanced_exit_2(tmp_path: Path) -> None:
     model = _model(tmp_path, "expression A = f(let B = 1 in (B\n",
                    {"T.tmdl": "table T\n"})
     completed = subprocess.run([VQS_BIN, "cycles", str(model)],
-                               capture_output=True, text=True, timeout=120)
+                               capture_output=True, text=True, timeout=120,
+                               check=False)
     assert completed.returncode == 2, completed.stderr
     assert json.loads(completed.stdout)["status"] == "blocked"
     assert "Traceback" not in (completed.stderr + completed.stdout)
