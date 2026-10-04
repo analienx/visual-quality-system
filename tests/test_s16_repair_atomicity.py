@@ -46,7 +46,7 @@ def _make_report(root: Path, name: str = "original.Report",
                         "visualType": "card",
                         "objects": {"labels": [{"properties": {
                             "fontSize": {"expr": {"Literal": {
-                                "Value": "11D"}}}}}]}}),
+                                "Value": "11D"}}}}}]}}}),
         encoding="utf-8")
     return report
 
