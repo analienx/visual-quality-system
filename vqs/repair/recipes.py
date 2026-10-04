@@ -17,23 +17,28 @@ from typing import Any
 _SIZE_RE = re.compile(r"(\d{1,3})D")
 _COLOR_RE = re.compile(r"#[0-9A-Fa-f]{6}")
 _BAD_CONTROLS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
-# R20/D13: semanticQuery QueryLiteralExpression.Value is a string, so
-# PBIR precisions read as "0"-"15"; canonical form has no padding/sign.
+# R20/D13/S17: semanticQuery QueryLiteralExpression.Value is a string,
+# so PBIR precisions read as "0"-"15"; canonical form has no
+# padding/sign and raw JSON numbers are rejected, never written.
 _PRECISION_STR_RE = re.compile(r"(1[0-5]|[0-9])")
 
 
 def _check_precision(op_type: str, value: Any, side: str) -> None:
-    """Validate one axis.precision operand (old or new)."""
+    """Validate one axis.precision operand (old or new).
+
+    R20/D13/S17: semanticQuery QueryLiteralExpression.Value is a
+    string, so PBIR precisions read as "0"-"15" with no
+    padding/sign; raw JSON numbers are never legal literals and
+    must block, never be written.
+    """
     if isinstance(value, bool):
         raise RecipeError(f"{op_type}: {side} precision must be "
-                          "integer 0-15 or string '0'-'15'")
-    if isinstance(value, int) and 0 <= value <= 15:
-        return
+                          "string '0'-'15'")
     if (isinstance(value, str)
             and _PRECISION_STR_RE.fullmatch(value) is not None):
         return
     raise RecipeError(f"{op_type}: {side} precision must be "
-                      f"integer 0-15 or string '0'-'15', not {value!r}")
+                      f"string '0'-'15', not {value!r}")
 
 LEAF_OPS = frozenset({"typography.size", "axis.tick_format", "axis.title",
                       "axis.precision", "label.format", "theme.set",

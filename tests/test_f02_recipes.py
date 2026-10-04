@@ -21,7 +21,7 @@ def _labels_properties() -> dict:
         "fontSize": {"expr": {"Literal": {"Value": "11D"},
                               "Conditional": {"branches": "b1"}}},
         "title": {"expr": {"Literal": {"Value": "Old"}}},
-        "precision": {"expr": {"Literal": {"Value": 1}}},
+        "precision": {"expr": {"Literal": {"Value": "1"}}},
         "color": {"expr": {"Literal": {"Value": "#00FF00"}}},
         "rotation": {"expr": {"Literal": {"Value": 0}}},
         "selector": {"metadata": {"id": "sel-1"}},
@@ -94,7 +94,7 @@ def test_f02_valid_literal_repairs_still_bind() -> None:
         _op("axis.title", title, "Sales"), _visual())["new"] == "Sales"
     precision = [*LEAF, "precision", "expr", "Literal", "Value"]
     assert bind_operation(
-        _op("axis.precision", precision, 2), _visual())["new"] == 2
+        _op("axis.precision", precision, "2"), _visual())["new"] == "2"
     color = [*LEAF, "color", "expr", "Literal", "Value"]
     assert bind_operation(
         _op("palette.assign", color, "#FF0000"), _visual())["new"] == "#FF0000"

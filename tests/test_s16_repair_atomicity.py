@@ -138,3 +138,38 @@ def test_zero_canvas_blocks_apply(tmp_path: Path) -> None:
     assert "integer canvas" in result["reason"]
     assert not (tmp_path / "cand").exists()
     assert tree_digest(original) == before
+
+
+def test_save_during_copy_blocks_and_preserves_bytes(
+        tmp_path: Path, capsys,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """S16: a real save mid-copy blocks; the new bytes survive."""
+    import shutil
+
+    original, plan_path = _repair(
+        _plan(_op("cardx")), tmp_path, "s16-race")
+    before = tree_digest(original)
+    target = original / VISUAL
+    marker = b" "
+    state = {"ran": False}
+    real_copy = shutil.copyfile
+
+    def hooked_copy(src, dst, *args, **kwargs):
+        if (not state["ran"]
+                and str(src).startswith(str(original))):
+            state["ran"] = True
+            with open(target, "ab") as handle:
+                handle.write(marker)
+        return real_copy(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "copyfile", hooked_copy)
+    code, out = _run_cli(plan_path, original, tmp_path, "s16-race",
+                         "cand", capsys)
+    assert state["ran"] is True
+    assert code == 2
+    assert out["verdict"] == "blocked"
+    assert any("original changed during copy" in reason
+               for reason in out.get("blocked_reasons", []))
+    assert not (tmp_path / "cand").exists()
+    assert marker in target.read_bytes()
+    assert tree_digest(original) != before
