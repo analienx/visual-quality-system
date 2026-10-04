@@ -369,7 +369,7 @@ def report_context(report: Path) -> dict:
                                    for i in fatal}))
         order = ", ".join(found["order"])
         raise ValueError(
-            f"Report metadata invalid: {detail} 
+            f"Report metadata invalid: {detail} "
             f"(declared page order: {order})")
     pages = []
     for page_id in found["order"]:
