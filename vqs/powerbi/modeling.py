@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from importlib import metadata as _metadata
 import shutil
 import subprocess
 import threading
@@ -82,7 +83,10 @@ class StdioModelingClient:
 
     def __init__(self, command: tuple[str, ...] | list[str] | None = None,
                  timeout: int = 60) -> None:
-        self._command = list(command) if command else ["powerbi-modeling-mcp"]
+        # F05: the documented launch mode passes --start; a bare binary
+        # spawn is unsupported. An explicit command overrides wholesale.
+        self._command = (list(command) if command
+                         else ["powerbi-modeling-mcp", "--start"])
         self._timeout = timeout
         self._process: subprocess.Popen[str] | None = None
         self._lock = threading.Lock()
@@ -102,7 +106,66 @@ class StdioModelingClient:
             raise ModelingError(f"cannot start modeling server: {exc}") from exc
         assert self._process.stdin is not None
         assert self._process.stdout is not None
+        self._handshake(self._process)
         return self._process
+
+    def _handshake(self, process: subprocess.Popen[str]) -> None:
+        """MCP initialize/initialized; the tools capability is required."""
+        assert process.stdin is not None and process.stdout is not None
+        try:
+            client_version = _metadata.version(
+                "visual-quality-system")
+        except _metadata.PackageNotFoundError:
+            client_version = "0.0.0"
+        rid = _request_id()
+        hello = json.dumps({"jsonrpc": "2.0", "id": rid,
+                            "method": "initialize",
+                            "params": {
+                                "protocolVersion": "2024-11-05",
+                                "capabilities": {},
+                                "clientInfo": {
+                                    "name": "vqs",
+                                    "version": client_version}}})
+        try:
+            process.stdin.write(hello + "\n")
+            process.stdin.flush()
+        except (OSError, ValueError) as exc:
+            self._kill()
+            raise ModelingError(
+                f"modeling handshake write failed: {exc}") from exc
+        line = self._read_line(process)
+        try:
+            response = json.loads(line)
+        except ValueError:
+            self._kill()
+            raise ModelingError(
+                "modeling handshake is not JSON: "
+                f"{line[:200]}")
+        if not isinstance(response, dict) or response.get("id") != rid:
+            self._kill()
+            raise ModelingError(
+                "modeling handshake mismatched response id")
+        if "error" in response:
+            self._kill()
+            raise ModelingError(
+                f"modeling initialize error: {response['error']}")
+        result = response.get("result")
+        capabilities = (result.get("capabilities")
+                        if isinstance(result, dict) else None)
+        if not isinstance(capabilities, dict) or "tools" not in capabilities:
+            self._kill()
+            raise ModelingError(
+                "modeling server lacks required tools capability: "
+                f"{capabilities!r}")
+        try:
+            process.stdin.write(json.dumps(
+                {"jsonrpc": "2.0",
+                 "method": "notifications/initialized"}) + "\n")
+            process.stdin.flush()
+        except (OSError, ValueError) as exc:
+            self._kill()
+            raise ModelingError(
+                f"modeling initialized notify failed: {exc}") from exc
 
     def _call(self, tool: str, request: dict[str, Any]) -> Any:
         """One tools/call round-trip; parsed result payload or ModelingError."""

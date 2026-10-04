@@ -190,7 +190,9 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
     try:
         materialize_candidate(original, candidate_root)
     except RepairError as exc:
-        shutil.rmtree(candidate_root, ignore_errors=True)
+        # F01: a refused candidate was never owned by this attempt, so
+        # it is preserved byte-for-byte. materialize_candidate removes
+        # only roots it created itself (owned partial copies).
         return {"verdict": "blocked", "stage": "materialize",
                 "reason": str(exc)}
     candidate = Path(candidate_root)

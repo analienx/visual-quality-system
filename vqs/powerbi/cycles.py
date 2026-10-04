@@ -123,6 +123,52 @@ def _m_clean(code: str) -> tuple[str, list[str]]:
     return "".join(out), quoted
 
 
+def _dax_code(expr: str) -> str:
+    """Blank DAX strings/comments; single-quoted spans stay verbatim.
+
+    F13: qualified 'Table'[Name] extraction runs on this, so a
+    qualified-looking token inside "..." or a comment adds no edge
+    while genuine quoted identifiers survive for matching. The scan
+    mirrors _dax_clean exactly (including naive single-quote spans
+    so comment markers inside them are not misread); only the
+    single-quote emission differs (verbatim instead of blanked).
+    """
+    out: list[str] = []
+    index, size = 0, len(expr)
+    while index < size:
+        pair = expr[index:index + 2]
+        if pair in ("//", "--"):
+            end = expr.find("\n", index)
+            if end == -1:
+                break
+            out.append(" ")
+            index = end
+        elif pair == "/*":
+            end = expr.find("*/", index + 2)
+            if end == -1:
+                out.append(expr[index:])
+                break
+            out.append(" ")
+            index = end + 2
+        elif expr[index] == '"':
+            end = _m_string_end(expr, index + 1)
+            if end == -1:
+                out.append(expr[index:])
+                break
+            out.append('""')
+            index = end
+        elif expr[index] == "'":
+            end = index + 1
+            while end < size and expr[end] != "'":
+                end += 1
+            out.append(expr[index:end + 1] if end < size else expr[index:])
+            index = end + 1 if end < size else size
+        else:
+            out.append(expr[index])
+            index += 1
+    return "".join(out)
+
+
 def _dax_clean(expr: str) -> str:
     """Blank DAX strings and comments so only real references remain.
 
@@ -267,8 +313,9 @@ def dax_edges(
     edges = {node: set() for node in objects}
     for node, expr in objects.items():
         _kind, table, _name = node
-        remaining = expr
-        for match in _QUALIFIED.finditer(expr):
+        code = _dax_code(expr)
+        remaining = code
+        for match in _QUALIFIED.finditer(code):
             qualifier = match.group(1) or match.group(3) or ""
             if match.group(1):
                 qualifier = qualifier.replace("''", "'")

@@ -206,25 +206,41 @@ def read_report_files(report_dir: str | Path) -> dict[str, Any]:
             "issues": issues}
 
 
-def _resolve_model_dir(report: Path) -> tuple[Path | None, str | None]:
-    """Resolve definition.pbir byPath to one model dir; (None, issue) otherwise."""
+def resolve_model_dir(report: str | Path) -> str | None:
+    """Model dir named by the report dataset reference, else None.
+
+    F09/D1: the report source is the single authority for its model.
+    """
+    model_dir, _rule, _detail = _resolve_model_dir(Path(report))
+    return str(model_dir) if model_dir is not None else None
+
+
+def _resolve_model_dir(report: Path) -> tuple[Path | None, str | None, str | None]:
+    """Resolve definition.pbir byPath; (dir, rule, detail) with a null dir on miss.
+
+    A missing PBIR is absence of a claim (model_reference_absent);
+    an unreadable or dangling reference is unresolved (blocking).
+    """
     pbir_path = report / "definition.pbir"
     if not pbir_path.is_file():
-        return None, "definition.pbir missing: model source excluded from identity"
+        return (None, "model_reference_absent",
+                "definition.pbir missing: model source excluded from identity")
     try:
         data = json.loads(pbir_path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as exc:
-        return None, f"definition.pbir unreadable: {exc}"
+        return None, "model_reference_unresolved", f"definition.pbir unreadable: {exc}"
     ref = (data.get("datasetReference", {}) or {}).get("byPath", {}) or {}
     target = ref.get("path", "")
     if not isinstance(target, str) or not target:
-        return None, "definition.pbir has no datasetReference.byPath"
+        return (None, "model_reference_unresolved",
+                "definition.pbir has no datasetReference.byPath")
     candidate = (report / target).resolve()
     definition = candidate / "definition"
     model_root = definition if definition.is_dir() else candidate
     if not model_root.is_dir() or not any(model_root.rglob("*.tmdl")):
-        return None, f"referenced model has no TMDL: {target}"
-    return model_root, None
+        return (None, "model_reference_unresolved",
+                f"referenced model has no TMDL: {target}")
+    return model_root, None, None
 
 
 def source_inventory(report: str | Path) -> dict[str, Any]:
@@ -236,10 +252,10 @@ def source_inventory(report: str | Path) -> dict[str, Any]:
     model reference, unreadable files). ``.pbi`` user settings never count.
     """
     report_path = Path(report).resolve()
-    model_dir, model_issue = _resolve_model_dir(report_path)
+    model_dir, model_rule, model_detail = _resolve_model_dir(report_path)
     issues: list[dict[str, Any]] = []
-    if model_issue is not None:
-        issues.append({"rule": "model_reference_unresolved", "detail": model_issue})
+    if model_rule is not None:
+        issues.append({"rule": model_rule, "detail": model_detail})
     digest = hashlib.sha256()
     report_files: list[str] = []
     for path in sorted(report_path.rglob("*")):
@@ -345,11 +361,16 @@ def report_context(report: Path) -> dict:
                                   "pages_index_invalid", "page_doc_unreadable",
                                   "page_metadata_incomplete",
                                   "visual_doc_unreadable",
-                                  "visual_metadata_incomplete")]
+                                  "visual_metadata_incomplete",
+                                  "page_doc_missing", "page_dir_missing",
+                                  "visual_doc_missing", "unsupported_schema")]
     if fatal:
         detail = "; ".join(sorted({f'{i["rule"]}:{i.get("page", "?")}/{i.get("visual", "")}'
                                    for i in fatal}))
-        raise ValueError(f"Report metadata invalid: {detail}")
+        order = ", ".join(found["order"])
+        raise ValueError(
+            f"Report metadata invalid: {detail} 
+            f"(declared page order: {order})")
     pages = []
     for page_id in found["order"]:
         page = found["pages"].get(page_id)

@@ -47,7 +47,11 @@ def test_gate_pads_short_minimums() -> None:
                                minimum=(1, 0, 0, 0))["verdict"] == "pass"
 
 
-def test_target_match_accepts_relative_spelling(tmp_path) -> None:
+def test_target_match_accepts_relative_spelling(tmp_path, monkeypatch) -> None:
+    # CI hygiene: tmp and cwd can sit on different Windows drives, where
+    # no relative spelling exists. Run from tmp so the relative/absolute
+    # round-trip the test is about stays exercisable everywhere.
+    monkeypatch.chdir(tmp_path)
     target = tmp_path / "R.Report"
     target.mkdir()
     verdict = check_target_match(7, os.path.relpath(str(target)),

@@ -23,6 +23,60 @@ LEAF_OPS = frozenset({"typography.size", "axis.tick_format", "axis.title",
                       "palette.assign"})
 GEOMETRY_OPS = frozenset({"chart.resize", "spacing.adjust"})
 
+# F02: cosmetic recipes may only replace literal scalar leaves.
+_LEAF_BANNED_SEGMENTS = frozenset({
+    "selector", "Conditional", "conditional", "queryRef",
+    "filter", "filters", "query", "Measure",
+})
+
+# F02: per-op terminal properties (the name right after
+# "properties"). label.format has no closed property set; it is
+# scoped to the labels formatting object instead (see below).
+_LEAF_TERMINALS = {
+    "typography.size": frozenset({"fontSize"}),
+    "axis.title": frozenset({"title"}),
+    "axis.precision": frozenset({"precision"}),
+    "axis.tick_format": frozenset({"labelPrecision"}),
+    "palette.assign": frozenset({"color"}),
+    "theme.set": frozenset({"show"}),
+}
+
+
+def validate_leaf_path(op_type: str, path: list) -> None:
+    """Enforce the recipe-specific schema path for a leaf op.
+
+    Banned semantic segments (selectors, conditionals, references,
+    filters, query scope) are rejected everywhere; the tail must be
+    a literal-expr chain [..., "properties", PROP, "expr", "Literal",
+    "Value"]; PROP must be a terminal of this recipe (label.format
+    instead requires the labels formatting object). Shared by bind
+    and regress declaration checks so the two cannot drift.
+    """
+    for step in path:
+        if step in _LEAF_BANNED_SEGMENTS:
+            raise RecipeError(
+                f"{op_type}: path segment {step!r} is not settable "
+                "by a cosmetic recipe")
+    try:
+        anchor = path.index("properties")
+    except ValueError:
+        anchor = -1
+    tail = path[anchor + 1:] if anchor >= 0 else []
+    if len(tail) != 4 or tail[1:] != ["expr", "Literal", "Value"]:
+        raise RecipeError(
+            f"{op_type}: path must be a literal-expr leaf")
+    if op_type == "label.format":
+        if len(path) < 5 or path[1] != "objects" or path[2] != "labels":
+            raise RecipeError(
+                "label.format: recipe is scoped to the labels "
+                f"formatting object, not {path!r}")
+        return
+    terminals = _LEAF_TERMINALS.get(op_type)
+    if terminals is not None and tail[0] not in terminals:
+        raise RecipeError(
+            f"{op_type}: property {tail[0]!r} is outside this recipe "
+            f"(terminal: {sorted(terminals)})")
+
 
 class RecipeError(ValueError):
     """An operation is not a well-formed typed recipe application."""
@@ -110,6 +164,7 @@ def bind_leaf(op: dict, visual_doc: dict) -> dict:
     elif not isinstance(new, bool):
         raise RecipeError(f"{op_type}: value type {type(new).__name__} "
                           f"would replace {type(old).__name__}")
+    validate_leaf_path(op_type, path)
     return {"page": page, "visual": visual, "path": list(path),
             "old": old, "new": new}
 

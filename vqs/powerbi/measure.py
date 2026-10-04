@@ -86,19 +86,69 @@ def _active_theme(report_dir: str, report_doc: dict | None
                   "candidates": len(usable)}
 
 
-def _page_background(page: dict, theme: dict | None) -> str | None:
+def _canvas_transparency(properties: dict) -> int | None:
+    """Canvas transparency percent, 0 when absent, None when unparsed.
+
+    PBIR value shape mirrors the committed fixture outspace block:
+    transparency.expr.Literal.Value is "ND" (or a plain number).
+    """
     try:
-        color = (page["objects"]["outspace"][0]["properties"]["color"]
-                 ["solid"]["color"]["expr"]["Literal"]["Value"])
+        raw = properties["transparency"]["expr"]["Literal"]["Value"]
+    except (KeyError, IndexError, TypeError):
+        return 0
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        return int(raw)
+    if isinstance(raw, str):
+        text = raw.strip().upper()
+        if text.endswith("D"):
+            text = text[:-1]
+        if text.isdigit():
+            return int(text)
+    return None
+
+
+def _resolve_canvas(page: dict, theme: dict | None) -> tuple[str | None, str | None]:
+    """Resolve the source canvas background (F14).
+
+    Canvas (objects.background) wins over the theme fallback; the
+    wallpaper (objects.outspace) is never a canvas. Returns
+    (background, unresolved): exactly one is set, or both are None
+    when no background source exists at all. Malformed colors pass
+    through raw so the rule reports unknown instead of a silent skip.
+    """
+    properties: dict = {}
+    try:
+        entries = page["objects"]["background"]
+        if isinstance(entries, list) and entries:
+            candidate = entries[0].get("properties", {})
+            if isinstance(candidate, dict):
+                properties = candidate
+    except (KeyError, IndexError, TypeError, AttributeError):
+        properties = {}
+    if properties.get("image"):
+        return None, "canvas-image"
+    transparency = _canvas_transparency(properties) if properties else 0
+    if transparency is None:
+        return None, "canvas-transparency:unparsed"
+    if transparency != 0:
+        return None, f"canvas-transparency:{transparency}"
+    try:
+        color = (properties["color"]["solid"]["color"]["expr"]["Literal"]["Value"])
     except (KeyError, IndexError, TypeError):
         color = None
-    if isinstance(color, str) and re.fullmatch(r"'#[0-9A-Fa-f]{6}'", color):
-        return color.strip("'").upper()
+    if isinstance(color, str) and color:
+        if re.fullmatch(r"'#[0-9A-Fa-f]{6}'", color):
+            return color.strip("'").upper(), None
+        return color.strip("'").upper(), None
     if theme is not None:
-        fallback = str(theme.get("background", "")).upper()
-        if re.fullmatch(r"#[0-9A-F]{6}", fallback):
-            return fallback
-    return None
+        fallback = str(theme.get("background", ""))
+        if re.fullmatch(r"#[0-9A-Fa-f]{6}", fallback):
+            return fallback.upper(), None
+        if fallback:
+            return fallback.upper(), None
+    return None, None
 
 
 def _page_text_colors(found: dict) -> dict[str, Counter]:
@@ -160,9 +210,9 @@ def _contrast(found: dict, theme: dict | None) -> dict | None:
     """Every honestly-paired (foreground, background) reading.
 
     Majority and minority colors alike: a minority white run on white
-    must surface, not hide behind the majority color. Non-hex text
-    colors prove no luminance, so pairs using them are skipped instead
-    of crashing the ratio math.
+    must surface, not hide behind the majority color. Unparsable
+    colors and unresolvable canvases are emitted for unknown
+    evidence, never skipped (F14).
     """
     readings = []
     all_colors = _page_text_colors(found)
@@ -173,15 +223,18 @@ def _contrast(found: dict, theme: dict | None) -> dict | None:
         colors = all_colors.get(page_id) or Counter()
         if not colors:
             continue
-        background = _page_background(page, theme)
-        if background is None:
+        background, unresolved = _resolve_canvas(page, theme)
+        if background is None and unresolved is None:
             continue
         for (index, foreground), count in sorted(colors.items()):
-            if not _is_hex(foreground):
-                continue
             role = "title" if index == 0 else "subtitle" if index == 1 else "body"
-            readings.append({"foreground": foreground, "background": background,
-                             "page": page_id, "role": role, "count": count})
+            reading = {"foreground": foreground, "page": page_id,
+                       "role": role, "count": count}
+            if unresolved is not None:
+                reading["unresolved"] = unresolved
+            else:
+                reading["background"] = background
+            readings.append(reading)
     if not readings:
         return None
     return {"readings": sorted(readings, key=lambda r: (r["page"], r["role"],
@@ -365,10 +418,17 @@ def measure_report(report_dir: str, model_dir: str | None = None) -> dict:
     if cohorts:
         rules["typography.format_declaration_consistency"] = {"readings": cohorts}
     facts: dict[str, Any] = {"rules": rules}
+    from vqs.pbir import resolve_model_dir, source_inventory
+
+    # F09/D1: the report dataset reference resolves the model when the
+    # caller supplies none; dangling references surface below as issues.
+    resolved_model = model_dir or resolve_model_dir(report_dir)
     from .insights import page_insights
-    inventory = page_insights(report_dir, model_dir)
+    inventory = page_insights(report_dir, resolved_model)
     facts["insights"] = {"pages": inventory["pages"]}
-    facts["coverage"] = {"issues": inventory["coverage"]["issues"],
+    source_issues = source_inventory(report_dir).get("issues", [])
+    facts["coverage"] = {"issues": [*inventory["coverage"]["issues"],
+                                    *source_issues],
                          "theme": theme_info,
                          "parsed_pages": inventory["coverage"]["parsed_pages"],
                          "parsed_visuals": inventory["coverage"]["parsed_visuals"]}
@@ -390,15 +450,15 @@ def measure_report(report_dir: str, model_dir: str | None = None) -> dict:
             {"page": m["page"], "visual": m["visual"],
              "labels_shown": m["labels_shown"], "heatmap": m["heatmap"]}
             for m in inventory["maps"]]}
-    if model_dir is not None:
-        formats = _measure_formats(model_dir)
+    if resolved_model is not None:
+        formats = _measure_formats(resolved_model)
         readings = [{"measure": ref["measure"],
                      "unit": _unit_of(_format_of(formats, ref["measure"])),
                      "page": ref["page"]} for ref in unit_refs]
         if readings:
             facts["rules"]["encoding.metric_unit_consistency"] = {"readings": readings}
         ordered = sorted(bindings, key=lambda item: item["query_ref"])
-        facts["models"] = [{"model_dir": model_dir,
+        facts["models"] = [{"model_dir": resolved_model,
                             "bindings": [{"query_ref": b["query_ref"]}
                                          for b in ordered]}]
     return facts

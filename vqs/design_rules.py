@@ -59,6 +59,14 @@ def _contrast_pair(foreground: str, background: str, threshold: float) -> dict |
     return {"ratio": round(ratio, 3), "passed": ratio >= threshold}
 
 
+def _unresolved_entry(item: dict, marker: str) -> dict:
+    """One honestly-unpaired reading for unknown contrast evidence."""
+    return {"foreground": item.get("foreground"),
+            "background": item.get("background"),
+            "page": item.get("page"), "role": item.get("role"),
+            "count": item.get("count"), "unresolved": marker}
+
+
 def text_contrast(foreground: str | None = None, background: str | None = None, *,
                   large_text: bool = False, readings: list[dict] | None = None) -> dict:
     """Compare resolved opaque colors to WCAG 2.2 SC 1.4.3 thresholds.
@@ -74,13 +82,22 @@ def text_contrast(foreground: str | None = None, background: str | None = None, 
         if not isinstance(readings, list) or not readings:
             return _finding(rule, "unknown", reason="Measured contrast readings required")
         failures = []
+        unresolved = []
         evaluated = 0
         for item in readings:
             if not isinstance(item, dict):
                 return _finding(rule, "unknown", reason="Invalid contrast observation")
+            # F14: emitter-flagged (image/alpha) and unparsable pairs
+            # are unknown evidence, never silent skips.
+            marker = item.get("unresolved")
+            if marker:
+                unresolved.append(_unresolved_entry(item, str(marker)))
+                continue
             pair = _contrast_pair(str(item.get("foreground", "")),
                                   str(item.get("background", "")), threshold)
             if pair is None:
+                unresolved.append(
+                    _unresolved_entry(item, "unparsable-color"))
                 continue
             evaluated += 1
             if not pair["passed"]:
@@ -88,6 +105,12 @@ def text_contrast(foreground: str | None = None, background: str | None = None, 
                                  "background": item.get("background"),
                                  "page": item.get("page"), "role": item.get("role"),
                                  "count": item.get("count"), "ratio": pair["ratio"]})
+        if unresolved:
+            return _finding(rule, "unknown",
+                            reason="Unresolved contrast pairs",
+                            pairs=evaluated, failures=failures,
+                            unresolved=unresolved,
+                            required_ratio=threshold)
         if not evaluated:
             return _finding(rule, "unknown", reason="No resolvable contrast pairs")
         return _finding(rule, "fail" if failures else "pass",

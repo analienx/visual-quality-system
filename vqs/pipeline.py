@@ -234,6 +234,34 @@ def seal_verdict(run_root: Path, run_id: str | None, pipeline_name: str,
             "findings": findings, "manifest": manifest}
 
 
+_NON_BLOCKING_COVERAGE = frozenset({"model_reference_absent"})
+
+
+def _coverage_location(issue: dict) -> str:
+    parts = [str(issue[key]) for key in ("page", "visual") if issue.get(key)]
+    return "/".join(parts)
+
+
+def _blocking_coverage(issues: Any) -> list[dict]:
+    """Coverage issues that must block approval (F09).
+
+    Absence of a model claim is informative, not a defect; every other
+    coverage issue (malformed/missing sources, unproven geometry,
+    dangling references) blocks with its source IDs.
+    """
+    if not isinstance(issues, list):
+        return []
+    return [issue for issue in issues
+            if isinstance(issue, dict)
+            and issue.get("rule") not in _NON_BLOCKING_COVERAGE]
+
+
+def _coverage_reason(issue: dict) -> str:
+    location = _coverage_location(issue)
+    where = f" at {location}" if location else ""
+    return f"{issue.get('rule', 'unknown')}{where} blocks approval"
+
+
 def run_check(facts: Any, run_root: Path, run_id: str | None = None,
               artifacts: dict[str, Any] | None = None,
               environment: dict[str, Any] | None = None,
@@ -263,7 +291,7 @@ def run_check(facts: Any, run_root: Path, run_id: str | None = None,
                 "findings": [{"check": "run_id", "status": "blocked",
                               "reason": f"Unusable run id: {exc}"}]}
     append_event(run_dir, {"kind": "started",
-                           "checks": "design_rules+oracles+documents+models"})
+                           "checks": "design_rules+oracles+documents+models+coverage"})
     findings: list[dict[str, Any]] = []
     rules = facts.get("rules", {})
     if not isinstance(rules, dict):
@@ -310,6 +338,27 @@ def run_check(facts: Any, run_root: Path, run_id: str | None = None,
                          "detail": detail})
         append_event(run_dir, {"kind": "checked", "check": f"model:{index}",
                                "status": status})
+    coverage = facts.get("coverage", {})
+    raw_issues = (coverage.get("issues", [])
+                  if isinstance(coverage, dict) else [])
+    if not isinstance(raw_issues, list):
+        findings.append({"check": "coverage", "status": "blocked",
+                         "reason": "facts.coverage.issues is not a list"})
+    else:
+        for issue in raw_issues:
+            if not isinstance(issue, dict):
+                findings.append({"check": "coverage", "status": "blocked",
+                                 "reason": "coverage issue is not an object"})
+                continue
+            if issue.get("rule") in _NON_BLOCKING_COVERAGE:
+                continue
+            rule = issue.get("rule", "unknown")
+            findings.append({"check": f"coverage:{rule}", "status": "blocked",
+                             "reason": _coverage_reason(issue),
+                             "detail": issue})
+            append_event(run_dir, {"kind": "checked",
+                                   "check": f"coverage:{rule}",
+                                   "status": "blocked"})
     if any(finding["status"] == "fail" for finding in findings):
         verdict = "fail"
     elif (not findings or
@@ -496,6 +545,23 @@ def inspect_report(report_dir: str, model_dir: str | None = None,
                         provenance=provenance,
                         next_actions=["fix the unreadable sources and retry"])
     provenance["config_schema"] = (config or {}).get("schema_version")
+    coverage = facts.get("coverage", {})
+    raw_issues = (coverage.get("issues", [])
+                  if isinstance(coverage, dict) else [])
+    blockers = _blocking_coverage(raw_issues)
+    if blockers:
+        parsed = (coverage.get("parsed_pages", "?"),
+                  coverage.get("parsed_visuals", "?"))
+        reasons = [
+            f"coverage: {parsed[0]} pages / {parsed[1]} visuals measured; "
+            f"{len(blockers)} blocking coverage issues",
+            *(_coverage_reason(issue) for issue in blockers)]
+        blocked = blocked_envelope(
+            "vqs.inspect", reasons, provenance=provenance,
+            next_actions=["fix the coverage gaps and retry"])
+        blocked["facts"] = facts
+        blocked["coverage"] = coverage if isinstance(coverage, dict) else {}
+        return blocked
     return _envelope("vqs.inspect", "pass",
                      coverage=facts.get("coverage", {}),
                      provenance=provenance,

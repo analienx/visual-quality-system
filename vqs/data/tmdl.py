@@ -45,7 +45,20 @@ def _strip_comment(line: str) -> str:
     index, size = 0, len(line)
     quote: str | None = None
     while index < size:
-        if quote is None and line.startswith('"""', index):
+        # F12: triple-backtick DAX stays verbatim; // inside it
+        # is DAX text, never a TMDL comment.
+        if quote is None and line.startswith('```', index):
+            quote = '```'
+            out.append('```')
+            index += 3
+        elif quote == '```' and line.startswith('```', index):
+            quote = None
+            out.append('```')
+            index += 3
+        elif quote == '```':
+            out.append(line[index])
+            index += 1
+        elif quote is None and line.startswith('"""', index):
             quote = '"""'
             out.append('"""')
             index += 3
@@ -76,8 +89,31 @@ def _strip_comment(line: str) -> str:
     return "".join(out)
 
 
+def _span_opener(text: str) -> str | None:
+    """First multiline-span opener on a line: ``` or triple-quote."""
+    tick = text.find("```")
+    quote = text.find('"""')
+    if tick == -1:
+        return '"""' if quote != -1 else None
+    if quote == -1:
+        return "```"
+    return "```" if tick < quote else '"""'
+
+
+def _strip_backticks(expr: str) -> str:
+    """Drop triple-backtick delimiters; the block content stays verbatim."""
+    text = expr.strip()
+    if not text.startswith("```"):
+        return expr
+    inner = text[3:]
+    end = inner.rfind("```")
+    if end == -1:
+        return inner.strip()
+    return inner[:end].strip()
+
+
 def _join_triples(lines: list[str]) -> tuple[list[str], list[int], list[int]]:
-    """Join \"\"\"-quoted spans into single logical lines.
+    """Join \"\"\"-quoted spans into logical lines (F12: triple-backtick and triple-quote).
 
     Returns (logical lines, 1-based start line per logical line,
     unterminated span starts). Unterminated spans keep their gathered
@@ -90,10 +126,11 @@ def _join_triples(lines: list[str]) -> tuple[list[str], list[int], list[int]]:
     while index < len(lines):
         start = index + 1
         text = lines[index]
-        if text.count('"""') % 2 == 1:
+        opener = _span_opener(text)
+        if opener is not None and text.count(opener) % 2 == 1:
             gathered = [text]
             index += 1
-            while index < len(lines) and '"""' not in lines[index]:
+            while index < len(lines) and opener not in lines[index]:
                 gathered.append(lines[index])
                 index += 1
             if index < len(lines):
@@ -107,6 +144,29 @@ def _join_triples(lines: list[str]) -> tuple[list[str], list[int], list[int]]:
             starts.append(start)
         index += 1
     return logical, starts, unterminated
+
+
+def _split_declaration(rest: str) -> tuple[str, str, str]:
+    """Split a member declaration at the first = outside quotes.
+
+    Quoted identifiers may contain = (F11); doubled quotes stay
+    quoted. Returns (name, sep, expression) like str.partition.
+    """
+    quote: str | None = None
+    index, size = 0, len(rest)
+    while index < size:
+        char = rest[index]
+        if quote is None and char in ("'", '"'):
+            quote = char
+        elif quote is not None and char == quote:
+            if rest[index + 1:index + 2] == quote:
+                index += 1
+            else:
+                quote = None
+        elif quote is None and char == "=":
+            return rest[:index], "=", rest[index + 1:]
+        index += 1
+    return rest, "", ""
 
 
 def _indent_of(line: str) -> int:
@@ -200,11 +260,12 @@ def extract_objects(text: str) -> dict:
         if stripped.startswith(("measure ", "column ")):
             kind = "measure" if stripped.startswith("measure ") else "column"
             rest = stripped[len(kind) + 1:]
-            name, sep, expression = rest.partition("=")
+            name, sep, expression = _split_declaration(rest)
             name = _unquote(name.strip())
             member = (kind, name)
             member_indent = indent
-            tables[current][kind + "s"][name] = expression.strip() if sep else ""
+            body = _strip_backticks(expression) if sep else ""
+            tables[current][kind + "s"][name] = body
             tables[current][kind + "_props"].setdefault(name, {})
         # Other member-level lines (lineageTag, annotations, ...) are
         # table metadata, not declarations; skipped, not flagged.

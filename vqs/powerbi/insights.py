@@ -342,6 +342,11 @@ def page_insights(report_dir: str, model_dir: str | None = None) -> dict:
             if rect is not None:
                 layout.append({"page": page_id, "visual": visual_id,
                                "bound": bool(measures or dimensions), **rect})
+            else:
+                # F09: unproven geometry is a coverage issue with its
+                # source IDs, never a silent layout skip.
+                extra_issues.append({"rule": "visual_geometry_unproven",
+                                     "page": page_id, "visual": visual_id})
             visual_filters = _valued_filters_in(visual)
             if measures or dimensions:
                 visuals.append({"page": page_id, "visual": visual_id,

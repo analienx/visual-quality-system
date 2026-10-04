@@ -15,7 +15,7 @@ import math
 from pathlib import Path
 from typing import Any
 
-from .recipes import affected_pages
+from .recipes import LEAF_OPS, RecipeError, affected_pages, validate_leaf_path
 
 
 def _diff_paths(before: Any, after: Any,
@@ -80,6 +80,15 @@ def _declared_for(edits: list[dict]) -> dict[str, dict[str, set]]:
             path = edit.get("path")
             if not isinstance(path, list):
                 raise _Unreadable(f"edit {index} has no edit path")
+            # F02: a declared cosmetic path is re-validated against the
+            # recipe schema; forbidden declarations are unreadable.
+            op = edit.get("op", "")
+            if op in LEAF_OPS:
+                try:
+                    validate_leaf_path(op, path)
+                except RecipeError as exc:
+                    raise _Unreadable(f"edit {index} declares a path "
+                        f"outside the {op} recipe: {exc}")
             slot["exact"].add(tuple(path))
     return declared
 

@@ -22,7 +22,7 @@ def test_f25_nondefault_state_blocks(tmp_path: Path) -> None:
     result = review_report(facts={"rules": {}}, state="filtered",
                            config=config, run_root=str(tmp_path / "runs"))
     assert result["verdict"] == "blocked"
-    assert "state" in json.dumps(result).lower()
+    assert "state" in " ".join(result["blocked_reasons"]).lower()
 
 
 def test_f25_sealed_review_binds_effective_config(tmp_path: Path) -> None:

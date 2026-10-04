@@ -107,10 +107,12 @@ def test_contrast_pairs_colors_within_their_page(tmp_path: Path) -> None:
     import shutil
     clone = tmp_path / "report"
     shutil.copytree(REPORT, clone)
+    # F14: canvas (objects.background) is the page background; wallpaper
+    # (objects.outspace) must never stand in. See test_f14_canvas.py.
     dark = clone / "definition" / "pages" / "P2"
     (dark / "visuals" / "darkbox").mkdir(parents=True)
     (dark / "page.json").write_text(json.dumps({
-        "objects": {"outspace": [{"properties": {"color": {"solid": {"color": {
+        "objects": {"background": [{"properties": {"color": {"solid": {"color": {
             "expr": {"Literal": {"Value": "'#000000'"}}}}}}}]}}),
         encoding="utf-8")
     (dark / "visuals" / "darkbox" / "visual.json").write_text(json.dumps({
