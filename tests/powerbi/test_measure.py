@@ -120,6 +120,10 @@ def test_contrast_pairs_colors_within_their_page(tmp_path: Path) -> None:
             {"textRuns": [{"text": "t", "textStyle": {"color": "#FFFFFF"}}]},
             {"textRuns": [{"text": "s", "textStyle": {"color": "#EEEEEE"}}]}]}}]},
             "visualType": "textbox"}}), encoding="utf-8")
+    index = clone / "definition" / "pages.json"
+    doc = json.loads(index.read_text(encoding="utf-8"))
+    doc["pageOrder"] = ["P1", "P2"]
+    index.write_text(json.dumps(doc), encoding="utf-8")
     # Cross-page pairing would test P1's #101828 on P2's #000000
     # (ratio ~1.2). Honest per-page pairing keeps every run on its own
     # page background.
