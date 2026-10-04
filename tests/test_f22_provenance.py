@@ -68,12 +68,16 @@ def test_f22_nested_contract_revision_mismatch_findings() -> None:
     assert validate_manifest(manifest) != []
 
 def test_f22_reviewed_cross_artifact_contract_permits_mismatch() -> None:
-    """M3 exception: an explicit reviewed contract permits a nested mismatch."""
+    """S14 narrow exception: a note binding the exact approved artifact permits it."""
     manifest = _manifest()
-    _nested(manifest)["source_sha256"] = OTHER_SOURCE
+    nested = _nested(manifest)
+    nested["source_sha256"] = OTHER_SOURCE
     manifest["findings"][0]["cross_artifact_contract"] = {
         "reviewed_by": "reviewer-1",
-        "reason": "p2 verified against staged source " + OTHER_SOURCE}
+        "reason": "p2 verified against staged source " + OTHER_SOURCE,
+        "approved_source_sha256": OTHER_SOURCE,
+        "approved_surface": nested["surface"],
+        "approved_contract_revision": nested["contract_revision"]}
     assert validate_manifest(manifest) == []
 
 

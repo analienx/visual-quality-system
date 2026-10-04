@@ -57,6 +57,30 @@ def _reviewer_bound_exception(contract: object, reviewer_id: object,
             and reviewer_id != fixer_id)
 
 
+def _note_approves_nested(contract: dict, nested: object) -> bool:
+    """True when a reviewer exception covers the exact nested identity.
+
+    S14: an exception waives only the nested artifact it approves. The
+    note must declare the approved source/surface/contract-revision
+    triple and the nested artifact must match it field-for-field. A
+    note without an exact approval, or a nested artifact that diverges
+    from the approval (including missing keys), is not covered.
+    """
+    approved_source = contract.get("approved_source_sha256")
+    approved_surface = contract.get("approved_surface")
+    approved_revision = contract.get("approved_contract_revision")
+    if (not _is_hex64(approved_source)
+            or not isinstance(approved_surface, str) or not approved_surface
+            or not isinstance(approved_revision, str)
+            or not approved_revision):
+        return False
+    if not isinstance(nested, dict):
+        return False
+    return (nested.get("source_sha256") == approved_source
+            and nested.get("surface") == approved_surface
+            and nested.get("contract_revision") == approved_revision)
+
+
 def validate_manifest(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     """Validate a ``to_dict``-shaped run manifest; never infer proof."""
     issues: list[dict[str, Any]] = []
@@ -133,6 +157,8 @@ def validate_manifest(manifest: dict[str, Any]) -> list[dict[str, Any]]:
                     and isinstance(contract.get("reason"), str) and contract["reason"]):
                 reviewed = _reviewer_bound_exception(contract, run_reviewer_id,
                                                        run_fixer_id)
+                if reviewed and not _note_approves_nested(contract, nested):
+                    reviewed = False
             else:
                 issues.append({"rule": "cross_artifact_contract_invalid", "index": index})
         if isinstance(nested, dict) and not reviewed:

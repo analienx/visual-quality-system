@@ -2,8 +2,9 @@
 
 Absent/null/string/partial component provenance must issue
 finding_missing_provenance; a review note never suppresses a
-present nested mismatch; legitimate same-artifact provenance
-stays clean. All red pre-R3, green after.
+present nested mismatch unless narrowly bound to the exact nested
+identity by the manifest's own reviewer (S14); legitimate
+same-artifact provenance stays clean. All red pre-R3, green after.
 """
 from vqs.contracts.validate import validate_manifest
 
