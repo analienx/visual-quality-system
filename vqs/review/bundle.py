@@ -39,8 +39,9 @@ def pack(report: str, renders: str, out: str, fixer_id: str) -> dict:
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise OSError(f"Cannot read report: {exc}") from exc
     expected = [page["id"] for page in info["pages"]]
+    canvases = {page["id"]: page.get("canvas") for page in info["pages"]}
     pages, issues = image_evidence(Path(renders), source_digest(report_path),
-                                   expected)
+                                   expected, canvases=canvases)
     if issues or len(pages) != len(expected):
         detail = "; ".join(sorted({i.get("rule", "?") for i in issues}))
         raise ValueError(f"Renders incomplete or unbound: {detail}")
@@ -79,7 +80,7 @@ def pack(report: str, renders: str, out: str, fixer_id: str) -> dict:
 
 def verify(bundle: str, report: str | None = None) -> dict:
     """Re-hash and cross-check a bundle; raise on any mismatch."""
-    from ..evidence import digest, safe_render_name
+    from ..evidence import check_calibration, digest, png_size, safe_render_name
     from ..pbir import source_digest
 
     root = Path(bundle)
@@ -185,6 +186,41 @@ def verify(bundle: str, report: str | None = None) -> dict:
     for page_id in header.get("pages") or []:
         if page_id not in (manifest.get("page_images") or {}):
             problems.append(f"page without render: {page_id}")
+    calibration = manifest.get("calibration")
+    shape_issues = check_calibration(calibration)
+    if shape_issues or not isinstance(calibration, dict):
+        problems.append("bundle calibration invalid")
+    else:
+        inv_canvas = {}
+        if isinstance(inv_pages, list):
+            for page in inv_pages:
+                if isinstance(page, dict):
+                    inv_canvas[page.get("id")] = page.get("canvas")
+        for page_id in header.get("pages") or []:
+            if not isinstance(page_id, str):
+                continue
+            canvas = inv_canvas.get(page_id)
+            if (not isinstance(canvas, (list, tuple)) or len(canvas) != 2
+                    or any(isinstance(v, bool) or not isinstance(v, (int, float)) for v in canvas)):
+                problems.append(f"inventory canvas missing or invalid: {page_id}")
+                continue
+            if [calibration["canvas_width"], calibration["canvas_height"]] != [canvas[0], canvas[1]]:
+                problems.append(f"render canvas differs from source canvas: {page_id}")
+                continue
+            name = mapping.get(page_id)
+            if safe_render_name(name) is None:
+                continue
+            path = root / name
+            if path.is_symlink() or not path.is_file():
+                continue
+            try:
+                pixels = png_size(path)
+            except (OSError, ValueError):
+                problems.append(f"unreadable render dimensions: {name}")
+                continue
+            scale = calibration["scale"]
+            if list(pixels) != [canvas[0] * scale, canvas[1] * scale]:
+                problems.append(f"render pixels differ from scaled source canvas: {page_id}")
     if report is not None:
         try:
             live = source_digest(Path(report))

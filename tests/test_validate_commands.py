@@ -6,6 +6,7 @@ import json
 import pytest
 
 from vqs.cli import main
+from vqs.policy import POLICY_VERSION
 
 
 def _write(path, payload):
@@ -29,7 +30,8 @@ def _observations():
 
 
 def _bundle(**overrides):
-    bundle = {"source_sha256": "s", "surface": "report", "fixer_id": "a",
+    bundle = {"source_sha256": "s", "surface": "report", "schema": 1,
+              "policy_version": POLICY_VERSION, "fixer_id": "a",
               "reviewer": {"id": "b", "role": "independent_visual_reviewer"},
               "image_capability": {"available": True},
               "calibration": {"canvas_width": 500, "canvas_height": 500,

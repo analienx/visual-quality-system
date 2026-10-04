@@ -12,15 +12,19 @@ fails or blocks — never passes.
 Caller labels and hex strings alone are never evidence: without an exact
 :class:`vqs.evidence.SealedEvidenceStore`, acceptance blocks. Mappings,
 callables, the explicit unit-test double, and store subclasses are rejected
-as untrusted. Residual assumption: the caller passes a root produced by seal
-paths — acceptance verifies bytes and bindings inside the root, not which
-process wrote the root. Producer-side envelope binding is later-lane work.
+as untrusted. Producer authority (F27): every envelope carries a producer pointer and
+the trusted root holds the sealed producer runs; acceptance requires a
+valid producer seal binding the envelope bytes plus matching
+gate/result/control. The remaining boundary is the root itself.
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 from vqs.evidence import SealedEvidenceStore
+from vqs.run_store import verify_seal
 
 REQUIRED_NEGATIVES: frozenset[str] = frozenset({
     "stale_image", "wrong_pid", "blank_first_open", "partial_canvas",
@@ -49,6 +53,39 @@ COVERAGE_PAIRS: frozenset[tuple[str, str]] = frozenset({
 })
 
 _HEX = frozenset("0123456789abcdefABCDEF")
+
+
+_SCOPE_DIMS: tuple[str, ...] = ("role", "refresh_id", "filters", "query_context", "query_hash")
+_ENV_DIMS: tuple[str, ...] = ("renderer", "renderer_version", "locale", "view_state")
+
+
+def _canon_dim(value: object) -> object:
+    """Canonical dimension value; missing/None is unknown, never a stated value."""
+    if value is None:
+        return ("unknown",)
+    if isinstance(value, dict):
+        return ("dict", json.dumps(value, sort_keys=True, ensure_ascii=False, default=str))
+    if isinstance(value, list):
+        return ("list", json.dumps(value, ensure_ascii=False, default=str))
+    if isinstance(value, (str, int, float, bool)):
+        return ("scalar", value)
+    return ("other", str(value))
+
+
+def _dims_mismatch(gate_slot: object, envelope_slot: object, dims: tuple[str, ...]) -> bool:
+    """True when any applicable dimension differs (F16: unknown never equals stated)."""
+    if not isinstance(gate_slot, dict) or not isinstance(envelope_slot, dict):
+        return True
+    return any(_canon_dim(gate_slot.get(dim)) != _canon_dim(envelope_slot.get(dim))
+               for dim in dims)
+
+
+def _is_safe_run_id(run_id: object) -> bool:
+    """True for a single confined path segment (F27 producer lookup)."""
+    return (isinstance(run_id, str) and bool(run_id) and "\x00" not in run_id
+            and "/" not in run_id and "\\" not in run_id and ":" not in run_id
+            and run_id not in (".", "..") and Path(run_id).name == run_id
+            and not Path(run_id).is_absolute())
 
 
 def _is_hex64(value: object) -> bool:
@@ -167,9 +204,7 @@ def run_acceptance(record: dict[str, Any],
                              "gate": gate_id})
             continue
         envelope_env = envelope.get("environment", {})
-        if (not isinstance(envelope_env, dict)
-                or envelope_env.get("renderer") != gate_env.get("renderer")
-                or envelope_env.get("renderer_version") != gate_env.get("renderer_version")):
+        if _dims_mismatch(gate_env, envelope_env, _ENV_DIMS):
             findings.append({"rule": "evidence_environment_mismatch", "status": "fail",
                              "gate": gate_id})
             continue
@@ -181,13 +216,56 @@ def run_acceptance(record: dict[str, Any],
                                  "gate": gate_id})
                 continue
             envelope_scope = envelope.get("data_scope", {})
-            if (not isinstance(envelope_scope, dict)
-                    or envelope_scope.get("role") != scope.get("role")
-                    or envelope_scope.get("refresh_id") != scope.get("refresh_id")):
+            if _dims_mismatch(scope, envelope_scope, _SCOPE_DIMS):
                 findings.append({"rule": "evidence_data_scope_mismatch", "status": "fail",
                                  "gate": gate_id})
                 continue
-        covered.add((gate_id, subject["kind"]))
+        producer = envelope.get("producer")
+        if (not isinstance(producer, dict)
+                or not isinstance(producer.get("run_id"), str) or not producer["run_id"]
+                or not isinstance(producer.get("gate"), str)
+                or not isinstance(producer.get("status"), str)
+                or not (producer.get("control") is None or isinstance(producer.get("control"), str))):
+            findings.append({"rule": "producer_authority_missing", "status": "blocked",
+                             "gate": gate_id})
+            continue
+        run_id = producer["run_id"]
+        if not _is_safe_run_id(run_id) or not isinstance(getattr(evidence_store, "root", None), Path):
+            findings.append({"rule": "producer_authority_missing", "status": "blocked",
+                             "gate": gate_id})
+            continue
+        run_dir = evidence_store.root / run_id
+        if verify_seal(run_dir):
+            findings.append({"rule": "producer_seal_invalid", "status": "blocked",
+                             "gate": gate_id})
+            continue
+        try:
+            manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            findings.append({"rule": "producer_seal_invalid", "status": "blocked",
+                             "gate": gate_id})
+            continue
+        bound = manifest.get("artifacts", {}) if isinstance(manifest, dict) else {}
+        if not isinstance(bound, dict) or bound.get("envelope_sha256") != ref["sha256"]:
+            findings.append({"rule": "producer_binding_mismatch", "status": "fail",
+                             "gate": gate_id})
+            continue
+        if producer.get("gate") != gate_id or bound.get("gate") != gate_id:
+            findings.append({"rule": "producer_gate_mismatch", "status": "fail",
+                             "gate": gate_id})
+            continue
+        if producer.get("status") != status or bound.get("status") != status:
+            findings.append({"rule": "producer_result_mismatch", "status": "fail",
+                             "gate": gate_id})
+            continue
+        gate_control = gate.get("negative_control")
+        if isinstance(gate_control, str) or gate_control is None:
+            norm = gate_control or None
+            if producer.get("control") != norm or bound.get("control") != norm:
+                findings.append({"rule": "producer_control_mismatch", "status": "fail",
+                                 "gate": gate_id})
+                continue
+        covered.add((gate_id, subject["id"]))
         if gate_id == "G6":
             g6_covered = True
         control = gate.get("negative_control", "")
@@ -200,8 +278,13 @@ def run_acceptance(record: dict[str, Any],
             else:
                 findings.append({"rule": "negative_uncaught", "status": "fail",
                                  "control": control})
-    missing_pairs = sorted(f"{gate_id}:{kind}" for gate_id, kind in COVERAGE_PAIRS
-                           if (gate_id, kind) not in covered)
+    # F15: every applicable gate is required for each selected subject;
+    # G6 stays suite-global (see below).
+    missing_pairs = sorted(
+        f"{gate_id}:{subject_id}"
+        for subject_id, subject in by_id.items()
+        for gate_id, kind in sorted(COVERAGE_PAIRS)
+        if subject["kind"] == kind and (gate_id, subject_id) not in covered)
     if not g6_covered:
         missing_pairs.append("G6:any")
     if missing_pairs:
@@ -211,7 +294,12 @@ def run_acceptance(record: dict[str, Any],
     if missing:
         findings.append({"rule": "negative_controls_missing", "status": "blocked",
                          "missing": sorted(missing)})
-    if record.get("reviewer_id", "") == record.get("editor_id", "") or not record.get("reviewer_id"):
+    reviewer_id = record.get("reviewer_id")
+    editor_id = record.get("editor_id")
+    if (not isinstance(reviewer_id, str) or not reviewer_id.strip()
+            or not isinstance(editor_id, str) or not editor_id.strip()):
+        findings.append({"rule": "reviewer_editor_identity_required", "status": "blocked"})
+    elif reviewer_id == editor_id:
         findings.append({"rule": "reviewer_not_independent", "status": "fail"})
     if record.get("user_approved", False) is not True:
         findings.append({"rule": "promotion_not_approved", "status": "blocked"})

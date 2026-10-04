@@ -33,7 +33,7 @@ def _report(root: Path) -> Path:
     (report / "definition" / "pages.json").write_text(
         json.dumps({"pageOrder": ["p1"]}), encoding="utf-8")
     (report / "definition" / "pages" / "p1" / "page.json").write_text(
-        json.dumps({"displayName": "Overview", "width": 1280, "height": 720}),
+        json.dumps({"displayName": "Overview", "width": 500, "height": 500}),
         encoding="utf-8")
     return report
 

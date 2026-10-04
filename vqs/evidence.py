@@ -206,14 +206,26 @@ def check_data_readiness(readiness: object) -> list[dict[str, Any]]:
     return []
 
 
+def check_policy_binding(doc: object, kind: str, source_sha: str) -> list[dict[str, Any]]:
+    """Canonical schema/policy/surface/source binding for review entries (F21)."""
+    if not isinstance(doc, dict):
+        return [{"rule": "review_policy_or_source_mismatch", "verdict": "blocked"}]
+    if (doc.get("schema") != 1 or doc.get("policy_version") != POLICY_VERSION or
+            doc.get("surface") != kind or doc.get("source_sha256") != source_sha):
+        return [{"rule": "review_policy_or_source_mismatch", "verdict": "blocked"}]
+    return []
+
+
 def check_reviewer(reviewer: object, fixer_id: str) -> list[dict[str, Any]]:
     """Canonical reviewer check: independent identity, never the fixer."""
     if not isinstance(reviewer, dict):
         return [{"rule": "independent_reviewer_required", "verdict": "blocked"}]
     reviewer_id = reviewer.get("id", "")
-    if not reviewer_id:
+    if not isinstance(reviewer_id, str) or not reviewer_id.strip():
         return [{"rule": "independent_reviewer_required", "verdict": "blocked"}]
-    if fixer_id and reviewer_id == fixer_id:
+    if not isinstance(fixer_id, str) or not fixer_id.strip():
+        return [{"rule": "fixer_identity_required", "verdict": "blocked"}]
+    if reviewer_id == fixer_id:
         return [{"rule": "own_review_forbidden", "verdict": "fail"}]
     if reviewer.get("role") != REVIEWER_ROLE:
         return [{"rule": "independent_reviewer_required", "verdict": "blocked"}]
@@ -273,7 +285,8 @@ def check_observations(kind: str, observations: object,
     return findings
 
 
-def image_evidence(images: Path, source_sha: str, page_ids: list[str]) -> tuple[list[dict], list[dict]]:
+def image_evidence(images: Path, source_sha: str, page_ids: list[str],
+                   canvases: dict[str, Any] | None = None) -> tuple[list[dict], list[dict]]:
     """Validate rendered page PNGs against a source-linked capture manifest."""
     manifest_path = images / "capture-manifest.json"
     if not manifest_path.is_file():
@@ -319,6 +332,14 @@ def image_evidence(images: Path, source_sha: str, page_ids: list[str]) -> tuple[
         if not shape_issues:
             for row in check_calibration(calibration, dimensions):
                 issues.append({**row, "page": page_id})
+            if canvases is not None:
+                canvas = canvases.get(page_id)
+                calib = calibration if isinstance(calibration, dict) else {}
+                if (not isinstance(canvas, (list, tuple)) or len(canvas) != 2
+                        or [calib.get("canvas_width"), calib.get("canvas_height")] != [canvas[0], canvas[1]]):
+                    issues.append({"rule": "render_canvas_mismatch", "page": page_id,
+                                   "source_canvas": list(canvas) if isinstance(canvas, (list, tuple)) and len(canvas) == 2 else None,
+                                   "calibration_canvas": [calib.get("canvas_width"), calib.get("canvas_height")]})
         pages.append({"id": page_id, "image": name, "sha256": sha, "pixels": dimensions})
     return pages, issues
 
@@ -353,9 +374,9 @@ def verify_review(kind: str, source_sha: str, pages: list[dict], review: dict, f
     """Reject missing checks, stale images, self-approval and unlocated failures."""
     required_criteria(kind)
     findings: list[dict] = []
-    if (review.get("schema") != 1 or review.get("policy_version") != POLICY_VERSION or
-            review.get("surface") != kind or review.get("source_sha256") != source_sha):
-        return [{"rule": "review_policy_or_source_mismatch"}]
+    mismatch = check_policy_binding(review, kind, source_sha)
+    if mismatch:
+        return mismatch
     calibration = review.get("calibration")
     readiness = review.get("data_readiness")
     shape_issues = check_calibration(calibration)

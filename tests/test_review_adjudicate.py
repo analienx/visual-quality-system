@@ -4,7 +4,7 @@ No pixels, models, or renders involved; perceptual judgment itself remains
 the job of a capable image reviewer on real evidence. Observation checks reuse
 the canonical evidence validator, so this module and verify_review cannot drift.
 """
-from vqs.policy import REQUIRED
+from vqs.policy import POLICY_VERSION, REQUIRED
 from vqs.review import adjudicate_bundle
 
 SOURCE = "c" * 64
@@ -21,6 +21,8 @@ def _bundle(**overrides):
     base = {
         "source_sha256": SOURCE,
         "surface": "report",
+        "schema": 1,
+        "policy_version": POLICY_VERSION,
         "reviewer": {"id": "reviewer-1", "role": "independent_visual_reviewer"},
         "fixer_id": "executor-1",
         "image_capability": {"available": True, "provider": "synthetic-test"},

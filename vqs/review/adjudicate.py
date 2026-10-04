@@ -19,6 +19,7 @@ from vqs.evidence import (
     check_calibration,
     check_data_readiness,
     check_observations,
+    check_policy_binding,
     check_reviewer,
 )
 
@@ -30,6 +31,8 @@ def adjudicate_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
         return {"verdict": "blocked", "findings": [{"rule": "bundle_not_an_object"}]}
     source = bundle.get("source_sha256", "")
     surface = bundle.get("surface", "")
+    findings.extend(check_policy_binding(
+        bundle, surface if isinstance(surface, str) else "", source))
     findings.extend(check_reviewer(bundle.get("reviewer", {}),
                                    bundle.get("fixer_id", "")))
     capability = bundle.get("image_capability", {})

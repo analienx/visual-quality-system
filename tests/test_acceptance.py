@@ -14,6 +14,7 @@ from typing import Any
 
 from vqs.acceptance import REQUIRED_NEGATIVES, run_acceptance
 from vqs.evidence import SealedEvidenceStore, TestEvidenceStore
+from vqs.run_store import append_event, create_run, seal_run
 
 SOURCE_A = "a" * 64
 SOURCE_B = "b" * 64
@@ -43,10 +44,14 @@ class _Case:
     def __init__(self) -> None:
         self.blobs: dict[str, bytes] = {}
         self.gates: list[dict[str, Any]] = []
+        self.runs: dict[str, dict[str, Any]] = {}
 
     def add(self, gate_id: str, subject_id: str, source: str, kind: str,
             control: str | None = None, status: str = "pass") -> dict[str, Any]:
-        envelope: dict[str, Any] = {"source_sha256": source, "environment": dict(ENV)}
+        run_id = f"prod-{gate_id}-{subject_id}-{len(self.gates)}"
+        envelope: dict[str, Any] = {"source_sha256": source, "environment": dict(ENV),
+                                    "producer": {"run_id": run_id, "gate": gate_id,
+                                               "status": status, "control": control}}
         gate: dict[str, Any] = {"id": gate_id, "subject_id": subject_id,
                                 "status": status, "environment": dict(ENV)}
         if kind == "pbip":
@@ -55,6 +60,8 @@ class _Case:
         raw = _envelope_bytes(envelope)
         sha = hashlib.sha256(raw).hexdigest()
         self.blobs[sha] = raw
+        self.runs[run_id] = {"sha": sha, "gate": gate_id, "status": status,
+                             "control": control}
         gate["evidence_ref"] = {"sha256": sha, "source_sha256": source}
         if control:
             gate["negative_control"] = control
@@ -67,6 +74,14 @@ class _Case:
         objects.mkdir(parents=True, exist_ok=True)
         for sha, raw in self.blobs.items():
             (objects / sha).write_bytes(raw)
+        for run_id, spec in self.runs.items():
+            run_dir = create_run(root, run_id, {"pipeline": "vqs.producer/1"})
+            append_event(run_dir, {"kind": "started"})
+            terminal = {"pass": "completed", "fail": "failed"}.get(spec["status"], "blocked")
+            append_event(run_dir, {"kind": terminal})
+            seal_run(run_dir, terminal,
+                     artifacts={"envelope_sha256": spec["sha"], "gate": spec["gate"],
+                                "status": spec["status"], "control": spec["control"]})
         return SealedEvidenceStore(root)
 
     def record(self, **overrides: Any) -> dict[str, Any]:
@@ -83,7 +98,11 @@ def _full_case() -> _Case:
              ("G1", "p1", SOURCE_A, "pbip"), ("G1", "d1", SOURCE_D, "docx"),
              ("G2", "p1", SOURCE_A, "pbip"), ("G3", "p2", SOURCE_B, "pbip"),
              ("G4", "p1", SOURCE_A, "pbip"), ("G5", "d1", SOURCE_D, "docx"),
-             ("G6", "p1", SOURCE_A, "pbip")]
+             ("G6", "p1", SOURCE_A, "pbip"),
+             # F15: every applicable gate on every subject (was: split across p1/p2).
+             ("G3", "p1", SOURCE_A, "pbip"), ("G0", "p2", SOURCE_B, "pbip"),
+             ("G1", "p2", SOURCE_B, "pbip"), ("G2", "p2", SOURCE_B, "pbip"),
+             ("G4", "p2", SOURCE_B, "pbip")]
     negatives = sorted(REQUIRED_NEGATIVES)
     for index, (gate_id, subject, source, kind) in enumerate(pairs):
         control = negatives[index] if index < len(negatives) else None
