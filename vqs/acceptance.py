@@ -58,6 +58,12 @@ _HEX = frozenset("0123456789abcdefABCDEF")
 _SCOPE_DIMS: tuple[str, ...] = ("role", "refresh_id", "filters", "query_context", "query_hash")
 _ENV_DIMS: tuple[str, ...] = ("renderer", "renderer_version", "locale", "view_state")
 
+# Terminal statuses seal producer runs while gates speak pass/fail;
+# the sealed terminal is the truth both labels must match.
+_TERMINAL_TO_GATE: dict[str, str] = {
+    "completed": "pass", "failed": "fail", "blocked": "blocked",
+}
+
 
 def _canon_dim(value: object) -> object:
     """Canonical dimension value; missing/None is unknown, never a stated value."""
@@ -258,6 +264,13 @@ def run_acceptance(record: dict[str, Any],
             findings.append({"rule": "producer_result_mismatch", "status": "fail",
                              "gate": gate_id})
             continue
+        sealed_status = manifest.get("status") if isinstance(manifest, dict) else None
+        if (_TERMINAL_TO_GATE.get(sealed_status) is None
+                or producer.get("status") != _TERMINAL_TO_GATE[sealed_status]
+                or bound.get("status") != _TERMINAL_TO_GATE[sealed_status]):
+            findings.append({"rule": "producer_terminal_mismatch", "status": "fail",
+                             "gate": gate_id})
+            continue
         gate_control = gate.get("negative_control")
         if isinstance(gate_control, str) or gate_control is None:
             norm = gate_control or None
@@ -270,6 +283,10 @@ def run_acceptance(record: dict[str, Any],
             g6_covered = True
         control = gate.get("negative_control", "")
         if control and not isinstance(control, str):
+            findings.append({"rule": "invalid_negative_control", "status": "blocked",
+                             "gate": gate_id})
+        elif (isinstance(control, str) and control
+                and control not in REQUIRED_NEGATIVES):
             findings.append({"rule": "invalid_negative_control", "status": "blocked",
                              "gate": gate_id})
         elif control:

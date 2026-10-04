@@ -447,7 +447,8 @@ def rerender_requirements(operations: list[dict],
 
 
 def verify_renders(required_pages: list[str], renders_dirs: list[str | Path],
-                   candidate_digest: str) -> dict:
+                   candidate_digest: str,
+                   canvases: dict[str, Any] | None = None) -> dict:
     """Pass only when materialized renders prove every required page.
 
     Each renders dir is checked through evidence.image_evidence
@@ -457,7 +458,10 @@ def verify_renders(required_pages: list[str], renders_dirs: list[str | Path],
     are not evidence; missing pages block with exact names. Empty
     requirements or a missing digest block instead of passing
     vacuously. Malformed collections block with a reason; they never
-    raise into the caller.
+    raise into the caller. R11: authoritative per-page canvases ride
+    along when the caller has them; an inventoried manifest consumed
+    without canvases blocks inside image_evidence instead of
+    verifying blind.
     """
     if not isinstance(required_pages, list):
         return {"verdict": "blocked",
@@ -478,7 +482,8 @@ def verify_renders(required_pages: list[str], renders_dirs: list[str | Path],
         if not isinstance(renders, (str, Path)):
             continue
         try:
-            pages, issues = image_evidence(Path(renders), candidate_digest, wanted)
+            pages, issues = image_evidence(Path(renders), candidate_digest, wanted,
+                                             canvases)
         except (OSError, ValueError, TypeError):
             continue
         if any("page" not in row for row in issues):

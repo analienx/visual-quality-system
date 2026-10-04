@@ -223,8 +223,16 @@ def _canonical_sha256(payload: Any) -> str:
     return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()
 
 def seal_verdict(run_root: Path, run_id: str | None, pipeline_name: str,
-               verdict: str, findings: list[dict[str, Any]]) -> dict[str, Any]:
-    """Seal a single-verdict run; a duplicate run_id blocks without a run."""
+               verdict: str, findings: list[dict[str, Any]],
+               inputs: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Seal a single-verdict run; a duplicate run_id blocks without a run.
+
+    R10: when ``inputs`` (the canonical actual input document plus
+    applicable identities) is supplied, it persists verbatim as
+    ``input.json`` and the seal binds its digest, so changing any
+    material input changes the binding even when the summary is held
+    constant. Without inputs the legacy findings-only binding stands.
+    """
     if verdict not in STATUS_BY_VERDICT:
         verdict = "blocked"
     run_id = run_id or f"{pipeline_name}-{uuid.uuid4().hex[:12]}".replace("/", "-")
@@ -243,9 +251,18 @@ def seal_verdict(run_root: Path, run_id: str | None, pipeline_name: str,
     append_event(run_dir, {"kind": terminal, "verdict": verdict})
     digest = hashlib.sha256(
         json.dumps(findings, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
-    sealed_input = {"pipeline": pipeline_name, "verdict": verdict, "findings": findings}
-    bindings = {"input_sha256": _canonical_sha256(sealed_input), "policy_version": POLICY_VERSION, "tool": pipeline_name}
-    manifest = seal_run(run_dir, terminal, artifacts={"verdict_sha256": digest}, bindings=bindings)
+    artifacts: dict[str, Any] = {"verdict_sha256": digest}
+    if inputs is None:
+        sealed_input = {"pipeline": pipeline_name, "verdict": verdict, "findings": findings}
+        bindings = {"input_sha256": _canonical_sha256(sealed_input), "policy_version": POLICY_VERSION, "tool": pipeline_name}
+    else:
+        stored = dict(inputs)
+        payload = json.dumps(stored, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        (run_dir / "input.json").write_bytes(payload)
+        input_sha = hashlib.sha256(payload).hexdigest()
+        bindings = {"input_sha256": input_sha, "policy_version": POLICY_VERSION, "tool": pipeline_name}
+        artifacts["input"] = {"sha256": input_sha, "path": "input.json"}
+    manifest = seal_run(run_dir, terminal, artifacts=artifacts, bindings=bindings)
     return {"verdict": verdict, "run_dir": str(run_dir), "run_id": run_id,
             "findings": findings, "manifest": manifest}
 

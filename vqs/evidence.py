@@ -68,6 +68,82 @@ def png_size(path: Path) -> tuple[int, int]:
         return size
 
 
+_PNG_PIXEL_CAP = 256 * 1024 * 1024
+_PNG_BLOB_CAP = 64 * 1024 * 1024
+
+
+def decode_png_pixels(path: Path) -> tuple[int, int]:
+    """Decode PNG IDAT pixels with bounded work; ValueError when undecodable.
+
+    R13: a CRC-correct container can still carry a non-zlib IDAT, a
+    cut-short stream, or unknown filter types, and no consumer may
+    approve pixels it never decoded. Only 8-bit non-interlaced
+    grayscale/truecolor images are supported; every scanline filter
+    byte must be 0-4. Compressed and decompressed sizes are capped
+    so a hostile size claim cannot exhaust memory.
+    """
+    raw = path.read_bytes()
+    if raw[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError(f"Invalid PNG signature: {path}")
+    position = 8
+    ihdr: tuple[int, int, int, int, int] | None = None
+    parts: list[bytes] = []
+    end = len(raw)
+    while True:
+        if position + 8 > end:
+            raise ValueError(f"Truncated PNG chunk table: {path}")
+        length, tag = struct.unpack(">I4s", raw[position:position + 8])
+        if length > 100_000_000:
+            raise ValueError(f"Oversized PNG chunk: {path}")
+        body = raw[position + 8:position + 8 + length]
+        check = raw[position + 8 + length:position + 12 + length]
+        if len(body) != length or len(check) != 4:
+            raise ValueError(f"Truncated PNG chunk: {path}")
+        if zlib.crc32(tag + body) != struct.unpack(">I", check)[0]:
+            raise ValueError(f"Corrupt PNG chunk: {path}")
+        position += 12 + length
+        if tag == b"IHDR":
+            if ihdr is not None or length != 13:
+                raise ValueError(f"Invalid PNG header: {path}")
+            width, height, depth, color, _comp, _filter, interlace = struct.unpack(
+                ">IIBBBBB", body)
+            ihdr = (width, height, depth, color, interlace)
+        elif tag == b"IDAT":
+            if ihdr is None:
+                raise ValueError(f"IDAT before IHDR: {path}")
+            parts.append(body)
+        elif tag == b"IEND":
+            break
+    if ihdr is None or not parts:
+        raise ValueError(f"Incomplete PNG image: {path}")
+    width, height, depth, color, interlace = ihdr
+    if depth != 8 or color not in (0, 2) or interlace != 0:
+        raise ValueError(f"Unsupported PNG image type "
+                         f"(depth={depth} color={color} interlace={interlace}): {path}")
+    if not 1 <= width <= 20000 or not 1 <= height <= 20000:
+        raise ValueError(f"Implausible PNG dimensions {width}x{height}: {path}")
+    bpp = 1 if color == 0 else 3
+    expected = height * (1 + width * bpp)
+    if expected > _PNG_PIXEL_CAP:
+        raise ValueError(f"PNG pixel content exceeds decode cap: {path}")
+    blob = b"".join(parts)
+    if len(blob) > _PNG_BLOB_CAP:
+        raise ValueError(f"PNG stream exceeds decode cap: {path}")
+    try:
+        pixels = zlib.decompress(blob)
+    except zlib.error as exc:
+        raise ValueError(f"IDAT stream undecodable: {exc}") from exc
+    if len(pixels) != expected:
+        raise ValueError(f"IDAT pixels {len(pixels)} != expected {expected}: {path}")
+    stride = 1 + width * bpp
+    for row in range(height):
+        filter_type = pixels[row * stride]
+        if filter_type > 4:
+            raise ValueError(f"Unknown PNG filter type {filter_type} "
+                             f"on row {row}: {path}")
+    return width, height
+
+
 def load(path: Path) -> dict:
     value = json.loads(path.read_text(encoding="utf-8-sig"))
     if not isinstance(value, dict):
@@ -329,6 +405,25 @@ def image_evidence(images: Path, source_sha: str, page_ids: list[str],
             continue
         if files.get(name) != sha:
             issues.append({"rule": "page_render_unbound", "page": page_id})
+        try:
+            decode_png_pixels(path)
+        except (ValueError, OSError) as error:
+            issues.append({"rule": "page_render_undecodable", "verdict": "blocked",
+                           "page": page_id, "detail": str(error)})
+            continue
+        inventory = manifest.get("visuals")
+        if inventory is not None:
+            entry = inventory.get(page_id) if isinstance(inventory, dict) else None
+            if not isinstance(entry, list):
+                issues.append({"rule": "unknown_visual_context", "verdict": "blocked",
+                               "page": page_id})
+                continue
+            if canvases is None:
+                issues.append({"rule": "render_canvas_missing", "verdict": "blocked",
+                               "page": page_id,
+                               "detail": "authoritative canvases required "
+                                         "for inventoried renders"})
+                continue
         if not shape_issues:
             for row in check_calibration(calibration, dimensions):
                 issues.append({**row, "page": page_id})
@@ -337,7 +432,8 @@ def image_evidence(images: Path, source_sha: str, page_ids: list[str],
                 calib = calibration if isinstance(calibration, dict) else {}
                 if (not isinstance(canvas, (list, tuple)) or len(canvas) != 2
                         or [calib.get("canvas_width"), calib.get("canvas_height")] != [canvas[0], canvas[1]]):
-                    issues.append({"rule": "render_canvas_mismatch", "page": page_id,
+                    issues.append({"rule": "render_canvas_mismatch", "verdict": "blocked",
+                                   "page": page_id,
                                    "source_canvas": list(canvas) if isinstance(canvas, (list, tuple)) and len(canvas) == 2 else None,
                                    "calibration_canvas": [calib.get("canvas_width"), calib.get("canvas_height")]})
         pages.append({"id": page_id, "image": name, "sha256": sha, "pixels": dimensions})
