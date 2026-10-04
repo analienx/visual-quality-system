@@ -98,7 +98,9 @@ def _canvas_transparency(properties: dict) -> int | None:
         try:
             raw = raw["expr"]["Literal"]["Value"]
         except (KeyError, IndexError, TypeError):
-            return 0
+            # S06: a present-but-unresolvable transparency expression
+            # (dynamic) is unknown, never invented opaque.
+            return None
     if isinstance(raw, bool):
         return None
     if isinstance(raw, (int, float)):
@@ -143,13 +145,18 @@ def _resolve_canvas(page: dict, theme: dict | None) -> tuple[str | None, str | N
     if isinstance(color, str) and color:
         if re.fullmatch(r"'#[0-9A-Fa-f]{6}'", color):
             return color.strip("'").upper(), None
-        return color.strip("'").upper(), None
+        # S06: a painted but non-literal canvas covers the theme, so
+        # it cannot resolve or fall through to the theme background.
+        return None, "canvas-dynamic-color"
+    if properties.get("color") is not None:
+        return None, "canvas-dynamic-color"
     if theme is not None:
-        fallback = str(theme.get("background", ""))
-        if re.fullmatch(r"#[0-9A-Fa-f]{6}", fallback):
+        fallback = theme.get("background", "")
+        if isinstance(fallback, str) and re.fullmatch(
+                r"#[0-9A-Fa-f]{6}", fallback):
             return fallback.upper(), None
         if fallback:
-            return fallback.upper(), None
+            return None, "canvas-theme:unparsed"
     return None, None
 
 
@@ -313,9 +320,10 @@ def _contrast(found: dict, theme: dict | None) -> dict | None:
         elif background is not None:
             reading["background"] = background
         else:
-            # No backdrop source anywhere: pairing against a default
-            # color would fabricate evidence, so the run is dropped.
-            continue
+            # S07: no backdrop source anywhere is retained as unknown
+            # so mandatory contrast blocks instead of passing on the
+            # remaining runs; pairing a default would fabricate.
+            reading["unresolved"] = "backdrop-unknown"
         readings.append(reading)
     if not readings:
         return None
