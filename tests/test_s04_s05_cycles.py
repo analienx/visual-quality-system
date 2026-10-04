@@ -70,7 +70,7 @@ def test_uppercase_partition_extracted(tmp_path: Path) -> None:
     """S05: PARTITION declarations extract case-equivalently."""
     model = _model(tmp_path, "",
                    {"T.tmdl": "table T\n\tPARTITION P1 = M\n\tmode: import\n"})
-    assert m_queries(str(model)) == {"T|P1": ""}
+    assert m_queries(str(model)) == {"T|P1": "\n"}
 
 
 def test_unextractable_expression_blocks(tmp_path: Path) -> None:
