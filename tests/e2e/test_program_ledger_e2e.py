@@ -26,6 +26,10 @@ from vqs.pbir import report_context, source_digest
 
 ROOT = Path(__file__).resolve().parents[2]
 ROADMAP_SCRIPT = ROOT / "scripts" / "roadmap_report.py"
+CALIBRATION = {"canvas_width": 500, "canvas_height": 500, "scale": 1,
+               "viewport": "500x500@1x", "method": "bridge-screenshot-all"}
+READINESS = {"populated": True, "method": "scoped-dax-probe",
+             "checked_at": "2026-10-03T00:00:00Z"}
 
 
 def _ledger() -> dict:
@@ -174,6 +178,8 @@ def test_e2e_request_review_success_and_stale_negative(tmp_path: Path, capsys) -
                 "source_sha256": sha,
                 "page_images": {"p1": "p1.png"},
                 "files": {"p1.png": png_sha},
+                "calibration": CALIBRATION,
+                "data_readiness": READINESS,
             }
         ),
         encoding="utf-8",
@@ -192,6 +198,8 @@ def test_e2e_request_review_success_and_stale_negative(tmp_path: Path, capsys) -
                 "source_sha256": "stale-source",
                 "page_images": {"p1": "p1.png"},
                 "files": {"p1.png": png_sha},
+                "calibration": CALIBRATION,
+                "data_readiness": READINESS,
             }
         ),
         encoding="utf-8",
@@ -286,6 +294,8 @@ def test_e2e_remanifested_stale_pixels_trust_manifest_author(
                 "source_sha256": new_sha,
                 "page_images": {"p1": "p1.png"},
                 "files": {"p1.png": png_sha},
+                "calibration": CALIBRATION,
+                "data_readiness": READINESS,
             }
         ),
         encoding="utf-8",

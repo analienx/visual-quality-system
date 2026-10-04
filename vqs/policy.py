@@ -5,6 +5,7 @@ The independently measured design rules are a separate, future stage.
 """
 
 POLICY_VERSION = "1.0.0"
+SURFACES = ("report", "document")
 COMMON = (
     "information_hierarchy", "purpose_and_story", "typography_hierarchy",
     "text_legibility", "color_contrast", "palette_consistency", "color_semantics",
@@ -71,3 +72,10 @@ CRITERIA = {
     "document_report_consistency": "Do embedded figures and inventories describe the same report revision and fields?",
 }
 assert set(REPORT + DOCUMENT) == set(CRITERIA), "Each observation needs a criterion"
+
+
+def required_criteria(kind: str) -> tuple[str, ...]:
+    """Return the complete criterion set for a surface; reject unknown kinds."""
+    if kind not in REQUIRED:
+        raise ValueError(f"Unsupported review surface: {kind}")
+    return REQUIRED[kind]
