@@ -27,6 +27,7 @@ from .policy import (
     STATUSES,
     required_criteria,
 )
+from .run_store import _resolve_artifact
 
 REVIEWER_ROLE = "independent_visual_reviewer"
 
@@ -175,8 +176,9 @@ class EvidenceStore:
 class SealedEvidenceStore(EvidenceStore):
     """Production store: content-addressed sealed files under ``root/objects``.
 
-    ``resolve`` reads ``objects/<sha256>``, refuses symlinks, recomputes the
-    digest over the raw bytes, and parses the envelope as a JSON object.
+    ``resolve`` reads ``objects/<sha256>``, refuses symlinks and escapes
+    through linked ancestors (S15), recomputes the digest over the raw
+    bytes, and parses the envelope as a JSON object.
     Missing digests raise :class:`LookupError`; tampered or malformed
     envelopes raise :class:`ValueError`.
     """
@@ -194,9 +196,9 @@ class SealedEvidenceStore(EvidenceStore):
         )
         if not digest_ok:
             raise ValueError(f"Evidence digest is not hex64: {sha256!r}")
+        if _resolve_artifact(self.root, "objects/" + sha256) is None:
+            raise ValueError(f"Evidence path escapes the trusted root: {sha256}")
         path = self.root / "objects" / sha256
-        if path.is_symlink():
-            raise ValueError(f"Evidence member is a symlink: {sha256}")
         try:
             raw = path.read_bytes()
         except OSError as exc:

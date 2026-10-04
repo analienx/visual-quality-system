@@ -15,7 +15,8 @@ callables, the explicit unit-test double, and store subclasses are rejected
 as untrusted. Producer authority (F27): every envelope carries a producer pointer and
 the trusted root holds the sealed producer runs; acceptance requires a
 valid producer seal binding the envelope bytes plus matching
-gate/result/control. The remaining boundary is the root itself.
+gate/result/control. S15 confines run and object lookups to the
+canonical trusted root: linked escapes block before any seal is read.
 """
 from __future__ import annotations
 
@@ -24,7 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from vqs.evidence import SealedEvidenceStore
-from vqs.run_store import verify_seal
+from vqs.run_store import _resolve_artifact, verify_seal
 
 REQUIRED_NEGATIVES: frozenset[str] = frozenset({
     "stale_image", "wrong_pid", "blank_first_open", "partial_canvas",
@@ -288,6 +289,10 @@ def run_acceptance(record: dict[str, Any],
                              "gate": gate_id})
             continue
         run_dir = evidence_store.root / run_id
+        if _resolve_artifact(evidence_store.root, run_id) is None:
+            findings.append({"rule": "producer_run_escaped", "status": "blocked",
+                             "gate": gate_id})
+            continue
         if verify_seal(run_dir):
             findings.append({"rule": "producer_seal_invalid", "status": "blocked",
                              "gate": gate_id})
