@@ -331,17 +331,37 @@ class StdioModelingClient:
         rows = payload.get("rows", payload.get("data", []))
         return rows if isinstance(rows, list) else []
 
+    def _check_scope(self, scope: ModelingScope) -> None:
+        """Reject scopes the query path cannot honestly bind (F07)."""
+        if not isinstance(scope, ModelingScope):
+            raise ModelingError(
+                f"scope must be a ModelingScope, not {type(scope).__name__}")
+        roles = scope.roles
+        if (isinstance(roles, str) or not isinstance(roles, (list, tuple))
+                or any(not isinstance(role, str) or not role for role in roles)):
+            raise ModelingError(f"roles must be a list of nonempty strings: {roles!r}")
+        if scope.filters is not None and scope.filters != {}:
+            raise ModelingError(
+                f"filters are not supported by the modeling query path: {scope.filters!r}")
+        if scope.period is not None:
+            raise ModelingError(
+                f"period is not supported by the modeling query path: {scope.period!r}")
+        if scope.model is not None and scope.model != self._model:
+            raise ModelingError(
+                f"requested model {scope.model!r} differs from connected model {self._model!r}")
+
     def readiness(self, scope: ModelingScope) -> dict[str, Any]:
         """Prove populated + repeatable: stats plus a twice-run probe query.
 
         When GetStats names tables, the probe COUNTROWS the first table
         twice: equal counts above zero prove data, not just a live engine.
-        Otherwise the constant probe only proves the engine answers
-        repeatably (probe_table None says so honestly); rowcount is probe
-        rows, data_rows the counted data rows or None.
+        Count-only stats can never prove populated data, so they return
+        unpopulated without probing (F06); rowcount is probe rows,
+        data_rows the counted data rows or None.
         """
         if self._model is None:
             self.connect()
+        self._check_scope(scope)
         stats = self._stats()
         count, names, shape = _table_inventory(stats)
         base: dict[str, Any] = {"method": "modeling-mcp:repeat-query",
@@ -353,29 +373,24 @@ class StdioModelingClient:
                     "detail": "model reports no tables"}
         probe_table = names[0] if names else None
         if probe_table is None:
-            probe = 'EVALUATE ROW("ok", 1)'
-        else:
-            quoted = probe_table.replace("'", "''")
-            probe = f"EVALUATE ROW(\"n\", COUNTROWS('{quoted}'))"
+            return {"populated": False, **base,
+                    "detail": "count-only stats cannot prove populated data; named tables required",
+                    "data_rows": None}
+        quoted = probe_table.replace("'", "''")
+        probe = f"EVALUATE ROW(\"n\", COUNTROWS('{quoted}'))"
         first = self._rows_of(self._execute(probe, scope, 10))
         second = self._rows_of(self._execute(probe, scope, 10))
         if first != second:
             return {"populated": False, **base,
                     "detail": "probe answers unstable across repeats"}
-        data_rows: int | None = None
-        if probe_table is None:
-            if not first:
-                return {"populated": False, **base,
-                        "detail": "probe query returned no rows"}
-        else:
-            data_rows = _count_of(first)
-            if data_rows is None:
-                return {"populated": False, **base,
-                        "detail": f"COUNTROWS probe on '{probe_table}' "
-                                  "returned no number"}
-            if data_rows <= 0:
-                return {"populated": False, **base,
-                        "detail": f"table '{probe_table}' has no rows"}
+        data_rows = _count_of(first)
+        if data_rows is None:
+            return {"populated": False, **base,
+                    "detail": f"COUNTROWS probe on '{probe_table}' "
+                              "returned no number"}
+        if data_rows <= 0:
+            return {"populated": False, **base,
+                    "detail": f"table '{probe_table}' has no rows"}
         row_text = json.dumps(first, sort_keys=True, ensure_ascii=False,
                               default=str)
         echo = scope.as_dict()
@@ -392,6 +407,7 @@ class StdioModelingClient:
             raise ModelingError("DAX text must be a nonempty string")
         if self._model is None:
             self.connect()
+        self._check_scope(scope)
         payload = self._execute(dax, scope, max_rows)
         rows = self._rows_of(payload)
         context = scope.as_dict()

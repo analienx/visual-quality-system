@@ -9,8 +9,10 @@ M2 fix shape: apply_plan additionally exposes the capture-domain
 source_sha256 of the candidate, keeping before/after as the byte-exact
 rollback digests; verify routes through the production verifier.
 """
+import hashlib
 import json
 import shutil
+import struct
 from pathlib import Path
 
 from vqs.pbir import source_digest
@@ -51,14 +53,24 @@ def test_f04_rollback_digests_stay_byte_exact(tmp_path) -> None:
 
 
 def test_f04_apply_to_verify_composes(tmp_path) -> None:
-    """RED: producer-to-consumer wiring apply -> manifest -> verify."""
+    """Producer-to-consumer wiring apply -> manifest -> verify."""
     applied = _applied(tmp_path)
     candidate = Path(applied["candidate"])
-    manifest = {"source_sha256": source_digest(candidate),
-                "page_images": {"P1": "P1.png"}}
-    # M2: the verify call gains the materialized renders dir; the
-    # identity asserted here must be the one that verifies.
-    verdict = verify_renders(["P1"], [manifest],
-                             applied["source_sha256"])
-    assert verdict["verdict"] in ("pass", "blocked")
-    assert manifest["source_sha256"] == applied["source_sha256"]
+    digest = source_digest(candidate)
+    assert applied["source_sha256"] == digest
+    renders = tmp_path / "renders"
+    renders.mkdir()
+    png = (b"\x89PNG\r\n\x1a\n"
+           + struct.pack(">I4sII", 13, b"IHDR", 500, 500) + b"\x00" * 5)
+    (renders / "P1.png").write_bytes(png)
+    sha = hashlib.sha256(png).hexdigest()
+    (renders / "capture-manifest.json").write_text(json.dumps(
+        {"source_sha256": digest, "page_images": {"P1": "P1.png"},
+         "files": {"P1.png": sha},
+         "calibration": {"canvas_width": 500, "canvas_height": 500, "scale": 1,
+                         "viewport": "500x500@1x", "method": "bridge"},
+         "data_readiness": {"populated": True,
+                           "method": "modeling-mcp:repeat-query"}}),
+        encoding="utf-8")
+    verdict = verify_renders(["P1"], [renders], applied["source_sha256"])
+    assert verdict["verdict"] == "pass"

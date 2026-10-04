@@ -4,7 +4,9 @@ Undeclared changes, hidden categories, broken bookmarks, and cropped
 neighbors fail; rerender requirements name affected pages plus
 neighbors; render verification blocks without fresh manifests.
 """
+import hashlib
 import json
+import struct
 from pathlib import Path
 
 from vqs.repair.execute import apply_plan
@@ -265,18 +267,42 @@ def test_rerender_requirements_cover_neighbors_and_shared(
     assert phantom["pages"] == ["P9"]
 
 
-def test_verify_renders_blocks_without_fresh_manifests() -> None:
-    fresh = {"source_sha256": "cand-digest",
-             "page_images": {"P1": "p1.png", "P2": "p2.png"}}
+def _png(width: int, height: int) -> bytes:
+    return (b"\x89PNG\r\n\x1a\n"
+            + struct.pack(">I4sII", 13, b"IHDR", width, height)
+            + b"\x00" * 5)
+
+
+def _renders(root: Path, name: str, digest: str, images: dict) -> Path:
+    renders = root / name
+    renders.mkdir(parents=True)
+    hashes = {}
+    for filename in images.values():
+        (renders / filename).write_bytes(_png(500, 500))
+        hashes[filename] = hashlib.sha256(
+            (renders / filename).read_bytes()).hexdigest()
+    (renders / "capture-manifest.json").write_text(json.dumps(
+        {"source_sha256": digest, "page_images": images, "files": hashes,
+         "calibration": {"canvas_width": 500, "canvas_height": 500, "scale": 1,
+                         "viewport": "500x500@1x", "method": "bridge"},
+         "data_readiness": {"populated": True,
+                           "method": "modeling-mcp:repeat-query"}}),
+        encoding="utf-8")
+    return renders
+
+
+def test_verify_renders_blocks_without_fresh_manifests(
+        tmp_path: Path) -> None:
+    fresh = _renders(tmp_path, "fresh", "cand-digest",
+                     {"P1": "p1.png", "P2": "p2.png"})
     assert verify_renders(["P1", "P2"], [fresh],
                           "cand-digest")["verdict"] == "pass"
-    stale = {"source_sha256": "orig-digest",
-             "page_images": {"P1": "p1.png", "P2": "p2.png"}}
+    stale = _renders(tmp_path, "stale", "orig-digest",
+                     {"P1": "p1.png", "P2": "p2.png"})
     verdict = verify_renders(["P1", "P2"], [stale], "cand-digest")
     assert verdict["verdict"] == "blocked"
     assert verdict["missing_pages"] == ["P1", "P2"]
-    partial = {"source_sha256": "cand-digest",
-               "page_images": {"P1": "p1.png"}}
+    partial = _renders(tmp_path, "partial", "cand-digest", {"P1": "p1.png"})
     verdict = verify_renders(["P1", "P2"], [partial, "junk", {}],
                              "cand-digest")
     assert verdict["verdict"] == "blocked"
@@ -284,7 +310,7 @@ def test_verify_renders_blocks_without_fresh_manifests() -> None:
     assert verify_renders([], [fresh], "cand-digest") == {
         "verdict": "blocked",
         "reason": "no pages required; refusing vacuous pass"}
-    empty = {"source_sha256": "", "page_images": {"P1": "p1.png"}}
+    empty = _renders(tmp_path, "empty", "", {"P1": "p1.png"})
     assert verify_renders(["P1"], [empty], "") == {
         "verdict": "blocked", "reason": "candidate digest required"}
 

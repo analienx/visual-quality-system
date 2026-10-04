@@ -235,9 +235,12 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
         for page in edit["affected"]["pages"]:
             if page not in pages:
                 pages.append(page)
+    from vqs.pbir import source_digest
+
     try:
         before_digest = tree_digest(original)
         after_digest = tree_digest(candidate)
+        source_sha = source_digest(candidate)
         if before_digest == after_digest:
             raise RepairError("candidate digest unchanged; no edit landed")
     except RepairError as exc:
@@ -253,6 +256,7 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
              for rel, before in snapshot.items()}
     return {"verdict": "applied", "candidate": str(candidate),
             "before": before_digest, "after": after_digest,
+            "source_sha256": source_sha,
             "edits": edits, "patch": patch, "affected_pages": pages}
 
 

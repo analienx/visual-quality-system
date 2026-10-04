@@ -113,9 +113,9 @@ def test_connect_refuses_missing_identity_and_failed_connect(
 
 
 def test_readiness_proves_populated_and_repeatable(tmp_path: Path) -> None:
-    rows = [{"ok": 1}]
+    rows = [{"n": 7}]
     client = _client(tmp_path, _connected({
-        "model_operations/GetStats": {"tables": 3},
+        "model_operations/GetStats": {"tables": ["Sales"]},
         "dax_query_operations/Execute": {"rows": rows}}))
     try:
         scope = ModelingScope(source_sha256="abc")
@@ -123,6 +123,8 @@ def test_readiness_proves_populated_and_repeatable(tmp_path: Path) -> None:
     finally:
         client.close()
     assert ready["populated"] is True
+    assert ready["probe_table"] == "Sales"
+    assert ready["data_rows"] == 7
     assert ready["rowcount"] == 1
     assert ready["query_hash"] == hashlib.sha256(
         json.dumps(rows, sort_keys=True, ensure_ascii=False,
@@ -145,9 +147,9 @@ def test_readiness_blocks_on_empty_or_unstable(tmp_path: Path) -> None:
     assert ready["populated"] is False
     assert "no tables" in ready["detail"]
     flapping = _connected({
-        "model_operations/GetStats": {"tables": 2},
+        "model_operations/GetStats": {"tables": ["T"]},
         "dax_query_operations/Execute": {
-            "__sequence__": [{"rows": [{"ok": 1}]}, {"rows": [{"ok": 2}]}]}})
+            "__sequence__": [{"rows": [{"n": 1}]}, {"rows": [{"n": 2}]}]}})
     client = _client(tmp_path, flapping)
     try:
         ready = client.readiness(ModelingScope())
@@ -241,16 +243,20 @@ def test_query_scoped_echoes_bound_context(tmp_path: Path) -> None:
     client = _client(tmp_path, _connected({
         "dax_query_operations/Execute": {"rows": rows}}))
     try:
-        scope = ModelingScope(roles=("Sales",), period="2024",
-                              filters={"region": "EU"})
+        scope = ModelingScope(roles=("Sales",))
         answer = client.query_scoped("EVALUATE Cities", scope, max_rows=50)
+        with pytest.raises(ModelingError, match="filter|supported"):
+            client.query_scoped(
+                "EVALUATE Cities", ModelingScope(filters={"region": "EU"}))
+        with pytest.raises(ModelingError, match="period|supported"):
+            client.query_scoped(
+                "EVALUATE Cities", ModelingScope(period="2024"))
     finally:
         client.close()
     assert answer["rows"] == rows
     assert answer["rowcount"] == 2
     assert answer["context"]["model"] == "localhost:52383/AdventureWorks"
     assert answer["context"]["roles"] == ["Sales"]
-    assert answer["context"]["period"] == "2024"
     assert answer["context"]["query_sha256"] == hashlib.sha256(
         b"EVALUATE Cities").hexdigest()
     logged = [entry for entry in _logged(client)
@@ -301,8 +307,8 @@ def test_missing_launcher_blocks_without_spawn(tmp_path: Path) -> None:
 
 def test_close_is_idempotent_and_client_recovers(tmp_path: Path) -> None:
     client = _client(tmp_path, _connected({
-        "model_operations/GetStats": {"tables": 1},
-        "dax_query_operations/Execute": {"rows": [{"ok": 1}]}}))
+        "model_operations/GetStats": {"tables": ["T"]},
+        "dax_query_operations/Execute": {"rows": [{"n": 1}]}}))
     try:
         assert client.readiness(ModelingScope())["populated"] is True
         client.close()

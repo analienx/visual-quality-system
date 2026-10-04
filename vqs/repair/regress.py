@@ -361,14 +361,16 @@ def rerender_requirements(operations: list[dict],
             "reasons": reasons}
 
 
-def verify_renders(required_pages: list[str], manifests: list[dict],
+def verify_renders(required_pages: list[str], renders_dirs: list[str | Path],
                    candidate_digest: str) -> dict:
-    """Pass only when fresh manifests cover every required page.
+    """Pass only when materialized renders prove every required page.
 
-    A manifest counts for a page only when its source_sha256 equals the
-    candidate digest and its page_images names the page. Malformed
-    manifests are not evidence; missing pages block with exact names.
-    Empty requirements or a missing digest block instead of passing
+    Each renders dir is checked through evidence.image_evidence
+    semantics (manifest, file hashes, PNG bytes, calibration, data
+    readiness, source binding). A page counts as covered only when a
+    renders dir yields complete valid evidence for it. Malformed dirs
+    are not evidence; missing pages block with exact names. Empty
+    requirements or a missing digest block instead of passing
     vacuously. Malformed collections block with a reason; they never
     raise into the caller.
     """
@@ -381,19 +383,23 @@ def verify_renders(required_pages: list[str], manifests: list[dict],
     if not candidate_digest:
         return {"verdict": "blocked",
                 "reason": "candidate digest required"}
-    if not isinstance(manifests, list):
+    if not isinstance(renders_dirs, list):
         return {"verdict": "blocked",
                 "reason": "render manifests required"}
+    from vqs.evidence import image_evidence
+    wanted = [page for page in required_pages if isinstance(page, str)]
     covered: set[str] = set()
-    for manifest in manifests:
-        if not isinstance(manifest, dict):
+    for renders in renders_dirs:
+        if not isinstance(renders, (str, Path)):
             continue
-        if manifest.get("source_sha256") != candidate_digest:
+        try:
+            pages, issues = image_evidence(Path(renders), candidate_digest, wanted)
+        except (OSError, ValueError, TypeError):
             continue
-        images = manifest.get("page_images")
-        if not isinstance(images, dict):
+        if any("page" not in row for row in issues):
             continue
-        covered |= {page for page in required_pages if page in images}
+        bad = {row["page"] for row in issues}
+        covered |= {page["id"] for page in pages if page["id"] not in bad}
     missing = [page for page in required_pages if page not in covered]
     if missing:
         return {"verdict": "blocked", "reason": "fresh complete renders "

@@ -11,6 +11,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from vqs.powerbi.modeling import scope_from_dict
 from vqs.stories.oracles import answer_rows_preserved, oracle_matches
 
 
@@ -63,7 +64,7 @@ def collect_answers(query: Any, questions: Sequence[dict]) -> dict:
         qid = str(question.get("id", f"question-{position}"))
         try:
             result = query.query_scoped(str(question.get("dax", "")),
-                                        question.get("scope", {}))
+                                        scope_from_dict(question.get("scope", {})))
         except Exception as exc:  # noqa: BLE001 - any port failure blocks
             answers[qid] = {"verdict": "blocked",
                             "reason": f"scoped query failed: {exc}"}

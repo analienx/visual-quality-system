@@ -1,61 +1,86 @@
-"""F03 RED: render verification must inspect materialized evidence.
+"""F03: render verification must inspect materialized evidence.
 
-verify_renders currently counts keys in page_images, so maps-only
-manifests pass without PNG bytes, hashes, calibration, or readiness.
-Every test below must block; each currently passes (RED).
-
-M2 note: the fix routes verification through the production
-image/capture verifier (evidence.image_evidence semantics) against
-materialized renders dirs. That reshapes this entry point; when it
-lands, rewrite _verify to the new signature and keep every adverse
-control below green through the new path.
+verify_renders routes each renders dir through evidence.image_evidence
+semantics (manifest, file hashes, PNG bytes, calibration, data
+readiness, source binding). A page counts as covered only with complete
+valid evidence; every adverse control below blocks.
 """
+import hashlib
+import json
+import struct
+from pathlib import Path
+
 from vqs.repair.regress import verify_renders
 
+CALIBRATION = {"canvas_width": 500, "canvas_height": 500, "scale": 1,
+               "viewport": "500x500@1x", "method": "bridge-screenshot-all"}
+READINESS = {"populated": True, "method": "modeling-mcp:repeat-query"}
 
-def _verify(pages, manifests, digest):
-    """Current entry-point shape; rewritten with the M2 fix."""
-    return verify_renders(pages, manifests, digest)
+
+def _png(width: int, height: int) -> bytes:
+    return (b"\x89PNG\r\n\x1a\n"
+            + struct.pack(">I4sII", 13, b"IHDR", width, height)
+            + b"\x00" * 5)
 
 
-def test_f03_null_filename_blocks() -> None:
-    manifest = {"source_sha256": "d", "page_images": {"P1": None}}
-    verdict = _verify(["P1"], [manifest], "d")
+def _renders(root: Path, name: str, digest: str, images: dict,
+             *, files: bool = True, png: bool = True,
+             calibration: bool = True, readiness: bool = True) -> Path:
+    renders = root / name
+    renders.mkdir(parents=True)
+    hashes = {}
+    for page_id, filename in images.items():
+        if not isinstance(filename, str):
+            continue
+        if png:
+            (renders / filename).write_bytes(_png(500, 500))
+            hashes[filename] = hashlib.sha256(
+                (renders / filename).read_bytes()).hexdigest()
+    manifest: dict = {"source_sha256": digest, "page_images": images}
+    if files:
+        manifest["files"] = hashes
+    if calibration:
+        manifest["calibration"] = dict(CALIBRATION)
+    if readiness:
+        manifest["data_readiness"] = dict(READINESS)
+    (renders / "capture-manifest.json").write_text(
+        json.dumps(manifest), encoding="utf-8")
+    return renders
+
+
+def test_f03_null_filename_blocks(tmp_path: Path) -> None:
+    renders = _renders(tmp_path, "r1", "d", {"P1": None})
+    assert verify_renders(["P1"], [renders], "d")["verdict"] == "blocked"
+
+
+def test_f03_maps_only_manifest_blocks(tmp_path: Path) -> None:
+    renders = _renders(tmp_path, "r1", "cand-digest",
+                       {"P1": "p1.png", "P2": "p2.png"},
+                       files=False, png=False,
+                       calibration=False, readiness=False)
+    verdict = verify_renders(["P1", "P2"], [renders], "cand-digest")
     assert verdict["verdict"] == "blocked"
 
 
-def test_f03_maps_only_manifest_blocks() -> None:
-    manifest = {"source_sha256": "cand-digest",
-                "page_images": {"P1": "p1.png", "P2": "p2.png"}}
-    verdict = _verify(["P1", "P2"], [manifest], "cand-digest")
-    assert verdict["verdict"] == "blocked"
+def test_f03_missing_files_map_blocks(tmp_path: Path) -> None:
+    renders = _renders(tmp_path, "r1", "d", {"P1": "P1.png"}, files=False)
+    assert verify_renders(["P1"], [renders], "d")["verdict"] == "blocked"
 
 
-def test_f03_missing_files_map_blocks() -> None:
-    manifest = {"source_sha256": "d", "page_images": {"P1": "P1.png"},
-                "calibration": {"canvas_width": 1280, "canvas_height": 720,
-                                "scale": 1, "viewport": "native",
-                                "method": "bridge"},
-                "data_readiness": {"populated": True,
-                                   "method": "modeling-mcp:repeat-query"}}
-    verdict = _verify(["P1"], [manifest], "d")
-    assert verdict["verdict"] == "blocked"
+def test_f03_unknown_calibration_blocks(tmp_path: Path) -> None:
+    renders = _renders(tmp_path, "r1", "d", {"P1": "P1.png"},
+                       calibration=False)
+    assert verify_renders(["P1"], [renders], "d")["verdict"] == "blocked"
 
 
-def test_f03_unknown_calibration_blocks() -> None:
-    manifest = {"source_sha256": "d", "page_images": {"P1": "P1.png"},
-                "files": {"P1.png": "abc123"},
-                "data_readiness": {"populated": True,
-                                   "method": "modeling-mcp:repeat-query"}}
-    verdict = _verify(["P1"], [manifest], "d")
-    assert verdict["verdict"] == "blocked"
+def test_f03_unknown_readiness_blocks(tmp_path: Path) -> None:
+    renders = _renders(tmp_path, "r1", "d", {"P1": "P1.png"},
+                       readiness=False)
+    assert verify_renders(["P1"], [renders], "d")["verdict"] == "blocked"
 
 
-def test_f03_unknown_readiness_blocks() -> None:
-    manifest = {"source_sha256": "d", "page_images": {"P1": "P1.png"},
-                "files": {"P1.png": "abc123"},
-                "calibration": {"canvas_width": 1280, "canvas_height": 720,
-                                "scale": 1, "viewport": "native",
-                                "method": "bridge"}}
-    verdict = _verify(["P1"], [manifest], "d")
-    assert verdict["verdict"] == "blocked"
+def test_f03_complete_renders_pass(tmp_path: Path) -> None:
+    renders = _renders(tmp_path, "r1", "d",
+                       {"P1": "P1.png", "P2": "P2.png"})
+    verdict = verify_renders(["P1", "P2"], [renders], "d")
+    assert verdict == {"verdict": "pass", "pages": ["P1", "P2"]}
