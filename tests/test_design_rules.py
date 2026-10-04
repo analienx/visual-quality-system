@@ -25,6 +25,20 @@ def test_contrast_is_measured_not_inferred() -> None:
     assert text_contrast("#777777", "#FFFFFF", large_text=True)["status"] == "pass"
 
 
+def test_f14_unresolvable_pairs_are_explicit() -> None:
+    finding = text_contrast(readings=[
+        {"foreground": "#000000", "background": "#FFFFFF",
+         "page": "P1", "role": "title", "count": 1},
+        {"foreground": "RED", "background": "#FFFFFF",
+         "page": "P1", "role": "title", "count": 1}])
+    assert finding["status"] == "unknown"
+    unresolved = finding["evidence"]["unresolved"]
+    assert len(unresolved) == 1
+    assert unresolved[0]["page"] == "P1"
+    assert unresolved[0]["role"] == "title"
+    assert "RED" in unresolved[0].get("foreground", "")
+
+
 def test_label_density_uses_actual_dimensions() -> None:
     assert category_axis_space([70, 70, 70], 300)["status"] == "pass"
     assert category_axis_space([70, 70, 70], 150)["status"] == "fail"

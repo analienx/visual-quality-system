@@ -155,10 +155,14 @@ def test_non_hex_text_color_skipped(tmp_path: Path) -> None:
     runs = doc["visual"]["objects"]["general"][0]["properties"]["paragraphs"]
     runs[1]["textRuns"][0]["textStyle"]["color"] = "RED"
     path.write_text(json.dumps(doc), encoding="utf-8")
-    assert measure_report(str(clone))["rules"][
-        "typography.text_contrast"] == {"readings": [
-            {"foreground": "#101828", "background": "#FFFFFF",
-             "page": "P1", "role": "title", "count": 1}]}
+    readings = measure_report(str(clone))["rules"][
+        "typography.text_contrast"]["readings"]
+    assert {"foreground": "#101828", "background": "#FFFFFF",
+            "page": "P1", "role": "title", "count": 1} in readings
+    flagged = [reading for reading in readings
+               if reading.get("foreground") == "RED"]
+    assert len(flagged) == 1
+    assert flagged[0]["page"] == "P1"
 
 
 def test_invalid_theme_background_omits_contrast(tmp_path: Path) -> None:
@@ -174,4 +178,9 @@ def test_invalid_theme_background_omits_contrast(tmp_path: Path) -> None:
     theme = json.loads(theme_path.read_text(encoding="utf-8"))
     theme["background"] = "WHITE"
     theme_path.write_text(json.dumps(theme), encoding="utf-8")
-    assert "typography.text_contrast" not in measure_report(str(clone))["rules"]
+    readings = measure_report(str(clone))["rules"][
+        "typography.text_contrast"]["readings"]
+    flagged = [reading for reading in readings
+               if reading.get("background") == "WHITE"]
+    assert len(flagged) >= 1
+    assert all(item["page"] == "P1" for item in flagged)

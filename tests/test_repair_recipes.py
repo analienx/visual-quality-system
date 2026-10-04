@@ -92,8 +92,9 @@ def test_type_preservation_and_schemas() -> None:
     with pytest.raises(RecipeError, match="non-finite"):
         bind_operation(_op("axis.precision", numeric, float("nan")),
                        _visual())
-    bound = bind_operation(_op("axis.precision", numeric, 2), _visual())
-    assert (bound["old"], bound["new"]) == (0, 2)
+    with pytest.raises(RecipeError, match="rotation|property|axis"):
+        bind_operation(_op("axis.precision", numeric, 2), _visual())
+    # F02: precision on an unrelated rotation property is rejected above.
     with pytest.raises(RecipeError, match="would replace"):
         bind_operation(_op("axis.precision", LEAF, 2), _visual())
 
