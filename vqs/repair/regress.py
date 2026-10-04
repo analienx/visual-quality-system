@@ -15,7 +15,66 @@ import math
 from pathlib import Path
 from typing import Any
 
-from .recipes import LEAF_OPS, RecipeError, affected_pages, validate_leaf_path
+from .recipes import (GEOMETRY_OPS, LEAF_OPS, RecipeError, affected_pages,
+                      validate_leaf_path)
+
+_MISSING = object()
+
+
+def _node_at(doc: Any, path: list) -> Any:
+    """Walk a mixed dict/list document; _MISSING when absent."""
+    node = doc
+    for step in path:
+        if isinstance(node, dict) and step in node:
+            node = node[step]
+        elif (isinstance(node, list) and isinstance(step, int)
+                and 0 <= step < len(node)):
+            node = node[step]
+        else:
+            return _MISSING
+    return node
+
+
+def _declared_values(original: Path, candidate: Path,
+                     edits: list[dict]) -> list[dict]:
+    """Re-derive declared content: original must still hold each bound
+    old value and the candidate each bound new value (R19/D12).
+
+    Raw tree comparison cannot see identical drift in both trees or a
+    re-set declared value; recorded actuals can.
+    """
+    problems: list[dict] = []
+    for index, edit in enumerate(edits):
+        if not isinstance(edit, dict):
+            return [{"rule": "edits_unreadable",
+                     "detail": f"edit {index} is not an object"}]
+        if edit.get("op") not in LEAF_OPS | GEOMETRY_OPS | {"sort.set"}:
+            continue
+        path = edit.get("path")
+        target = edit.get("file")
+        if (not isinstance(path, list) or not isinstance(target, str)
+                or not target or "old" not in edit or "new" not in edit):
+            return [{"rule": "edits_unreadable",
+                     "detail": f"edit {index} has no verifiable declaration"}]
+        for side, root, key in (("original", original, "old"),
+                                ("candidate", candidate, "new")):
+            try:
+                doc = _load(root / target)
+            except _Unreadable:
+                # Missing/corrupt sides are already reported by the
+                # inventory and diff loops above; stay silent here.
+                break
+            actual = _node_at(doc, path)
+            if actual != edit[key]:
+                problems.append({"rule": "declared_value_mismatch",
+                                 "file": target, "path": list(path),
+                                 "side": side,
+                                 "expected": edit[key],
+                                 "actual": None if actual is _MISSING
+                                 else actual})
+            if len(problems) >= 20:
+                return problems
+    return problems
 
 
 def _diff_paths(before: Any, after: Any,
@@ -163,15 +222,34 @@ def _confinement(original: Path, candidate: Path,
                              "path": list(diff)})
             if len(problems) >= 20:
                 return problems
-    return problems
+    problems += _declared_values(original, candidate, edits)
+    return problems[:20]
 
 
-def _page_order(pages_root: Path) -> list[str]:
-    # Real PBIR keeps the page index beside the pages/ directory, not inside it.
-    order = _load(pages_root.parent / "pages.json")["pageOrder"]
-    if not isinstance(order, list) or not all(
-            isinstance(entry, str) for entry in order):
-        raise _Unreadable("pageOrder is not a string list")
+def _read_page_docs(pages_root: Path) -> dict[str, dict]:
+    """Map page id to its parsed page.json (or {} when unreadable)."""
+    docs: dict[str, dict] = {}
+    if not pages_root.is_dir():
+        return docs
+    for page_dir in sorted(p for p in pages_root.iterdir()
+                           if p.is_dir() and not p.is_symlink()):
+        page_path = page_dir / "page.json"
+        try:
+            data = json.loads(page_path.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict):
+            docs[page_dir.name] = data
+    return docs
+
+
+def _page_order(report: Path) -> list[str]:
+    """Canonical page order via the shared PBIR index loader."""
+    from ..pbir import load_page_index
+
+    pages_root = report / "definition" / "pages"
+    order, _origin, _issues = load_page_index(
+        report, _read_page_docs(pages_root))
     return order
 
 
@@ -195,11 +273,11 @@ def _identities(original: Path, candidate: Path,
     """
     problems = []
     try:
-        before = _page_order(original / "definition" / "pages")
-        after = _page_order(candidate / "definition" / "pages")
-    except (_Unreadable, KeyError, TypeError) as exc:
+        before = _page_order(original)
+        after = _page_order(candidate)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
         return [{"rule": "report_unreadable",
-                 "detail": f"pages.json: {exc}"}]
+                 "detail": f"page index: {exc}"}]
     if before != after:
         return [{"rule": "page_order_changed",
                  "expected": before, "actual": after}]
@@ -234,8 +312,8 @@ def _geometry(candidate: Path) -> list[dict]:
     problems = []
     pages_root = candidate / "definition" / "pages"
     try:
-        order = _load(pages_root.parent / "pages.json")["pageOrder"]
-    except (_Unreadable, KeyError, TypeError):
+        order = _page_order(candidate)
+    except (OSError, ValueError, KeyError, TypeError):
         return problems  # _identities reports the unreadable shape
     for page_id in order if isinstance(order, list) else []:
         if not isinstance(page_id, str):

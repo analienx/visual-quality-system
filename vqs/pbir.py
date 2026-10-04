@@ -27,7 +27,8 @@ from typing import Any
 SOURCE_EXTENSIONS = frozenset({".json", ".tmdl", ".pbism", ".pbir"})
 IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".gif", ".svg", ".bmp",
                               ".webp"})
-KNOWN_SCHEMA_MAJORS = {"report": 3, "page": 2, "visualcontainer": 2}
+KNOWN_SCHEMA_MAJORS = {"report": 1, "page": 2, "visualcontainer": 2,
+                         "pagesmetadata": 1}
 
 
 def _schema_major(schema: object) -> tuple[str, int | None]:
@@ -55,6 +56,78 @@ def _read_json_file(path: Path) -> tuple[dict | None, str | None]:
     return data, None
 
 
+def _read_index_file(path: Path) -> tuple[list[str] | None, list[dict[str, Any]]]:
+    """Read one page-order index file; (ids, issues), ids None when absent.
+
+    A present file must be a JSON object whose ``pageOrder`` is a list
+    of strings; anything else is ``pages_index_invalid`` (blocking).
+    """
+    rel = path.as_posix()
+    if not path.is_file():
+        return None, []
+    data, error = _read_json_file(path)
+    if error is not None:
+        return None, [{"rule": "pages_index_invalid", "path": rel,
+                       "detail": error}]
+    order = data.get("pageOrder")
+    if not isinstance(order, list) or not all(isinstance(p, str) for p in order):
+        return None, [{"rule": "pages_index_invalid", "path": rel,
+                       "detail": "pageOrder must be a list of strings"}]
+    entity, major = _schema_major(data.get("$schema"))
+    if entity and entity in KNOWN_SCHEMA_MAJORS and major != KNOWN_SCHEMA_MAJORS[entity]:
+        return None, [{"rule": "unsupported_schema", "path": rel,
+                       "schema": data.get("$schema")}]
+    return list(order), []
+
+
+def _display_name(pages: dict[str, dict[str, Any]], page_id: str) -> str:
+    name = pages.get(page_id, {}).get("displayName")
+    return name if isinstance(name, str) else page_id
+
+
+def load_page_index(report_dir: str | Path, pages: dict[str, dict[str, Any]]
+                    ) -> tuple[list[str], str, list[dict[str, Any]]]:
+    """Order page ids from the canonical index, legacy index, or names.
+
+    Returns ``(order, origin, issues)`` with origin one of
+    ``canonical``/``legacy``/``unindexed``. The canonical
+    ``definition/pages/pages.json`` wins when present; the legacy
+    ``definition/pages.json`` is honored with a non-blocking
+    ``legacy_pages_index`` notice; with neither, physical pages order
+    by display name (no issue: the index is optional per the PBIR
+    spec). Unlisted physical pages append in display-name order, so a
+    defective unlisted page can never be silently omitted (R02);
+    listed-but-missing pages are ``page_order_dangling`` (blocking) —
+    the inventory cannot vouch for a page with no directory;
+    duplicated order ids are ``page_order_duplicate`` (blocking).
+    """
+    root = Path(report_dir)
+    canonical, issues = _read_index_file(root / "definition" / "pages" / "pages.json")
+    if canonical is not None or issues:
+        listed, origin = canonical or [], "canonical"
+    else:
+        legacy, legacy_issues = _read_index_file(root / "definition" / "pages.json")
+        issues = list(legacy_issues)
+        if legacy is not None or legacy_issues:
+            listed, origin = legacy or [], "legacy"
+            issues.append({"rule": "legacy_pages_index",
+                           "path": "definition/pages.json"})
+        else:
+            listed, origin = [], "unindexed"
+    seen: set[str] = set()
+    for page_id in listed:
+        if page_id in seen:
+            issues.append({"rule": "page_order_duplicate", "page": page_id})
+        seen.add(page_id)
+    order = [page_id for page_id in listed if page_id in pages]
+    for page_id in listed:
+        if page_id not in pages:
+            issues.append({"rule": "page_order_dangling", "page": page_id})
+    unlisted = sorted((page_id for page_id in pages if page_id not in seen),
+                      key=lambda page_id: _display_name(pages, page_id))
+    return order + unlisted, origin, issues
+
+
 def read_report_files(report_dir: str | Path) -> dict[str, Any]:
     """Parse a report folder once; malformed files become issues, never raise.
 
@@ -63,7 +136,9 @@ def read_report_files(report_dir: str | Path) -> dict[str, Any]:
     (raw group entries), ``files`` (every file with its digest or null
     when unreadable), and ``issues`` (unreadable JSON, wrong shapes,
     missing required metadata, unsupported schema majors). Page order
-    follows pages.json when valid, else the sorted page directories.
+    follows the canonical ``definition/pages/pages.json`` index when
+    present, else the legacy ``definition/pages.json`` index (flagged),
+    else display-name order; see :func:`load_page_index`.
     """
     root = Path(report_dir)
     files: dict[str, str | None] = {}
@@ -87,30 +162,46 @@ def read_report_files(report_dir: str | Path) -> dict[str, Any]:
             files[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
         except OSError:
             files[rel] = None
-    pages_json = root / "definition" / "pages.json"
-    if pages_json.is_file():
-        data, error = _read_json_file(pages_json)
+    version_path = root / "definition" / "version.json"
+    version_doc: dict[str, Any] | None = None
+    if version_path.is_file():
+        data, error = _read_json_file(version_path)
         if error is not None:
-            issues.append({"rule": "pages_index_unreadable", "path": "definition/pages.json",
-                           "detail": error})
-        elif not isinstance(data.get("pageOrder"), list) or not all(
-                isinstance(p, str) for p in data["pageOrder"]):
-            issues.append({"rule": "pages_index_invalid", "path": "definition/pages.json"})
+            issues.append({"rule": "version_unreadable",
+                           "path": "definition/version.json", "detail": error})
         else:
-            order = list(data["pageOrder"])
+            version_doc = data
     else:
-        issues.append({"rule": "pages_index_missing", "path": "definition/pages.json"})
+        issues.append({"rule": "version_missing",
+                       "path": "definition/version.json"})
     report_path = root / "definition" / "report.json"
     if report_path.is_file():
         data, error = _read_json_file(report_path)
         if error is not None:
             issues.append({"rule": "report_doc_unreadable", "detail": error})
         else:
-            report_doc = data
-            entity, major = _schema_major(data.get("$schema"))
-            if entity and entity in KNOWN_SCHEMA_MAJORS and major != KNOWN_SCHEMA_MAJORS[entity]:
-                issues.append({"rule": "unsupported_schema", "path": "definition/report.json",
-                               "schema": data.get("$schema")})
+            missing = [key for key in ("$schema", "layoutOptimization",
+                                       "themeCollection")
+                       if key not in data]
+            mistyped = [key for key, kind in
+                        (("$schema", str), ("layoutOptimization", str),
+                         ("themeCollection", dict))
+                        if key in data and not isinstance(data[key], kind)]
+            if missing or mistyped:
+                issues.append({"rule": "report_doc_invalid",
+                               "path": "definition/report.json",
+                               "missing": missing, "mistyped": mistyped})
+            else:
+                report_doc = data
+                entity, major = _schema_major(data.get("$schema"))
+                if (entity and entity in KNOWN_SCHEMA_MAJORS
+                        and major != KNOWN_SCHEMA_MAJORS[entity]):
+                    issues.append({"rule": "unsupported_schema",
+                                   "path": "definition/report.json",
+                                   "schema": data.get("$schema")})
+    else:
+        issues.append({"rule": "report_doc_missing",
+                       "path": "definition/report.json"})
     bookmarks_root = root / "definition" / "bookmarks"
     if bookmarks_root.is_dir():
         index_path = bookmarks_root / "bookmarks.json"
@@ -144,9 +235,6 @@ def read_report_files(report_dir: str | Path) -> dict[str, Any]:
     pages_root = root / "definition" / "pages"
     page_dirs = sorted(p.name for p in pages_root.iterdir()
                        if p.is_dir() and not p.is_symlink()) if pages_root.is_dir() else []
-    for page_id in order:
-        if page_id not in page_dirs:
-            issues.append({"rule": "page_dir_missing", "page": page_id})
     for page_id in page_dirs:
         page_path = pages_root / page_id / "page.json"
         if not page_path.is_file():
@@ -198,10 +286,10 @@ def read_report_files(report_dir: str | Path) -> dict[str, Any]:
                 issues.append({"rule": "unsupported_schema", "page": page_id,
                                "visual": visual_dir.name, "schema": visual.get("$schema")})
             visuals[key] = visual
-    if not order:
-        order = sorted(pages)
-    return {"report": report_doc, "pages": pages, "visuals": visuals,
-            "order": order, "bookmarks": bookmarks,
+    order, _origin, index_issues = load_page_index(root, pages)
+    issues.extend(index_issues)
+    return {"report": report_doc, "version": version_doc, "pages": pages,
+            "visuals": visuals, "order": order, "bookmarks": bookmarks,
             "bookmark_groups": bookmark_groups, "files": files,
             "issues": issues}
 
@@ -213,6 +301,50 @@ def resolve_model_dir(report: str | Path) -> str | None:
     """
     model_dir, _rule, _detail = _resolve_model_dir(Path(report))
     return str(model_dir) if model_dir is not None else None
+
+
+def _hash_model_dir(model_dir: Path) -> str | None:
+    """Hash sorted TMDL bytes under a model dir; None when absent/empty.
+
+    Same walk as :func:`vqs.pipeline._model_digest` (kept separate to
+    avoid a pipeline import cycle); the two must agree byte for byte.
+    """
+    try:
+        files = sorted(p for p in model_dir.rglob("*.tmdl") if p.is_file()
+                       and not p.is_symlink())
+    except OSError:
+        return None
+    if not files:
+        return None
+    digest = hashlib.sha256()
+    for path in files:
+        try:
+            content = path.read_bytes()
+        except OSError:
+            return None
+        digest.update(path.relative_to(model_dir).as_posix().encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(content)
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def resolved_model_digest(report: str | Path) -> tuple[str | None, str | None, str | None]:
+    """Resolve the report model and digest it; (digest, rule, detail).
+
+    Returns the model TMDL digest, or (None, rule, detail) with the
+    :func:`_resolve_model_dir` miss rule (absent/unresolved/remote).
+    Relocation guards compare this digest across original and
+    candidate instead of trusting directory names.
+    """
+    model_dir, rule, detail = _resolve_model_dir(Path(report))
+    if model_dir is None:
+        return None, rule, detail
+    digest = _hash_model_dir(model_dir)
+    if digest is None:
+        return None, "model_reference_unresolved", (
+            f"referenced model has no readable TMDL: {model_dir}")
+    return digest, None, None
 
 
 def _resolve_model_dir(report: Path) -> tuple[Path | None, str | None, str | None]:
@@ -229,9 +361,14 @@ def _resolve_model_dir(report: Path) -> tuple[Path | None, str | None, str | Non
         data = json.loads(pbir_path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as exc:
         return None, "model_reference_unresolved", f"definition.pbir unreadable: {exc}"
-    ref = (data.get("datasetReference", {}) or {}).get("byPath", {}) or {}
+    dataset_ref = data.get("datasetReference", {}) or {}
+    ref = dataset_ref.get("byPath", {}) or {}
     target = ref.get("path", "")
     if not isinstance(target, str) or not target:
+        if isinstance(dataset_ref.get("byConnection"), dict):
+            return (None, "model_reference_remote",
+                    "definition.pbir uses datasetReference.byConnection: "
+                    "remote models stay outside static identity")
         return (None, "model_reference_unresolved",
                 "definition.pbir has no datasetReference.byPath")
     candidate = (report / target).resolve()
@@ -356,14 +493,23 @@ def report_context(report: Path) -> dict:
     the first missing field; callers map it to blocked, never to approval.
     """
     found = read_report_files(report)
+    _model_dir, model_rule, model_detail = _resolve_model_dir(Path(report))
+    if model_rule in ("model_reference_remote", "model_reference_unresolved"):
+        found["issues"].append({"rule": model_rule, "detail": model_detail})
     fatal = [issue for issue in found["issues"]
-             if issue["rule"] in ("report_unreadable", "pages_index_unreadable",
-                                  "pages_index_invalid", "page_doc_unreadable",
+             if issue["rule"] in ("report_unreadable", "report_doc_unreadable",
+                                  "report_doc_missing", "report_doc_invalid",
+                                  "pages_index_invalid", "page_order_duplicate",
+                                  "page_order_dangling",
+                                  "page_doc_unreadable",
                                   "page_metadata_incomplete",
                                   "visual_doc_unreadable",
                                   "visual_metadata_incomplete",
-                                  "page_doc_missing", "page_dir_missing",
-                                  "visual_doc_missing", "unsupported_schema")]
+                                  "page_doc_missing",
+                                  "visual_doc_missing", "unsupported_schema",
+                                  "version_missing", "version_unreadable",
+                                  "model_reference_remote",
+                                  "model_reference_unresolved")]
     if fatal:
         detail = "; ".join(sorted({f'{i["rule"]}:{i.get("page", "?")}/{i.get("visual", "")}'
                                    for i in fatal}))

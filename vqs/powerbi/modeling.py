@@ -150,9 +150,23 @@ class StdioModelingClient:
             raise ModelingError(
                 f"modeling initialize error: {response['error']}")
         result = response.get("result")
-        capabilities = (result.get("capabilities")
-                        if isinstance(result, dict) else None)
-        if not isinstance(capabilities, dict) or "tools" not in capabilities:
+        if not isinstance(result, dict):
+            self._kill()
+            raise ModelingError(
+                "modeling handshake returned no result object")
+        negotiated = result.get("protocolVersion")
+        if negotiated != "2024-11-05":
+            self._kill()
+            raise ModelingError(
+                "modeling server negotiated unsupported protocolVersion "
+                f"{negotiated!r} (this client speaks 2024-11-05)")
+        capabilities = result.get("capabilities")
+        if not isinstance(capabilities, dict):
+            self._kill()
+            raise ModelingError(
+                "modeling server returned malformed capabilities: "
+                f"{capabilities!r}")
+        if not isinstance(capabilities.get("tools"), dict):
             self._kill()
             raise ModelingError(
                 "modeling server lacks required tools capability: "
@@ -221,6 +235,10 @@ class StdioModelingClient:
     def _payload(self, result: Any, tool: str) -> Any:
         if not isinstance(result, dict):
             raise ModelingError(f"modeling {tool} returned no result object")
+        if result.get("isError"):
+            detail = result.get("content", result)
+            raise ModelingError(
+                f"modeling {tool} tool error (isError=true): {detail!r}")
         content = result.get("content", [])
         if not isinstance(content, list) or not content:
             raise ModelingError(f"modeling {tool} returned no content")
@@ -467,24 +485,54 @@ def _first_key(mapping: dict[str, Any], *names: str) -> Any:
 
 
 def scope_from_dict(data: Any) -> ModelingScope:
-    """Build a scope from untrusted input; malformed fields become None."""
-    if not isinstance(data, dict):
+    """Build a scope from untrusted input; malformed presence raises.
+
+    R21/D14: absent (None) means unconstrained, but a present field
+    with the wrong shape raises instead of silently narrowing — a
+    malformed scope must never broaden into an unscoped query.
+    """
+    if data is None:
         return ModelingScope()
-    roles = data.get("roles", ())
-    if isinstance(roles, str):
-        roles = (roles,)
-    if not isinstance(roles, (list, tuple)):
-        roles = ()
-    roles = tuple(r for r in roles if isinstance(r, str) and r)
-    period = data.get("period")
-    model = data.get("model")
-    source = data.get("source_sha256")
+    if not isinstance(data, dict):
+        raise TypeError(
+            f"scope must be a mapping, not {type(data).__name__}")
+    if "model" in data and data["model"] is not None \
+            and not isinstance(data["model"], str):
+        raise TypeError(
+            f"scope model must be a string, not {data['model']!r}")
+    roles: tuple[str, ...] = ()
+    if "roles" in data and data["roles"] is not None:
+        raw_roles = data["roles"]
+        if isinstance(raw_roles, str) \
+                or not isinstance(raw_roles, (list, tuple)):
+            raise TypeError(
+                "scope roles must be a list of nonempty strings, "
+                f"not {raw_roles!r}")
+        for role in raw_roles:
+            if not isinstance(role, str) or not role:
+                raise ValueError(
+                    "scope roles must be a list of nonempty strings, "
+                    f"not {raw_roles!r}")
+        roles = tuple(raw_roles)
+    if "filters" in data and data["filters"] is not None \
+            and not isinstance(data["filters"], dict):
+        raise TypeError(
+            f"scope filters must be a mapping, not {data['filters']!r}")
+    if "period" in data and data["period"] is not None \
+            and not isinstance(data["period"], str):
+        raise TypeError(
+            f"scope period must be a string, not {data['period']!r}")
+    if "source_sha256" in data and data["source_sha256"] is not None \
+            and not isinstance(data["source_sha256"], str):
+        raise TypeError(
+            "scope source_sha256 must be a string, "
+            f"not {data['source_sha256']!r}")
     return ModelingScope(
-        model=model if isinstance(model, str) else None,
+        model=data.get("model"),
         roles=roles,
         filters=data.get("filters"),
-        period=period if isinstance(period, str) else None,
-        source_sha256=source if isinstance(source, str) else None)
+        period=data.get("period"),
+        source_sha256=data.get("source_sha256"))
 
 
 def compare_scope(expected: ModelingScope,

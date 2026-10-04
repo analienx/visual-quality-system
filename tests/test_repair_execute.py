@@ -34,6 +34,13 @@ def _make_report(root: Path, name: str = "original.Report") -> Path:
     (pages / "P1" / "visuals" / "cardx").mkdir(parents=True)
     (pages.parent / "pages.json").write_text(json.dumps({"pageOrder": ["P1"]}),
                                       encoding="utf-8")
+    (pages.parent / "version.json").write_text(json.dumps({"version": "1.0"}),
+                                        encoding="utf-8")
+    (pages.parent / "report.json").write_text(json.dumps({
+        "$schema": ("https://developer.microsoft.com/json-schemas/fabric/item/"
+                    "report/definition/report/1.0.0/schema.json"),
+        "layoutOptimization": "None", "themeCollection": {}}),
+        encoding="utf-8")
     (pages / "P1" / "page.json").write_text(
         json.dumps({"displayName": "Overview", "width": 1280, "height": 720}),
         encoding="utf-8")

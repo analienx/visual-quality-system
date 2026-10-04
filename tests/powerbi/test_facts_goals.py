@@ -168,7 +168,8 @@ def test_goal10_minority_contrast_defect_exposed(tmp_path: Path) -> None:
     readings = rules["typography.text_contrast"]["readings"]
     minority = [r for r in readings if r["foreground"] == "#FFFFFF"]
     assert minority == [{"foreground": "#FFFFFF", "background": "#FFFFFF",
-                         "page": "P1", "role": "body", "count": 1}]
+                         "page": "P1", "visual": "titlebox",
+                         "paragraph": 2, "role": "body", "count": 1}]
     verdict = text_contrast(readings=readings)
     assert verdict["status"] == "fail"
     assert verdict["evidence"]["failures"][0]["foreground"] == "#FFFFFF"

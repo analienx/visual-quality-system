@@ -1,11 +1,11 @@
 """F10 RED: missing pages and unsupported sources must block inventory.
 
-report_context omits page_doc_missing, page_dir_missing,
-visual_doc_missing, and unsupported_schema from fatal issues and
-silently skips missing pages, so a two-page report is reduced to one
-expected page and captured as complete. M2 rejects
-incomplete/unsupported inventory before Bridge calls or manifest
-output, preserving declared page order and exact missing IDs in the
+R01/R02: the canonical page index wins, the legacy index is
+honored with an info flag, and absent indexes order by display
+name; listed-but-missing pages (page_order_dangling),
+missing/unreadable page and visual docs, and unsupported schema
+majors all block report_context before any Bridge or manifest
+work, preserving declared page order and exact missing IDs in the
 blocked result.
 """
 import json
@@ -28,6 +28,13 @@ def _report(root: Path, order: list[str],
     (pages_root).mkdir(parents=True)
     (pages_root.parent / "pages.json").write_text(
         json.dumps({"pageOrder": order}), encoding="utf-8")
+    (pages_root.parent / "version.json").write_text(
+        json.dumps({"version": "1.0"}), encoding="utf-8")
+    (pages_root.parent / "report.json").write_text(json.dumps({
+        "$schema": ("https://developer.microsoft.com/json-schemas/fabric/item/"
+                    "report/definition/report/1.0.0/schema.json"),
+        "layoutOptimization": "None", "themeCollection": {}}),
+        encoding="utf-8")
     for page_id, doc in pages.items():
         page_dir = pages_root / page_id
         page_dir.mkdir(parents=True, exist_ok=True)

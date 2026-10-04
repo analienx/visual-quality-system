@@ -20,6 +20,13 @@ def _report(root: Path, *, pbir_dataset: str | None = None) -> Path:
     (pages / "P1" / "visuals" / "cardx").mkdir(parents=True)
     (pages.parent / "pages.json").write_text(json.dumps({"pageOrder": ["P1"]}),
                                       encoding="utf-8")
+    (pages.parent / "version.json").write_text(json.dumps({"version": "1.0"}),
+                                        encoding="utf-8")
+    (pages.parent / "report.json").write_text(json.dumps({
+        "$schema": ("https://developer.microsoft.com/json-schemas/fabric/item/"
+                    "report/definition/report/1.0.0/schema.json"),
+        "layoutOptimization": "None", "themeCollection": {}}),
+        encoding="utf-8")
     (pages / "P1" / "page.json").write_text(
         json.dumps({"displayName": "O", "width": 1280, "height": 720}),
         encoding="utf-8")
@@ -96,11 +103,10 @@ def test_f09_invalid_geometry_is_an_explicit_issue(tmp_path: Path) -> None:
     assert named[0]["visual"] == "cardx"
 
 
-def test_f09_missing_page_index_blocks_inspect(tmp_path: Path) -> None:
-    """Real PBIR keeps the index at definition/pages.json; its absence blocks."""
+def test_f09_absent_page_index_inspects_unindexed(tmp_path: Path) -> None:
+    """R01: the page index is optional; an absent index inspects the
+    physical pages in display-name order instead of blocking."""
     report = _report(tmp_path)
     (report / "definition" / "pages.json").unlink()
     envelope = inspect_report(str(report))
-    assert envelope["verdict"] == "blocked"
-    assert any("pages_index_missing" in reason
-               for reason in envelope["blocked_reasons"])
+    assert envelope["verdict"] == "pass", envelope

@@ -17,6 +17,24 @@ from typing import Any
 _SIZE_RE = re.compile(r"(\d{1,3})D")
 _COLOR_RE = re.compile(r"#[0-9A-Fa-f]{6}")
 _BAD_CONTROLS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+# R20/D13: semanticQuery QueryLiteralExpression.Value is a string, so
+# PBIR precisions read as "0"-"15"; canonical form has no padding/sign.
+_PRECISION_STR_RE = re.compile(r"(1[0-5]|[0-9])")
+
+
+def _check_precision(op_type: str, value: Any, side: str) -> None:
+    """Validate one axis.precision operand (old or new)."""
+    if isinstance(value, bool):
+        raise RecipeError(f"{op_type}: {side} precision must be "
+                          "integer 0-15 or string '0'-'15'")
+    if isinstance(value, int):
+        if 0 <= value <= 15:
+            return
+    elif isinstance(value, str):
+        if _PRECISION_STR_RE.fullmatch(value) is not None:
+            return
+    raise RecipeError(f"{op_type}: {side} precision must be "
+                      f"integer 0-15 or string '0'-'15', not {value!r}")
 
 LEAF_OPS = frozenset({"typography.size", "axis.tick_format", "axis.title",
                       "axis.precision", "label.format", "theme.set",
@@ -116,6 +134,8 @@ def _check_string(op_type: str, value: str) -> None:
     if op_type == "palette.assign" and _COLOR_RE.fullmatch(value) is None:
         raise RecipeError(f"palette.assign: value must be #RRGGBB, "
                           f"not {value!r}")
+    if op_type == "axis.precision":
+        _check_precision(op_type, value, "new")
 
 
 def _check_number(op_type: str, value: Any) -> None:
@@ -148,6 +168,8 @@ def bind_leaf(op: dict, visual_doc: dict) -> dict:
     old = _walk(visual_doc, path)
     if old is None or isinstance(old, (dict, list)):
         raise RecipeError(f"{op_type}: path {path!r} is not a scalar leaf")
+    if op_type == "axis.precision":
+        _check_precision(op_type, old, "old")
     new = op.get("value", None if "value" in op else ...)
     if new is ...:
         raise RecipeError(f"{op_type}: missing value")

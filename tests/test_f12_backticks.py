@@ -49,13 +49,14 @@ def test_f12_backtick_cycle_matches_plain_cycle(tmp_path: Path) -> None:
 
 
 def test_f12_unclosed_backtick_blocks(tmp_path: Path) -> None:
-    """RED: an unclosed backtick block must issue or block, never vanish."""
+    """R04: an unclosed backtick block blocks the public gate, never
+    vanishing into complete coverage."""
     text = "table T\n\tmeasure A = ```\nIF('T'[B] = 1, 1, 0)\n"
-    issues = extract_objects(text)["issues"]
+    assert extract_objects(text)["issues"] != []
     model = _model(tmp_path, {"tables/T.tmdl": text})
     try:
         check_model(model)
         blocked = False
     except OSError:
         blocked = True
-    assert issues != [] or blocked
+    assert blocked

@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import os
 import re
-from collections import Counter
 from typing import Any
 
 
@@ -150,42 +149,105 @@ def _resolve_canvas(page: dict, theme: dict | None) -> tuple[str | None, str | N
     return None, None
 
 
-def _page_text_colors(found: dict) -> dict[str, Counter]:
-    """Map each page id to its own (paragraph-index, color) counts.
+def _resolve_visual_background(visual: dict) -> tuple[str | None, str | None]:
+    """Resolve one visual's own painted container background (R07).
 
-    Colors stay scoped to the page that declares them: pairing page
-    A's text with page B's background would invent evidence.
+    Reads ``visualContainerObjects.background[0]`` (official
+    visualConfiguration shape): an opaque static literal color
+    resolves; ``show: false`` and wholly unconfigured visuals fall
+    through to the page canvas; image fills, nonzero or unparsed
+    transparency, and non-literal (theme/dynamic) colors yield
+    unresolved markers, never a guessed color. Returns
+    ``(background, unresolved)`` with at most one set.
     """
-    by_page: dict[str, Counter] = {}
+    try:
+        entries = visual.get("visualContainerObjects", {}).get("background")
+        properties = (entries[0].get("properties", {})
+                      if isinstance(entries, list) and entries else {})
+        if not isinstance(properties, dict):
+            properties = {}
+    except (AttributeError, IndexError, TypeError):
+        properties = {}
+    if not properties:
+        return None, None
+    raw_show = properties.get("show", True)
+    show = raw_show
+    if isinstance(raw_show, dict):
+        expr = raw_show.get("expr", {})
+        value = (expr.get("Literal", {}).get("Value")
+                 if isinstance(expr, dict) else None)
+        show = _literal(value)
+    elif isinstance(raw_show, str):
+        show = _literal(raw_show)
+    if show is False:
+        return None, None
+    if "show" in properties and show is not True:
+        return None, "visual-dynamic-color"
+    if properties.get("image"):
+        return None, "visual-image"
+    transparency = _canvas_transparency(properties)
+    if transparency is None:
+        return None, "visual-transparency:unparsed"
+    if transparency != 0:
+        return None, f"visual-transparency:{transparency}"
+    color_node = properties.get("color")
+    if color_node is None:
+        return None, None
+    try:
+        color = color_node["solid"]["color"]["expr"]["Literal"]["Value"]
+    except (KeyError, IndexError, TypeError):
+        color = None
+    if isinstance(color, str) and re.fullmatch(r"'#[0-9A-Fa-f]{6}'", color):
+        return color.strip("'").upper(), None
+    return None, "visual-dynamic-color"
 
-    def visit(node: Any, colors: Counter) -> None:
+
+def _visual_text_runs(found: dict) -> list[dict]:
+    """Explicit text colors with visual/run location preserved.
+
+    One entry per (page, visual, paragraph-index, color) with its run
+    count; only literal string colors (explicit evidence) are
+    emitted, never inherited or default colors.
+    """
+    counts: dict[tuple[str, str, int, str], int] = {}
+    order: list[tuple[str, str, int, str]] = []
+
+    def visit(node: Any, key: tuple[str, str]) -> None:
         if isinstance(node, dict):
             paragraphs = node.get("paragraphs")
             if isinstance(paragraphs, list):
                 for index, para in enumerate(paragraphs):
-                    runs = para.get("textRuns") if isinstance(para, dict) else None
-                    for run in runs or []:
+                    text_runs = (para.get("textRuns")
+                                 if isinstance(para, dict) else None)
+                    for run in text_runs or []:
                         if not isinstance(run, dict):
                             continue
                         style = run.get("textStyle") or {}
-                        color = style.get("color") if isinstance(style, dict) else None
+                        color = (style.get("color")
+                                 if isinstance(style, dict) else None)
                         if isinstance(color, str):
-                            colors[(index, color.upper())] += 1
+                            entry = (key[0], key[1], index,
+                                     color.upper())
+                            if entry not in counts:
+                                order.append(entry)
+                            counts[entry] = counts.get(entry, 0) + 1
             for value in node.values():
-                visit(value, colors)
+                visit(value, key)
         elif isinstance(node, list):
             for value in node:
-                visit(value, colors)
+                visit(value, key)
 
     for page_id in found["order"]:
-        colors: Counter = Counter()
-        for (pid, _vid), visual in sorted(found["visuals"].items()):
+        for (pid, visual_id), visual in sorted(found["visuals"].items()):
             if pid != page_id:
                 continue
             node = visual.get("visual", {})
-            visit(node.get("objects", {}) if isinstance(node, dict) else {}, colors)
-        by_page[page_id] = colors
-    return by_page
+            visit(node.get("objects", {}) if isinstance(node, dict) else {},
+                  (page_id, visual_id))
+    return [{"page": page, "visual": visual, "paragraph": paragraph,
+             "foreground": foreground,
+             "count": counts[(page, visual, paragraph, foreground)]}
+            for page, visual, paragraph, foreground in order]
 
 
 def _luminance(hex_color: str) -> float:
@@ -209,31 +271,42 @@ def _contrast(found: dict, theme: dict | None) -> dict | None:
     """Every honestly-paired (foreground, background) reading.
 
     Majority and minority colors alike: a minority white run on white
-    must surface, not hide behind the majority color. Unparsable
-    colors and unresolvable canvases are emitted for unknown
-    evidence, never skipped (F14).
+    must surface, not hide behind the majority color. Each run pairs
+    with its own visual's opaque painted background first, else the
+    page canvas; transparent/dynamic visual backgrounds and
+    unresolvable canvases emit unresolved readings for unknown
+    evidence, never silent canvas pairing and never omission:
+    explicit colors always emit, with or without a theme.
     """
-    readings = []
-    all_colors = _page_text_colors(found)
+    runs = _visual_text_runs(found)
+    if not runs:
+        return None
+    canvases = {}
     for page_id in found["order"]:
         page = found["pages"].get(page_id)
-        if page is None:
-            continue
-        colors = all_colors.get(page_id) or Counter()
-        if not colors:
-            continue
-        background, unresolved = _resolve_canvas(page, theme)
+        if page is not None:
+            canvases[page_id] = _resolve_canvas(page, theme)
+    readings = []
+    for run in runs:
+        visual = {}
+        for (pid, visual_id), entry in found.get("visuals", {}).items():
+            if pid == run["page"] and visual_id == run["visual"]:
+                visual = entry.get("visual", {}) if isinstance(entry, dict) else {}
+                break
+        background, unresolved = _resolve_visual_background(
+            visual if isinstance(visual, dict) else {})
         if background is None and unresolved is None:
-            continue
-        for (index, foreground), count in sorted(colors.items()):
-            role = "title" if index == 0 else "subtitle" if index == 1 else "body"
-            reading = {"foreground": foreground, "page": page_id,
-                       "role": role, "count": count}
-            if unresolved is not None:
-                reading["unresolved"] = unresolved
-            else:
-                reading["background"] = background
-            readings.append(reading)
+            background, unresolved = canvases.get(run["page"], (None, None))
+        role = ("title" if run["paragraph"] == 0 else "subtitle"
+                if run["paragraph"] == 1 else "body")
+        reading = {"foreground": run["foreground"], "page": run["page"],
+                   "visual": run["visual"], "paragraph": run["paragraph"],
+                   "role": role, "count": run["count"]}
+        if unresolved is not None:
+            reading["unresolved"] = unresolved
+        else:
+            reading["background"] = background
+        readings.append(reading)
     if not readings:
         return None
     return {"readings": sorted(readings, key=lambda r: (r["page"], r["role"],

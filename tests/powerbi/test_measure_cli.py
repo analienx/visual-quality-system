@@ -16,9 +16,9 @@ def test_measure_emits_facts_to_stdout(capsys) -> None:
     facts = json.loads(captured.out)
     assert facts["rules"]["typography.text_contrast"] == {"readings": [
         {"foreground": "#52617A", "background": "#FFFFFF", "page": "P1",
-         "role": "subtitle", "count": 1},
+         "visual": "titlebox", "paragraph": 1, "role": "subtitle", "count": 1},
         {"foreground": "#101828", "background": "#FFFFFF", "page": "P1",
-         "role": "title", "count": 1}]}
+         "visual": "titlebox", "paragraph": 0, "role": "title", "count": 1}]}
     assert facts["models"][0]["model_dir"] == MODEL
 
 

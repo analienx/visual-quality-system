@@ -101,14 +101,17 @@ def test_dynamic_visual_background_is_unknown(tmp_path: Path) -> None:
                and "unresolved" in reading for reading in readings)
 
 
-def test_explicit_colors_without_theme_emit_unknown(tmp_path: Path) -> None:
+def test_explicit_colors_without_theme_evaluate(tmp_path: Path) -> None:
     """RED R08: explicit black/black with no theme must not omit contrast."""
     report = _report(tmp_path, "#000000", "#000000", None, theme=False)
     facts = measure_report(str(report))
     assert "typography.text_contrast" in facts["rules"]
     readings = facts["rules"]["typography.text_contrast"]["readings"]
-    assert readings != []
-    assert all("unresolved" in reading for reading in readings)
+    matches = [reading for reading in readings
+               if reading.get("visual") == "darkbox"
+               and reading.get("foreground") == "#000000"
+               and reading.get("background") == "#000000"]
+    assert len(matches) == 1
     verdict = review_report(report_dir=str(report),
                             run_root=str(tmp_path / "runs"))
-    assert verdict["verdict"] == "blocked"
+    assert verdict["verdict"] == "fail"

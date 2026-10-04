@@ -86,6 +86,7 @@ def _m_clean(code: str) -> tuple[str, list[str]]:
     """
     out: list[str] = []
     quoted: list[str] = []
+    slots: dict[str, int] = {}
     index, size = 0, len(code)
     while index < size:
         pair = code[index:index + 2]
@@ -107,8 +108,10 @@ def _m_clean(code: str) -> tuple[str, list[str]]:
             if end == -1:
                 out.append(code[index:])
                 break
-            quoted.append(text)
-            out.append(f"\x00{len(quoted) - 1}\x00")
+            if text not in slots:
+                slots[text] = len(quoted)
+                quoted.append(text)
+            out.append(f"\x00{slots[text]}\x00")
             index = end
         elif code[index] == '"':
             end = _m_string_end(code, index + 1)
@@ -362,16 +365,55 @@ def m_queries(model_dir: str) -> dict[str, str]:
     return queries
 
 
+_NESTED_BINDING = re.compile(
+    r"(?<![\w#\.])let\s+(\x00\d+\x00|[A-Za-z_][\w\.]*)\s*=")
+
+
 def m_edges(queries: dict[str, str]) -> dict[str, set[str]]:
-    """Query-reference edges; literals/comments blanked, #"ids" matched."""
+    """Query-reference edges; literals/comments blanked, #"ids" matched.
+
+    Names bound by a query's own top-level ``let`` resolve locally and
+    never become global edges (``let Q = 1 in Q`` is not a Q->Q
+    cycle). A nested ``let`` rebinding a shared query name is
+    explicitly unsupported and raises ModelingError instead of
+    mis-resolving scope.
+    """
+    names = set(queries)
     edges: dict[str, set[str]] = {name: set() for name in queries}
     for name, code in queries.items():
         clean, quoted = _m_clean(code)
+        segments = _LET.split(clean)[1:]
+        top = (_top_bindings(_let_scope(segments[0])) if segments else [])
+        bound = {_restore(binding, quoted) for binding, _ in top}
+        for segment in segments[1:]:
+            for binding, expr in _top_bindings(_let_scope(segment)):
+                _reject_shared_shadow(binding, expr, quoted, names)
         for candidate in queries:
             bare = candidate.split("|")[-1]
+            if bare in bound:
+                continue
             if _whole_word(bare, clean) or bare in quoted:
                 edges[name].add(candidate)
     return edges
+
+
+def _let_scope(segment: str) -> str:
+    """Top-level let scope of one split segment (up to its ``in``)."""
+    has_in = _IN.search(segment)
+    return segment[:has_in.start()] if has_in else segment
+
+
+def _reject_shared_shadow(binding: str, expr: str, quoted: list[str],
+                           names: set[str]) -> None:
+    """Raise when a nested let rebinds a shared query name."""
+    rebound = [_restore(binding, quoted)]
+    rebound.extend(_restore(nested.group(1), quoted)
+                   for nested in _NESTED_BINDING.finditer(expr))
+    for shadowed in rebound:
+        if shadowed in names:
+            raise ModelingError(
+                f"nested let rebinds shared query {shadowed!r}: "
+                "unsupported by static scope analysis")
 
 
 def _top_bindings(scope: str) -> list[tuple[str, str]]:
@@ -379,7 +421,8 @@ def _top_bindings(scope: str) -> list[tuple[str, str]]:
 
     Splits only depth-zero commas so single-line lets, records, and
     calls segment correctly. Nested ``let`` blocks share one namespace
-    (documented over-approximation; extra edges fail closed).
+    here; :func:`m_edges` rejects a nested rebinding of a shared query
+    name explicitly instead of resolving it through this flat view.
     """
     segments: list[str] = []
     depth = 0
@@ -439,20 +482,33 @@ def _tables_parsed(model_dir: str) -> int:
 
 
 def _coverage(model_dir: str) -> dict:
-    """Report which model files parsed; skipped files block the gate."""
+    """Report which model files parsed; skipped files block the gate.
+
+    TMDL extractor issues (orphans, unterminated spans, unclosed
+    backticks, empty names) also break completeness: a narrowed graph
+    must block instead of passing clean.
+    """
     texts, skipped = _read_table_texts(model_dir)
     unparsed = [path for path in sorted(texts)
                 if _table_name(texts[path]) is None]
+    extract_issues: list[dict] = []
+    for path in sorted(texts):
+        for issue in extract_objects(texts[path])["issues"]:
+            extract_issues.append({"part": path, **issue})
     shared = os.path.join(model_dir, "expressions.tmdl")
     if os.path.isfile(shared):
         try:
             with open(shared, encoding="utf-8-sig") as handle:
-                handle.read()
+                shared_text = handle.read()
         except (OSError, ValueError):
             skipped = [*skipped, shared]
+            shared_text = ""
+        for issue in extract_objects(shared_text)["issues"]:
+            extract_issues.append({"part": "expressions.tmdl", **issue})
     return {"parsed": sorted(texts), "skipped": sorted(skipped),
             "unparsed": sorted(unparsed),
-            "complete": not skipped and not unparsed}
+            "extract_issues": extract_issues,
+            "complete": not skipped and not unparsed and not extract_issues}
 
 
 def check_model(model_dir: str) -> dict:
@@ -470,7 +526,8 @@ def check_model(model_dir: str) -> dict:
     if not coverage["complete"]:
         raise OSError("model parse coverage incomplete: "
                       f"skipped={coverage['skipped']} "
-                      f"unparsed={coverage['unparsed']}")
+                      f"unparsed={coverage['unparsed']} "
+                      f"extract_issues={coverage['extract_issues']}")
     tables = _tables_parsed(model_dir)
     dax = dax_objects(model_dir)
     queries = m_queries(model_dir)

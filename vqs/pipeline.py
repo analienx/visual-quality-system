@@ -41,9 +41,16 @@ def _axis(params: dict[str, Any]) -> dict:
 
 
 def _contrast(params: dict[str, Any]) -> dict:
+    readings = params.get("readings")
+    if isinstance(readings, list):
+        readings = [reading for reading in readings
+                    if isinstance(reading, dict)]
+    else:
+        readings = None
     return design_rules.text_contrast(
         params.get("foreground"), params.get("background"),
-        large_text=bool(params.get("large_text", False)))
+        large_text=bool(params.get("large_text", False)),
+        readings=readings)
 
 
 def _catspace(params: dict[str, Any]) -> dict:
@@ -243,7 +250,12 @@ def seal_verdict(run_root: Path, run_id: str | None, pipeline_name: str,
             "findings": findings, "manifest": manifest}
 
 
-_NON_BLOCKING_COVERAGE = frozenset({"model_reference_absent"})
+_NON_BLOCKING_COVERAGE = frozenset({
+    "model_reference_absent",
+    # D01: the legacy index is honored in full; the flag is provenance,
+    # not a gap.
+    "legacy_pages_index",
+})
 
 
 def _coverage_location(issue: dict) -> str:
@@ -948,7 +960,8 @@ def _execute_repair(plan: dict[str, Any], original: str,
     append_event(sealed_run_dir, {"kind": "started",
                                   "plan_sha256": plan_sha})
     try:
-        result = apply_plan(plan, original, candidate_root)
+        result = apply_plan(plan, original, candidate_root,
+                            allow_missing_relocated_model=True)
     except Exception as exc:  # noqa: BLE001 - engine crash seals blocked
         append_event(sealed_run_dir, {"kind": "blocked", "verdict": "blocked"})
         seal_run(sealed_run_dir, "blocked",
@@ -976,7 +989,8 @@ def _execute_repair(plan: dict[str, Any], original: str,
                    "affected_pages": result.get("affected_pages", []),
                    "before": result.get("before"),
                    "after": result.get("after"),
-                   "source_sha256": result.get("source_sha256")}
+                   "source_sha256": result.get("source_sha256"),
+                   "model": result.get("model", {"kind": "absent"})}
     try:
         repairs_bytes = json.dumps(repairs_doc, sort_keys=True,
                                    ensure_ascii=False, default=str).encode("utf-8")
@@ -1014,21 +1028,145 @@ def _execute_repair(plan: dict[str, Any], original: str,
         next_actions=["verify the candidate with vqs.verify"])
 
 
+def _sealed_tree_problems(repairs: dict[str, Any], original: str,
+                          candidate: str) -> list[dict]:
+    """Current trees must still match the sealed before/after digests."""
+    from .repair.execute import RepairError, tree_digest
+
+    problems = []
+    for side, path, key in (("original", original, "before"),
+                            ("candidate", candidate, "after")):
+        pinned = repairs.get(key)
+        if not isinstance(pinned, str):
+            problems.append({"rule": "sealed_identity_missing",
+                             "side": side, "detail": f"no sealed {key} digest"})
+            continue
+        try:
+            current = tree_digest(path)
+        except RepairError as exc:
+            problems.append({"rule": "sealed_identity_unreadable",
+                             "side": side, "detail": str(exc)})
+            continue
+        if current != pinned:
+            problems.append({"rule": "sealed_identity_mismatch",
+                             "side": side, "sealed": pinned,
+                             "current": current})
+    return problems
+
+
+def _sealed_model_problems(model_pin: Any, original: str) -> list[dict]:
+    """The sealed model identity must still hold (R19/D12)."""
+    from .pbir import resolved_model_digest
+    from .repair.execute import RepairError, bypath_claim
+
+    if not isinstance(model_pin, dict) or model_pin.get("kind") in (
+            None, "absent"):
+        return []
+    if model_pin.get("kind") == "remote":
+        try:
+            _target, connection = bypath_claim(Path(original))
+        except RepairError as exc:
+            return [{"rule": "sealed_model_unresolvable",
+                     "detail": str(exc)}]
+        if connection != model_pin.get("connection"):
+            return [{"rule": "sealed_model_mismatch",
+                     "detail": "remote model claim changed since repair"}]
+        return []
+    if model_pin.get("kind") == "byPath":
+        digest, rule, detail = resolved_model_digest(original)
+        if digest != model_pin.get("digest"):
+            return [{"rule": "sealed_model_mismatch",
+                     "resolution": rule, "detail": detail,
+                     "sealed": model_pin.get("digest"),
+                     "current": digest}]
+        return []
+    return [{"rule": "sealed_model_unknown",
+             "detail": f"unknown model pin kind: {model_pin.get('kind')!r}"}]
+
+
+def _answers_problems(answers: Any) -> list[dict]:
+    """Recorded answer rows must still match (R19 answers evidence)."""
+    from .repair.answers import answers_preserved
+
+    if answers is None:
+        return []
+    if not isinstance(answers, dict) or not isinstance(
+            answers.get("questions"), dict):
+        return [{"rule": "answers_evidence_malformed",
+                 "detail": "answers must hold a questions object"}]
+    problems = []
+    for qid, question in answers["questions"].items():
+        if not isinstance(question, dict):
+            problems.append({"rule": "answers_evidence_malformed",
+                             "question": qid,
+                             "detail": "question evidence is not an object"})
+            continue
+        rows_before = question.get("rows_before")
+        rows_after = question.get("rows_after")
+        scope = question.get("scope")
+        tolerance = question.get("tolerance")
+        ordered = question.get("ordered", False)
+        shape_ok = (
+            isinstance(rows_before, list)
+            and isinstance(rows_after, list)
+            and isinstance(scope, dict)
+            and isinstance(question.get("dax_sha256"), str)
+            and (tolerance is None or isinstance(tolerance, dict))
+            and isinstance(ordered, bool))
+        if not shape_ok:
+            problems.append({"rule": "answers_evidence_malformed",
+                             "question": qid,
+                             "detail": "question needs dax_sha256 str, "
+                                       "scope object, rows_before/after "
+                                       "lists, tolerance object|null, "
+                                       "ordered bool"})
+            continue
+        scope_json = json.dumps(scope, sort_keys=True, ensure_ascii=False,
+                                default=str)
+        verdict = answers_preserved(scope_json, scope_json, rows_before,
+                                    rows_after, tolerance, ordered)
+        if verdict.get("verdict") != "pass":
+            problems.append({"rule": "answer_rows_changed",
+                             "question": qid,
+                             "reason": verdict.get("reason",
+                                                   "repair changed answers")})
+    return problems
+
+
+def _fail_problems(problems: list[dict], original: Any,
+                   candidate: Any) -> dict[str, Any]:
+    return _envelope(
+        "vqs.verify", "fail",
+        findings=[{"check": f"verify:{p.get('rule', '?')}",
+                   "status": "fail", "detail": p}
+                  for p in problems if isinstance(p, dict)],
+        blocked_reasons=[],
+        provenance={"original": original, "candidate": candidate},
+        next_actions=["inspect the problems and re-repair"])
+
+
 def verify_candidate(*, run_root: str | None = None,
                      run_id: str | None = None,
                      original: str | None = None,
                      candidate: str | None = None,
                      edits: list | None = None,
-                     approved_removals: list[str] | None = None
+                     approved_removals: list[str] | None = None,
+                     answers: dict | None = None
                      ) -> dict[str, Any]:
     """Verify a candidate differs solely by its declared edits.
 
     Either verify a sealed vqs.repair run (``run_root`` + ``run_id``)
     or compare explicit paths (``original`` + ``candidate`` + ``edits``).
     ``approved_removals`` holds owner-approved "page/visual" pairs.
+    ``answers`` optionally carries recorded answer evidence
+    (``{"questions": {qid: {dax_sha256, scope, rows_before/after,
+    tolerance, ordered}}}``); any drifted answer fails. Sealed runs
+    additionally re-check the sealed before/after tree digests and the
+    pinned model identity against the current trees.
     """
     from .repair.regress import verify_candidate as compare
 
+    sealed_repairs: dict[str, Any] | None = None
     approvals: set[str] | None = None
     if approved_removals is not None:
         if (not isinstance(approved_removals, list)
@@ -1076,6 +1214,7 @@ def verify_candidate(*, run_root: str | None = None,
                 "vqs.verify",
                 [f"run {run_id!r} repair evidence unreadable: {exc}"])
         edits = repairs.get("edits") if isinstance(repairs, dict) else None
+        sealed_repairs = repairs if isinstance(repairs, dict) else None
     elif not (isinstance(original, str) and isinstance(candidate, str)):
         return blocked_envelope("vqs.verify",
                         ["provide run_id or original+candidate paths"])
@@ -1085,27 +1224,32 @@ def verify_candidate(*, run_root: str | None = None,
             ["provide the declared edits list to verify against"],
             next_actions=[("verify a sealed repair run, or pass the repair "
                            "edits explicitly")])
+    if sealed_repairs is not None:
+        identity = _sealed_tree_problems(sealed_repairs, original, candidate)
+        if identity:
+            return _fail_problems(identity, original, candidate)
     try:
         result = compare(original, candidate, edits, approvals)
     except Exception as exc:  # noqa: BLE001 - comparison crash blocks
         return blocked_envelope("vqs.verify",
                         [f"verification crashed: {type(exc).__name__}: {exc}"])
-    if result.get("verdict") == "pass":
-        return _envelope(
-            "vqs.verify", "pass",
-            findings=[{"check": "verify", "status": "pass"}],
-            evidence=[{"kind": "verification",
-                       "checks": result.get("checks", [])}],
-            provenance={"original": original, "candidate": candidate})
-    problems = result.get("problems", [])
+    if result.get("verdict") != "pass":
+        problems = result.get("problems", [])
+        return _fail_problems(problems, original, candidate)
+    if sealed_repairs is not None:
+        model_problems = _sealed_model_problems(sealed_repairs.get("model"),
+                                                original)
+        if model_problems:
+            return _fail_problems(model_problems, original, candidate)
+    answer_problems = _answers_problems(answers)
+    if answer_problems:
+        return _fail_problems(answer_problems, original, candidate)
     return _envelope(
-        "vqs.verify", "fail",
-        findings=[{"check": f"verify:{p.get('rule', '?')}",
-                   "status": "fail", "detail": p}
-                  for p in problems if isinstance(p, dict)],
-        blocked_reasons=[],
-        provenance={"original": original, "candidate": candidate},
-        next_actions=["inspect the problems and re-repair"])
+        "vqs.verify", "pass",
+        findings=[{"check": "verify", "status": "pass"}],
+        evidence=[{"kind": "verification",
+                   "checks": result.get("checks", [])}],
+        provenance={"original": original, "candidate": candidate})
 
 
 def render_report(envelope: dict[str, Any]) -> str:

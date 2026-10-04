@@ -100,16 +100,20 @@ def _span_opener(text: str) -> str | None:
     return "```" if tick < quote else '"""'
 
 
-def _strip_backticks(expr: str) -> str:
-    """Drop triple-backtick delimiters; the block content stays verbatim."""
+def _strip_backticks(expr: str) -> tuple[str, bool]:
+    """Drop triple-backtick delimiters; (content, unclosed-fence flag).
+
+    An opening fence with no closer records nothing: the expression is
+    unparseable and must block downstream instead of parsing through.
+    """
     text = expr.strip()
     if not text.startswith("```"):
-        return text
+        return text, False
     inner = text[3:]
     end = inner.rfind("```")
     if end == -1:
-        return inner.strip()
-    return inner[:end].strip()
+        return "", True
+    return inner[:end].strip(), False
 
 
 def _join_triples(lines: list[str]) -> tuple[list[str], list[int], list[int]]:
@@ -174,6 +178,17 @@ def _indent_of(line: str) -> int:
     return len(line.expandtabs(8)) - len(stripped.expandtabs(8)) if stripped else -1
 
 
+def _is_table(stripped: str) -> bool:
+    """Case-insensitive ``table `` keyword (TMDL keywords have no case)."""
+    return stripped[:6].casefold() == "table "
+
+
+def _is_member(stripped: str) -> bool:
+    """Case-insensitive ``measure ``/``column `` keyword."""
+    return (stripped[:8].casefold() == "measure "
+            or stripped[:7].casefold() == "column ")
+
+
 def extract_objects(text: str) -> dict:
     """Extract tables/measures/columns with expressions and properties.
 
@@ -217,8 +232,8 @@ def extract_objects(text: str) -> dict:
             annotation_indent = None
             seen_top = True
             stripped = line.strip()
-            if stripped.startswith("table "):
-                name = _unquote(stripped[len("table "):].strip())
+            if _is_table(stripped):
+                name = _unquote(stripped[6:].strip())
                 if not name:
                     issues.append({"rule": "empty_table_name", "line": lineno})
                     current = None
@@ -230,7 +245,7 @@ def extract_objects(text: str) -> dict:
                 current = None
             continue
         if current is None:
-            if not seen_top and line.strip().startswith(("measure ", "column ")):
+            if not seen_top and _is_member(line.strip()):
                 issues.append({"rule": "orphan_declaration", "line": lineno})
             continue
         stripped = line.strip()
@@ -257,14 +272,24 @@ def extract_objects(text: str) -> dict:
         flush()
         member = None
         annotation_indent = None
-        if stripped.startswith(("measure ", "column ")):
-            kind = "measure" if stripped.startswith("measure ") else "column"
+        if _is_member(stripped):
+            kind = ("measure" if stripped[:8].casefold() == "measure "
+                    else "column")
             rest = stripped[len(kind) + 1:]
             name, sep, expression = _split_declaration(rest)
             name = _unquote(name.strip())
             member = (kind, name)
             member_indent = indent
-            body = _strip_backticks(expression) if sep else ""
+            if sep:
+                body, unclosed = _strip_backticks(expression)
+                if unclosed:
+                    issues.append({"rule": "unclosed_backtick",
+                                   "line": lineno, "table": current,
+                                   "member": name})
+                    member = None
+                    continue
+            else:
+                body = ""
             tables[current][kind + "s"][name] = body
             tables[current][kind + "_props"].setdefault(name, {})
         # Other member-level lines (lineageTag, annotations, ...) are

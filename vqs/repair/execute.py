@@ -36,6 +36,21 @@ class RepairError(OSError):
     """Candidate materialization or application failed; nothing applied."""
 
 
+def _digest_map(entries: list[tuple[str, bytes]]) -> str:
+    """Hash (relative path, content) pairs in sorted order.
+
+    Shared by tree digests and pre-copy pins so the two can never
+    disagree byte for byte.
+    """
+    digest = hashlib.sha256()
+    for rel, data in sorted(entries):
+        digest.update(rel.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(data)
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
 def tree_digest(report: str | Path) -> str:
     """Fingerprint a report tree relative to its own root.
 
@@ -46,12 +61,12 @@ def tree_digest(report: str | Path) -> str:
     through it.
     """
     root = Path(report)
-    digest = hashlib.sha256()
     try:
         entries = sorted(root.rglob("*"))
     except OSError as exc:
         raise RepairError(f"cannot walk {root}: {exc}") from exc
     root_real = os.path.normcase(os.path.realpath(root))
+    pairs: list[tuple[str, bytes]] = []
     for path in entries:
         if path.is_symlink() or not within_root(root_real, str(path)):
             raise RepairError(f"link inside repair tree: {path}")
@@ -62,14 +77,12 @@ def tree_digest(report: str | Path) -> str:
                 raise RepairError(f"cannot stat {path}: {exc}") from exc
             if siblings > 1:
                 raise RepairError(f"hardlink inside repair tree: {path}")
-            digest.update(path.relative_to(root).as_posix().encode("utf-8"))
-            digest.update(b"\0")
             try:
-                digest.update(path.read_bytes())
+                pairs.append((path.relative_to(root).as_posix(),
+                              path.read_bytes()))
             except OSError as exc:
                 raise RepairError(f"cannot read {path}: {exc}") from exc
-            digest.update(b"\0")
-    return digest.hexdigest()
+    return _digest_map(pairs)
 
 
 def _read_json(path: Path) -> Any:
@@ -87,6 +100,143 @@ def _write_json(path: Path, doc: Any) -> None:
         raise RepairError(f"cannot write {path}: {exc}") from exc
 
 
+def _walk_original(original: str) -> tuple[str, list[tuple[str, str]]]:
+    """Validated (relative, absolute) original files; refuses links/loops.
+
+    The same walk feeds the pre-copy pin and the copy itself, so the
+    pin and the materialized candidate cannot disagree on membership.
+    """
+    original_real = os.path.normcase(os.path.realpath(original))
+    failures: list[OSError] = []
+
+    def _on_error(exc: OSError) -> None:
+        failures.append(exc)
+
+    seen: set[str] = {original_real}
+    found: list[tuple[str, str]] = []
+    walker = os.walk(original, followlinks=False, onerror=_on_error)
+    for current, dirs, files in walker:
+        for name in list(dirs):
+            marker = os.path.normcase(os.path.realpath(
+                os.path.join(current, name)))
+            if marker in seen:
+                raise RepairError("original contains a directory loop: "
+                                  f"{os.path.join(current, name)}")
+            seen.add(marker)
+        for name in files:
+            source = os.path.join(current, name)
+            if os.path.islink(source):
+                raise RepairError(f"original contains a link: {source}")
+            if not within_root(original_real, source):
+                raise RepairError("original entry escapes its root: "
+                                  f"{source}")
+            found.append((os.path.relpath(source, original), source))
+    if failures:
+        raise RepairError(f"original unreadable: {failures[0]}")
+    return original_real, found
+
+
+def _snapshot_original(original: str) -> list[tuple[str, bytes]]:
+    """Pin the original content before any copy; R19 pre-copy baseline.
+
+    Relative names use forward slashes so the pin hashes exactly like
+    :func:`tree_digest` on every host.
+    """
+    _real, found = _walk_original(original)
+    try:
+        return [(rel.replace(os.sep, "/"), Path(source).read_bytes())
+                for rel, source in found]
+    except OSError as exc:
+        raise RepairError(f"original unreadable: {exc}") from exc
+
+
+def bypath_claim(report: Path) -> tuple[str | None, Any]:
+    """Original model claim: (byPath target, byConnection doc).
+
+    (None, None) means the report makes no model claim at all; a
+    present-but-unusable reference refuses instead of guessing.
+    """
+    pbir_path = report / "definition.pbir"
+    if not pbir_path.is_file():
+        return None, None
+    try:
+        data = json.loads(pbir_path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError) as exc:
+        raise RepairError(f"definition.pbir unreadable: {exc}") from exc
+    ref = data.get("datasetReference", {}) or {}
+    if not isinstance(ref, dict):
+        raise RepairError("definition.pbir datasetReference is not an object")
+    by_path = ref.get("byPath", {}) or {}
+    target = by_path.get("path", "") if isinstance(by_path, dict) else ""
+    if isinstance(target, str) and target:
+        return target, None
+    connection = ref.get("byConnection")
+    if isinstance(connection, dict):
+        return None, connection
+    raise RepairError("definition.pbir names no datasetReference.byPath "
+                      "or byConnection model")
+
+
+def _model_root_beneath(base: Path, target: str) -> Path:
+    """Resolve a byPath target against a report root.
+
+    Mirrors ``vqs.pbir._resolve_model_dir`` (definition/ subdir wins)
+    without requiring the candidate to exist yet.
+    """
+    resolved = (base / target).resolve()
+    definition = resolved / "definition"
+    return definition if definition.is_dir() else resolved
+
+
+def check_relocation_model(original: str, candidate_root: str, *,
+                           allow_missing: bool = False) -> dict:
+    """Refuse a relocation that would lose or switch the byPath model.
+
+    Compares the model the candidate path WOULD resolve against the
+    original's pinned model digest — directory names are never trusted.
+    Missing candidate-side models refuse unless ``allow_missing`` (the
+    sealed pipeline path, which pins the original identity for later
+    sealed verify instead); different same-name models always refuse.
+    Remote (byConnection) references travel with the copy, so they pin
+    the connection document. Returns the model pin for sealed evidence.
+    """
+    from vqs.pbir import _hash_model_dir, _resolve_model_dir
+
+    original_path = Path(original)
+    target, connection = bypath_claim(original_path)
+    if connection is not None:
+        return {"kind": "remote", "connection": connection}
+    if target is None:
+        return {"kind": "absent"}
+    original_model, rule, detail = _resolve_model_dir(original_path)
+    if original_model is None:
+        raise RepairError(f"original model unresolvable ({rule}): {detail}")
+    original_digest = _hash_model_dir(original_model)
+    if original_digest is None:
+        raise RepairError(f"original model has no readable TMDL: {original_model}")
+    pin: dict = {"kind": "byPath", "path": str(original_model),
+                 "digest": original_digest}
+    candidate_model = _model_root_beneath(Path(candidate_root), target)
+    try:
+        has_tmdl = (candidate_model.is_dir()
+                    and any(candidate_model.rglob("*.tmdl")))
+    except OSError:
+        has_tmdl = False
+    if not has_tmdl:
+        if allow_missing:
+            return pin
+        raise RepairError(
+            "relocated candidate model missing: "
+            f"{target!r} from {candidate_root} resolves to "
+            f"{candidate_model} with no readable TMDL")
+    candidate_digest = _hash_model_dir(candidate_model)
+    if candidate_digest != original_digest:
+        raise RepairError(
+            "relocated candidate model differs from the original model: "
+            f"{candidate_model} does not match {original_model}")
+    return pin
+
+
 def materialize_candidate(original: str, candidate_root: str) -> dict:
     """Copy the original report into a fresh candidate root (links refuse)."""
     if not os.path.isdir(original):
@@ -102,37 +252,13 @@ def materialize_candidate(original: str, candidate_root: str) -> dict:
         root_issues = validate_materialized_roots(original, candidate_root)
         if root_issues:
             raise RepairError(f"repair roots rejected: {root_issues[0]}")
-        original_real = os.path.normcase(os.path.realpath(original))
-        failures: list[OSError] = []
-
-        def _on_error(exc: OSError) -> None:
-            failures.append(exc)
-
-        seen: set[str] = {original_real}
+        _real, found = _walk_original(original)
         count = 0
-        walker = os.walk(original, followlinks=False, onerror=_on_error)
-        for current, dirs, files in walker:
-            for name in list(dirs):
-                marker = os.path.normcase(os.path.realpath(
-                    os.path.join(current, name)))
-                if marker in seen:
-                    raise RepairError("original contains a directory loop: "
-                                      f"{os.path.join(current, name)}")
-                seen.add(marker)
-            for name in files:
-                source = os.path.join(current, name)
-                if os.path.islink(source):
-                    raise RepairError(f"original contains a link: {source}")
-                if not within_root(original_real, source):
-                    raise RepairError("original entry escapes its root: "
-                                      f"{source}")
-                rel = os.path.relpath(source, original)
-                target = os.path.join(candidate_root, rel)
-                os.makedirs(os.path.dirname(target), exist_ok=True)
-                shutil.copyfile(source, target)
-                count += 1
-        if failures:
-            raise RepairError(f"original unreadable: {failures[0]}")
+        for rel, source in found:
+            target = os.path.join(candidate_root, rel)
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            shutil.copyfile(source, target)
+            count += 1
         final = tree_digest(candidate_root)
     except Exception:
         shutil.rmtree(candidate_root, ignore_errors=True)
@@ -180,13 +306,34 @@ def _unified_patch(rel: str, before: bytes, after: bytes) -> str:
 
 
 def apply_plan(plan: dict, original: str, candidate_root: str,
-               approved_semantic_change: str | None = None) -> dict:
-    """Validate, materialize, and apply a plan; blocked restores, never half."""
+               approved_semantic_change: str | None = None,
+               allow_missing_relocated_model: bool = False) -> dict:
+    """Validate, materialize, and apply a plan; blocked restores, never half.
+
+    R18: the relocation guard runs before anything is written — a
+    candidate that would lose or switch the byPath model is refused
+    while the candidate root still does not exist. R19: the original
+    baseline is pinned from a pre-copy snapshot (never re-read after
+    the copy), and the copy must match the pin before any op lands.
+    """
     plan_issues = validate_plan(plan, original, candidate_root,
                                 approved_semantic_change)
     if plan_issues:
         return {"verdict": "blocked", "stage": "validate",
                 "issues": plan_issues}
+    try:
+        model_pin = check_relocation_model(
+            original, candidate_root,
+            allow_missing=allow_missing_relocated_model)
+    except RepairError as exc:
+        return {"verdict": "blocked", "stage": "relocation",
+                "reason": str(exc)}
+    try:
+        pinned = _snapshot_original(original)
+    except RepairError as exc:
+        return {"verdict": "blocked", "stage": "materialize",
+                "reason": str(exc)}
+    before_digest = _digest_map(pinned)
     try:
         materialize_candidate(original, candidate_root)
     except RepairError as exc:
@@ -195,6 +342,17 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
         # only roots it created itself (owned partial copies).
         return {"verdict": "blocked", "stage": "materialize",
                 "reason": str(exc)}
+    try:
+        copied_digest = tree_digest(candidate_root)
+    except RepairError as exc:
+        shutil.rmtree(candidate_root, ignore_errors=True)
+        return {"verdict": "blocked", "stage": "materialize",
+                "reason": f"cannot re-read candidate copy: {exc}"}
+    if copied_digest != before_digest:
+        shutil.rmtree(candidate_root, ignore_errors=True)
+        return {"verdict": "blocked", "stage": "materialize",
+                "reason": "original changed during copy; retry with a "
+                          "fresh candidate root"}
     candidate = Path(candidate_root)
     operations = plan.get("operations", [])
     snapshot: dict[str, bytes] = {}
@@ -238,7 +396,6 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
     from vqs.pbir import source_digest
 
     try:
-        before_digest = tree_digest(original)
         after_digest = tree_digest(candidate)
         source_sha = source_digest(candidate)
         if before_digest == after_digest:
@@ -256,7 +413,7 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
              for rel, before in snapshot.items()}
     return {"verdict": "applied", "candidate": str(candidate),
             "before": before_digest, "after": after_digest,
-            "source_sha256": source_sha,
+            "source_sha256": source_sha, "model": model_pin,
             "edits": edits, "patch": patch, "affected_pages": pages}
 
 

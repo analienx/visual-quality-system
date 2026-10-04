@@ -318,11 +318,26 @@ def test_close_is_idempotent_and_client_recovers(tmp_path: Path) -> None:
         client.close()
 
 
-def test_scope_helpers_tolerate_malformed_input() -> None:
+def test_scope_helpers_reject_malformed_presence() -> None:
+    """R21/D14: absent scope stays unconstrained, but a present field
+    with the wrong shape raises instead of silently narrowing."""
     assert scope_from_dict(None) == ModelingScope()
-    assert scope_from_dict({"roles": "Solo"}) == ModelingScope(roles=("Solo",))
-    assert scope_from_dict({"roles": 7}).roles == ()
-    assert scope_from_dict({"model": 7}).model is None
+    assert scope_from_dict({}) == ModelingScope()
+    with pytest.raises(TypeError):
+        scope_from_dict(["not", "a", "mapping"])
+    with pytest.raises(TypeError):
+        scope_from_dict({"roles": "Solo"})
+    with pytest.raises(TypeError):
+        scope_from_dict({"roles": 7})
+    with pytest.raises(TypeError):
+        scope_from_dict({"model": 7})
+    with pytest.raises(TypeError):
+        scope_from_dict({"period": 2024})
+    with pytest.raises(ValueError):
+        scope_from_dict({"roles": ["ok", ""]})
+    assert scope_from_dict({"roles": ["Solo"]}) == ModelingScope(
+        roles=("Solo",))
+    assert scope_from_dict({"model": "m"}).model == "m"
     expected = ModelingScope(model="m", roles=("r",), period="p",
                              filters={"a": 1})
     assert compare_scope(expected, {"model": "m", "roles": ["r"],

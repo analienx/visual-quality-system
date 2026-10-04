@@ -306,7 +306,6 @@ def capture(report: str, renders: str, pid: int | None = None,
     ``calibration`` always and ``data_readiness`` when a modeling port
     proves it.
     """
-    from .evidence import load as load_json
     from .evidence import png_size
     from .pbir import report_context, source_digest
     from .powerbi.modeling import ModelingScope, compare_scope
@@ -320,9 +319,6 @@ def capture(report: str, renders: str, pid: int | None = None,
     bridge_version = _require_bridge()
     report_path = Path(report)
     try:
-        precheck = load_json(report_path / "definition" / "pages.json")
-        for raw_id in precheck["pageOrder"]:
-            _safe_page_id(raw_id)
         info = report_context(report_path)
         expected = [page["id"] for page in info["pages"]]
         sizes = {page["id"]: ((page.get("canvas") or [None, None])[0],

@@ -55,6 +55,17 @@ def collect_answers(query: Any, questions: Sequence[dict]) -> dict:
     if not isinstance(questions, (list, tuple)):
         return {"questions": {"verdict": "blocked",
                               "reason": "oracle questions required"}}
+    seen: set[str] = set()
+    for position, question in enumerate(questions):
+        qid = (question.get("id", f"question-{position}")
+               if isinstance(question, dict) else f"question-{position}")
+        qid = str(qid)
+        if qid in seen:
+            return {"questions": {
+                "verdict": "blocked",
+                "reason": f"duplicate_question_id: {qid!r} repeats; "
+                          "refusing ambiguous oracle questions"}}
+        seen.add(qid)
     answers: dict[str, Any] = {}
     for position, question in enumerate(questions):
         if not isinstance(question, dict):

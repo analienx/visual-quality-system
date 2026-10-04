@@ -64,6 +64,8 @@ def _unresolved_entry(item: dict, marker: str) -> dict:
     return {"foreground": item.get("foreground"),
             "background": item.get("background"),
             "page": item.get("page"), "role": item.get("role"),
+            "visual": item.get("visual"),
+            "paragraph": item.get("paragraph"),
             "count": item.get("count"), "unresolved": marker}
 
 
@@ -104,6 +106,8 @@ def text_contrast(foreground: str | None = None, background: str | None = None, 
                 failures.append({"foreground": item.get("foreground"),
                                  "background": item.get("background"),
                                  "page": item.get("page"), "role": item.get("role"),
+                                 "visual": item.get("visual"),
+                                 "paragraph": item.get("paragraph"),
                                  "count": item.get("count"), "ratio": pair["ratio"]})
         if unresolved:
             return _finding(rule, "unknown",
