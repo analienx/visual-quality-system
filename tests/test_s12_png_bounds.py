@@ -224,9 +224,12 @@ def _swap_png(bundle: Path, png_blob: bytes) -> None:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["files"]["p1.png"] = sha
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    manifest_sha = hashlib.sha256(
+        manifest_path.read_bytes()).hexdigest()
     header_path = bundle / "bundle.json"
     header = json.loads(header_path.read_text(encoding="utf-8"))
     header["files"]["p1.png"] = sha
+    header["files"]["capture-manifest.json"] = manifest_sha
     header_path.write_text(json.dumps(header), encoding="utf-8")
 
 
@@ -238,7 +241,7 @@ def _rgba_png() -> bytes:
 
 def _deep_png() -> bytes:
     ihdr = struct.pack(">IIBBBBB", 500, 500, 16, 2, 0, 0, 0)
-    comp = zlib.compress(b"\x00" + b"\x00\x20" * 500 * 3 * 500 // 3)
+    comp = zlib.compress(b"\x00" * (500 * (1 + 500 * 6)))
 
     def chunk(tag: bytes, payload: bytes) -> bytes:
         return (struct.pack(">I", len(payload)) + tag + payload
