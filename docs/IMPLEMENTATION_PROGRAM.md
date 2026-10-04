@@ -1,6 +1,6 @@
 # VQS implementation program — Power BI Desktop + Word first
 
-**Planning baseline:** 2026-09-23. **State:** a delivery plan, not completed functionality. **Program:** [#4](https://github.com/analienx/visual-quality-system/issues/4). **Machine-readable work ledger:** [`roadmap/work_packages.json`](../roadmap/work_packages.json). **Execution architecture:** [EXECUTION_ARCHITECTURE.md](EXECUTION_ARCHITECTURE.md). **Agent/status protocol:** [LEDGER_AND_AGENT_PROTOCOL.md](LEDGER_AND_AGENT_PROTOCOL.md). **Acceptance:** [ACCEPTANCE_MATRIX.md](ACCEPTANCE_MATRIX.md).
+**Planning baseline:** 2026-09-23. **State:** a delivery plan, not completed functionality. **Program:** [#4](https://github.com/analienx/visual-quality-system/issues/4). **Machine-readable work ledger:** [`roadmap/work_packages.json`](../roadmap/work_packages.json). **Execution architecture:** [EXECUTION_ARCHITECTURE.md](EXECUTION_ARCHITECTURE.md). **Agent/status protocol:** [LEDGER_AND_AGENT_PROTOCOL.md](LEDGER_AND_AGENT_PROTOCOL.md). **Acceptance:** [ACCEPTANCE_MATRIX.md](ACCEPTANCE_MATRIX.md). **Execution status (2026-10-03):** ten work packages carry unmerged draft-PR candidates with green hosted CI — see [roadmap/STATUS.md](../roadmap/STATUS.md); 0 independently verified; post-repair template authoring is defined in [TEMPLATE_AUTHORING_CONTRACT.md](TEMPLATE_AUTHORING_CONTRACT.md) and not implemented.
 
 ## 1. Deliverable and release boundaries
 
