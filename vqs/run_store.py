@@ -51,6 +51,42 @@ def _validate_name(name: object, what: str) -> str:
     return name
 
 
+def _has_link(path: object) -> bool:
+    """True for symlinks and (Windows) junctions."""
+    text = str(path)
+    if os.path.islink(text):
+        return True
+    isjunction = getattr(os.path, "isjunction", None)
+    return bool(isjunction is not None and isjunction(text))
+
+
+def _resolve_artifact(run_dir: Path, rel: object) -> Path | None:
+    """Resolve a sealed artifact path; None when it escapes or links out.
+
+    R16: every component from the run dir down must be a real
+    file/directory inside the run. A symlink or junction child —
+    even one pointing back inside — refuses, so foreign bytes can
+    never seal or verify as run evidence, and cleanup never follows
+    the link to a foreign target.
+    """
+    if not isinstance(rel, str) or not rel or rel.startswith(("/", "\\")):
+        return None
+    if "\x00" in rel:
+        return None
+    current = Path(run_dir)
+    for part in rel.replace("\\", "/").split("/"):
+        if part in ("", ".", ".."):
+            return None
+        current = current / part
+        if _has_link(current):
+            return None
+    base = os.path.normcase(os.path.realpath(str(run_dir)))
+    target = os.path.normcase(os.path.realpath(str(current)))
+    if os.path.commonpath([base, target]) != base:
+        return None
+    return current
+
+
 def _within(root: Path, path: Path) -> bool:
     """True when path resolves inside root (Windows/POSIX aware)."""
     base = os.path.normcase(os.path.abspath(str(root)))
@@ -150,6 +186,15 @@ def seal_run(run_dir: Path, status: str, artifacts: dict | None = None,
     manifest["event_count"] = len(events)
     manifest["events_sha256"] = digest_bytes(
         (Path(run_dir) / "events.jsonl").read_bytes())
+    claimed = manifest.get("artifacts")
+    if isinstance(claimed, dict):
+        for name, entry in claimed.items():
+            if (isinstance(entry, dict)
+                    and isinstance(entry.get("sha256"), str)
+                    and isinstance(entry.get("path"), str)
+                    and _resolve_artifact(Path(run_dir), entry["path"]) is None):
+                raise ValueError(f"Sealed artifact escapes the run directory "
+                                 f"or passes through a link: {name}")
     manifest["sealed"] = True
     manifest["sealed_sha256"] = _canonical_manifest_sha256(manifest)
     _atomic_write(manifest_path, json.dumps(manifest, indent=2))
@@ -189,11 +234,12 @@ def verify_seal(run_dir: Path) -> list[dict[str, Any]]:
                     and isinstance(entry.get("sha256"), str)
                     and isinstance(entry.get("path"), str)):
                 continue
-            target = Path(run_dir) / entry["path"]
-            if not _within(Path(run_dir), target):
+            target = _resolve_artifact(Path(run_dir), entry["path"])
+            if target is None:
                 issues.append({"rule": "seal_artifact_unverifiable",
                                "artifact": name,
-                               "detail": "path escapes the run directory"})
+                               "detail": "path escapes the run directory or "
+                                         "passes through a link"})
                 continue
             try:
                 actual = digest_bytes(target.read_bytes())

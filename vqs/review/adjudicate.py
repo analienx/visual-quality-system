@@ -1,4 +1,4 @@
-"""Review-bundle adjudication (WP-07 static half, issue #12).
+﻿"""Review-bundle adjudication (WP-07 static half, issue #12).
 
 Decides a structured review bundle without looking at pixels: reviewer
 separation (CORE-06), image-capability presence (DES-10), capture calibration
@@ -24,8 +24,31 @@ from vqs.evidence import (
 )
 
 
+_HEX64 = frozenset("0123456789abcdefABCDEF")
+
+
+def _is_bound_image(value: object) -> bool:
+    """A materialized image binding: 64-hex digest, not a bare label."""
+    return (isinstance(value, str) and len(value) == 64
+            and all(char in _HEX64 for char in value))
+
+
+def _is_pixels(value: object) -> bool:
+    """A concrete [width, height] pair of positive ints."""
+    return (isinstance(value, (list, tuple)) and len(value) == 2
+            and all(isinstance(dim, int) and not isinstance(dim, bool) and dim > 0
+                    for dim in value))
+
+
 def adjudicate_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
-    """Adjudicate a review bundle; empty findings means release-pass."""
+    """Adjudicate a review bundle; static checks never approve a release.
+
+    R12: a bundle declaring whole-source coverage (``source_pages``)
+    always blocks for capable image review even when statically
+    conformant (``static_conformance`` labels the static half); pages
+    need materialized image bindings, duplicated or uncovered pages
+    block. Bundles without ``source_pages`` keep legacy semantics.
+    """
     findings: list[dict[str, Any]] = []
     if not isinstance(bundle, dict):
         return {"verdict": "blocked", "findings": [{"rule": "bundle_not_an_object"}]}
@@ -52,6 +75,10 @@ def adjudicate_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
             findings.append({"rule": "page_not_an_object", "verdict": "blocked"})
             continue
         page_id = page.get("id", "?")
+        if (not _is_bound_image(page.get("image_sha256"))
+                or not _is_pixels(page.get("pixels"))):
+            findings.append({"rule": "page_image_unbound", "verdict": "blocked",
+                             "page": page_id})
         if page.get("image_source_sha256", "") != source or not source:
             findings.append({"rule": "stale_image", "verdict": "fail", "page": page_id})
         if not shape_issues and page.get("pixels") is not None:
@@ -65,6 +92,37 @@ def adjudicate_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
         findings.extend(check_observations(surface if isinstance(surface, str) else "",
                                            page.get("observations"), valid_ids,
                                            page_id))
+    declared = bundle.get("source_pages")
+    if declared is not None:
+        page_ids = [page.get("id") for page in pages
+                    if isinstance(page, dict) and isinstance(page.get("id"), str)]
+        if (not isinstance(declared, list) or not declared
+                or any(not isinstance(entry, str) or not entry for entry in declared)):
+            findings.append({"rule": "source_pages_invalid", "verdict": "blocked"})
+        else:
+            seen: set[str] = set()
+            for pid in page_ids:
+                if pid in seen:
+                    findings.append({"rule": "duplicate_page_evidence", "verdict": "blocked",
+                                     "page": pid})
+                seen.add(pid)
+            for entry in declared:
+                if entry not in seen:
+                    findings.append({"rule": "source_page_uncovered", "verdict": "blocked",
+                                     "page": entry})
+            for pid in page_ids:
+                if pid not in declared:
+                    findings.append({"rule": "source_page_undeclared", "verdict": "blocked",
+                                     "page": pid})
+        static_ok = not any(row.get("verdict") in ("fail", "blocked") for row in findings)
+        findings.append({"rule": "image_review_required", "verdict": "blocked",
+                         "reason": "Static conformance never approves; release needs "
+                                   "a capable image review of fresh full-canvas renders"})
+        if any(row.get("verdict") == "fail" for row in findings):
+            return {"verdict": "fail", "findings": findings,
+                    "static_conformance": "pass" if static_ok else "fail"}
+        return {"verdict": "blocked", "findings": findings,
+                "static_conformance": "pass" if static_ok else "fail"}
     if not findings:
         return {"verdict": "pass", "findings": []}
     if any(row.get("verdict") == "fail" for row in findings):

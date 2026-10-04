@@ -40,6 +40,23 @@ def _schema_major(revision: object) -> int | None:
     return int(major) if major.isdigit() else None
 
 
+def _reviewer_bound_exception(contract: object, reviewer_id: object,
+                              fixer_id: object) -> bool:
+    """True when the run's own declared independent reviewer accepts the finding.
+
+    R15/F22 reconciliation: a well-formed review note alone never
+    suppresses nested identity checks; only a note from the manifest's
+    declared reviewer (independent of the fixer) carries that weight,
+    so a stranger's "looks fine" cannot waive a source mismatch.
+    """
+    return (isinstance(contract, dict)
+            and isinstance(contract.get("reviewed_by"), str)
+            and bool(contract["reviewed_by"])
+            and contract["reviewed_by"] == reviewer_id
+            and isinstance(reviewer_id, str) and bool(reviewer_id)
+            and reviewer_id != fixer_id)
+
+
 def validate_manifest(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     """Validate a ``to_dict``-shaped run manifest; never infer proof."""
     issues: list[dict[str, Any]] = []
@@ -64,6 +81,9 @@ def validate_manifest(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     findings = manifest.get("findings")
     if not isinstance(findings, (list, tuple)):
         return issues + [{"rule": "findings_not_a_list"}]
+    run_reviewer = manifest.get("reviewer")
+    run_reviewer_id = run_reviewer.get("id") if isinstance(run_reviewer, dict) else ""
+    run_fixer_id = manifest.get("fixer_id")
     seen: set[tuple[str, str]] = set()
     seen_ids: set[str] = set()
     for index, finding in enumerate(findings):
@@ -102,13 +122,17 @@ def validate_manifest(manifest: dict[str, Any]) -> list[dict[str, Any]]:
             if not isinstance(scope, dict) or not scope.get("query_context"):
                 issues.append({"rule": "missing_query_context", "index": index})
         nested = component.get("artifact") if isinstance(component, dict) else None
+        if isinstance(component, dict) and not isinstance(nested, dict):
+            issues.append({"rule": "finding_missing_provenance", "index": index,
+                           "component": component_id})
         contract = finding.get("cross_artifact_contract")
         reviewed = False
         if contract is not None:
             if (isinstance(contract, dict)
                     and isinstance(contract.get("reviewed_by"), str) and contract["reviewed_by"]
                     and isinstance(contract.get("reason"), str) and contract["reason"]):
-                reviewed = True
+                reviewed = _reviewer_bound_exception(contract, run_reviewer_id,
+                                                       run_fixer_id)
             else:
                 issues.append({"rule": "cross_artifact_contract_invalid", "index": index})
         if isinstance(nested, dict) and not reviewed:

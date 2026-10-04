@@ -255,8 +255,13 @@ def _png_pixels(path: Path) -> tuple[int, int, bool]:
     return width, height, uniform
 
 
-def _screenshot_map(output: str) -> dict[str, str]:
-    """Map pageId to PNG path from screenshot-all JSON output."""
+def _screenshot_map(output: str) -> dict[str, dict[str, str]]:
+    """Map pageId to its screenshot record from screenshot-all JSON output.
+
+    R17: each record carries the Bridge-reported ``outputPath`` plus
+    its ``viewport`` when the Bridge states one; viewports are
+    measured evidence, never invented downstream.
+    """
     try:
         start = output.index('{')
         payload, _ = json.JSONDecoder().raw_decode(output[start:])
@@ -270,7 +275,11 @@ def _screenshot_map(output: str) -> dict[str, str]:
     mapping = {}
     for shot in shots:
         if isinstance(shot, dict) and shot.get("pageId"):
-            mapping[str(shot["pageId"])] = str(shot.get("outputPath", ""))
+            record = {"outputPath": str(shot.get("outputPath", ""))}
+            viewport = shot.get("viewport")
+            if isinstance(viewport, str) and viewport:
+                record["viewport"] = viewport
+            mapping[str(shot["pageId"])] = record
     return mapping
 
 def _resolve_modeling(modeling: Any) -> tuple[Any, bool]:
@@ -286,6 +295,34 @@ def _resolve_modeling(modeling: Any) -> tuple[Any, bool]:
     from .powerbi.modeling import StdioModelingClient
 
     return StdioModelingClient(), True
+
+
+def _capture_manifest(*, source_sha256: str, page_images: dict[str, str],
+                      files: dict[str, str], pixels: dict[str, list[int]],
+                      canvas: tuple[int, int], scale: int,
+                      bridge_version: list[int], desktop: dict[str, Any],
+                      viewport: str | None = None) -> dict[str, Any]:
+    """Assemble a capture manifest from measured inputs (pure, unit-testable).
+
+    R17: the calibration viewport comes ONLY from Bridge
+    screenshot-all output. An absent viewport stays absent —
+    downstream calibration checks then block honestly — instead of
+    being invented here.
+    """
+    calibration: dict[str, Any] = {"canvas_width": canvas[0],
+                                  "canvas_height": canvas[1],
+                                  "scale": scale}
+    if viewport is not None:
+        calibration["viewport"] = viewport
+    return {"source_sha256": source_sha256,
+            "page_images": dict(page_images),
+            "files": dict(files),
+            "pixels": {page: list(size) for page, size in pixels.items()},
+            "canvas": [canvas[0], canvas[1]],
+            "scale": scale,
+            "bridge_version": list(bridge_version),
+            "desktop": dict(desktop),
+            "calibration": calibration}
 
 
 def capture(report: str, renders: str, pid: int | None = None,
@@ -407,7 +444,8 @@ def capture(report: str, renders: str, pid: int | None = None,
         pixels: dict[str, list[int]] = {}
         missing = []
         for page_id in expected:
-            raw = mapping.get(page_id, "")
+            shot = mapping.get(page_id)
+            raw = shot.get("outputPath", "") if isinstance(shot, dict) else ""
             target = renders_path / f"{page_id}.png"
             if not raw or not Path(raw).is_file():
                 missing.append(page_id)
@@ -459,6 +497,11 @@ def capture(report: str, renders: str, pid: int | None = None,
         if source_after != source_before:
             raise OSError("Report changed during capture; no manifest written")
         first_pixels = pixels[expected[0]] if expected else [0, 0]
+        seen_viewports = {mapping[page_id].get("viewport") for page_id in expected
+                          if isinstance(mapping.get(page_id), dict)}
+        viewport = next(iter(seen_viewports)) if len(seen_viewports) == 1 else None
+        if not isinstance(viewport, str) or not viewport:
+            viewport = None
         manifest: dict[str, Any] = {
             "source_sha256": source_after,
             "page_images": page_images,
@@ -494,6 +537,8 @@ def capture(report: str, renders: str, pid: int | None = None,
                 "status": "skipped",
                 "reason": "no modeling port supplied (pass one or set "
                           "VQS_MODELING_AUTO=1)"}
+        if viewport is not None:
+            manifest["calibration"]["viewport"] = viewport
         (renders_path / "capture-manifest.json").write_text(
             json.dumps(manifest, indent=2), encoding="utf-8")
         return manifest

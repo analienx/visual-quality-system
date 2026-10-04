@@ -19,8 +19,13 @@ from vqs.run_store import append_event, create_run, seal_run
 SOURCE_A = "a" * 64
 SOURCE_B = "b" * 64
 SOURCE_D = "c" * 64
-ENV = {"renderer": "desktop-bridge", "renderer_version": "1.0.0"}
-SCOPE = {"role": "analyst", "refresh_id": "refresh-1", "filters": {}}
+# R14 contract migration: acceptance requires stated identity on both
+# sides (locale/view_state, query_context/query_hash), so the shared
+# fixtures state them; thin-identity behavior moved to test_r14.
+ENV = {"renderer": "desktop-bridge", "renderer_version": "1.0.0",
+       "locale": "en-US", "view_state": "default"}
+SCOPE = {"role": "analyst", "refresh_id": "refresh-1", "filters": {},
+         "query_context": "analyst-review", "query_hash": "q" * 64}
 
 
 def _subjects() -> list[dict[str, Any]]:
