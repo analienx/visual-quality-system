@@ -17,7 +17,8 @@ SCHEMA_REPORT = ("https://developer.microsoft.com/json-schemas/fabric/item/"
 
 
 def _solid(hexcolor: str) -> dict:
-    return {"solid": {"color": {"expr": {"Literal": {"Value": f"'{hexcolor}'"}}}}
+    return {"solid": {"color": {"expr": {"Literal": {
+        "Value": f"'{hexcolor}'"}}}}}
 
 
 def _report(root: Path, page_bg: str, text_color: str,
