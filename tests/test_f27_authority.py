@@ -145,3 +145,35 @@ def test_f27_replay_under_another_gate_rejects(tmp_path: Path) -> None:
     verdict = run_acceptance(case.record(gates=gates), store)
     assert verdict["verdict"] != "pass"
     assert _authority_rules(verdict) != []
+
+
+def test_f27_replay_under_another_control_rejects(tmp_path: Path) -> None:
+    """An envelope bound to one control must not satisfy another control."""
+    from vqs.run_store import append_event, create_run, seal_run
+
+    case = _full_case()
+    gates = [dict(gate) for gate in case.gates]
+    target = next(gate for gate in gates
+                  if gate.get("negative_control") and "data_scope" in gate)
+    gate_id = target["id"]
+    other = "control-from-another-gate"
+    assert other != target["negative_control"]
+    bound = {"source_sha256": SOURCE_A, "environment": dict(ENV),
+             "data_scope": {**SCOPE, "filters": {}},
+             "producer": {"run_id": "prod-1", "gate": gate_id,
+                          "status": target["status"], "control": other}}
+    raw = _envelope_bytes(bound)
+    sha = hashlib.sha256(raw).hexdigest()
+    case.blobs[sha] = raw
+    store = case.store(tmp_path)
+    run_dir = create_run(tmp_path, "prod-1", {"pipeline": "t/1"})
+    append_event(run_dir, {"kind": "started"})
+    append_event(run_dir, {"kind": "completed"})
+    seal_run(run_dir, "completed",
+             artifacts={"envelope_sha256": sha, "gate": gate_id,
+                        "status": target["status"], "control": other})
+    target["evidence_ref"] = {"sha256": sha, "source_sha256": SOURCE_A}
+    verdict = run_acceptance(case.record(gates=gates), store)
+    assert verdict["verdict"] != "pass"
+    assert any(finding.get("rule") == "producer_control_mismatch"
+               for finding in verdict["findings"])

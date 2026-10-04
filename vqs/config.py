@@ -16,7 +16,7 @@ Schema ``vqs.config/1`` keys (unknown top-level keys are rejected):
 - ``questions``/``oracles``: lists appended to review facts; base
   pipeline oracles validate their own entries.
 - ``recipes``: opaque dict of repair recipe allowlists, recorded only
-  (the repair engine of Task 6 consumes it).
+  (consumed by the repair engine).
 - ``data_permissions``: ``allow_cloud``/``allow_desktop`` booleans
   (default False); review scopes requiring them block otherwise.
 """

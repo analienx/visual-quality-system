@@ -417,7 +417,7 @@ def _atomic_finding(finding: dict[str, Any]) -> dict[str, Any]:
 
     Severity follows the status (fail/error, blocked/warning,
     pass/info); location carries page/visual only when the evidence
-    proves them; ``recipes`` stays empty until the repair lane (Task 6)
+    proves them; ``recipes`` stays empty until the repair lane
     supplies supported recipes — never invented here.
     """
     status = finding.get("status", "blocked")
