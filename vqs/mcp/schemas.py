@@ -1,0 +1,111 @@
+"""Tool schemas and strict argument validation for the MCP server."""
+from __future__ import annotations
+
+from typing import Any
+
+TOOL_SPECS: tuple[dict[str, Any], ...] = (
+    {"name": "vqs_inspect", "tool": "vqs.inspect",
+     "description": "Measure check-ready facts for a PBIR report.",
+     "inputSchema": {
+         "type": "object",
+         "properties": {
+             "report_dir": {"type": "string"},
+             "model_dir": {"type": ["string", "null"]},
+             "config_path": {"type": ["string", "null"]}},
+         "required": ["report_dir"],
+         "additionalProperties": False}},
+    {"name": "vqs_review", "tool": "vqs.review",
+     "description": "Review measured sources to a sealed verdict.",
+     "inputSchema": {
+         "type": "object",
+         "properties": {
+             "report_dir": {"type": ["string", "null"]},
+             "model_dir": {"type": ["string", "null"]},
+             "facts": {"type": ["object", "null"]},
+             "scope": {"type": "string", "enum": ["static", "desktop",
+                                                 "release"]},
+             "state": {"type": "string"},
+             "config_path": {"type": ["string", "null"]},
+             "run_root": {"type": "string"},
+             "run_id": {"type": ["string", "null"]},
+             "resume_from": {"type": ["string", "null"]}},
+         "required": [],
+         "additionalProperties": False}},
+    {"name": "vqs_propose", "tool": "vqs.propose",
+     "description": "Propose candidate repairs for a run (Task 6 engine).",
+     "inputSchema": {
+         "type": "object",
+         "properties": {
+             "run_root": {"type": "string"},
+             "run_id": {"type": "string"}},
+         "required": ["run_root", "run_id"],
+         "additionalProperties": False}},
+    {"name": "vqs_repair", "tool": "vqs.repair",
+     "description": "Validate then apply a repair plan (Task 6 engine).",
+     "inputSchema": {
+         "type": "object",
+         "properties": {
+             "plan_path": {"type": "string"},
+             "original": {"type": "string"},
+             "candidate_root": {"type": "string"}},
+         "required": ["plan_path", "original", "candidate_root"],
+         "additionalProperties": False}},
+    {"name": "vqs_verify", "tool": "vqs.verify",
+     "description": "Verify a candidate against its original (Task 6).",
+     "inputSchema": {
+         "type": "object",
+         "properties": {
+             "run_root": {"type": ["string", "null"]},
+             "run_id": {"type": ["string", "null"]},
+             "original": {"type": ["string", "null"]},
+             "candidate": {"type": ["string", "null"]}},
+         "required": [],
+         "additionalProperties": False}},
+    {"name": "vqs_run_status", "tool": "vqs.run_status",
+     "description": "Report a sealed run's status and event trail.",
+     "inputSchema": {
+         "type": "object",
+         "properties": {
+             "run_root": {"type": "string"},
+             "run_id": {"type": "string"}},
+         "required": ["run_root", "run_id"],
+         "additionalProperties": False}},
+)
+
+_BY_NAME = {spec["name"]: spec for spec in TOOL_SPECS}
+
+
+def _matches(value: Any, expected: Any) -> bool:
+    if isinstance(expected, list):
+        return any(_matches(value, item) for item in expected)
+    if expected == "string":
+        return isinstance(value, str)
+    if expected == "object":
+        return isinstance(value, dict)
+    if expected == "null":
+        return value is None
+    if expected == "boolean":
+        return isinstance(value, bool)
+    return True
+
+
+def validate_call(name: Any, arguments: Any) -> tuple[dict | None, str | None]:
+    """Validate a tools/call; (spec, None) or (None, error message)."""
+    if not isinstance(name, str) or name not in _BY_NAME:
+        return None, f"unknown tool: {name!r}"
+    if not isinstance(arguments, dict):
+        return None, "arguments must be an object"
+    schema = _BY_NAME[name]["inputSchema"]
+    for key in arguments:
+        if key not in schema["properties"]:
+            return None, f"unknown argument: {key!r}"
+    for key in schema.get("required", []):
+        if key not in arguments:
+            return None, f"missing argument: {key!r}"
+    for key, value in arguments.items():
+        prop = schema["properties"][key]
+        if not _matches(value, prop.get("type", "string")):
+            return None, f"argument {key!r} has the wrong type"
+        if "enum" in prop and value not in prop["enum"]:
+            return None, f"argument {key!r} is not an allowed value"
+    return _BY_NAME[name], None
