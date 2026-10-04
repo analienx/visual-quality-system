@@ -28,7 +28,7 @@ def test_f24_run_id_traversal_and_absolute_blocked(tmp_path: Path) -> None:
         assert resumed["verdict"] == "blocked", bad_id
         status = run_status_report(run_root=run_root, run_id=bad_id)
         assert status["verdict"] == "blocked", bad_id
-        assert "run_id" in " ".join(status["reasons"]) or "run_dir" in " ".join(status["reasons"])
+        assert "run_id" in " ".join(status["blocked_reasons"]) or "run_dir" in " ".join(status["blocked_reasons"])
 
 
 def test_f24_malformed_prior_manifest_blocked(tmp_path: Path) -> None:
@@ -48,10 +48,10 @@ def test_f24_forged_prior_artifact_blocked(tmp_path: Path) -> None:
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     resumed = review_report(facts={"rules": {}}, run_root=run_root, run_id="x", resume_from="r1")
     assert _blocked(resumed)
-    assert any("seal" in reason for reason in resumed["reasons"])
+    assert any("seal" in reason for reason in resumed["blocked_reasons"])
     status = run_status_report(run_root=run_root, run_id="r1")
     assert status["verdict"] == "blocked"
-    assert any("seal" in reason for reason in status["reasons"])
+    assert any("seal" in reason for reason in status["blocked_reasons"])
 
 
 def test_f24_post_seal_event_mutation_blocked(tmp_path: Path) -> None:
@@ -61,7 +61,7 @@ def test_f24_post_seal_event_mutation_blocked(tmp_path: Path) -> None:
         handle.write(json.dumps({"kind": "completed"}) + "\n")
     resumed = review_report(facts={"rules": {}}, run_root=run_root, run_id="x", resume_from="r1")
     assert _blocked(resumed)
-    assert any("seal" in reason for reason in resumed["reasons"])
+    assert any("seal" in reason for reason in resumed["blocked_reasons"])
     status = run_status_report(run_root=run_root, run_id="r1")
     assert status["verdict"] == "blocked"
 
@@ -91,10 +91,10 @@ def test_f24_cli_resume_and_status_block(capsys, tmp_path: Path) -> None:
     rc = vqs_main(["review", "--facts", str(facts_path), "--run-root", run_root,
                    "--run-id", "cli2", "--resume-from", "r1"])
     assert rc == 2
-    assert vqs_main(["run-status", "--run-root", run_root, "--run-id", "r1"]) == 2
+    assert vqs_main(["run-status", run_root, "r1"]) == 2
     assert vqs_main(["review", "--facts", str(facts_path), "--run-root", run_root,
                      "--run-id", "cli3", "--resume-from", "../.."]) == 2
-    assert vqs_main(["run-status", "--run-root", run_root, "--run-id", "../.."]) == 2
+    assert vqs_main(["run-status", run_root, "../.."]) == 2
     capsys.readouterr()
 
 
