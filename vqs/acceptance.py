@@ -63,7 +63,8 @@ _ENV_DIMS: tuple[str, ...] = ("renderer", "renderer_version", "locale", "view_st
 # must state locale/view_state (environment) and query_context/
 # query_hash (data scope); a missing key or None on the envelope side
 # is unknown and blocks as evidence_identity_incomplete (unknown
-# never equals, not even unknown). A thin gate claim against complete
+# never equals, not even unknown). S13: blank strings and wrong
+# types are likewise unknown, never stated. A thin gate claim against complete
 # evidence still fails closed through mismatch. The explicit string
 # "not_applicable" counts as stated: documented N/A pairs carry it on
 # both sides; plain None never does.
@@ -74,10 +75,15 @@ IDENTITY_NOT_APPLICABLE = "not_applicable"
 
 def _envelope_identity_incomplete(envelope_slot: object,
                                     dims: tuple[str, ...]) -> bool:
-    """True when sealed evidence leaves a required dimension unstated."""
+    """True when sealed evidence leaves a required dimension unstated.
+
+    S13: blank strings and wrong types are unknown, not stated values;
+    only a non-blank string counts (the documented "not_applicable"
+    sentinel stays stated when both sides carry it).
+    """
     if not isinstance(envelope_slot, dict):
         return True
-    return any(envelope_slot.get(dim) is None for dim in dims)
+    return any(not _stated_str(envelope_slot.get(dim)) for dim in dims)
 
 
 # Terminal statuses seal producer runs while gates speak pass/fail;
@@ -119,6 +125,11 @@ def _is_safe_run_id(run_id: object) -> bool:
 def _is_hex64(value: object) -> bool:
     return (isinstance(value, str) and len(value) == 64
             and all(char in _HEX for char in value))
+
+
+def _stated_str(value: object) -> bool:
+    """A stated string identity: present, a string, and non-blank."""
+    return isinstance(value, str) and bool(value.strip())
 
 
 def run_acceptance(record: dict[str, Any],
@@ -226,8 +237,9 @@ def run_acceptance(record: dict[str, Any],
                              "gate": gate_id})
             continue
         gate_env = gate.get("environment", {})
-        if (not isinstance(gate_env, dict) or not gate_env.get("renderer")
-                or not gate_env.get("renderer_version")):
+        if (not isinstance(gate_env, dict)
+                or not _stated_str(gate_env.get("renderer"))
+                or not _stated_str(gate_env.get("renderer_version"))):
             findings.append({"rule": "gate_environment_incomplete", "status": "blocked",
                              "gate": gate_id})
             continue
@@ -242,13 +254,18 @@ def run_acceptance(record: dict[str, Any],
             continue
         if subject["kind"] == "pbip":
             scope = gate.get("data_scope", {})
-            if (not isinstance(scope, dict) or not scope.get("role")
-                    or not scope.get("refresh_id")):
+            if (not isinstance(scope, dict) or not _stated_str(scope.get("role"))
+                    or not _stated_str(scope.get("refresh_id"))):
                 findings.append({"rule": "gate_data_scope_incomplete", "status": "blocked",
                                  "gate": gate_id})
                 continue
             envelope_scope = envelope.get("data_scope", {})
             if _envelope_identity_incomplete(envelope_scope, _REQUIRED_SCOPE_DIMS):
+                findings.append({"rule": "evidence_identity_incomplete", "status": "blocked",
+                                 "gate": gate_id})
+                continue
+            if (not isinstance(scope.get("filters"), dict)
+                    or not isinstance(envelope_scope.get("filters"), dict)):
                 findings.append({"rule": "evidence_identity_incomplete", "status": "blocked",
                                  "gate": gate_id})
                 continue
