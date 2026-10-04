@@ -13,9 +13,10 @@ and verifies.
 import hashlib
 import json
 import struct
-NL#import pytest
 import zlib
 from pathlib import Path
+
+import pytest
 
 from vqs.review.bundle import pack, verify
 
