@@ -46,6 +46,7 @@ def _observations():
 def _bundle(**overrides):
     bundle = {"source_sha256": "s", "surface": "report", "schema": 1,
               "policy_version": POLICY_VERSION, "fixer_id": "a",
+              "source_pages": ["p1"],
               "reviewer": {"id": "b", "role": "independent_visual_reviewer"},
               "image_capability": {"available": True},
               "calibration": {"canvas_width": 500, "canvas_height": 500,
@@ -117,18 +118,22 @@ def test_plan_content_changes_binding_same_summary(tmp_path, capsys) -> None:
 
 
 def test_bundle_fixer_changes_binding_same_summary(tmp_path, capsys) -> None:
-    """S09: different reviewer-separation input, same pass: new binding."""
+    """S09: different reviewer-separation input, same summary: new binding.
+
+    S10: declared static bundles block for image review; the seal
+    comparison below holds the blocked summary constant instead.
+    """
     good_a = _write(tmp_path / "bundle-a.json", _bundle(fixer_id="a"))
     assert main(["adjudicate-bundle", good_a,
                  "--run-root", str(tmp_path / "runs"),
-                 "--run-id", "s09-bundle-a"]) == 0
+                 "--run-id", "s09-bundle-a"]) == 2
     out_a = json.loads(capsys.readouterr().out)
     good_b = _write(tmp_path / "bundle-b.json", _bundle(fixer_id="c"))
     assert main(["adjudicate-bundle", good_b,
                  "--run-root", str(tmp_path / "runs"),
-                 "--run-id", "s09-bundle-b"]) == 0
+                 "--run-id", "s09-bundle-b"]) == 2
     out_b = json.loads(capsys.readouterr().out)
-    assert out_a["verdict"] == out_b["verdict"] == "pass"
+    assert out_a["verdict"] == out_b["verdict"] == "blocked"
     assert out_a["findings"] == out_b["findings"]
     sha_a, _, stored_a = _seal_of(out_a)
     sha_b, _, stored_b = _seal_of(out_b)

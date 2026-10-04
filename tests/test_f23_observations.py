@@ -82,13 +82,21 @@ def test_f23_unhashable_fail_fields_block() -> None:
 
 
 def test_f23_hostile_visual_inventory_ignored_without_raise() -> None:
-    """Malformed visual inventory is skipped safely, never crashes."""
+    """Malformed visual inventory is skipped safely, never crashes.
+
+    S10: static adjudication never passes, so the no-crash property
+    lands on the image-review block, not on a pass.
+    """
     bundle = _bundle(schema=1, policy_version=POLICY_VERSION)
     bundle["pages"][0]["visual_inventory"] = None
-    assert adjudicate_bundle(bundle)["verdict"] == "pass"
+    result = adjudicate_bundle(bundle)
+    assert result["verdict"] == "blocked"
+    assert "image_review_required" in {row.get("rule") for row in result["findings"]}
     bundle = _bundle(schema=1, policy_version=POLICY_VERSION)
     bundle["pages"][0]["visual_inventory"] = [{"id": ["x"]}]
-    assert adjudicate_bundle(bundle)["verdict"] == "pass"
+    result = adjudicate_bundle(bundle)
+    assert result["verdict"] == "blocked"
+    assert "image_review_required" in {row.get("rule") for row in result["findings"]}
 
 
 def test_f23_hostile_bundle_cli_blocks_and_retains_run(tmp_path, capsys) -> None:

@@ -94,11 +94,16 @@ def test_validate_plan_bad_documents_block(tmp_path, capsys, monkeypatch, payloa
     assert main(args) == 2
 
 
-def test_adjudicate_bundle_pass_fail_blocked(tmp_path, capsys, monkeypatch):
+def test_adjudicate_bundle_missing_inventory_blocked(tmp_path, capsys, monkeypatch):
+    """S10: an undeclared whole-source inventory blocks, never passes."""
     monkeypatch.chdir(tmp_path)
     good = _write(tmp_path / "good.json", _bundle())
-    assert main(["adjudicate-bundle", good, "--run-id", "ab0"]) == 0
-    assert json.loads(capsys.readouterr().out)["verdict"] == "pass"
+    assert main(["adjudicate-bundle", good, "--run-id", "ab0"]) == 2
+    out = json.loads(capsys.readouterr().out)
+    assert out["verdict"] == "blocked"
+    checks = {finding["check"] for finding in out["findings"]}
+    assert "source_pages_missing" in checks
+    assert "image_review_required" in checks
     stale_pages = [{"id": "p1", "image_source_sha256": "other",
                     "observations": [{"status": "pass", "criterion": "c",
                                       "reason": "r"}]}]

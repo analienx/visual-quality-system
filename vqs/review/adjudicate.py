@@ -46,7 +46,9 @@ def adjudicate_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     always blocks for capable image review even when statically
     conformant (``static_conformance`` labels the static half); pages
     need materialized image bindings, duplicated or uncovered pages
-    block. Bundles without ``source_pages`` keep legacy semantics.
+    block. S10: the inventory itself is required — an omitted or null
+    ``source_pages`` blocks as ``source_pages_missing``. Static
+    adjudication never passes; there is no metadata-only pass route.
     """
     findings: list[dict[str, Any]] = []
     if not isinstance(bundle, dict):
@@ -92,7 +94,11 @@ def adjudicate_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
                                            page.get("observations"), valid_ids,
                                            page_id))
     declared = bundle.get("source_pages")
-    if declared is not None:
+    if declared is None:
+        findings.append({"rule": "source_pages_missing", "verdict": "blocked",
+                         "reason": "Whole-source inventory is required; static "
+                                   "adjudication never passes without it"})
+    else:
         page_ids = [page.get("id") for page in pages
                     if isinstance(page, dict) and isinstance(page.get("id"), str)]
         if (not isinstance(declared, list) or not declared
@@ -113,17 +119,12 @@ def adjudicate_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
                 if pid not in declared:
                     findings.append({"rule": "source_page_undeclared", "verdict": "blocked",
                                      "page": pid})
-        static_ok = not any(row.get("verdict") in ("fail", "blocked") for row in findings)
-        findings.append({"rule": "image_review_required", "verdict": "blocked",
-                         "reason": "Static conformance never approves; release needs "
-                                   "a capable image review of fresh full-canvas renders"})
-        if any(row.get("verdict") == "fail" for row in findings):
-            return {"verdict": "fail", "findings": findings,
-                    "static_conformance": "pass" if static_ok else "fail"}
-        return {"verdict": "blocked", "findings": findings,
-                "static_conformance": "pass" if static_ok else "fail"}
-    if not findings:
-        return {"verdict": "pass", "findings": []}
+    static_ok = not any(row.get("verdict") in ("fail", "blocked") for row in findings)
+    findings.append({"rule": "image_review_required", "verdict": "blocked",
+                     "reason": "Static conformance never approves; release needs "
+                               "a capable image review of fresh full-canvas renders"})
     if any(row.get("verdict") == "fail" for row in findings):
-        return {"verdict": "fail", "findings": findings}
-    return {"verdict": "blocked", "findings": findings}
+        return {"verdict": "fail", "findings": findings,
+                "static_conformance": "pass" if static_ok else "fail"}
+    return {"verdict": "blocked", "findings": findings,
+            "static_conformance": "pass" if static_ok else "fail"}
