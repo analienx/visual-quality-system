@@ -21,14 +21,21 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 SOURCE_EXTENSIONS = frozenset({".json", ".tmdl", ".pbism", ".pbir"})
 IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".gif", ".svg", ".bmp",
                               ".webp"})
-KNOWN_SCHEMA_MAJORS = {"report": 1, "page": 2, "visualcontainer": 2,
-                         "pagesmetadata": 1}
+KNOWN_SCHEMA_MAJORS = {"page": 2, "visualcontainer": 2,
+                       "pagesmetadata": 1}
+SUPPORTED_REPORT_VERSIONS = frozenset({(2, 0), (3, 0), (3, 3)})
+PINNED_REPORT_SCHEMA = ("https://developer.microsoft.com/json-schemas/fabric/item/"
+                        "report/definition/report/3.3.0/schema.json")
+VERSION_METADATA_SCHEMA = ("https://developer.microsoft.com/json-schemas/fabric/item/"
+                           "report/definition/versionMetadata/1.0.0/schema.json")
+_VERSION_RE = re.compile(r"(\d+)\.(\d+)(?:\.(\d+))?")
 
 
 def _schema_major(schema: object) -> tuple[str, int | None]:
@@ -70,6 +77,10 @@ def _read_index_file(path: Path) -> tuple[list[str] | None, list[dict[str, Any]]
         return None, [{"rule": "pages_index_invalid", "path": rel,
                        "detail": error}]
     order = data.get("pageOrder")
+    if order is None and "pageOrder" not in data:
+        # S02: a present index without pageOrder is valid; no order
+        # is declared and physical pages fall back to display names.
+        return [], []
     if not isinstance(order, list) or not all(isinstance(p, str) for p in order):
         return None, [{"rule": "pages_index_invalid", "path": rel,
                        "detail": "pageOrder must be a list of strings"}]
@@ -78,6 +89,46 @@ def _read_index_file(path: Path) -> tuple[list[str] | None, list[dict[str, Any]]
         return None, [{"rule": "unsupported_schema", "path": rel,
                        "schema": data.get("$schema")}]
     return list(order), []
+
+
+def _schema_version(schema: object) -> tuple[str, tuple[int, ...] | None]:
+    """Parse a Fabric $schema URL into (entity, version parts)."""
+    entity, _major = _schema_major(schema)
+    if not isinstance(schema, str):
+        return entity, None
+    segment = schema.rsplit("/", 2)[-2] if schema.count("/") >= 2 else ""
+    match = _VERSION_RE.fullmatch(segment.strip())
+    if match is None:
+        return entity, None
+    return entity, tuple(int(group) for group in match.groups()
+                         if group is not None)
+
+
+def _pad3(parts: tuple[int, ...]) -> tuple[int, int, int]:
+    """Compare version prefixes on equal footing (1.0 == 1.0.0)."""
+    full = tuple(parts[:3]) + (0, 0, 0)
+    return (full[0], full[1], full[2])
+
+
+def _version_contract_problem(data: dict) -> str | None:
+    """S03: versionMetadata must carry a compatible $schema and version."""
+    schema = data.get("$schema")
+    if not isinstance(schema, str) or "/versionMetadata/" not in schema:
+        return "versionMetadata $schema required"
+    _entity, parts = _schema_version(schema)
+    if parts is None:
+        return "versionMetadata $schema carries no version"
+    version = data.get("version")
+    if not isinstance(version, str):
+        return "version must be a string"
+    match = _VERSION_RE.fullmatch(version.strip())
+    if match is None:
+        return "version must look like 1.0 or 1.0.0"
+    claimed = tuple(int(group) for group in match.groups()
+                    if group is not None)
+    if _pad3(claimed) != _pad3(parts):
+        return f"version {version!r} incompatible with schema {schema!r}"
+    return None
 
 
 def _display_name(pages: dict[str, dict[str, Any]], page_id: str) -> str:
@@ -125,8 +176,9 @@ def load_page_index(report_dir: str | Path, pages: dict[str, dict[str, Any]]
     by display name (no issue: the index is optional per the PBIR
     spec). Unlisted physical pages append in display-name order, so a
     defective unlisted page can never be silently omitted (R02);
-    listed-but-missing pages are ``page_order_dangling`` (blocking) —
-    the inventory cannot vouch for a page with no directory;
+    listed-but-missing names are ignored per Microsoft (S02), so the
+    inventory vouches only for physical pages; unlisted physical
+    pages still append and are never omitted;
     duplicated order ids are ``page_order_duplicate`` (blocking);
     listed ids that cannot become evidence filenames are
     ``page_order_unsafe`` (blocking, same predicate as
@@ -143,9 +195,8 @@ def load_page_index(report_dir: str | Path, pages: dict[str, dict[str, Any]]
                 or "/" in page_id or "\\" in page_id or ":" in page_id):
             issues.append({"rule": "page_order_unsafe", "page": page_id})
     order = [page_id for page_id in listed if page_id in pages]
-    for page_id in listed:
-        if page_id not in pages:
-            issues.append({"rule": "page_order_dangling", "page": page_id})
+    # S02: index names with no page are ignored per Microsoft; only
+    # physical pages form the inventory (unlisted append below).
     unlisted = sorted((page_id for page_id in pages if page_id not in seen),
                       key=lambda page_id: _display_name(pages, page_id))
     return order + unlisted, origin, issues
@@ -193,7 +244,13 @@ def read_report_files(report_dir: str | Path) -> dict[str, Any]:
             issues.append({"rule": "version_unreadable",
                            "path": "definition/version.json", "detail": error})
         else:
-            version_doc = data
+            problem = _version_contract_problem(data)
+            if problem is not None:
+                issues.append({"rule": "version_invalid",
+                               "path": "definition/version.json",
+                               "detail": problem})
+            else:
+                version_doc = data
     else:
         issues.append({"rule": "version_missing",
                        "path": "definition/version.json"})
@@ -203,8 +260,7 @@ def read_report_files(report_dir: str | Path) -> dict[str, Any]:
         if error is not None:
             issues.append({"rule": "report_doc_unreadable", "detail": error})
         else:
-            missing = [key for key in ("$schema", "layoutOptimization",
-                                       "themeCollection")
+            missing = [key for key in ("$schema", "themeCollection")
                        if key not in data]
             mistyped = [key for key, kind in
                         (("$schema", str), ("layoutOptimization", str),
@@ -219,10 +275,13 @@ def read_report_files(report_dir: str | Path) -> dict[str, Any]:
                 # never silently drop report content (filters, config).
                 report_doc = data
             if not missing and not mistyped:
-                entity, major = _schema_major(data.get("$schema"))
-                if (entity and entity in KNOWN_SCHEMA_MAJORS
-                        and major != KNOWN_SCHEMA_MAJORS[entity]):
-                    issues.append({"rule": "unsupported_schema",
+                # S01: explicit supported-version contract; only
+                # 2.0/3.0/3.3 report schemas are claimed supported.
+                entity, parts = _schema_version(data.get("$schema"))
+                claimed = tuple(parts[:2]) if parts else None
+                if (entity != "report"
+                        or claimed not in SUPPORTED_REPORT_VERSIONS):
+                    issues.append({"rule": "unsupported_report_version",
                                    "path": "definition/report.json",
                                    "schema": data.get("$schema")})
     else:
@@ -536,14 +595,16 @@ def report_context(report: Path, *,
              if issue["rule"] in ("report_unreadable", "report_doc_unreadable",
                                   "report_doc_missing", "report_doc_invalid",
                                   "pages_index_invalid", "page_order_duplicate",
-                                  "page_order_dangling", "page_order_unsafe",
+                                  "page_order_unsafe",
                                   "page_doc_unreadable",
                                   "page_metadata_incomplete",
                                   "visual_doc_unreadable",
                                   "visual_metadata_incomplete",
                                   "page_doc_missing",
                                   "visual_doc_missing", "unsupported_schema",
+                                  "unsupported_report_version",
                                   "version_missing", "version_unreadable",
+                                  "version_invalid",
                                   "model_reference_remote",
                                   "model_reference_unresolved")
              and not (allow_unresolved_model

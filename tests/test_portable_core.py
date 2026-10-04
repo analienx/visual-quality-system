@@ -98,10 +98,10 @@ def test_inventory_source_hash_and_explicit_unknowns(tmp_path: Path) -> None:
     visual = pages / "p1" / "visuals" / "vis1"
     visual.mkdir(parents=True)
     (pages.parent / "pages.json").write_text(json.dumps({"pageOrder": ["p1"]}))
-    (pages.parent / "version.json").write_text(json.dumps({"version": "1.0"}))
+    (pages.parent / "version.json").write_text(json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "1.0"}))
     (pages.parent / "report.json").write_text(json.dumps({
         "$schema": ("https://developer.microsoft.com/json-schemas/fabric/item/"
-                    "report/definition/report/1.0.0/schema.json"),
+                    "report/definition/report/3.3.0/schema.json"),
         "layoutOptimization": "None", "themeCollection": {}}))
     (pages / "p1" / "page.json").write_text(json.dumps({
         "displayName": "Overview", "width": 1280, "height": 720}))

@@ -16,7 +16,7 @@ from vqs import capture as capture_module
 from vqs.evidence import image_evidence
 
 SCHEMA_REPORT = ("https://developer.microsoft.com/json-schemas/fabric/item/"
-                 "report/definition/report/1.0.0/schema.json")
+                 "report/definition/report/3.3.0/schema.json")
 SCHEMA_INDEX = ("https://developer.microsoft.com/json-schemas/fabric/item/"
                 "report/definition/pagesMetadata/1.1.0/schema.json")
 VIEWPORT = "1280x720@1x"
@@ -49,7 +49,7 @@ def _report(root: Path) -> Path:
     (definition / "pages.json").write_text(
         json.dumps({"pageOrder": ["P1"]}), encoding="utf-8")
     (definition / "version.json").write_text(
-        json.dumps({"version": "1.0"}), encoding="utf-8")
+        json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "1.0"}), encoding="utf-8")
     (definition / "report.json").write_text(json.dumps({
         "$schema": SCHEMA_REPORT, "layoutOptimization": "None",
         "themeCollection": {}}), encoding="utf-8")

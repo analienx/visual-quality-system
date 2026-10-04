@@ -2,11 +2,10 @@
 
 R01/R02: the canonical page index wins, the legacy index is
 honored with an info flag, and absent indexes order by display
-name; listed-but-missing pages (page_order_dangling),
+name; dangling index names are ignored per Microsoft while
 missing/unreadable page and visual docs, and unsupported schema
 majors all block report_context before any Bridge or manifest
-work, preserving declared page order and exact missing IDs in the
-blocked result.
+work, preserving declared page order in the blocked result.
 """
 import json
 from pathlib import Path
@@ -29,10 +28,10 @@ def _report(root: Path, order: list[str],
     (pages_root.parent / "pages.json").write_text(
         json.dumps({"pageOrder": order}), encoding="utf-8")
     (pages_root.parent / "version.json").write_text(
-        json.dumps({"version": "1.0"}), encoding="utf-8")
+        json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "1.0"}), encoding="utf-8")
     (pages_root.parent / "report.json").write_text(json.dumps({
         "$schema": ("https://developer.microsoft.com/json-schemas/fabric/item/"
-                    "report/definition/report/1.0.0/schema.json"),
+                    "report/definition/report/3.3.0/schema.json"),
         "layoutOptimization": "None", "themeCollection": {}}),
         encoding="utf-8")
     for page_id, doc in pages.items():
@@ -57,11 +56,11 @@ def test_f10_complete_report_lists_pages_in_order(tmp_path: Path) -> None:
     assert [page["id"] for page in info["pages"]] == ["P2", "P1"]
 
 
-def test_f10_missing_page_dir_blocks(tmp_path: Path) -> None:
-    """RED: a declared page without a directory must block naming it."""
+def test_f10_dangling_page_ignored(tmp_path: Path) -> None:
+    """S02: a declared page without a directory is ignored, not blocked."""
     report = _report(tmp_path, ["P1", "P2"], {"P1": _page()})
-    with pytest.raises(ValueError, match="P2"):
-        report_context(report)
+    info = report_context(report)
+    assert [page["id"] for page in info["pages"]] == ["P1"]
 
 
 def test_f10_missing_page_doc_blocks(tmp_path: Path) -> None:

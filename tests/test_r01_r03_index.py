@@ -15,7 +15,7 @@ import pytest
 from vqs.pbir import read_report_files, report_context
 
 SCHEMA_REPORT = ("https://developer.microsoft.com/json-schemas/fabric/item/"
-                 "report/definition/report/1.0.0/schema.json")
+                 "report/definition/report/3.3.0/schema.json")
 SCHEMA_INDEX = ("https://developer.microsoft.com/json-schemas/fabric/item/"
                 "report/definition/pagesMetadata/1.1.0/schema.json")
 
@@ -59,7 +59,7 @@ def _report(root: Path, pages: dict[str, str],
 def _valid(version: bool = True, report_doc: bool = True) -> dict:
     extra: dict = {}
     if version:
-        extra["version"] = {"version": "1.0"}
+        extra["version"] = {"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "1.0"}
     if report_doc:
         extra["report_doc"] = {
             "$schema": SCHEMA_REPORT,
@@ -152,9 +152,12 @@ def test_missing_report_json_blocks(tmp_path: Path) -> None:
         report_context(report)
 
 
-def test_official_report_schema_accepted(tmp_path: Path) -> None:
-    """RED R03: official report/1.0.0 $schema must not block."""
+def test_obsolete_report_schema_blocked(tmp_path: Path) -> None:
+    """S01: obsolete report/1.0.0 $schema must block, not pass."""
+    obsolete = {"$schema": SCHEMA_REPORT.replace("3.3.0", "1.0.0"),
+                "layoutOptimization": "None", "themeCollection": {}}
     report = _report(tmp_path, {"P1": "Beta"},
-                     legacy={"pageOrder": ["P1"]}, **_valid())
-    info = report_context(report)
-    assert [page["id"] for page in info["pages"]] == ["P1"]
+                     legacy={"pageOrder": ["P1"]}, report_doc=obsolete,
+                     **_valid(report_doc=False))
+    with pytest.raises(ValueError, match="unsupported_report_version"):
+        report_context(report)

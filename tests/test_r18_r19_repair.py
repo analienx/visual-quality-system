@@ -21,7 +21,7 @@ from vqs.repair.execute import RepairError, apply_plan, tree_digest
 from vqs.repair.regress import verify_candidate as compare
 
 SCHEMA_REPORT = ("https://developer.microsoft.com/json-schemas/fabric/item/"
-                 "report/definition/report/1.0.0/schema.json")
+                 "report/definition/report/3.3.0/schema.json")
 SCHEMA_INDEX = ("https://developer.microsoft.com/json-schemas/fabric/item/"
                 "report/definition/pagesMetadata/1.1.0/schema.json")
 VISUAL_REL = "definition/pages/P1/visuals/v1/visual.json"
@@ -53,7 +53,7 @@ def _project(root: Path, model_text: str | None) -> tuple[Path, Path]:
     (definition / "pages.json").write_text(
         json.dumps({"pageOrder": ["P1"]}), encoding="utf-8")
     (definition / "version.json").write_text(
-        json.dumps({"version": "1.0"}), encoding="utf-8")
+        json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "1.0"}), encoding="utf-8")
     (definition / "report.json").write_text(json.dumps({
         "$schema": SCHEMA_REPORT, "layoutOptimization": "None",
         "themeCollection": {}}), encoding="utf-8")
