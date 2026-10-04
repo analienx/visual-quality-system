@@ -6,6 +6,7 @@ quoted M identifiers share one identity; per-query let names
 shadow shared queries. Every failing test here is red on the
 pre-R3 gate and green after the fix; controls pass throughout.
 """
+import json
 from pathlib import Path
 
 import pytest
@@ -39,13 +40,29 @@ def test_unclosed_backtick_blocks_model(tmp_path: Path) -> None:
         check_model(_model(tmp_path, {"tables/T.tmdl": text}))
 
 
+def _scrubbed(result: dict, root: Path) -> dict:
+    """Normalize volatile tmp paths so semantic equality is compared.
+
+    check_model embeds model_dir and parsed file paths; two sibling
+    tmp dirs can never match byte-for-byte, so the root prefix is
+    scrubbed and the issues/cycles/coverage content compared.
+    """
+    return json.loads(json.dumps(result, sort_keys=True, default=str)
+                       .replace(str(root), "<root>"))
+
+
 def test_uppercase_declarations_match_lowercase(tmp_path: Path) -> None:
     """RED R04: TABLE/MEASURE parse exactly like table/measure."""
     lower = "table T\n\tmeasure A = IF('T'[B] = 1, 1, 0)\n\tmeasure B = 2\n"
     upper = "TABLE T\n\tMEASURE A = IF('T'[B] = 1, 1, 0)\n\tMEASURE B = 2\n"
     assert extract_objects(upper)["tables"] == extract_objects(lower)["tables"]
-    assert check_model(_model(tmp_path / "u", {"tables/T.tmdl": upper})) == \
-        check_model(_model(tmp_path / "l", {"tables/T.tmdl": lower}))
+    checked_upper = _scrubbed(
+        check_model(_model(tmp_path / "u", {"tables/T.tmdl": upper})),
+        tmp_path)
+    checked_lower = _scrubbed(
+        check_model(_model(tmp_path / "l", {"tables/T.tmdl": lower})),
+        tmp_path)
+    assert checked_upper == checked_lower
 
 
 def test_quoted_let_cycle_detected() -> None:

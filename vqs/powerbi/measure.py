@@ -277,10 +277,12 @@ def _contrast(found: dict, theme: dict | None) -> dict | None:
     Majority and minority colors alike: a minority white run on white
     must surface, not hide behind the majority color. Each run pairs
     with its own visual's opaque painted background first, else the
-    page canvas; transparent/dynamic visual backgrounds and
-    unresolvable canvases emit unresolved readings for unknown
-    evidence, never silent canvas pairing and never omission:
-    explicit colors always emit, with or without a theme.
+    page canvas (theme canvas last); transparent/dynamic visual
+    backgrounds and unresolvable canvases emit unresolved readings
+    for unknown evidence, never silent canvas pairing. A run with no
+    backdrop source at all (no painted layer, no page canvas, no
+    theme) is dropped rather than paired against a guessed color, so
+    a themeless sourceless report omits the rule entirely.
     """
     runs = _visual_text_runs(found)
     if not runs:
@@ -308,8 +310,12 @@ def _contrast(found: dict, theme: dict | None) -> dict | None:
                    "role": role, "count": run["count"]}
         if unresolved is not None:
             reading["unresolved"] = unresolved
-        else:
+        elif background is not None:
             reading["background"] = background
+        else:
+            # No backdrop source anywhere: pairing against a default
+            # color would fabricate evidence, so the run is dropped.
+            continue
         readings.append(reading)
     if not readings:
         return None

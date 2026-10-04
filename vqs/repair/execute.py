@@ -382,7 +382,9 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
         try:
             edits.append(_apply_op(op, candidate, all_pages,
                                    approved_semantic_change, snapshot,
-                                   covered))
+                                   covered,
+                                   allow_unresolved_model=(
+                                       allow_missing_relocated_model)))
         except (RecipeError, TemplateError, RepairError) as exc:
             shutil.rmtree(candidate_root, ignore_errors=True)
             return {"verdict": "blocked", "stage": "apply", "index": index,
@@ -421,7 +423,8 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
 
 def _apply_op(op: dict, candidate: Path, all_pages: list[str],
               approved: str | None, snapshot: dict[str, bytes],
-              covered: set[str]) -> dict:
+              covered: set[str],
+              allow_unresolved_model: bool = False) -> dict:
     from vqs.pbir import report_context
 
     selector = op.get("selector", {})
@@ -454,13 +457,16 @@ def _apply_op(op: dict, candidate: Path, all_pages: list[str],
     canvas = _canvas_of(candidate, page)
     if op.get("type") == "chart.replace":
         return _apply_replace(op, visual_doc, target_file, rel, candidate,
-                              all_pages, approved)
+                              all_pages, approved,
+                              allow_unresolved_model=allow_unresolved_model)
     binding = bind_operation(op, visual_doc, canvas)
     _set_path(visual_doc, binding["path"], binding["new"])
     _write_json(target_file, visual_doc)
     binding["file"] = rel
     binding["affected"] = affected_pages(op, all_pages)
-    info_pages = {page["id"] for page in report_context(candidate)["pages"]}
+    info = report_context(
+        candidate, allow_unresolved_model=allow_unresolved_model)
+    info_pages = {page["id"] for page in info["pages"]}
     if page not in info_pages:
         raise RepairError(f"bound page {page} left the page order")
     return binding
@@ -468,7 +474,8 @@ def _apply_op(op: dict, candidate: Path, all_pages: list[str],
 
 def _apply_replace(op: dict, visual_doc: dict, target_file: Path, rel: str,
                    candidate: Path, all_pages: list[str],
-                   approved: str | None) -> dict:
+                   approved: str | None,
+                   allow_unresolved_model: bool = False) -> dict:
     from vqs.pbir import report_context
 
     binding = bind_operation(op, None)
@@ -490,7 +497,8 @@ def _apply_replace(op: dict, visual_doc: dict, target_file: Path, rel: str,
     new_visual["objects"] = template["body"]["visual"].get("objects", {})
     visual_doc["visual"] = new_visual
     _write_json(target_file, visual_doc)
-    info = report_context(candidate)
+    info = report_context(
+        candidate, allow_unresolved_model=allow_unresolved_model)
     if binding["page"] not in {page["id"] for page in info["pages"]}:
         raise RepairError("bound page left the page order")
     return {**binding, "file": rel,
