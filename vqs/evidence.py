@@ -71,18 +71,26 @@ def png_size(path: Path) -> tuple[int, int]:
 
 _PNG_PIXEL_CAP = 256 * 1024 * 1024
 _PNG_BLOB_CAP = 64 * 1024 * 1024
+_PNG_FILE_CAP = 80 * 1024 * 1024
 
 
 def _decode_png(path: Path) -> tuple[int, int, int, bytes]:
     """Walk chunks, inflate IDAT and check filters; ValueError when undecodable.
 
-    S12: the IHDR-declared type and dimensions gate every later
-    allocation — a hostile size claim fails before any IDAT body is
-    kept — and the running compressed total never exceeds the decode
-    cap, so no burst of chunks can exhaust memory before the join.
-    Only 8-bit non-interlaced grayscale/truecolor/truecolor+alpha are
-    supported; every scanline filter byte must be 0-4.
+    S12: the file size is capped before any read (the running IDAT
+    total plus header/ancillary headroom), the IHDR-declared type
+    and dimensions gate every later allocation — a hostile size
+    claim fails before any IDAT body is kept — and inflation is
+    incremental against the exact declared pixel count, so neither
+    a burst of chunks nor a lying stream can exhaust memory.
+    Only 8-bit non-interlaced grayscale/truecolor/truecolor+alpha
+    are supported; every scanline filter byte must be 0-4.
     """
+    try:
+        if path.stat().st_size > _PNG_FILE_CAP:
+            raise ValueError(f"PNG file exceeds decode cap: {path}")
+    except OSError:
+        pass  # the read below surfaces missing files exactly as before
     raw = path.read_bytes()
     if raw[:8] != b"\x89PNG\r\n\x1a\n":
         raise ValueError(f"Invalid PNG signature: {path}")
@@ -131,10 +139,28 @@ def _decode_png(path: Path) -> tuple[int, int, int, bytes]:
         raise ValueError(f"Incomplete PNG image: {path}")
     width, height, bpp = dims
     expected = height * (1 + width * bpp)
+    decompressor = zlib.decompressobj()
+    chunks: list[bytes] = []
+    produced = 0
     try:
-        pixels = zlib.decompress(b"".join(parts))
+        for part in parts:
+            out = decompressor.decompress(part, expected - produced + 1)
+            produced += len(out)
+            chunks.append(out)
+            if produced > expected:
+                raise ValueError(
+                    f"IDAT pixels exceed expected {expected}: {path}")
+        tail = decompressor.flush()
+        if tail:
+            produced += len(tail)
+            chunks.append(tail)
     except zlib.error as exc:
         raise ValueError(f"IDAT stream undecodable: {exc}") from exc
+    if produced > expected:
+        raise ValueError(f"IDAT pixels exceed expected {expected}: {path}")
+    if not decompressor.eof or decompressor.unused_data:
+        raise ValueError(f"IDAT stream has trailing data: {path}")
+    pixels = b"".join(chunks)
     if len(pixels) != expected:
         raise ValueError(f"IDAT pixels {len(pixels)} != expected {expected}: {path}")
     stride = 1 + width * bpp

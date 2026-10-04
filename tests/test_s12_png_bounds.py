@@ -104,10 +104,37 @@ def test_forged_crc_rejected(tmp_path: Path) -> None:
 
 
 def test_oversized_raw_rejected(tmp_path: Path) -> None:
-    """S12: IDAT inflating past the declared size is rejected."""
+    """S12: IDAT inflating past the declared size is rejected mid-stream."""
     rows = _rows(2, 3, 3, lambda x, y: b"\x01\x02\x03")
     path = _write(tmp_path / "raw.png", _png(2, 2, rows=rows))
-    with pytest.raises(ValueError, match="!="):
+    with pytest.raises(ValueError, match="exceed"):
+        decode_png_pixels(path)
+
+
+def test_oversized_file_refused_before_read(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """S12: a file past the encoded cap fails before any read."""
+    import vqs.evidence as evidence_mod
+
+    monkeypatch.setattr(evidence_mod, "_PNG_FILE_CAP", 64)
+    path = _write(tmp_path / "fat.png", _png(4, 4))
+    with pytest.raises(ValueError, match="exceeds decode cap"):
+        decode_png_pixels(path)
+
+
+def test_trailing_stream_data_rejected(tmp_path: Path) -> None:
+    """S12: a second stream fragment after the pixels is not kept."""
+    rows = [b"\x00" + b"\x20\x60\xc0" * 2 for _ in range(2)]
+    stream = zlib.compress(b"".join(rows))
+    ihdr = struct.pack(">IIBBBBB", 2, 2, 8, 2, 0, 0, 0)
+    blob = [b"\x89PNG\r\n\x1a\n"]
+    chunks = [(b"IHDR", ihdr), (b"IDAT", stream),
+              (b"IDAT", stream[:3]), (b"IEND", b"")]
+    for tag, body in chunks:
+        blob += [struct.pack(">I", len(body)), tag, body,
+                 struct.pack(">I", zlib.crc32(tag + body) & 0xFFFFFFFF)]
+    path = _write(tmp_path / "trail.png", b"".join(blob))
+    with pytest.raises(ValueError, match="trailing data"):
         decode_png_pixels(path)
 
 

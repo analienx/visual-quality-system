@@ -1071,14 +1071,24 @@ def _sealed_tree_problems(repairs: dict[str, Any], original: str,
     return problems
 
 
-def _sealed_model_problems(model_pin: Any, original: str) -> list[dict]:
-    """The sealed model identity must still hold (R19/D12)."""
+def _sealed_model_problems(model_pin: Any, original: str,
+                           candidate: str | None = None) -> list[dict]:
+    """The sealed model identity must still hold (R19/D12).
+
+    S16: both sides are rechecked — the original pin as before,
+    plus the candidate-side model for byPath pins. A candidate
+    model that appears or drifts after sealing (planted sibling
+    models, post-apply edits) fails even when both trees are
+    otherwise untouched; a still-absent candidate model stays
+    legal under the relocation missing-model allowance.
+    """
     from .pbir import resolved_model_digest
     from .repair.execute import RepairError, bypath_claim
 
     if not isinstance(model_pin, dict) or model_pin.get("kind") in (
             None, "absent"):
         return []
+    problems: list[dict] = []
     if model_pin.get("kind") == "remote":
         try:
             _target, connection = bypath_claim(Path(original))
@@ -1086,17 +1096,29 @@ def _sealed_model_problems(model_pin: Any, original: str) -> list[dict]:
             return [{"rule": "sealed_model_unresolvable",
                      "detail": str(exc)}]
         if connection != model_pin.get("connection"):
-            return [{"rule": "sealed_model_mismatch",
-                     "detail": "remote model claim changed since repair"}]
-        return []
+            problems.append({"rule": "sealed_model_mismatch",
+                             "detail": "remote model claim changed since "
+                                       "repair"})
+        return problems
     if model_pin.get("kind") == "byPath":
         digest, rule, detail = resolved_model_digest(original)
         if digest != model_pin.get("digest"):
-            return [{"rule": "sealed_model_mismatch",
-                     "resolution": rule, "detail": detail,
+            problems.append({"rule": "sealed_model_mismatch",
+                             "resolution": rule, "detail": detail,
+                             "sealed": model_pin.get("digest"),
+                             "current": digest})
+        if candidate:
+            candidate_digest, _rule, _detail = resolved_model_digest(
+                candidate)
+            if (candidate_digest is not None
+                    and candidate_digest != model_pin.get("digest")):
+                problems.append(
+                    {"rule": "sealed_candidate_model_mismatch",
+                     "detail": "candidate-side model appeared or drifted "
+                               "after sealing",
                      "sealed": model_pin.get("digest"),
-                     "current": digest}]
-        return []
+                     "current": candidate_digest})
+        return problems
     return [{"rule": "sealed_model_unknown",
              "detail": f"unknown model pin kind: {model_pin.get('kind')!r}"}]
 
@@ -1255,7 +1277,7 @@ def verify_candidate(*, run_root: str | None = None,
         return _fail_problems(problems, original, candidate)
     if sealed_repairs is not None:
         model_problems = _sealed_model_problems(sealed_repairs.get("model"),
-                                                original)
+                                                original, candidate)
         if model_problems:
             return _fail_problems(model_problems, original, candidate)
     answer_problems = _answers_problems(answers)

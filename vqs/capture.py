@@ -363,7 +363,6 @@ def capture(report: str, renders: str, pid: int | None = None,
     if interactions:
         raise OSError("Unsupported interactions for static capture: "
                       + ", ".join(sorted(str(i) for i in interactions)))
-    bridge_version = _require_bridge()
     report_path = Path(report)
     try:
         info = report_context(report_path)
@@ -386,6 +385,9 @@ def capture(report: str, renders: str, pid: int | None = None,
         raise OSError("Page canvas size is not a positive integer pair")
     if scale not in (1, 2):
         raise OSError(f"Capture scale must be 1 or 2, not {scale!r}")
+    # S01: the source preflight above runs before any external port —
+    # a report the preflight blocks never reaches the Bridge binary.
+    bridge_version = _require_bridge()
     instance = select_instance(str(report_path), pid, wait_seconds)
     renders_path = Path(renders)
     _require_fresh_staging(renders_path)
