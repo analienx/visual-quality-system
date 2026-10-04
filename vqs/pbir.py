@@ -393,8 +393,8 @@ def _resolve_model_dir(report: Path) -> tuple[Path | None, str | None, str | Non
     if not isinstance(target, str) or not target:
         if isinstance(dataset_ref.get("byConnection"), dict):
             return (None, "model_reference_remote",
-                    "definition.pbir uses datasetReference.byConnection: "
-                    "remote models stay outside static identity")
+                    ("definition.pbir uses datasetReference.byConnection: "
+                     "remote models stay outside static identity"))
         return (None, "model_reference_unresolved",
                 "definition.pbir has no datasetReference.byPath")
     candidate = (report / target).resolve()

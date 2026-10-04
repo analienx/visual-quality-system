@@ -15,10 +15,10 @@ from pathlib import Path
 
 import pytest
 
+from vqs.pipeline import repair_candidate, verify_candidate
 from vqs.repair import execute as execute_module
 from vqs.repair.execute import RepairError, apply_plan, tree_digest
 from vqs.repair.regress import verify_candidate as compare
-from vqs.pipeline import repair_candidate, verify_candidate
 
 SCHEMA_REPORT = ("https://developer.microsoft.com/json-schemas/fabric/item/"
                  "report/definition/report/1.0.0/schema.json")
@@ -121,14 +121,14 @@ def _guard(original: Path, candidate_root: Path) -> None:
 
 def test_relocation_guard_missing_model(tmp_path: Path) -> None:
     """RED R18: the pre-copy guard refuses a missing model target."""
-    proj, report = _project(tmp_path, "table T\n")
+    _proj, report = _project(tmp_path, "table T\n")
     with pytest.raises(RepairError):
         _guard(report, tmp_path / "elsewhere" / "cand")
 
 
 def test_relocation_guard_switched_model(tmp_path: Path) -> None:
     """RED R18: the pre-copy guard refuses a different same-name model."""
-    proj, report = _project(tmp_path, "table T\n")
+    _proj, report = _project(tmp_path, "table T\n")
     other = tmp_path / "other"
     tables = other / "Model.SemanticModel" / "tables"
     tables.mkdir(parents=True)
@@ -140,7 +140,7 @@ def test_relocation_guard_switched_model(tmp_path: Path) -> None:
 
 def test_relocation_guard_intact_model(tmp_path: Path) -> None:
     """Guard-shape test: intact same-parent relocation must be accepted."""
-    proj, report = _project(tmp_path, "table T\n")
+    _proj, report = _project(tmp_path, "table T\n")
     _guard(report, tmp_path / "proj" / "cand")
 
 

@@ -312,11 +312,9 @@ def run_acceptance(record: dict[str, Any],
         if gate_id == "G6":
             g6_covered = True
         control = gate.get("negative_control", "")
-        if control and not isinstance(control, str):
-            findings.append({"rule": "invalid_negative_control", "status": "blocked",
-                             "gate": gate_id})
-        elif (isinstance(control, str) and control
-                and control not in REQUIRED_NEGATIVES):
+        if ((control and not isinstance(control, str))
+                or (isinstance(control, str) and control
+                    and control not in REQUIRED_NEGATIVES)):
             findings.append({"rule": "invalid_negative_control", "status": "blocked",
                              "gate": gate_id})
         elif control:

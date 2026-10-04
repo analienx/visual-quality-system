@@ -403,6 +403,10 @@ def _let_scope(segment: str) -> str:
     return segment[:has_in.start()] if has_in else segment
 
 
+class ModelingError(ValueError):
+    """Static model analysis hit an explicitly unsupported construct."""
+
+
 def _reject_shared_shadow(binding: str, expr: str, quoted: list[str],
                            names: set[str]) -> None:
     """Raise when a nested let rebinds a shared query name."""

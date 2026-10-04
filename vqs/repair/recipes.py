@@ -27,12 +27,11 @@ def _check_precision(op_type: str, value: Any, side: str) -> None:
     if isinstance(value, bool):
         raise RecipeError(f"{op_type}: {side} precision must be "
                           "integer 0-15 or string '0'-'15'")
-    if isinstance(value, int):
-        if 0 <= value <= 15:
-            return
-    elif isinstance(value, str):
-        if _PRECISION_STR_RE.fullmatch(value) is not None:
-            return
+    if isinstance(value, int) and 0 <= value <= 15:
+        return
+    if (isinstance(value, str)
+            and _PRECISION_STR_RE.fullmatch(value) is not None):
+        return
     raise RecipeError(f"{op_type}: {side} precision must be "
                       f"integer 0-15 or string '0'-'15', not {value!r}")
 

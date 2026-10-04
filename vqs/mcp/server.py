@@ -97,9 +97,9 @@ def handle_message(message: Any,
                            "capabilities": {"tools": {}},
                            "serverInfo": {"name": SERVER_NAME,
                                           "version": __version__}}}
-    if method in ("tools/list", "tools/call"):
-        if (session is None or not session.get("initialized")
-                or not session.get("notified")):
+    if (method in ("tools/list", "tools/call")
+            and (session is None or not session.get("initialized")
+                 or not session.get("notified"))):
             return {"jsonrpc": "2.0", "id": request_id,
                     "error": {"code": -32002,
                               "message": "Server not initialized; send initialize "

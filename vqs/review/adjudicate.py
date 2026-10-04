@@ -23,7 +23,6 @@ from vqs.evidence import (
     check_reviewer,
 )
 
-
 _HEX64 = frozenset("0123456789abcdefABCDEF")
 
 

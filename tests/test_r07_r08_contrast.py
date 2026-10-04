@@ -9,8 +9,8 @@ canvas), never omit the rule. All red pre-R3, green after.
 import json
 from pathlib import Path
 
-from vqs.powerbi.measure import measure_report
 from vqs.pipeline import review_report
+from vqs.powerbi.measure import measure_report
 
 SCHEMA_REPORT = ("https://developer.microsoft.com/json-schemas/fabric/item/"
                  "report/definition/report/1.0.0/schema.json")

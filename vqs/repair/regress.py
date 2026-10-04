@@ -15,9 +15,8 @@ import math
 from pathlib import Path
 from typing import Any
 
+from .recipes import GEOMETRY_OPS, LEAF_OPS, RecipeError, affected_pages, validate_leaf_path
 from ..pbir import listed_page_order
-from .recipes import (GEOMETRY_OPS, LEAF_OPS, RecipeError, affected_pages,
-                      validate_leaf_path)
 
 _MISSING = object()
 
@@ -26,10 +25,9 @@ def _node_at(doc: Any, path: list) -> Any:
     """Walk a mixed dict/list document; _MISSING when absent."""
     node = doc
     for step in path:
-        if isinstance(node, dict) and step in node:
-            node = node[step]
-        elif (isinstance(node, list) and isinstance(step, int)
-                and 0 <= step < len(node)):
+        if ((isinstance(node, dict) and step in node)
+                or (isinstance(node, list) and isinstance(step, int)
+                    and 0 <= step < len(node))):
             node = node[step]
         else:
             return _MISSING
@@ -283,7 +281,6 @@ def _identities(original: Path, candidate: Path,
         return [{"rule": "page_order_changed",
                  "expected": declared_before, "actual": declared_after}]
     try:
-        before = _page_order(original)
         after = _page_order(candidate)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         return [{"rule": "report_unreadable",
