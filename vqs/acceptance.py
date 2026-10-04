@@ -301,6 +301,15 @@ def run_acceptance(record: dict[str, Any],
             findings.append({"rule": "producer_terminal_mismatch", "status": "fail",
                              "gate": gate_id})
             continue
+        result = envelope.get("result")
+        if not isinstance(result, dict):
+            findings.append({"rule": "gate_result_missing", "status": "blocked",
+                             "gate": gate_id})
+            continue
+        if result.get("gate") != gate_id:
+            findings.append({"rule": "producer_gate_mismatch", "status": "fail",
+                             "gate": gate_id})
+            continue
         gate_control = gate.get("negative_control")
         if isinstance(gate_control, str) or gate_control is None:
             norm = gate_control or None
@@ -318,8 +327,16 @@ def run_acceptance(record: dict[str, Any],
             findings.append({"rule": "invalid_negative_control", "status": "blocked",
                              "gate": gate_id})
         elif control:
+            observed = envelope.get("control_result")
             if gate.get("caught", False) is True:
-                seen_negatives.add(control)
+                if (isinstance(observed, dict)
+                        and observed.get("control") == control
+                        and observed.get("caught") is True):
+                    seen_negatives.add(control)
+                else:
+                    findings.append({"rule": "caught_uncorroborated",
+                                     "status": "fail", "control": control,
+                                     "gate": gate_id})
             else:
                 findings.append({"rule": "negative_uncaught", "status": "fail",
                                  "control": control})

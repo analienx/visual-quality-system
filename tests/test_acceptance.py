@@ -59,12 +59,15 @@ class _Case:
         run_id = f"prod-{self._tag}-{gate_id}-{subject_id}-{len(self.gates)}"
         envelope: dict[str, Any] = {"source_sha256": source, "environment": dict(ENV),
                                     "producer": {"run_id": run_id, "gate": gate_id,
-                                               "status": status, "control": control}}
+                                               "status": status, "control": control},
+                                    "result": {"gate": gate_id, "status": status}}
         gate: dict[str, Any] = {"id": gate_id, "subject_id": subject_id,
                                 "status": status, "environment": dict(ENV)}
         if kind == "pbip":
             envelope["data_scope"] = {**SCOPE, "filters": dict(SCOPE["filters"])}
             gate["data_scope"] = {**SCOPE, "filters": dict(SCOPE["filters"])}
+        if control is not None:
+            envelope["control_result"] = {"control": control, "caught": True}
         raw = _envelope_bytes(envelope)
         sha = hashlib.sha256(raw).hexdigest()
         self.blobs[sha] = raw

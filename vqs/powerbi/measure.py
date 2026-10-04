@@ -288,8 +288,8 @@ def _contrast(found: dict, theme: dict | None) -> dict | None:
     backgrounds and unresolvable canvases emit unresolved readings
     for unknown evidence, never silent canvas pairing. A run with no
     backdrop source at all (no painted layer, no page canvas, no
-    theme) is dropped rather than paired against a guessed color, so
-    a themeless sourceless report omits the rule entirely.
+    theme) is retained as unknown so mandatory contrast blocks
+    instead of passing on the remaining runs.
     """
     runs = _visual_text_runs(found)
     if not runs:

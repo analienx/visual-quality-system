@@ -59,14 +59,17 @@ def test_missing_report_dir_raises() -> None:
         measure_report(str(FIXTURES / "absent"))
 
 
-def test_missing_theme_omits_theme_rules(tmp_path: Path) -> None:
+def test_missing_theme_retains_unknown_contrast(tmp_path: Path) -> None:
+    """S07: without a theme, runs are retained as unknown, not omitted."""
     import shutil
     clone = tmp_path / "report"
     shutil.copytree(REPORT, clone)
     for path in (clone / "StaticResources").rglob("*.json"):
         path.unlink()
     rules = measure_report(str(clone))["rules"]
-    assert "typography.text_contrast" not in rules
+    readings = rules["typography.text_contrast"]["readings"]
+    assert len(readings) >= 1
+    assert all("unresolved" in reading for reading in readings)
     assert "palette.semantic_consistency" not in rules
     assert "typography.format_declaration_consistency" in rules
 
@@ -171,7 +174,8 @@ def test_non_hex_text_color_skipped(tmp_path: Path) -> None:
     assert flagged[0]["page"] == "P1"
 
 
-def test_invalid_theme_background_omits_contrast(tmp_path: Path) -> None:
+def test_invalid_theme_background_never_grounds(tmp_path: Path) -> None:
+    """S06: a non-literal theme background resolves nothing, not WHITE."""
     import json
     import shutil
     clone = tmp_path / "report"
@@ -186,7 +190,7 @@ def test_invalid_theme_background_omits_contrast(tmp_path: Path) -> None:
     theme_path.write_text(json.dumps(theme), encoding="utf-8")
     readings = measure_report(str(clone))["rules"][
         "typography.text_contrast"]["readings"]
-    flagged = [reading for reading in readings
-               if reading.get("background") == "WHITE"]
-    assert len(flagged) >= 1
-    assert all(item["page"] == "P1" for item in flagged)
+    assert len(readings) >= 1
+    assert not any("background" in reading for reading in readings)
+    assert any(reading.get("unresolved") == "canvas-theme:unparsed"
+               for reading in readings)

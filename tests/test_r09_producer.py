@@ -45,8 +45,11 @@ def _case(root: Path, *, gate_status: str = "pass",
         "source_sha256": source, "environment": dict(ENV),
         "producer": {"run_id": "prod-1", "gate": gate_id,
                      "status": gate_status, "control": control},
+        "result": {"gate": gate_id, "status": gate_status},
         "data_scope": {**SCOPE, "filters": dict(SCOPE["filters"])},
     }
+    if control is not None:
+        envelope["control_result"] = {"control": control, "caught": True}
     raw = json.dumps(envelope, sort_keys=True, separators=(",", ":"),
                      ensure_ascii=False).encode("utf-8")
     sha = hashlib.sha256(raw).hexdigest()
