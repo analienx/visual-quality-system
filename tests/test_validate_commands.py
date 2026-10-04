@@ -40,6 +40,7 @@ def _bundle(**overrides):
               "data_readiness": {"populated": True, "method": "scoped-dax-probe",
                                  "checked_at": "2026-10-03T00:00:00Z"},
               "pages": [{"id": "p1", "image_source_sha256": "s",
+                         "image_sha256": "d" * 64,  # R12: passing bundles bind pixels
                          "pixels": [500, 500],
                          "observations": _observations()}]}
     bundle.update(overrides)

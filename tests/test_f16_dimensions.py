@@ -19,8 +19,12 @@ from vqs.evidence import SealedEvidenceStore
 SOURCE_A = "a" * 64
 SOURCE_B = "b" * 64
 SOURCE_D = "c" * 64
-ENV = {"renderer": "desktop-bridge", "renderer_version": "1.0.0"}
-SCOPE = {"role": "analyst", "refresh_id": "refresh-1", "filters": {}}
+# R14 contract migration: sealed evidence states full identity, so
+# dimension drift below exercises real mismatch, not thin unknowns.
+ENV = {"renderer": "desktop-bridge", "renderer_version": "1.0.0",
+       "locale": "en-US", "view_state": "default"}
+SCOPE = {"role": "analyst", "refresh_id": "refresh-1", "filters": {},
+         "query_context": "analyst-review", "query_hash": "q" * 64}
 
 
 def _subjects() -> list[dict[str, Any]]:

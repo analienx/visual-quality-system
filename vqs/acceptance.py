@@ -59,24 +59,25 @@ _SCOPE_DIMS: tuple[str, ...] = ("role", "refresh_id", "filters", "query_context"
 _ENV_DIMS: tuple[str, ...] = ("renderer", "renderer_version", "locale", "view_state")
 
 # Required identity dimensions beyond renderer/version and role/refresh.
-# R14: locale/view_state (environment) and query_context/query_hash
-# (data scope) must be stated on BOTH sides; a missing key or a None
-# value on either side is unknown, never a stated value, and blocks
-# as evidence_identity_incomplete (unknown never equals, not even
-# unknown). The explicit string "not_applicable" counts as stated:
-# documented N/A pairs carry it on both sides; plain None never does.
+# R14: completeness is a property of sealed evidence — the envelope
+# must state locale/view_state (environment) and query_context/
+# query_hash (data scope); a missing key or None on the envelope side
+# is unknown and blocks as evidence_identity_incomplete (unknown
+# never equals, not even unknown). A thin gate claim against complete
+# evidence still fails closed through mismatch. The explicit string
+# "not_applicable" counts as stated: documented N/A pairs carry it on
+# both sides; plain None never does.
 _REQUIRED_ENV_DIMS: tuple[str, ...] = ("locale", "view_state")
 _REQUIRED_SCOPE_DIMS: tuple[str, ...] = ("query_context", "query_hash")
 IDENTITY_NOT_APPLICABLE = "not_applicable"
 
 
-def _identity_incomplete(gate_slot: object, envelope_slot: object,
-                         dims: tuple[str, ...]) -> bool:
-    """True when a required dimension is unstated on either side."""
-    if not isinstance(gate_slot, dict) or not isinstance(envelope_slot, dict):
+def _envelope_identity_incomplete(envelope_slot: object,
+                                    dims: tuple[str, ...]) -> bool:
+    """True when sealed evidence leaves a required dimension unstated."""
+    if not isinstance(envelope_slot, dict):
         return True
-    return any(gate_slot.get(dim) is None or envelope_slot.get(dim) is None
-               for dim in dims)
+    return any(envelope_slot.get(dim) is None for dim in dims)
 
 
 # Terminal statuses seal producer runs while gates speak pass/fail;
@@ -231,7 +232,7 @@ def run_acceptance(record: dict[str, Any],
                              "gate": gate_id})
             continue
         envelope_env = envelope.get("environment", {})
-        if _identity_incomplete(gate_env, envelope_env, _REQUIRED_ENV_DIMS):
+        if _envelope_identity_incomplete(envelope_env, _REQUIRED_ENV_DIMS):
             findings.append({"rule": "evidence_identity_incomplete", "status": "blocked",
                              "gate": gate_id})
             continue
@@ -247,7 +248,7 @@ def run_acceptance(record: dict[str, Any],
                                  "gate": gate_id})
                 continue
             envelope_scope = envelope.get("data_scope", {})
-            if _identity_incomplete(scope, envelope_scope, _REQUIRED_SCOPE_DIMS):
+            if _envelope_identity_incomplete(envelope_scope, _REQUIRED_SCOPE_DIMS):
                 findings.append({"rule": "evidence_identity_incomplete", "status": "blocked",
                                  "gate": gate_id})
                 continue

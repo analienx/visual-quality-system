@@ -107,9 +107,19 @@ def test_f24_mcp_resume_and_status_block(tmp_path: Path) -> None:
     manifest["pipeline"] = "evil/9"
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
+    from vqs.mcp.server import PROTOCOL_VERSION as _PROTOCOL_VERSION
+
+    _session_state: dict = {}
+    handle_message({"jsonrpc": "2.0", "id": 0, "method": "initialize",
+                    "params": {"protocolVersion": _PROTOCOL_VERSION,
+                               "capabilities": {}}}, _session_state)
+    handle_message({"jsonrpc": "2.0", "method": "notifications/initialized"},
+                   _session_state)
+
     def call(name: str, arguments: dict, msg_id: int = 1) -> dict:
         return handle_message({"jsonrpc": "2.0", "id": msg_id, "method": "tools/call",
-                               "params": {"name": name, "arguments": arguments}})
+                               "params": {"name": name, "arguments": arguments}},
+                   _session_state)
 
     def envelope_of(response: dict) -> dict:
         assert "error" not in response

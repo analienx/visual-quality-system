@@ -1,4 +1,4 @@
-"""GOAL 17: installed CLI and MCP parity outside the checkout.
+﻿"""GOAL 17: installed CLI and MCP parity outside the checkout.
 
 Installs the built package into an isolated target (--no-deps, so
 the package itself installs offline; only build tooling may come from
@@ -50,13 +50,22 @@ def test_installed_cli_mcp_parity_outside_checkout(tmp_path: Path) -> None:
                           "arguments": {"report_dir": REPORT,
                                         "run_root": str(work / "runs"),
                                         "run_id": "pkg-mcp"}}}
+    # R23 session: initialize + initialized notification precede tools.
+    messages = [{"jsonrpc": "2.0", "id": 0, "method": "initialize",
+                 "params": {"protocolVersion": "2024-11-05", "capabilities": {}}},
+                {"jsonrpc": "2.0", "method": "notifications/initialized"},
+                request]
     mcp = subprocess.run(
-        [sys.executable, "-m", "vqs.mcp"], input=json.dumps(request) + "\n",
+        [sys.executable, "-m", "vqs.mcp"],
+        input="".join(json.dumps(message) + "\n" for message in messages),
         capture_output=True, text=True, check=False, timeout=120, cwd=work,
         env=full_env)
     assert mcp.returncode == 0, mcp.stderr
+    replies = [json.loads(line) for line in mcp.stdout.splitlines()
+               if line.strip()]
+    call = next(reply for reply in replies if reply.get("id") == 1)
     mcp_envelope = json.loads(
-        json.loads(mcp.stdout.strip())["result"]["content"][0]["text"])
+        call["result"]["content"][0]["text"])
     assert mcp_envelope["verdict"] == cli_envelope["verdict"]
     assert mcp_envelope["findings"] == cli_envelope["findings"]
 
