@@ -79,8 +79,7 @@ def test_absent_nested_with_note_rejects_provenance() -> None:
                  approved_surface="powerbi",
                  approved_contract_revision="1.0.0")
     issues = validate_manifest(_manifest(
-        _finding({"component_id": "P1/v1", "artifact": None},
-                 cross_artifact_contract=note)))
+        _finding(None, cross_artifact_contract=note)))
     assert "finding_missing_provenance" in _rules(issues)
 
 
