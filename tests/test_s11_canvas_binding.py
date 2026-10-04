@@ -99,7 +99,8 @@ def test_canvas_fit_template_passes(tmp_path: Path, capsys) -> None:
     code, out = _request(report, renders, capsys)
     assert code == 0, out
     assert out["pages"][0]["id"] == "P1"
-    assert out["pages"][0]["pixels"] == [1280, 720]
+    assert out["pages"][0]["image"] == "P1.png"
+    assert out["pages"][0]["image_source_sha256"] == source_digest(report)
 
 
 def test_renamed_png_resolves(tmp_path: Path, capsys) -> None:
@@ -117,7 +118,8 @@ def test_scale_two_canvas_fit(tmp_path: Path, capsys) -> None:
     renders = _renders(tmp_path, report, _png(2560, 1440), scale=2)
     code, out = _request(report, renders, capsys)
     assert code == 0, out
-    assert out["pages"][0]["pixels"] == [2560, 1440]
+    assert out["pages"][0]["id"] == "P1"
+    assert out["pages"][0]["image_source_sha256"] == source_digest(report)
 
 
 def test_regress_refuses_without_canvases(tmp_path: Path) -> None:
