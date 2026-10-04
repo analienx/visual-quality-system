@@ -180,22 +180,32 @@ def _png_pixels(path: Path) -> tuple[int, int, bool]:
         raise ValueError("not a PNG file")
     pos, width, height, depth, color, interlace = 8, 0, 0, 0, 0, 0
     raw_idat = b""
+    seen_ihdr = end_seen = False
     while pos + 8 <= len(data):
         (size,) = struct.unpack(">I", data[pos:pos + 4])
         kind = data[pos + 4:pos + 8]
         body = data[pos + 8:pos + 8 + size]
-        if len(body) != size:
+        check = data[pos + 8 + size:pos + 12 + size]
+        if len(body) != size or len(check) != 4:
             raise ValueError("truncated PNG chunk")
+        if zlib.crc32(kind + body) & 0xFFFFFFFF != struct.unpack(">I", check)[0]:
+            raise ValueError("corrupt PNG chunk")
         if kind == b"IHDR":
-            if len(body) != 13:
+            if seen_ihdr or len(body) != 13:
                 raise ValueError("invalid PNG header length")
+            seen_ihdr = True
             (width, height, depth, color, _comp, _filt,
              interlace) = struct.unpack(">IIBBBBB", body)
         elif kind == b"IDAT":
+            if not seen_ihdr:
+                raise ValueError("IDAT before IHDR")
             raw_idat += body
         elif kind == b"IEND":
+            end_seen = True
             break
         pos += 12 + size
+    if not end_seen:
+        raise ValueError("truncated PNG stream")
     channels = {0: 1, 2: 3, 6: 4}.get(color)
     if not width or not height or depth != 8 or channels is None:
         raise ValueError("unsupported PNG pixel format for blank detection")

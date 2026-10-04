@@ -73,22 +73,23 @@ _PNG_PIXEL_CAP = 256 * 1024 * 1024
 _PNG_BLOB_CAP = 64 * 1024 * 1024
 
 
-def decode_png_pixels(path: Path) -> tuple[int, int]:
-    """Decode PNG IDAT pixels with bounded work; ValueError when undecodable.
+def _decode_png(path: Path) -> tuple[int, int, int, bytes]:
+    """Walk chunks, inflate IDAT and check filters; ValueError when undecodable.
 
-    R13: a CRC-correct container can still carry a non-zlib IDAT, a
-    cut-short stream, or unknown filter types, and no consumer may
-    approve pixels it never decoded. Only 8-bit non-interlaced
-    grayscale/truecolor images are supported; every scanline filter
-    byte must be 0-4. Compressed and decompressed sizes are capped
-    so a hostile size claim cannot exhaust memory.
+    S12: the IHDR-declared type and dimensions gate every later
+    allocation — a hostile size claim fails before any IDAT body is
+    kept — and the running compressed total never exceeds the decode
+    cap, so no burst of chunks can exhaust memory before the join.
+    Only 8-bit non-interlaced grayscale/truecolor/truecolor+alpha are
+    supported; every scanline filter byte must be 0-4.
     """
     raw = path.read_bytes()
     if raw[:8] != b"\x89PNG\r\n\x1a\n":
         raise ValueError(f"Invalid PNG signature: {path}")
     position = 8
-    ihdr: tuple[int, int, int, int, int] | None = None
+    dims: tuple[int, int, int] | None = None
     parts: list[bytes] = []
+    total = 0
     end = len(raw)
     while True:
         if position + 8 > end:
@@ -104,34 +105,34 @@ def decode_png_pixels(path: Path) -> tuple[int, int]:
             raise ValueError(f"Corrupt PNG chunk: {path}")
         position += 12 + length
         if tag == b"IHDR":
-            if ihdr is not None or length != 13:
+            if dims is not None or length != 13:
                 raise ValueError(f"Invalid PNG header: {path}")
             width, height, depth, color, _comp, _filter, interlace = struct.unpack(
                 ">IIBBBBB", body)
-            ihdr = (width, height, depth, color, interlace)
+            if depth != 8 or color not in (0, 2, 6) or interlace != 0:
+                raise ValueError(f"Unsupported PNG image type "
+                                 f"(depth={depth} color={color} interlace={interlace}): {path}")
+            if not 1 <= width <= 20000 or not 1 <= height <= 20000:
+                raise ValueError(f"Implausible PNG dimensions {width}x{height}: {path}")
+            bpp = {0: 1, 2: 3, 6: 4}[color]
+            if height * (1 + width * bpp) > _PNG_PIXEL_CAP:
+                raise ValueError(f"PNG pixel content exceeds decode cap: {path}")
+            dims = (width, height, bpp)
         elif tag == b"IDAT":
-            if ihdr is None:
+            if dims is None:
                 raise ValueError(f"IDAT before IHDR: {path}")
+            total += length
+            if total > _PNG_BLOB_CAP:
+                raise ValueError(f"PNG stream exceeds decode cap: {path}")
             parts.append(body)
         elif tag == b"IEND":
             break
-    if ihdr is None or not parts:
+    if dims is None or not parts:
         raise ValueError(f"Incomplete PNG image: {path}")
-    width, height, depth, color, interlace = ihdr
-    if depth != 8 or color not in (0, 2) or interlace != 0:
-        raise ValueError(f"Unsupported PNG image type "
-                         f"(depth={depth} color={color} interlace={interlace}): {path}")
-    if not 1 <= width <= 20000 or not 1 <= height <= 20000:
-        raise ValueError(f"Implausible PNG dimensions {width}x{height}: {path}")
-    bpp = 1 if color == 0 else 3
+    width, height, bpp = dims
     expected = height * (1 + width * bpp)
-    if expected > _PNG_PIXEL_CAP:
-        raise ValueError(f"PNG pixel content exceeds decode cap: {path}")
-    blob = b"".join(parts)
-    if len(blob) > _PNG_BLOB_CAP:
-        raise ValueError(f"PNG stream exceeds decode cap: {path}")
     try:
-        pixels = zlib.decompress(blob)
+        pixels = zlib.decompress(b"".join(parts))
     except zlib.error as exc:
         raise ValueError(f"IDAT stream undecodable: {exc}") from exc
     if len(pixels) != expected:
@@ -142,7 +143,89 @@ def decode_png_pixels(path: Path) -> tuple[int, int]:
         if filter_type > 4:
             raise ValueError(f"Unknown PNG filter type {filter_type} "
                              f"on row {row}: {path}")
+    return width, height, bpp, pixels
+
+
+def decode_png_pixels(path: Path) -> tuple[int, int]:
+    """Decode PNG IDAT pixels with bounded work; ValueError when undecodable.
+
+    R13: a CRC-correct container can still carry a non-zlib IDAT, a
+    cut-short stream, or unknown filter types, and no consumer may
+    approve pixels it never decoded. S12: 8-bit non-interlaced
+    grayscale/truecolor/truecolor+alpha are honored with IHDR-first
+    bounds and a capped running compressed total.
+    """
+    width, height, _bpp, _pixels = _decode_png(path)
     return width, height
+
+
+def _unfilter_scanlines(width: int, channels: int, pixels: bytes) -> bytes:
+    """Reconstruct original samples; raise on unknown filter types."""
+    stride = width * channels
+    out = bytearray()
+    previous = bytearray(stride)
+    offset = 0
+    rows = len(pixels) // (stride + 1)
+    for _ in range(rows):
+        kind = pixels[offset]
+        offset += 1
+        row = bytearray(pixels[offset:offset + stride])
+        offset += stride
+        if kind == 1:
+            for index in range(stride):
+                left = row[index - channels] if index >= channels else 0
+                row[index] = (row[index] + left) & 0xFF
+        elif kind == 2:
+            for index in range(stride):
+                row[index] = (row[index] + previous[index]) & 0xFF
+        elif kind == 3:
+            for index in range(stride):
+                left = row[index - channels] if index >= channels else 0
+                row[index] = (row[index] + ((left + previous[index]) >> 1)) & 0xFF
+        elif kind == 4:
+            for index in range(stride):
+                left = row[index - channels] if index >= channels else 0
+                up = previous[index]
+                upper = previous[index - channels] if index >= channels else 0
+                pick = left + up - upper
+                dist_left = abs(pick - left)
+                dist_up = abs(pick - up)
+                dist_corner = abs(pick - upper)
+                if dist_left <= dist_up and dist_left <= dist_corner:
+                    row[index] = (row[index] + left) & 0xFF
+                elif dist_up <= dist_corner:
+                    row[index] = (row[index] + up) & 0xFF
+                else:
+                    row[index] = (row[index] + upper) & 0xFF
+        elif kind != 0:
+            raise ValueError(f"Unknown PNG filter type {kind}")
+        out += row
+        previous = row
+    return bytes(out)
+
+
+def pixel_digest(path: Path) -> str:
+    """Canonical sha256 over decoded pixel content (S12).
+
+    Scanlines are unfiltered and samples expanded to RGBA (grayscale
+    and truecolor gain opaque alpha), prefixed by dimensions, so the
+    same visual content hashes identically across grayscale, RGB and
+    opaque-RGBA encodings. Translucent alpha stays distinct from any
+    RGB encoding: it looks different.
+    """
+    width, height, bpp, pixels = _decode_png(path)
+    raw = _unfilter_scanlines(width, bpp, pixels)
+    expanded = bytearray()
+    if bpp == 1:
+        for sample in raw:
+            expanded += bytes((sample, sample, sample, 255))
+    elif bpp == 3:
+        for index in range(0, len(raw), 3):
+            expanded += raw[index:index + 3] + b"\xff"
+    else:
+        expanded += raw
+    return hashlib.sha256(struct.pack(">II", width, height)
+                          + bytes(expanded)).hexdigest()
 
 
 def load(path: Path) -> dict:

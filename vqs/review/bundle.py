@@ -80,7 +80,7 @@ def pack(report: str, renders: str, out: str, fixer_id: str) -> dict:
 
 def verify(bundle: str, report: str | None = None) -> dict:
     """Re-hash and cross-check a bundle; raise on any mismatch."""
-    from ..evidence import check_calibration, digest, png_size, safe_render_name
+    from ..evidence import check_calibration, decode_png_pixels, digest, safe_render_name
     from ..pbir import source_digest
 
     root = Path(bundle)
@@ -214,7 +214,7 @@ def verify(bundle: str, report: str | None = None) -> dict:
             if path.is_symlink() or not path.is_file():
                 continue
             try:
-                pixels = png_size(path)
+                pixels = decode_png_pixels(path)
             except (OSError, ValueError):
                 problems.append(f"unreadable render dimensions: {name}")
                 continue
