@@ -4,8 +4,13 @@ Usage: fake_modeling_mcp.py SCRIPT_JSON [REQUEST_LOG]
 SCRIPT_JSON: {"responses": {"<tool>/<operation>": <payload or
 {"__error__": {...}} | {"__raw__": "<line>"} |
 {"__sequence__": [<payload per call in order>]} |
-{"__text__": "<verbatim content text>"}>}, "sleep": <seconds>,
-"strict_handshake": <bool>, "capabilities": {...}}
+{"__text__": "<verbatim content text>"} |
+{"__isError__": <payload with tool-level isError>}>>},
+"sleep": <seconds>, "strict_handshake": <bool>,
+"capabilities": {...}, "protocolVersion": "<override, default
+2024-11-05>}. Notifications/initialized is tracked (strict mode
+requires it before tools/call) and logged as
+notification/initialized with a request shape.
 Responds to tools/call with MCP content blocks; logs every request to
 REQUEST_LOG when given. Never touches live models.
 strict_handshake: reject tools/call before initialize (default False
@@ -23,6 +28,7 @@ def main() -> int:
     sleep = script.get("sleep", 0)
     strict = script.get("strict_handshake", False)
     capabilities = script.get("capabilities", {"tools": {}})
+    protocol_version = script.get("protocolVersion", "2024-11-05")
     initialized = False
     log_path = sys.argv[2] if len(sys.argv) > 2 else None
     stdin = sys.stdin
@@ -37,15 +43,22 @@ def main() -> int:
                  "error": {"code": -32700, "message": "Parse error"}}) + "\n")
             sys.stdout.flush()
             continue
+        if message.get("method") == "notifications/initialized":
+            initialized = True
+            if log_path is not None:
+                with open(log_path, "a", encoding="utf-8") as log:
+                    log.write(json.dumps(
+                        {"tool": "notification/initialized",
+                         "request": {"operation": "initialized"}}) + "\n")
+            continue
         if "id" not in message:
             continue
         rid = message.get("id")
         if message.get("method") == "initialize":
-            result: dict = {"protocolVersion": "2024-11-05",
+            result: dict = {"protocolVersion": protocol_version,
                             "capabilities": dict(capabilities),
                             "serverInfo": {"name": "fake-modeling-mcp",
                                            "version": "0.0.0-test"}}
-            initialized = True
             if log_path is not None:
                 with open(log_path, "a", encoding="utf-8") as log:
                     log.write(json.dumps(
@@ -100,6 +113,15 @@ def main() -> int:
             if isinstance(scripted, dict) and "__text__" in scripted:
                 result = {"content": [{"type": "text",
                                        "text": str(scripted["__text__"])}]}
+                sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": rid,
+                                             "result": result}) + "\n")
+                sys.stdout.flush()
+                continue
+            if isinstance(scripted, dict) and "__isError__" in scripted:
+                payload = scripted["__isError__"]
+                result = {"content": [{"type": "text",
+                                       "text": json.dumps(payload)}],
+                          "isError": True}
                 sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": rid,
                                              "result": result}) + "\n")
                 sys.stdout.flush()
