@@ -75,12 +75,12 @@ def adjudicate_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
             findings.append({"rule": "page_not_an_object", "verdict": "blocked"})
             continue
         page_id = page.get("id", "?")
+        if page.get("image_source_sha256", "") != source or not source:
+            findings.append({"rule": "stale_image", "verdict": "fail", "page": page_id})
         if (not _is_bound_image(page.get("image_sha256"))
                 or not _is_pixels(page.get("pixels"))):
             findings.append({"rule": "page_image_unbound", "verdict": "blocked",
                              "page": page_id})
-        if page.get("image_source_sha256", "") != source or not source:
-            findings.append({"rule": "stale_image", "verdict": "fail", "page": page_id})
         if not shape_issues and page.get("pixels") is not None:
             for row in check_calibration(calibration, page.get("pixels")):
                 findings.append({**row, "page": page_id})

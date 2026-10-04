@@ -24,7 +24,7 @@ SOURCE_D = "c" * 64
 ENV = {"renderer": "desktop-bridge", "renderer_version": "1.0.0",
        "locale": "en-US", "view_state": "default"}
 SCOPE = {"role": "analyst", "refresh_id": "refresh-1", "filters": {},
-         "query_context": "analyst-review", "query_hash": "q" * 64}
+         "query_context": "analyst-review", "query_hash": "h" * 64}
 
 
 def _subjects() -> list[dict[str, Any]]:
