@@ -47,7 +47,7 @@ def _project(root: Path, model_text: str | None) -> tuple[Path, Path]:
         "position": {"x": 0, "y": 0, "width": 100, "height": 100, "z": 1},
         "visual": {"visualType": "barChart", "objects": {"categoryAxis": [{
             "properties": {"labelPrecision": {"expr": {"Literal": {
-                "Value": "2"}}}}}]}}}}), encoding="utf-8")
+                "Value": "2"}}}}}]}}}), encoding="utf-8")
     (report / "definition.pbir").write_text(json.dumps(
         {"datasetReference": {"byPath":
                               {"path": "../Model.SemanticModel"}}}),
