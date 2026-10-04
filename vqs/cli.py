@@ -151,11 +151,11 @@ def _doctor() -> int:
 
 def _cycles(model: Path) -> int:
     """Run the static acyclicity gate; 0 acyclic, 1 cycles, 2 blocked."""
-    from vqs.powerbi.cycles import check_model
+    from vqs.powerbi.cycles import ModelingError, check_model
 
     try:
         report = check_model(str(model))
-    except OSError as exc:
+    except (OSError, ModelingError) as exc:
         print(json.dumps({"status": "blocked",
                           "reason": f"{type(exc).__name__}: {exc}"}))
         return 2

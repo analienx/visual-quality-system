@@ -29,10 +29,16 @@ _TABLE_QUOTED = re.compile(r"^table '(.+)'$", re.MULTILINE | re.IGNORECASE)
 _TABLE_BARE = re.compile(r"^table (\S+)$", re.MULTILINE | re.IGNORECASE)
 _EXPRESSION = re.compile(
     r"^expression\s+('([^']+)'|([^\s=]+))\s*=\s*(.*?)(?=^expression\s|\Z)",
-    re.MULTILINE | re.DOTALL)
+    re.MULTILINE | re.DOTALL | re.IGNORECASE)
 _PARTITION_M = re.compile(
     r"^\tpartition\s+('([^']+)'|([^\s=]+))\s*=\s*m\s*$(.*?)(?=^\t\S|\Z)",
-    re.MULTILINE | re.DOTALL)
+    re.MULTILINE | re.DOTALL | re.IGNORECASE)
+_EXPRESSION_ANY = re.compile(
+    r"^expression\s+('([^']+)'|([^\s=]+))",
+    re.MULTILINE | re.IGNORECASE)
+_PARTITION_ANY = re.compile(
+    r"^[ \t]*partition\s+('([^']+)'|([^\s=]+))",
+    re.MULTILINE | re.IGNORECASE)
 _QUALIFIED = re.compile(
     r"'((?:[^']|'')+)'\s*\[([^\[\]]+)\]|([A-Za-z_][\w]*)\s*\[([^\[\]]+)\]")
 _BARE_REF = re.compile(r"\[([^\[\]]+)\]")
@@ -365,35 +371,115 @@ def m_queries(model_dir: str) -> dict[str, str]:
     return queries
 
 
-_NESTED_BINDING = re.compile(
-    r"(?<![\w#\.])let\s+(\x00\d+\x00|[A-Za-z_][\w\.]*)\s*=")
+def _mask_binding_lhs(text: str, bound: set[str]) -> str:
+    """Blank ``NAME =`` definitions so they never read as references.
+
+    Right-hand occurrences (``D = B``) are untouched and resolve
+    against the scope chain like any other reference.
+    """
+    masked = text
+    for candidate in sorted(bound, key=len, reverse=True):
+        masked = re.sub(r"(?<![\w#.])" + re.escape(candidate) + r"\s*=",
+                        lambda match: " " * len(match.group(0)), masked)
+    return masked
+
+
+def _split_let_body(body: str, query: str) -> tuple[str, str]:
+    """Split a nested-let body from its enclosing tail (S04).
+
+    The body runs to the first depth-zero ``,``/``)``/``]``/``;`` or
+    end of text; the tail belongs to an ancestor scope. Depth that
+    never resolves is explicitly unsupported (ModelingError)
+    instead of a guessed attribution.
+    """
+    depth = 0
+    for pos, char in enumerate(body):
+        if char in "([{":
+            depth += 1
+        elif char in ")]}":
+            if depth == 0:
+                return body[:pos], body[pos:]
+            depth -= 1
+        elif char in ",;" and depth == 0:
+            return body[:pos], body[pos:]
+    if depth != 0:
+        raise ModelingError(
+            f"unbalanced brackets in nested let body of query {query!r}: "
+            "unsupported by static scope analysis")
+    return body, ""
+
+
+def _region_refs(text: str, bare: str, quoted: list[str]) -> bool:
+    """Whether a scope region references a query (word or quoted id)."""
+    if _whole_word(bare, text):
+        return True
+    matches = [match.group(0) for match in _M_PLACEHOLDER.finditer(text)]
+    return any(_restore(placeholder, quoted) == bare
+               for placeholder in matches)
 
 
 def m_edges(queries: dict[str, str]) -> dict[str, set[str]]:
     """Query-reference edges; literals/comments blanked, #"ids" matched.
 
-    Names bound by a query's own top-level ``let`` resolve locally and
-    never become global edges (``let Q = 1 in Q`` is not a Q->Q
-    cycle). A nested ``let`` rebinding a shared query name is
-    explicitly unsupported and raises ModelingError instead of
-    mis-resolving scope.
+    Lexical scope resolves per region. Names bound by a query's own
+    leading ``let`` are local throughout it (``let Q = 1 in Q`` is
+    not a Q->Q cycle). A nested ``let`` binds its names only inside
+    its own body: outer references to a shared query name stay
+    global edges, so ``A = B + (let B = 1 in B)`` with ``B = A`` is
+    an A<->B cycle. Binding left-hand sides are definitions, never
+    references; same-scope binding expressions resolve against the
+    scope's bindings. Text after a nested body belongs to an
+    ancestor scope. Scopes the splitter cannot delimit raise
+    ModelingError instead of mis-resolving.
     """
-    names = set(queries)
     edges: dict[str, set[str]] = {name: set() for name in queries}
     for name, code in queries.items():
         clean, quoted = _m_clean(code)
-        segments = _LET.split(clean)[1:]
-        top = (_top_bindings(_let_scope(segments[0])) if segments else [])
-        bound = {_restore(binding, quoted) for binding, _ in top}
-        for segment in segments[1:]:
-            for binding, expr in _top_bindings(_let_scope(segment)):
-                _reject_shared_shadow(binding, expr, quoted, names)
+        parts = _LET.split(clean)
+        leading = not parts[0].strip()
+        if leading:
+            top = (_top_bindings(_let_scope(parts[1]))
+                   if len(parts) > 1 else [])
+            ancestors = {_restore(binding, quoted) for binding, _ in top}
+            nested = parts[2:]
+            regions: list[tuple[str, set[str]]] = []
+        else:
+            ancestors = set()
+            nested = parts[1:]
+            regions = [(parts[0], set())]
+        for segment in nested:
+            has_in = _IN.search(segment)
+            if has_in is None:
+                # let-fragment from a nested let inside a binding
+                # expression: definitions still mask, every other
+                # reference resolves outward (fail closed).
+                pairs = _top_bindings(segment)
+                bound = {_restore(binding, quoted)
+                         for binding, _ in pairs}
+                regions.append((_mask_binding_lhs(segment, bound),
+                                bound | ancestors))
+                continue
+            pairs = _top_bindings(segment[:has_in.start()])
+            bound = {_restore(binding, quoted) for binding, _ in pairs}
+            declared = _mask_binding_lhs(segment[:has_in.start()], bound)
+            body, rest = _split_let_body(segment[has_in.end():], name)
+            regions.append((declared, bound | ancestors))
+            regions.append((body, bound | ancestors))
+            regions.append((rest, set(ancestors)))
+        if leading:
+            top_text = parts[1] if len(parts) > 1 else ""
+            regions.append((_mask_binding_lhs(top_text, ancestors),
+                            set(ancestors)))
         for candidate in queries:
             bare = candidate.split("|")[-1]
-            if bare in bound:
+            if leading and bare in ancestors:
                 continue
-            if _whole_word(bare, clean) or bare in quoted:
-                edges[name].add(candidate)
+            for text, bound in regions:
+                if bare in bound:
+                    continue
+                if _region_refs(text, bare, quoted):
+                    edges[name].add(candidate)
+                    break
     return edges
 
 
@@ -407,26 +493,12 @@ class ModelingError(ValueError):
     """Static model analysis hit an explicitly unsupported construct."""
 
 
-def _reject_shared_shadow(binding: str, expr: str, quoted: list[str],
-                           names: set[str]) -> None:
-    """Raise when a nested let rebinds a shared query name."""
-    rebound = [_restore(binding, quoted)]
-    rebound.extend(_restore(nested.group(1), quoted)
-                   for nested in _NESTED_BINDING.finditer(expr))
-    for shadowed in rebound:
-        if shadowed in names:
-            raise ModelingError(
-                f"nested let rebinds shared query {shadowed!r}: "
-                "unsupported by static scope analysis")
-
-
 def _top_bindings(scope: str) -> list[tuple[str, str]]:
     """Split cleaned let scope into top-level (name, expr) pairs.
 
     Splits only depth-zero commas so single-line lets, records, and
-    calls segment correctly. Nested ``let`` blocks share one namespace
-    here; :func:`m_edges` rejects a nested rebinding of a shared query
-    name explicitly instead of resolving it through this flat view.
+    calls segment correctly. :func:`m_edges` attributes each pair to
+    its own scope instead of resolving through this flat view.
     """
     segments: list[str] = []
     depth = 0
@@ -500,6 +572,7 @@ def _coverage(model_dir: str) -> dict:
         for issue in extract_objects(texts[path])["issues"]:
             extract_issues.append({"part": path, **issue})
     shared = os.path.join(model_dir, "expressions.tmdl")
+    shared_text = ""
     if os.path.isfile(shared):
         try:
             with open(shared, encoding="utf-8-sig") as handle:
@@ -509,6 +582,30 @@ def _coverage(model_dir: str) -> dict:
             shared_text = ""
         for issue in extract_objects(shared_text)["issues"]:
             extract_issues.append({"part": "expressions.tmdl", **issue})
+    if shared_text:
+        # S05: every declared shared expression must be extracted;
+        # dropped declarations block instead of passing narrowed.
+        declared = {(match.group(2) or match.group(3))
+                    for match in _EXPRESSION_ANY.finditer(shared_text)}
+        extracted = {(match.group(2) or match.group(3))
+                     for match in _EXPRESSION.finditer(shared_text)}
+        missing = sorted(declared - extracted)
+        if missing:
+            extract_issues.append({"part": "expressions.tmdl",
+                                   "rule": "unextracted_expression",
+                                   "names": missing})
+    for path in sorted(texts):
+        # S05: same accounting for m partitions; non-m partition
+        # kinds are unsupported for cycle purposes and block.
+        declared = {(match.group(2) or match.group(3))
+                    for match in _PARTITION_ANY.finditer(texts[path])}
+        extracted = {(match.group(2) or match.group(3))
+                     for match in _PARTITION_M.finditer(texts[path])}
+        missing = sorted(declared - extracted)
+        if missing:
+            extract_issues.append({"part": path,
+                                   "rule": "unextracted_partition",
+                                   "names": missing})
     return {"parsed": sorted(texts), "skipped": sorted(skipped),
             "unparsed": sorted(unparsed),
             "extract_issues": extract_issues,
