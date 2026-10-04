@@ -98,8 +98,24 @@ def test_well_formed_scope_still_observes(tmp_path: Path) -> None:
         result = collect_answers(client, [{
             "id": "q1", "dax": "EVALUATE ROW(\"n\", 1)",
             "scope": {"model": "localhost:52383/AdventureWorks",
-                      "roles": ["admin"], "period": "2024"}}])
+                      "roles": ["admin"]}}])
     finally:
         client.close()
     assert result["q1"]["verdict"] == "observed"
     assert result["q1"]["rows"] == ROWS
+
+
+def test_unbindable_period_blocks_before_dax(tmp_path: Path) -> None:
+    """Control: a well-formed but unbindable period blocks, no DAX."""
+    client = _client(tmp_path, _connected())
+    try:
+        result = collect_answers(client, [{
+            "id": "q1", "dax": "EVALUATE ROW(\"n\", 1)",
+            "scope": {"model": "localhost:52383/AdventureWorks",
+                      "period": "2024"}}])
+    finally:
+        client.close()
+    assert result["q1"]["verdict"] == "blocked"
+    calls = [entry for entry in _logged(client)
+             if entry["request"].get("operation") == "Execute"]
+    assert calls == []
