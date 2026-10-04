@@ -42,8 +42,13 @@ def _bundle(**overrides):
     return base
 
 
-def test_clean_bundle_passes() -> None:
-    assert adjudicate_bundle(_bundle()) == {"verdict": "pass", "findings": []}
+def test_declared_clean_bundle_blocks_for_review() -> None:
+    """S10: even the clean declared bundle blocks; conformance is labeled."""
+    result = adjudicate_bundle(_bundle(source_pages=["page-1"]))
+    assert result["verdict"] == "blocked"
+    assert result.get("static_conformance") == "pass"
+    assert any(row["rule"] == "image_review_required"
+               for row in result["findings"])
 
 
 def test_same_reviewer_and_editor_fails() -> None:
