@@ -52,7 +52,8 @@ def _scrubbed(result: dict, root: Path) -> dict:
     text = json.dumps(result, sort_keys=True, default=str)
     root_text = str(root)
     for variant in {root_text, root_text.replace("/", "\\")}:
-        text = text.replace(variant, "<root>")
+        # json.dumps escapes backslashes, so match the serialized form.
+        text = text.replace(variant.replace("\\", "\\\\"), "<root>")
     return json.loads(text)
 
 
