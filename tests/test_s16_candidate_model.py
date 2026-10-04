@@ -62,7 +62,7 @@ def _project(root: Path, model_text: str | None) -> tuple[Path, Path]:
 
 def _plan() -> dict:
     return {"operations": [{
-        "type": "axis.precision", "target": "visual",
+        "type": "axis.tick_format", "target": "visual",
         "selector": {"page": "P1", "visual": "v1"},
         "path": LEAF, "value": "3", "writes": [VISUAL]}],
         "write_targets": [VISUAL],
