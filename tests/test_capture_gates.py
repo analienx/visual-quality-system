@@ -94,7 +94,7 @@ def _make_report(root: Path, pages: dict[str, tuple[int, int]] | None = None,
     pages = pages or {"p1": (1280, 720)}
     report = root / name
     (report / "definition" / "pages").mkdir(parents=True)
-    (report / "definition" / "pages" / "pages.json").write_text(
+    (report / "definition" / "pages.json").write_text(
         json.dumps({"pageOrder": sorted(pages)}), encoding="utf-8")
     for page_id, (width, height) in pages.items():
         page_dir = report / "definition" / "pages" / page_id
@@ -274,7 +274,7 @@ def test_unsafe_page_id_blocks(
     (evil / "page.json").write_text(
         json.dumps({"displayName": "evil", "width": 1280, "height": 720}),
         encoding="utf-8")
-    (report / "definition" / "pages" / "pages.json").write_text(
+    (report / "definition" / "pages.json").write_text(
         json.dumps({"pageOrder": ["../evil"]}), encoding="utf-8")
     _stub(monkeypatch, report, actions={})
     with pytest.raises(OSError, match="Unsafe page id"):
@@ -464,7 +464,7 @@ def test_incomplete_readiness_blocks_drift_check(
 def test_colon_and_leading_dot_page_ids_block(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     report = _make_report(tmp_path)
-    pages_file = report / "definition" / "pages" / "pages.json"
+    pages_file = report / "definition" / "pages.json"
     for bad_id in ("p1:a", ".hidden"):
         pages_file.write_text(json.dumps({"pageOrder": [bad_id]}),
                               encoding="utf-8")

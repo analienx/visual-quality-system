@@ -70,7 +70,7 @@ def _write_png(path: Path, width: int = 500, height: int = 500,
 def _make_report(root: Path) -> Path:
     report = root / "Example.Report"
     (report / "definition" / "pages" / "p1").mkdir(parents=True)
-    (report / "definition" / "pages" / "pages.json").write_text(
+    (report / "definition" / "pages.json").write_text(
         json.dumps({"pageOrder": ["p1"]}), encoding="utf-8")
     (report / "definition" / "pages" / "p1" / "page.json").write_text(
         json.dumps({"displayName": "Overview", "width": 1280, "height": 720}),

@@ -60,7 +60,7 @@ def _make_report(root: Path) -> Path:
     report = root / "Example.Report"
     visual = report / "definition" / "pages" / "p1" / "visuals" / "vis1"
     visual.mkdir(parents=True)
-    (report / "definition" / "pages" / "pages.json").write_text(
+    (report / "definition" / "pages.json").write_text(
         json.dumps({"pageOrder": ["p1"]}), encoding="utf-8"
     )
     (report / "definition" / "pages" / "p1" / "page.json").write_text(

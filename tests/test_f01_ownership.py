@@ -20,7 +20,7 @@ def _make_report(root: Path, name: str = "original.Report") -> Path:
     report = root / name
     pages = report / "definition" / "pages"
     (pages / "P1" / "visuals" / "cardx").mkdir(parents=True)
-    (pages / "pages.json").write_text(json.dumps({"pageOrder": ["P1"]}),
+    (pages.parent / "pages.json").write_text(json.dumps({"pageOrder": ["P1"]}),
                                       encoding="utf-8")
     (pages / "P1" / "page.json").write_text(
         json.dumps({"displayName": "O", "width": 1280, "height": 720}),

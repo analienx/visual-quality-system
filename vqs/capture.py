@@ -320,8 +320,7 @@ def capture(report: str, renders: str, pid: int | None = None,
     bridge_version = _require_bridge()
     report_path = Path(report)
     try:
-        precheck = load_json(report_path / "definition" / "pages"
-                             / "pages.json")
+        precheck = load_json(report_path / "definition" / "pages.json")
         for raw_id in precheck["pageOrder"]:
             _safe_page_id(raw_id)
         info = report_context(report_path)

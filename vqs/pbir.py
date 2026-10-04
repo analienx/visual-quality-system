@@ -87,19 +87,19 @@ def read_report_files(report_dir: str | Path) -> dict[str, Any]:
             files[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
         except OSError:
             files[rel] = None
-    pages_json = root / "definition" / "pages" / "pages.json"
+    pages_json = root / "definition" / "pages.json"
     if pages_json.is_file():
         data, error = _read_json_file(pages_json)
         if error is not None:
-            issues.append({"rule": "pages_index_unreadable", "path": "definition/pages/pages.json",
+            issues.append({"rule": "pages_index_unreadable", "path": "definition/pages.json",
                            "detail": error})
         elif not isinstance(data.get("pageOrder"), list) or not all(
                 isinstance(p, str) for p in data["pageOrder"]):
-            issues.append({"rule": "pages_index_invalid", "path": "definition/pages/pages.json"})
+            issues.append({"rule": "pages_index_invalid", "path": "definition/pages.json"})
         else:
             order = list(data["pageOrder"])
     else:
-        issues.append({"rule": "pages_index_missing", "path": "definition/pages/pages.json"})
+        issues.append({"rule": "pages_index_missing", "path": "definition/pages.json"})
     report_path = root / "definition" / "report.json"
     if report_path.is_file():
         data, error = _read_json_file(report_path)

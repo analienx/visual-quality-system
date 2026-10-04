@@ -26,7 +26,7 @@ def _report(root: Path, order: list[str],
     report = root / "R.Report"
     pages_root = report / "definition" / "pages"
     (pages_root).mkdir(parents=True)
-    (pages_root / "pages.json").write_text(
+    (pages_root.parent / "pages.json").write_text(
         json.dumps({"pageOrder": order}), encoding="utf-8")
     for page_id, doc in pages.items():
         page_dir = pages_root / page_id
@@ -44,10 +44,10 @@ def _page(schema: str = SCHEMA_PAGE) -> dict:
 
 def test_f10_complete_report_lists_pages_in_order(tmp_path: Path) -> None:
     """Control (passes now): a complete report inventories in order."""
-    report = _report(tmp_path, ["P1", "P2"],
+    report = _report(tmp_path, ["P2", "P1"],
                      {"P1": _page(), "P2": _page()})
     info = report_context(report)
-    assert [page["id"] for page in info["pages"]] == ["P1", "P2"]
+    assert [page["id"] for page in info["pages"]] == ["P2", "P1"]
 
 
 def test_f10_missing_page_dir_blocks(tmp_path: Path) -> None:

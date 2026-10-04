@@ -167,7 +167,8 @@ def _confinement(original: Path, candidate: Path,
 
 
 def _page_order(pages_root: Path) -> list[str]:
-    order = _load(pages_root / "pages.json")["pageOrder"]
+    # Real PBIR keeps the page index beside the pages/ directory, not inside it.
+    order = _load(pages_root.parent / "pages.json")["pageOrder"]
     if not isinstance(order, list) or not all(
             isinstance(entry, str) for entry in order):
         raise _Unreadable("pageOrder is not a string list")
@@ -233,7 +234,7 @@ def _geometry(candidate: Path) -> list[dict]:
     problems = []
     pages_root = candidate / "definition" / "pages"
     try:
-        order = _load(pages_root / "pages.json")["pageOrder"]
+        order = _load(pages_root.parent / "pages.json")["pageOrder"]
     except (_Unreadable, KeyError, TypeError):
         return problems  # _identities reports the unreadable shape
     for page_id in order if isinstance(order, list) else []:

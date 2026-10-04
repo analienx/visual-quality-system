@@ -97,7 +97,7 @@ def test_inventory_source_hash_and_explicit_unknowns(tmp_path: Path) -> None:
     pages = report / "definition" / "pages"
     visual = pages / "p1" / "visuals" / "vis1"
     visual.mkdir(parents=True)
-    (pages / "pages.json").write_text(json.dumps({"pageOrder": ["p1"]}))
+    (pages.parent / "pages.json").write_text(json.dumps({"pageOrder": ["p1"]}))
     (pages / "p1" / "page.json").write_text(json.dumps({
         "displayName": "Overview", "width": 1280, "height": 720}))
     (visual / "visual.json").write_text(json.dumps({

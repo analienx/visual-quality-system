@@ -37,7 +37,7 @@ def _make_report(root: Path, name: str = "original.Report") -> Path:
     pages = report / "definition" / "pages"
     (pages / "P1" / "visuals" / "cardx").mkdir(parents=True)
     (pages / "P1" / "visuals" / "neighbor").mkdir(parents=True)
-    (pages / "pages.json").write_text(json.dumps({"pageOrder": ["P1"]}),
+    (pages.parent / "pages.json").write_text(json.dumps({"pageOrder": ["P1"]}),
                                       encoding="utf-8")
     (pages / "P1" / "page.json").write_text(
         json.dumps({"displayName": "Overview", "width": 1280, "height": 720}),
@@ -209,7 +209,7 @@ def test_unreadable_file_blocks_confinement(
 
 def test_identity_changes_fail(tmp_path: Path) -> None:
     original, candidate, edits = _applied(tmp_path)
-    order_file = candidate / "definition/pages/pages.json"
+    order_file = candidate / "definition/pages.json"
     order_file.write_text(json.dumps({"pageOrder": ["P2"]}),
                           encoding="utf-8")
     verdict = verify_candidate(original, candidate, edits)

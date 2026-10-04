@@ -104,13 +104,14 @@ def _make_report(root: Path) -> Path:
     report = root / "original.Report"
     pages = report / "definition" / "pages"
     (pages / "P1" / "visuals" / "cardx").mkdir(parents=True)
-    (pages / "pages.json").write_text(json.dumps({"pageOrder": ["P1"]}),
+    (pages.parent / "pages.json").write_text(json.dumps({"pageOrder": ["P1"]}),
                                       encoding="utf-8")
     (pages / "P1" / "page.json").write_text(
         json.dumps({"displayName": "O", "width": 1280, "height": 720}),
         encoding="utf-8")
     props = {"selector": {"metadata": {"id": "orig"}}}
     visual_doc = {"name": "cardx",
+                  "position": {"x": 1, "y": 2, "width": 3, "height": 4},
                   "visual": {"visualType": "card",
                              "objects": {"labels": [{"properties": props}]}}}
     (pages / "P1" / "visuals" / "cardx" / "visual.json").write_text(

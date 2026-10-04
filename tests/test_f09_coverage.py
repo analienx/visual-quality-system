@@ -18,7 +18,7 @@ def _report(root: Path, *, pbir_dataset: str | None = None) -> Path:
     report = root / "R.Report"
     pages = report / "definition" / "pages"
     (pages / "P1" / "visuals" / "cardx").mkdir(parents=True)
-    (pages / "pages.json").write_text(json.dumps({"pageOrder": ["P1"]}),
+    (pages.parent / "pages.json").write_text(json.dumps({"pageOrder": ["P1"]}),
                                       encoding="utf-8")
     (pages / "P1" / "page.json").write_text(
         json.dumps({"displayName": "O", "width": 1280, "height": 720}),
@@ -54,8 +54,12 @@ def test_f09_coverage_issues_block_review(tmp_path: Path) -> None:
     assert facts["coverage"]["issues"]
     envelope = review_report(facts=facts)
     assert envelope["verdict"] == "blocked"
-    assert any("visual_doc_unreadable" in finding.get("reason", "")
-               for finding in envelope["findings"])
+    hits = [finding for finding in envelope["findings"]
+            if finding.get("check") == "coverage:visual_doc_unreadable"]
+    assert len(hits) == 1
+    assert isinstance(hits[0]["evidence_basis"], dict)
+    assert hits[0]["evidence_basis"]["rule"] == "visual_doc_unreadable"
+    assert hits[0]["location"] == {"page": "P1", "visual": "cardx"}
 
 
 def test_f09_unresolved_model_reference_blocks(tmp_path: Path) -> None:
@@ -90,3 +94,13 @@ def test_f09_invalid_geometry_is_an_explicit_issue(tmp_path: Path) -> None:
              if issue.get("rule") == "visual_geometry_unproven"]
     assert named[0]["page"] == "P1"
     assert named[0]["visual"] == "cardx"
+
+
+def test_f09_missing_page_index_blocks_inspect(tmp_path: Path) -> None:
+    """Real PBIR keeps the index at definition/pages.json; its absence blocks."""
+    report = _report(tmp_path)
+    (report / "definition" / "pages.json").unlink()
+    envelope = inspect_report(str(report))
+    assert envelope["verdict"] == "blocked"
+    assert any("pages_index_missing" in reason
+               for reason in envelope["blocked_reasons"])

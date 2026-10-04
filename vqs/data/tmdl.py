@@ -104,7 +104,7 @@ def _strip_backticks(expr: str) -> str:
     """Drop triple-backtick delimiters; the block content stays verbatim."""
     text = expr.strip()
     if not text.startswith("```"):
-        return expr
+        return text
     inner = text[3:]
     end = inner.rfind("```")
     if end == -1:
