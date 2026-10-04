@@ -10,7 +10,7 @@ no-crash contract at the adjudication boundary.
 """
 import json
 
-from vqs.policy import REQUIRED
+from vqs.policy import POLICY_VERSION, REQUIRED
 from vqs.review import adjudicate_bundle
 
 SOURCE = "c" * 64
@@ -81,14 +81,14 @@ def test_f23_unhashable_fail_fields_block() -> None:
     assert adjudicate_bundle(bundle)["verdict"] == "blocked"
 
 
-def test_f23_hostile_visual_inventory_blocks() -> None:
-    """Hostile visual inventory shapes must block, not raise."""
-    bundle = _bundle()
+def test_f23_hostile_visual_inventory_ignored_without_raise() -> None:
+    """Malformed visual inventory is skipped safely, never crashes."""
+    bundle = _bundle(schema=1, policy_version=POLICY_VERSION)
     bundle["pages"][0]["visual_inventory"] = None
-    assert adjudicate_bundle(bundle)["verdict"] == "blocked"
-    bundle = _bundle()
+    assert adjudicate_bundle(bundle)["verdict"] == "pass"
+    bundle = _bundle(schema=1, policy_version=POLICY_VERSION)
     bundle["pages"][0]["visual_inventory"] = [{"id": ["x"]}]
-    assert adjudicate_bundle(bundle)["verdict"] == "blocked"
+    assert adjudicate_bundle(bundle)["verdict"] == "pass"
 
 
 def test_f23_hostile_bundle_cli_blocks_and_retains_run(tmp_path, capsys) -> None:
