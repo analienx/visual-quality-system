@@ -9,12 +9,24 @@ from typing import Any
 def probe_tools() -> dict[str, Any]:
     """Presence evidence for the external CLIs (no install, no claim)."""
     tools = {}
-    for name in ("pbir", "powerbi-desktop", "powerbi-modeling-mcp"):
+    for name in ("powerbi-report-author", "powerbi-desktop",
+                   "powerbi-modeling-mcp"):
         path = shutil.which(name)
         version = None
         entry: dict[str, Any] = {"path": path, "version": version,
                                  "status": "present" if path else "missing"}
-        if name == "powerbi-modeling-mcp":
+        if name == "powerbi-report-author":
+            # R6-E07: mirrors the authoring port (documented --help;
+            # --version is undocumented for this CLI).
+            from vqs.powerbi.author.mscli import probe
+
+            found = probe()
+            entry["path"] = found["path"]
+            entry["status"] = ("present" if found["available"]
+                               else "missing")
+            entry["version"] = (found["version"] if found["available"]
+                                else None)
+        elif name == "powerbi-modeling-mcp":
             # No --version probe: stdio MCP servers answer tools/call, and
             # live connectivity is proven per run via ListLocalInstances.
             entry["version_note"] = ("version probe not attempted for "

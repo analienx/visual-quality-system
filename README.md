@@ -78,7 +78,7 @@ Machine-readable status: [roadmap/STATUS.md](roadmap/STATUS.md) and [roadmap/wor
 
 ## Ecosystem: VQS owns the quality decision
 
-VQS parses facts itself and uses first-party tools at arm's length: [pbir-cli](https://github.com/maxanatsko/pbir.tools) (optional, report-side only — [Custom Non-Commercial license](https://github.com/maxanatsko/pbir.tools/blob/main/LICENSE), VQS works without it), [Microsoft Power BI Modeling MCP](https://github.com/microsoft/powerbi-modeling-mcp) (live semantic models), [Desktop Bridge](https://www.npmjs.com/package/@microsoft/powerbi-desktop-bridge-cli) (captures). VQS has no ADOMD dependency. Details: [tool interfaces](docs/ARCHITECTURE.md#power-bi-tool-interfaces-decided-2026-09-26).
+VQS parses facts itself and uses first-party tools at arm's length: the Microsoft-guided `powerbi-report-author` CLI (optional, report-side validation only — VQS records an explicit direct fallback without it), [Microsoft Power BI Modeling MCP](https://github.com/microsoft/powerbi-modeling-mcp) (live semantic models), [Desktop Bridge](https://www.npmjs.com/package/@microsoft/powerbi-desktop-bridge-cli) (captures). VQS has no ADOMD dependency. Details: [tool interfaces](docs/ARCHITECTURE.md#power-bi-tool-interfaces-decided-2026-09-26).
 
 ## Security
 

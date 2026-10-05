@@ -470,6 +470,14 @@ def run_check(facts: Any, run_root: Path, run_id: str | None = None,
     sealed_artifacts["observation"] = {
         "gate": STATIC_OBSERVATION_GATE, "status": verdict,
         "controls": [], "input_sha256": _canonical_sha256(facts)}
+    # R6-DEC-02: the acceptance contract binds the seal's top-level
+    # gate/status/control (run_acceptance reads manifest artifacts, not
+    # the nested observation). Caller values were stripped above; the
+    # producer always emits the actual gate and actual verdict here, so
+    # a genuine observation clears exactly G0 without caller help.
+    sealed_artifacts["gate"] = STATIC_OBSERVATION_GATE
+    sealed_artifacts["status"] = verdict
+    sealed_artifacts["control"] = None
     if findings_sha256 is not None:
         sealed_artifacts["findings"] = {"sha256": findings_sha256,
                                         "path": "findings.json"}
@@ -591,11 +599,12 @@ def blocked_envelope(tool: str, reasons: list[str], *,
              next_actions: list[str] | None = None,
              provenance: dict[str, Any] | None = None,
              run_id: str | None = None,
-             run_dir: str | None = None) -> dict[str, Any]:
+             run_dir: str | None = None,
+             extra: dict[str, Any] | None = None) -> dict[str, Any]:
     return _envelope(tool, "blocked", run_id=run_id, run_dir=run_dir,
                      scope=scope, blocked_reasons=list(reasons),
                      next_actions=list(next_actions or []),
-                     provenance=provenance)
+                     provenance=provenance, extra=extra)
 
 
 def _model_digest(model_dir: str | None) -> str | None:
@@ -996,13 +1005,22 @@ def _repair_bindings(plan_sha: str) -> dict[str, Any]:
 def repair_candidate(plan_path: str, original: str,
                      candidate_root: str, *,
                      run_root: str = ".vqs-runs",
-                     run_id: str | None = None) -> dict[str, Any]:
+                     run_id: str | None = None,
+                     authoring_backend: str = "auto",
+                     authoring_timeout: int = 300,
+                     authoring_allow_warnings: bool = False) -> dict[str, Any]:
     """Validate a repair plan, execute it, and seal the repair run.
 
     Validation failures fail here without touching the filesystem.
     Execution refuses half-applied candidates (the engine removes only
     owned partial copies). The sealed run binds the plan, the
     before/after digests, and the applied edits for vqs.verify.
+    R6-E07: after the typed apply, the candidate report is validated
+    through the selected authoring backend (``auto``/``microsoft``/
+    ``direct``); Microsoft validation failures fail or block the
+    repair without silent fallback, and the full authoring record is
+    sealed plus reported. Schema validation is never Desktop/render
+    approval.
     """
     from .repair.allowlist import validate_plan
 
@@ -1010,6 +1028,23 @@ def repair_candidate(plan_path: str, original: str,
                          ("candidate_root", candidate_root)):
         if not isinstance(value, str) or not value:
             return blocked_envelope("vqs.repair", [f"{label} must be a nonempty path"])
+    if authoring_backend not in ("auto", "microsoft", "direct"):
+        return blocked_envelope(
+            "vqs.repair",
+            [f"authoring_backend must be auto, microsoft, or direct, "
+             f"got {authoring_backend!r}"])
+    if (isinstance(authoring_timeout, bool)
+            or not isinstance(authoring_timeout, int)
+            or authoring_timeout <= 0):
+        return blocked_envelope(
+            "vqs.repair",
+            [f"authoring_timeout must be a positive int, "
+             f"got {authoring_timeout!r}"])
+    if not isinstance(authoring_allow_warnings, bool):
+        return blocked_envelope(
+            "vqs.repair",
+            ["authoring_allow_warnings must be a bool, "
+             f"got {authoring_allow_warnings!r}"])
     try:
         plan = json.loads(Path(plan_path).read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as exc:
@@ -1026,13 +1061,20 @@ def repair_candidate(plan_path: str, original: str,
                                     "detail": {"issues": issues}}],
                          blocked_reasons=[],
                          next_actions=["fix the plan issues and retry"])
-    return _execute_repair(plan, original, candidate_root, run_root, run_id)
+    return _execute_repair(plan, original, candidate_root, run_root, run_id,
+                           authoring_backend=authoring_backend,
+                           authoring_timeout=authoring_timeout,
+                           authoring_allow_warnings=authoring_allow_warnings)
 
 
 def _execute_repair(plan: dict[str, Any], original: str,
                     candidate_root: str, run_root: str,
-                    run_id: str | None) -> dict[str, Any]:
+                    run_id: str | None, *,
+                    authoring_backend: str = "auto",
+                    authoring_timeout: int = 300,
+                    authoring_allow_warnings: bool = False) -> dict[str, Any]:
     """Run an already-validated plan and seal the outcome; never raises."""
+    from .powerbi.author import adapter as author_adapter
     from .repair.execute import apply_plan
 
     if not isinstance(run_root, str) or not run_root:
@@ -1108,27 +1150,80 @@ def _execute_repair(plan: dict[str, Any], original: str,
         return blocked_envelope(
             "vqs.repair", [f"cannot persist repair evidence: {exc}"],
             run_id=rid, run_dir=str(sealed_run_dir))
-    append_event(sealed_run_dir, {"kind": "completed", "verdict": "pass"})
-    seal_run(sealed_run_dir, "completed",
-             artifacts={"plan_sha256": plan_sha,
+    # R6-E07: Microsoft-guided authoring gate. The typed apply above
+    # is unchanged; the candidate report is now validated through
+    # the selected backend. Microsoft failures fail/block without
+    # silent fallback; the candidate is preserved for inspection
+    # and the full record is sealed plus reported.
+    authoring = author_adapter.run_backend(
+        result.get("candidate"), policy=authoring_backend,
+        timeout=authoring_timeout,
+        allow_warnings=authoring_allow_warnings)
+    try:
+        authoring_bytes = json.dumps(
+            authoring["record"], sort_keys=True, ensure_ascii=False,
+            default=str).encode("utf-8")
+        (sealed_run_dir / "authoring.json").write_bytes(authoring_bytes)
+        authoring_sha = hashlib.sha256(authoring_bytes).hexdigest()
+    except OSError as exc:
+        record = dict(authoring["record"])
+        record["seal_note"] = f"authoring record unsealed: {exc}"
+        append_event(sealed_run_dir, {"kind": "blocked", "verdict": "blocked"})
+        seal_run(sealed_run_dir, "blocked",
+                 artifacts={"plan_sha256": plan_sha},
+                 bindings=_repair_bindings(plan_sha))
+        return blocked_envelope(
+            "vqs.repair", [f"cannot persist authoring evidence: {exc}"],
+            run_id=rid, run_dir=str(sealed_run_dir),
+            extra={"authoring": record})
+    seal_artifacts = {"plan_sha256": plan_sha,
+                      "before": result.get("before"),
+                      "after": result.get("after"),
+                      "edits": {"sha256": repairs_sha,
+                                "path": "repairs.json"},
+                      "authoring": {"sha256": authoring_sha,
+                                    "path": "authoring.json"}}
+    repair_evidence = [{"kind": "sealed_repair", "run_id": rid,
+                        "candidate": result.get("candidate"),
                         "before": result.get("before"),
                         "after": result.get("after"),
-                        "edits": {"sha256": repairs_sha,
-                                  "path": "repairs.json"}},
+                        "source_sha256": result.get("source_sha256"),
+                        "affected_pages": result.get("affected_pages", []),
+                        "edits": len(result.get("edits", []))}]
+    repair_provenance = {"plan_sha256": plan_sha, "original": original,
+                         "candidate": result.get("candidate")}
+    if authoring["verdict"] == "fail":
+        append_event(sealed_run_dir, {"kind": "failed", "verdict": "fail"})
+        seal_run(sealed_run_dir, "failed", artifacts=seal_artifacts,
+                 bindings=_repair_bindings(plan_sha))
+        return _envelope(
+            "vqs.repair", "fail", run_id=rid, run_dir=str(sealed_run_dir),
+            findings=[{"check": "authoring", "status": "fail",
+                       "detail": {"reason": authoring["reason"]}}],
+            evidence=repair_evidence, provenance=repair_provenance,
+            next_actions=["inspect the preserved candidate and the "
+                          "sealed authoring record, fix the cause, and "
+                          "retry with a fresh candidate root"],
+            extra={"authoring": authoring["record"]})
+    if authoring["verdict"] == "blocked":
+        append_event(sealed_run_dir, {"kind": "blocked", "verdict": "blocked"})
+        seal_run(sealed_run_dir, "blocked", artifacts=seal_artifacts,
+                 bindings=_repair_bindings(plan_sha))
+        return blocked_envelope(
+            "vqs.repair", [f"repair authoring: {authoring['reason']}"],
+            run_id=rid, run_dir=str(sealed_run_dir),
+            next_actions=["inspect the preserved candidate and the "
+                          "sealed authoring record, then retry"],
+            extra={"authoring": authoring["record"]})
+    append_event(sealed_run_dir, {"kind": "completed", "verdict": "pass"})
+    seal_run(sealed_run_dir, "completed", artifacts=seal_artifacts,
              bindings=_repair_bindings(plan_sha))
     return _envelope(
         "vqs.repair", "pass", run_id=rid, run_dir=str(sealed_run_dir),
         findings=[{"check": "repair", "status": "pass"}],
-        evidence=[{"kind": "sealed_repair", "run_id": rid,
-                   "candidate": result.get("candidate"),
-                   "before": result.get("before"),
-                   "after": result.get("after"),
-                   "source_sha256": result.get("source_sha256"),
-                   "affected_pages": result.get("affected_pages", []),
-                   "edits": len(result.get("edits", []))}],
-        provenance={"plan_sha256": plan_sha, "original": original,
-                    "candidate": result.get("candidate")},
-        next_actions=["verify the candidate with vqs.verify"])
+        evidence=repair_evidence, provenance=repair_provenance,
+        next_actions=["verify the candidate with vqs.verify"],
+        extra={"authoring": authoring["record"]})
 
 
 def _sealed_tree_problems(repairs: dict[str, Any], original: str,

@@ -95,7 +95,7 @@ def test_offline_review_without_optional_tools(tmp_path: Path,
     monkeypatch.setenv("PATH", "")
     capabilities = report()
     assert capabilities["status"] == "ok"
-    assert capabilities["checks"]["pbir"]["status"] == "missing"
+    assert capabilities["checks"]["report_author"]["status"] == "missing"
     assert capabilities["checks"]["desktop_bridge"]["status"] == "missing"
     envelope = review_report(report_dir=REPORT,
                              run_root=str(tmp_path / "runs"),

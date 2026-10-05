@@ -303,7 +303,10 @@ def _repair(args) -> int:
 
     return _verdict_exit(repair_candidate(
         str(args.plan), args.original, args.candidate_root,
-        run_root=str(args.run_root), run_id=args.run_id))
+        run_root=str(args.run_root), run_id=args.run_id,
+        authoring_backend=args.authoring_backend,
+        authoring_timeout=args.authoring_timeout,
+        authoring_allow_warnings=args.authoring_allow_warnings))
 
 
 def _verify(args) -> int:
@@ -467,6 +470,20 @@ def main(argv: list[str] | None = None) -> int:
     repair_cmd.add_argument("--candidate-root", required=True, help="Disposable write root")
     repair_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
     repair_cmd.add_argument("--run-id", default=None)
+    repair_cmd.add_argument("--authoring-backend",
+                            choices=("auto", "microsoft", "direct"),
+                            default="auto",
+                            help="Candidate validation route: Microsoft "
+                                 "powerbi-report-author CLI when probed "
+                                 "available (auto), always (microsoft), or "
+                                 "the explicit direct typed-writer fallback "
+                                 "(direct). Microsoft failures never fall "
+                                 "back silently.")
+    repair_cmd.add_argument("--authoring-timeout", type=int, default=300,
+                            help="Seconds for Microsoft validation (default 300)")
+    repair_cmd.add_argument("--authoring-allow-warnings", action="store_true",
+                            help="Pass despite Microsoft validation warnings "
+                                 "(recorded verbatim; default blocks)")
     verify_cmd = commands.add_parser("verify", help="Verify a candidate (tool vqs.verify)")
     verify_cmd.add_argument("--run-root", type=Path, default=None)
     verify_cmd.add_argument("--run-id", default=None)
