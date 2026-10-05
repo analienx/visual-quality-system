@@ -290,8 +290,14 @@ def test_inventory_negative_paths(tmp_path: Path, capsys: Any) -> None:
     assert vqs_main(["check", str(tmp_path / "facts-b.json"),
                      "--run-root", str(runs),
                      "--run-id", "inv1"]) == 2
+    measured = json.loads((tmp_path / "facts-b.json").read_text(
+        encoding="utf-8"))
+    orphans = [entry for entry in measured["models"][0]["bindings"]
+               if entry.get("query_ref_missing")]
+    assert len(orphans) == 1
+    assert (orphans[0]["page"], orphans[0]["visual"]) == ("Detail", "w2")
     findings = (runs / "inv1" / "findings.json").read_text(encoding="utf-8")
-    assert "query_ref_missing" in findings
+    assert "binding_projection_unidentified" in findings
     bad_plan = {"operations": [{
         "type": "axis.tick_format",
         "selector": {"page": "Overview", "visual": "w1"},
