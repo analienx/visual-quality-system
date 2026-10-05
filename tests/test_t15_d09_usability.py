@@ -60,17 +60,17 @@ def _synthetic_report(root: Path) -> Path:
     (report / "definition" / "pages" / "P1" / "page.json").write_text(
         json.dumps({"displayName": "P1", "width": 1280, "height": 720}),
         encoding="utf-8")
-    (visual_dir / "visual.json").write_text(json.dumps({
+    source = {"SourceRef": {"Entity": "T"}}
+    measure = {"Expression": source, "Property": "Revenue"}
+    projection = {"queryRef": "T.Revenue", "field": {"Measure": measure}}
+    query = {"queryState": {"Values": {"projections": [projection]}}}
+    visual = {
         "name": "v1",
         "position": {"x": 0, "y": 0, "width": 400, "height": 200, "z": 1},
-        "visual": {
-            "visualType": "card",
-            "query": {"queryState": {"Values": {"projections": [{
-                "queryRef": "T.Revenue",
-                "field": {"Measure": {
-                    "Expression": {"SourceRef": {"Entity": "T"}},
-                    "Property": "Revenue"}}}}}]}}}}),
-        encoding="utf-8")
+        "visual": {"visualType": "card", "query": query},
+    }
+    (visual_dir / "visual.json").write_text(
+        json.dumps(visual), encoding="utf-8")
     return report
 
 
