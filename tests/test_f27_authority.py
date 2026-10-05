@@ -171,7 +171,7 @@ def test_f27_replay_under_another_control_rejects(tmp_path: Path) -> None:
     sha = hashlib.sha256(raw).hexdigest()
     case.blobs[sha] = raw
     store = case.store(tmp_path)
-    run_dir = create_run(tmp_path, "prod-1", {"pipeline": "t/1"})
+    run_dir = create_run(tmp_path, "prod-1", {"pipeline": "vqs.check/1"})
     append_event(run_dir, {"kind": "started"})
     append_event(run_dir, {"kind": "completed"})
     seal_run(run_dir, "completed",

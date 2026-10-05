@@ -157,7 +157,7 @@ def test_verify_and_unpack_reject_oversized(tmp_path: Path,
     monkeypatch.setattr(evidence_mod, "_PNG_FILE_CAP", 64)
     with pytest.raises(ValueError, match="oversized"):
         verify(str(tmp_path / "b1"))
-    with pytest.raises(ValueError, match="oversized"):
+    with pytest.raises(OSError, match="oversized"):
         unpack(str(tmp_path / "b1"), str(tmp_path / "b2"))
 
 

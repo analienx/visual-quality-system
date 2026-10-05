@@ -190,14 +190,14 @@ def test_translucent_alpha_distinct(tmp_path: Path) -> None:
 def test_capture_rejects_forged_crc(tmp_path: Path) -> None:
     """S12: capture blank detection rejects a forged IDAT CRC."""
     path = _write(tmp_path / "crc.png", _png(4, 4, corrupt_crc=True))
-    with pytest.raises(ValueError, match="corrupt"):
+    with pytest.raises(ValueError, match="Corrupt PNG chunk"):
         _png_pixels(path)
 
 
 def test_capture_rejects_missing_iend(tmp_path: Path) -> None:
     """S12: capture blank detection rejects a stream without IEND."""
     path = _write(tmp_path / "noiend.png", _png(4, 4, no_iend=True))
-    with pytest.raises(ValueError, match="truncated"):
+    with pytest.raises(ValueError, match="Truncated PNG"):
         _png_pixels(path)
 
 

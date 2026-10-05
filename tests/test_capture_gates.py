@@ -409,7 +409,7 @@ def test_short_ihdr_blocks_without_crash(
         capture_mod.capture(str(report), str(tmp_path / "r"))
     broken = tmp_path / "broken.png"
     broken.write_bytes(_broken_png("short-ihdr"))
-    with pytest.raises(ValueError, match="invalid PNG header length"):
+    with pytest.raises(ValueError, match="Invalid PNG header"):
         capture_mod._png_pixels(broken)
 
 
@@ -426,7 +426,7 @@ def test_huge_dimensions_refuse_before_inflate(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     report = _make_report(tmp_path, {"p1": (20000, 20000)})
     _stub(monkeypatch, report, actions={"p1": "huge-dims"})
-    with pytest.raises(OSError, match="budget exceeded"):
+    with pytest.raises(OSError, match="exceeds decode cap"):
         capture_mod.capture(str(report), str(tmp_path / "r"), scale=1)
 
 
