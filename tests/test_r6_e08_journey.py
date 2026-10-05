@@ -25,6 +25,8 @@ import pytest
 
 from vqs.cli import main as vqs_main
 from vqs.pbir import source_digest
+from vqs.review.adjudicate import adjudicate_bundle
+from vqs.review.bundle import verify as verify_bundle
 
 VQS_BIN = shutil.which("vqs")
 needs_vqs = pytest.mark.skipif(VQS_BIN is None,
@@ -264,12 +266,19 @@ def test_sales_journey_to_static_ceiling(tmp_path: Path,
                      "--report", str(candidate),
                      "--run-root", str(runs),
                      "--run-id", "adj1"]) == 2
-    decided = json.loads(capsys.readouterr().out)
+    sealed = json.loads(capsys.readouterr().out)
+    assert sealed["verdict"] == "blocked"
+    checks = {row["check"]: row["status"] for row in sealed["findings"]}
+    assert checks.get("image_review_required") == "blocked"
+    assert "source_pages_unbound" not in checks
+    assert not any(status == "fail" for status in checks.values())
+    # Static ceiling through the real verify authority (same
+    # transport the CLI just bound): conformant yet never passing.
+    form = json.loads(form_path.read_text(encoding="utf-8"))
+    decided = adjudicate_bundle(
+        form, verify_bundle(str(tmp_path / "bundle-you"), str(candidate)))
     assert decided["static_conformance"] == "pass"
     assert decided["verdict"] == "blocked"
-    rules = {row.get("rule") for row in decided["findings"]}
-    assert "image_review_required" in rules
-    assert "source_pages_unbound" not in rules
 
 
 def test_inventory_negative_paths(tmp_path: Path, capsys: Any) -> None:

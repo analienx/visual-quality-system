@@ -77,10 +77,10 @@ carries its reason). `pack` binds renders, calibration, fixer, and
 source identity; `verify` re-hashes and cross-checks. Adjudication
 needs a verified transport or a live `--report` inventory —
 otherwise coverage is unbound (blocked). Static ceiling: a
-conformant form yields `static_conformance: pass` with verdict
-`blocked` and rule `image_review_required`. Static adjudication
-never passes; release needs a capable image review of fresh
-full-canvas renders. A transport stale against the live report is
+conformant form yields engine-level `static_conformance: pass`;
+the sealed CLI verdict is `blocked` with rule
+`image_review_required`. Static adjudication never passes; release
+needs a capable image review of fresh full-canvas renders. A transport stale against the live report is
 refused.
 
 ## Genuinely blocked gates (not this journey)
