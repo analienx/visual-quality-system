@@ -147,15 +147,15 @@ def validate_plan(plan: dict[str, Any], original_path: str, candidate_root: str,
                 op.get("identical_intent") is True or approved_semantic_change):
             issues.append({"rule": "intent_change_unapproved", "index": index})
         terminal = _leaf_terminal(op.get("path"))
-        if terminal in ("precision", "labelPrecision"):
-            # T12: the bound property governs, never the op alias —
-            # malformed new precision fails here, not just at apply.
-            # The predicate is shared with bind so both gates agree
-            # exactly (padded/unicode-digit strings fail cleanly).
-            if not is_precision_str(op.get("value")):
-                issues.append({"rule": "precision_value_invalid",
-                               "index": index, "terminal": terminal,
-                               "remediation": "Precision is a 0-15 string"})
+        # T12: the bound property governs, never the op alias —
+        # malformed new precision fails here, not just at apply.
+        # The predicate is shared with bind so both gates agree
+        # exactly (padded/unicode-digit strings fail cleanly).
+        if (terminal in ("precision", "labelPrecision")
+                and not is_precision_str(op.get("value"))):
+            issues.append({"rule": "precision_value_invalid",
+                           "index": index, "terminal": terminal,
+                           "remediation": "Precision is a 0-15 string"})
         writes = op.get("writes")
         if writes is not None:
             for entry in normalize_targets(writes):
