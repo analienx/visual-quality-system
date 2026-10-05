@@ -34,6 +34,31 @@ from .stories.oracles import ambiguity_check, oracle_matches
 
 STATUS_BY_VERDICT = {"pass": "completed", "fail": "failed", "blocked": "blocked"}
 
+# R6-DEC-02: seal keys only the producer may emit. Caller-supplied
+# values for these are stripped from artifacts/manifest_extra, so
+# gate/status/control/pipeline identity can never be smuggled into a
+# seal through caller extras.
+RESERVED_ARTIFACT_KEYS = frozenset({
+    "verdict_sha256", "findings", "envelope_sha256", "gate", "status",
+    "control", "observation",
+})
+RESERVED_MANIFEST_EXTRA_KEYS = frozenset({
+    "pipeline", "run_id", "status", "sealed", "sealed_sha256",
+    "bindings", "artifacts", "environment", "event_count",
+    "events_sha256",
+})
+# R6-DEC-02: the sole gate static checks can observe. Sealed in
+# artifacts.observation; vqs.acceptance pins the same value in
+# PRODUCER_GATE_CAPABILITY (agreement covered by R6-E02 tests).
+STATIC_OBSERVATION_GATE = "G0"
+
+_HEX64 = frozenset("0123456789abcdefABCDEF")
+
+
+def _is_hex64(value: object) -> bool:
+    return (isinstance(value, str) and len(value) == 64
+            and all(char in _HEX64 for char in value))
+
 
 def _axis(params: dict[str, Any]) -> dict:
     return design_rules.axis_display_distinctness(
@@ -304,21 +329,42 @@ def run_check(facts: Any, run_root: Path, run_id: str | None = None,
               artifacts: dict[str, Any] | None = None,
               environment: dict[str, Any] | None = None,
               manifest_extra: dict[str, Any] | None = None,
-              config: dict[str, Any] | None = None) -> dict[str, Any]:
+              config: dict[str, Any] | None = None,
+              evidence: dict[str, Any] | None = None) -> dict[str, Any]:
     """Run every requested check and seal the manifest; see module docstring.
 
     Optional sealed provenance: ``artifacts``/``environment`` merge into
     the sealed manifest (verdict digest always present); ``manifest_extra``
-    merges into the run manifest (e.g. resume links). All default to the
-    historical behavior.
+    merges into the run manifest (e.g. resume links). R6-DEC-02:
+    reserved seal keys (gate/status/control/pipeline/observation
+    identity) are stripped from caller extras — only producer-emitted
+    values seal. The seal always carries the producer observation
+    (gate G0, actual verdict status, no controls): static checks
+    observe source/contract facts only. With ``evidence``
+    (``source_sha256`` hex plus optional ``data_scope`` dict), the run
+    also emits its G0 evidence envelope under ``<run_root>/objects/``
+    and binds the digest in the seal; gate/status always derive from
+    the actual verdict, never from caller labels. The result carries
+    ``envelope_sha256`` (None without ``evidence``).
     """
     if not isinstance(facts, dict):
         return {"verdict": "blocked", "run_dir": None,
                 "findings": [{"check": "facts", "status": "blocked",
                               "reason": "Facts document is not an object"}]}
+    if evidence is not None and (
+            not isinstance(evidence, dict)
+            or not _is_hex64(evidence.get("source_sha256"))
+            or (evidence.get("data_scope") is not None
+                and not isinstance(evidence.get("data_scope"), dict))):
+        return {"verdict": "blocked", "run_dir": None, "run_id": run_id,
+                "envelope_sha256": None,
+                "findings": [{"check": "evidence", "status": "blocked",
+                              "reason": "Evidence needs source_sha256 hex "
+                                        "plus an optional data_scope object"}]}
     run_id = run_id or f"check-{uuid.uuid4().hex[:12]}"
     manifest = {"pipeline": "vqs.check/1"}
-    manifest.update(manifest_extra or {})
+    manifest.update({key: value for key, value in (manifest_extra or {}).items()
+                     if key not in RESERVED_MANIFEST_EXTRA_KEYS})
     try:
         run_dir = create_run(Path(run_root), run_id, manifest)
     except FileExistsError:
@@ -418,16 +464,52 @@ def run_check(facts: Any, run_root: Path, run_id: str | None = None,
     append_event(run_dir, {"kind": terminal, "verdict": verdict})
     digest = hashlib.sha256(
         json.dumps(findings, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
-    sealed_artifacts = dict(artifacts or {})
-    sealed_artifacts.setdefault("verdict_sha256", digest)
+    sealed_artifacts = {key: value for key, value in (artifacts or {}).items()
+                        if key not in RESERVED_ARTIFACT_KEYS}
+    sealed_artifacts["verdict_sha256"] = digest
+    sealed_artifacts["observation"] = {
+        "gate": STATIC_OBSERVATION_GATE, "status": verdict,
+        "controls": [], "input_sha256": _canonical_sha256(facts)}
     if findings_sha256 is not None:
         sealed_artifacts["findings"] = {"sha256": findings_sha256,
                                         "path": "findings.json"}
+    # R6-DEC-02: the run emits its own G0 envelope (gate/status from
+    # the actual verdict only) and binds it in the seal, so a genuine
+    # static observation is usable for its narrow capability without
+    # any caller-manufactured binding.
+    envelope_sha: str | None = None
+    if evidence is not None:
+        envelope: dict[str, Any] = {
+            "source_sha256": evidence["source_sha256"],
+            "environment": dict(environment or {}),
+            "producer": {"run_id": run_id,
+                         "gate": STATIC_OBSERVATION_GATE,
+                         "status": verdict, "control": None},
+            "result": {"gate": STATIC_OBSERVATION_GATE,
+                       "status": verdict},
+        }
+        if isinstance(evidence.get("data_scope"), dict):
+            envelope["data_scope"] = dict(evidence["data_scope"])
+        raw = json.dumps(envelope, sort_keys=True, separators=(",", ":"),
+                         ensure_ascii=False).encode("utf-8")
+        envelope_sha = hashlib.sha256(raw).hexdigest()
+        try:
+            objects = Path(run_root) / "objects"
+            objects.mkdir(parents=True, exist_ok=True)
+            (objects / envelope_sha).write_bytes(raw)
+        except OSError as exc:
+            findings.append({"check": "evidence", "status": "blocked",
+                             "reason": f"cannot emit envelope: {exc}"})
+            return {"verdict": "blocked", "run_dir": str(run_dir),
+                    "run_id": run_id, "envelope_sha256": None,
+                    "findings": findings, "manifest": None}
+        sealed_artifacts["envelope_sha256"] = envelope_sha
     bindings = {"input_sha256": _canonical_sha256(facts), "policy_version": POLICY_VERSION, "tool": "vqs.check/1",
                 "config_sha256": _canonical_sha256(config) if isinstance(config, dict) else None}
     manifest = seal_run(run_dir, terminal, artifacts=sealed_artifacts,
                         environment=environment, bindings=bindings)
     return {"verdict": verdict, "run_dir": str(run_dir), "run_id": run_id,
+            "envelope_sha256": envelope_sha,
             "findings": findings, "manifest": manifest}
 
 

@@ -82,11 +82,11 @@ class _Case:
 def _p1_complete_p2_untested() -> _Case:
     """p1 carries every pbip gate; p2 is declared but never gated."""
     case = _Case()
+    # R6-E03: subject gates only (G6 is suite-level, tested in R6-E03).
     pairs = [("G0", "p1", SOURCE_A, "pbip"), ("G0", "d1", SOURCE_D, "docx"),
              ("G1", "p1", SOURCE_A, "pbip"), ("G1", "d1", SOURCE_D, "docx"),
              ("G2", "p1", SOURCE_A, "pbip"), ("G3", "p1", SOURCE_A, "pbip"),
-             ("G4", "p1", SOURCE_A, "pbip"), ("G5", "d1", SOURCE_D, "docx"),
-             ("G6", "p1", SOURCE_A, "pbip")]
+             ("G4", "p1", SOURCE_A, "pbip"), ("G5", "d1", SOURCE_D, "docx")]
     negatives = sorted(REQUIRED_NEGATIVES)
     for index, (gate_id, subject, source, kind) in enumerate(pairs):
         control = negatives[index] if index < len(negatives) else None

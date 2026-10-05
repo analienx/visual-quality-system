@@ -40,7 +40,9 @@ def _case(root: Path, *, gate_status: str = "pass",
           bound_status: str = "pass", terminal: str = "pass",
           control: str | None = None, caught: bool = False,
           subject_id: str = "p1", source: str = SOURCE_A,
-          gate_id: str = "G2") -> tuple[dict, SealedEvidenceStore]:
+          # R6-E02: G0 (sole statically observable gate) + sealed
+          # observation, so producer-binding legs isolate their rule.
+          gate_id: str = "G0") -> tuple[dict, SealedEvidenceStore]:
     envelope: dict[str, Any] = {
         "source_sha256": source, "environment": dict(ENV),
         "producer": {"run_id": "prod-1", "gate": gate_id,
@@ -61,7 +63,11 @@ def _case(root: Path, *, gate_status: str = "pass",
     append_event(run_dir, {"kind": _TERMINAL[terminal]})
     seal_run(run_dir, _TERMINAL[terminal],
              artifacts={"envelope_sha256": sha, "gate": gate_id,
-                        "status": bound_status, "control": control})
+                        "status": bound_status, "control": control,
+                        "observation": {
+                            "gate": gate_id, "status": gate_status,
+                            "controls": [control] if control else [],
+                            "input_sha256": "0" * 64}})
     gate: dict[str, Any] = {
         "id": gate_id, "subject_id": subject_id, "status": gate_status,
         "environment": dict(ENV),

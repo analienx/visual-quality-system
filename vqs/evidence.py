@@ -280,6 +280,19 @@ def load(path: Path) -> dict:
     return value
 
 
+def canonical_json_sha256(payload: object) -> str:
+    """SHA256 over canonical JSON bytes (R6-DEC-03/06 shared digest).
+
+    ``sort_keys`` + compact separators + UTF-8, no ``default=str``:
+    inputs must be JSON-native so every producer/consumer/test
+    computes identical bytes. Used by the acceptance suite digest
+    and the review-bundle identity.
+    """
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                     ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
 def safe_render_name(name: object) -> str | None:
     """Accept plain basenames only; reject traversal and absolute paths."""
     if not isinstance(name, str) or not name or name.startswith((".", "/")):

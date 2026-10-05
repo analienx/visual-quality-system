@@ -182,7 +182,9 @@ def test_g5_locale_na_rejected(tmp_path: Path) -> None:
     assert "na_unjustified" in _rules(verdict)
 
 
-@pytest.mark.parametrize("gate_id", ["G0", "G1", "G6"])
+# R6-E03: G6 removed (suite-level now; N/A unauthorized without a
+# subject — pinned by R6-E03). Subject-gate N/A policy unchanged.
+@pytest.mark.parametrize("gate_id", ["G0", "G1"])
 def test_docx_view_state_na_accepted(tmp_path: Path, gate_id: str) -> None:
     """T06: docx-subject view_state N/A with reason passes on docx gates."""
     na_env = dict(ENV, view_state="not_applicable")
@@ -193,7 +195,7 @@ def test_docx_view_state_na_accepted(tmp_path: Path, gate_id: str) -> None:
     assert "na_unjustified" not in _rules(run_acceptance(record, store))
 
 
-@pytest.mark.parametrize("gate_id", ["G0", "G1", "G6"])
+@pytest.mark.parametrize("gate_id", ["G0", "G1"])
 def test_pbip_view_state_na_rejected(tmp_path: Path, gate_id: str) -> None:
     """T06: pbip-subject view_state N/A fails even with a reason."""
     na_env = dict(ENV, view_state="not_applicable")

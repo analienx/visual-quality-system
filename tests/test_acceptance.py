@@ -90,36 +90,41 @@ class _Case:
             append_event(run_dir, {"kind": "started"})
             terminal = {"pass": "completed", "fail": "failed"}.get(spec["status"], "blocked")
             append_event(run_dir, {"kind": terminal})
+            # R6-E02: hand seals carry a well-formed observation so
+            # structural legs isolate their own check; capability and
+            # observation rules are pinned by the R6-E02 oracle.
+            controls = [spec["control"]] if spec["control"] else []
             seal_run(run_dir, terminal,
                      artifacts={"envelope_sha256": spec["sha"], "gate": spec["gate"],
-                                "status": spec["status"], "control": spec["control"]})
+                                "status": spec["status"], "control": spec["control"],
+                                "observation": {"gate": spec["gate"],
+                                              "status": spec["status"],
+                                              "controls": controls,
+                                              "input_sha256": "0" * 64}})
         return SealedEvidenceStore(root)
 
     def record(self, **overrides: Any) -> dict[str, Any]:
-        record = {"subjects": _subjects(), "gates": list(self.gates),
-                  "editor_id": "agent-a", "reviewer_id": "agent-b",
-                  "user_approved": True}
+        # R6-E04: legacy reviewer_id/editor_id/user_approved retired;
+        # reviewer/promotion evidence is bound runs, tested in R6-E04.
+        record = {"subjects": _subjects(), "gates": list(self.gates)}
         record.update(overrides)
         return record
 
 
 def _full_case() -> _Case:
+    # R6-E02/E03: static seals observe G0 only, and G6 is suite-level
+    # (R6-E03 oracle). The shared case covers every subject with G0
+    # plus every negative control; release still blocks on the gates
+    # no portable producer observes.
     case = _Case()
-    pairs = [("G0", "p1", SOURCE_A, "pbip"), ("G0", "d1", SOURCE_D, "docx"),
-             ("G1", "p1", SOURCE_A, "pbip"), ("G1", "d1", SOURCE_D, "docx"),
-             ("G2", "p1", SOURCE_A, "pbip"), ("G3", "p2", SOURCE_B, "pbip"),
-             ("G4", "p1", SOURCE_A, "pbip"), ("G5", "d1", SOURCE_D, "docx"),
-             ("G6", "p1", SOURCE_A, "pbip"),
-             # F15: every applicable gate on every subject (was: split across p1/p2).
-             ("G3", "p1", SOURCE_A, "pbip"), ("G0", "p2", SOURCE_B, "pbip"),
-             ("G1", "p2", SOURCE_B, "pbip"), ("G2", "p2", SOURCE_B, "pbip"),
-             ("G4", "p2", SOURCE_B, "pbip")]
+    pairs = [("G0", "p1", SOURCE_A, "pbip"), ("G0", "p2", SOURCE_B, "pbip"),
+             ("G0", "d1", SOURCE_D, "docx")]
     negatives = sorted(REQUIRED_NEGATIVES)
     for index, (gate_id, subject, source, kind) in enumerate(pairs):
         control = negatives[index] if index < len(negatives) else None
         case.add(gate_id, subject, source, kind, control=control)
-    for extra, control in enumerate(negatives[len(pairs):]):
-        case.add(f"G{extra % 7}", "p2", SOURCE_B, "pbip", control=control)
+    for control in negatives[len(pairs):]:
+        case.add("G0", "p2", SOURCE_B, "pbip", control=control)
     return case
 
 
@@ -127,10 +132,24 @@ def _rules(verdict: dict[str, Any]) -> set[str]:
     return {finding["rule"] for finding in verdict["findings"]}
 
 
-def test_materialized_record_passes(tmp_path: Path) -> None:
+def test_g0_narrow_capability_covered_release_still_blocked(
+        tmp_path: Path) -> None:
+    # R6-E02/E03 rewrite: the old test manufactured G1-G6 coverage
+    # with static seals (the E02 bypass) plus a subject-bound G6 (the
+    # E03 bypass). Genuine G0 observations cover their narrow gate;
+    # the release verdict stays blocked on unobservable gates, and
+    # promotion is reported separately.
     case = _full_case()
     verdict = run_acceptance(case.record(), case.store(tmp_path))
-    assert verdict == {"verdict": "pass", "findings": []}
+    assert verdict["verdict"] == "blocked"
+    assert "negative_controls_missing" not in _rules(verdict)
+    assert not any(finding["status"] == "fail"
+                   for finding in verdict["findings"])
+    incomplete = next(finding for finding in verdict["findings"]
+                      if finding["rule"] == "gate_set_incomplete")
+    assert "G6:suite" in incomplete["missing"]
+    assert "G1:p1" in incomplete["missing"]
+    assert verdict["promotion"]["status"] == "blocked"
 
 
 def test_single_pbip_is_not_acceptance(tmp_path: Path) -> None:
@@ -176,18 +195,38 @@ def test_uncaught_negative_fails(tmp_path: Path) -> None:
     assert verdict["findings"][0]["rule"] == "negative_uncaught"
 
 
-def test_same_reviewer_and_editor_fails(tmp_path: Path) -> None:
+def test_same_run_under_two_aliases_fails(tmp_path: Path) -> None:
+    # R6-E04 rewrite: caller reviewer_id/editor_id strings are retired
+    # (they never proved independence). A review block binding the
+    # same sealed run as reviewer and editor fails independence.
     case = _full_case()
-    verdict = run_acceptance(case.record(reviewer_id="agent-a"), case.store(tmp_path))
+    store = case.store(tmp_path)
+    run_dir = create_run(tmp_path, "editor-1", {"pipeline": "vqs.check/1"})
+    append_event(run_dir, {"kind": "started"})
+    append_event(run_dir, {"kind": "completed"})
+    seal_run(run_dir, "completed", artifacts={})
+    record = case.record(
+        editor_run_id="editor-1",
+        review={"reviewer_run_id": "editor-1", "editor_run_id": "editor-1",
+                "suite_digest": "0" * 64,
+                "review_envelope_sha256": "1" * 64})
+    verdict = run_acceptance(record, store)
     assert verdict["verdict"] == "fail"
     assert "reviewer_not_independent" in _rules(verdict)
 
 
-def test_missing_user_approval_blocks(tmp_path: Path) -> None:
+def test_legacy_approval_bool_ignored_promotion_split(tmp_path: Path) -> None:
+    # R6-E04 rewrite: user_approved bools never authorized promotion.
+    # The legacy key is ignored; promotion is a separate blocked
+    # output while the technical verdict stands on its own.
     case = _full_case()
-    verdict = run_acceptance(case.record(user_approved=False), case.store(tmp_path))
+    verdict = run_acceptance(case.record(user_approved=True),
+                             case.store(tmp_path))
     assert verdict["verdict"] == "blocked"
-    assert "promotion_not_approved" in _rules(verdict)
+    assert verdict["promotion"] == {
+        "status": "blocked",
+        "findings": [{"rule": "promotion_authority_unregistered",
+                      "status": "blocked"}]}
 
 
 def test_unknown_gate_status_blocks(tmp_path: Path) -> None:
@@ -252,7 +291,11 @@ def test_non_object_gate_blocks(tmp_path: Path) -> None:
 def test_non_object_record_blocks(tmp_path: Path) -> None:
     case = _full_case()
     assert run_acceptance("not-a-record", case.store(tmp_path)) == {
-        "verdict": "blocked", "findings": [{"rule": "record_not_an_object"}]}
+        "verdict": "blocked",
+        "promotion": {"status": "blocked",
+                      "findings": [{"rule": "promotion_authority_unregistered",
+                                    "status": "blocked"}]},
+        "findings": [{"rule": "record_not_an_object"}]}
 
 
 def test_fabricated_labels_without_store_block() -> None:
@@ -264,10 +307,12 @@ def test_fabricated_labels_without_store_block() -> None:
         {"id": "d1", "kind": "docx", "source_sha256": fake},
     ]
     gates: list[dict[str, Any]] = []
+    # R6-E03: subject gates only (G6 is suite-level now); the store is
+    # still missing, so every gate blocks on evidence_store_missing.
     for index, control in enumerate(sorted(REQUIRED_NEGATIVES)):
         sid = "p1" if index % 3 != 2 else "d1"
         gate: dict[str, Any] = {
-            "id": f"G{index % 7}", "subject_id": sid, "status": "pass",
+            "id": f"G{index % 6}", "subject_id": sid, "status": "pass",
             "evidence_ref": {"sha256": "b" * 64, "source_sha256": fake},
             "environment": {"renderer": "fake", "renderer_version": "0"},
             "negative_control": control, "caught": True,
@@ -325,8 +370,9 @@ def test_caller_envelopes_never_become_trusted(tmp_path: Path) -> None:
         raw = _envelope_bytes(envelope)
         sha = hashlib.sha256(raw).hexdigest()
         envelopes[sha] = envelope
+        # R6-E03: subject gates only; G6 cannot ride a subject_id.
         gate: dict[str, Any] = {
-            "id": f"G{index % 7}", "subject_id": sid, "status": "pass",
+            "id": f"G{index % 6}", "subject_id": sid, "status": "pass",
             "evidence_ref": {"sha256": sha, "source_sha256": source},
             "environment": dict(env), "negative_control": control, "caught": True,
         }
@@ -344,10 +390,14 @@ def test_caller_envelopes_never_become_trusted(tmp_path: Path) -> None:
 def test_incomplete_gate_set_blocks(tmp_path: Path) -> None:
     case = _full_case()
     store = case.store(tmp_path)
-    gates = [gate for gate in case.gates if gate["id"] != "G4"]
+    # R6-E02: drop p2's G0 pair; the missing pair is named exactly.
+    gates = [gate for gate in case.gates
+             if not (gate["id"] == "G0" and gate["subject_id"] == "p2")]
     verdict = run_acceptance(case.record(gates=gates), store)
     assert verdict["verdict"] == "blocked"
-    assert "gate_set_incomplete" in _rules(verdict)
+    incomplete = next(finding for finding in verdict["findings"]
+                      if finding["rule"] == "gate_set_incomplete")
+    assert "G0:p2" in incomplete["missing"]
 
 
 def test_evidence_source_mismatch_fails(tmp_path: Path) -> None:

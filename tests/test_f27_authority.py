@@ -94,11 +94,11 @@ class _Case:
 
 def _full_case() -> _Case:
     case = _Case()
+    # R6-E03: subject gates only (G6 is suite-level, tested in R6-E03).
     pairs = [("G0", "p1", SOURCE_A, "pbip"), ("G0", "d1", SOURCE_D, "docx"),
              ("G1", "p1", SOURCE_A, "pbip"), ("G1", "d1", SOURCE_D, "docx"),
              ("G2", "p1", SOURCE_A, "pbip"), ("G3", "p2", SOURCE_B, "pbip"),
-             ("G4", "p1", SOURCE_A, "pbip"), ("G5", "d1", SOURCE_D, "docx"),
-             ("G6", "p1", SOURCE_A, "pbip")]
+             ("G4", "p1", SOURCE_A, "pbip"), ("G5", "d1", SOURCE_D, "docx")]
     negatives = sorted(REQUIRED_NEGATIVES)
     for index, (gate_id, subject, source, kind) in enumerate(pairs):
         control = negatives[index] if index < len(negatives) else None
@@ -174,9 +174,15 @@ def test_f27_replay_under_another_control_rejects(tmp_path: Path) -> None:
     run_dir = create_run(tmp_path, "prod-1", {"pipeline": "vqs.check/1"})
     append_event(run_dir, {"kind": "started"})
     append_event(run_dir, {"kind": "completed"})
+    # R6-E02: well-formed observation isolates the control-mismatch
+    # leg (the target gate is G0, within static capability).
     seal_run(run_dir, "completed",
              artifacts={"envelope_sha256": sha, "gate": gate_id,
-                        "status": target["status"], "control": other})
+                        "status": target["status"], "control": other,
+                        "observation": {"gate": gate_id,
+                                      "status": target["status"],
+                                      "controls": [other],
+                                      "input_sha256": "0" * 64}})
     target["evidence_ref"] = {"sha256": sha, "source_sha256": SOURCE_A}
     verdict = run_acceptance(case.record(gates=gates), store)
     assert verdict["verdict"] != "pass"

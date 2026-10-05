@@ -1,10 +1,10 @@
 """F20 RED: omitting the editor must not bypass independence.
 
-check_reviewer skips the self-review check when the fixer id is empty,
-and acceptance line 214 passes a reviewer with an absent editor. Both
-identities of the correct type are required, plus the independent
-reviewer capability rule that already exists. Missing/blank/non-string
-editor must block; matching identities fail (already covered).
+check_reviewer skips the self-review check when the fixer id is empty.
+R6-E04: acceptance binds sealed editor/reviewer runs (caller id
+strings retired); a review claim without a bound editor run blocks,
+and matching runs fail. Missing/blank/non-string editor runs block;
+matching identities fail (covered in test_acceptance).
 """
 from vqs.acceptance import run_acceptance
 from vqs.policy import REQUIRED
@@ -65,13 +65,21 @@ def test_f20_nonstring_fixer_blocks_adjudication() -> None:
 
 
 def test_f20_missing_editor_blocks_acceptance() -> None:
-    """RED: acceptance with reviewer but no editor must flag identity."""
-    result = run_acceptance({"reviewer_id": "reviewer-1"})
+    """RED: a review claim without a bound editor run must flag identity."""
+    result = run_acceptance({"review": {"reviewer_run_id": "reviewer-1",
+                                        "editor_run_id": "editor-1",
+                                        "suite_digest": "0" * 64,
+                                        "review_envelope_sha256": "1" * 64}})
+    assert result["verdict"] == "blocked"
     assert _identity_rules(result["findings"]) != []
 
 
 def test_f20_nonstring_editor_blocks_acceptance() -> None:
-    """RED: acceptance with non-string editor must flag identity."""
-    result = run_acceptance({"reviewer_id": "reviewer-1",
-                             "editor_id": ["executor-1"]})
+    """RED: acceptance with non-string editor run must flag identity."""
+    result = run_acceptance({"editor_run_id": ["editor-1"],
+                             "review": {"reviewer_run_id": "reviewer-1",
+                                        "editor_run_id": ["editor-1"],
+                                        "suite_digest": "0" * 64,
+                                        "review_envelope_sha256": "1" * 64}})
+    assert result["verdict"] == "blocked"
     assert _identity_rules(result["findings"]) != []

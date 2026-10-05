@@ -32,11 +32,16 @@ def _subjects() -> list[dict[str, Any]]:
     ]
 
 
-def _solo(root: Path, *, gate_id: str = "G2", control: str | None = None,
+def _solo(root: Path, *, gate_id: str = "G0", control: str | None = None,
           caught: bool = False, emit_result: bool = True,
           prove: bool = True, result_gate: str | None = None,
           tamper: bool = False):
-    """One gate plus its sealed producer run; mutate one axis at a time."""
+    """One gate plus its sealed producer run; mutate one axis at a time.
+
+    R6-E02: G0 (the only statically observable gate) with a
+    well-formed sealed observation, so result/control legs isolate
+    their own rule; capability is pinned by the R6-E02 oracle.
+    """
     envelope: dict[str, Any] = {
         "source_sha256": SOURCE, "environment": dict(ENV),
         "producer": {"run_id": "solo-1", "gate": gate_id,
@@ -59,7 +64,11 @@ def _solo(root: Path, *, gate_id: str = "G2", control: str | None = None,
     append_event(run_dir, {"kind": "completed"})
     seal_run(run_dir, "completed",
              artifacts={"envelope_sha256": sha, "gate": gate_id,
-                        "status": "pass", "control": control})
+                        "status": "pass", "control": control,
+                        "observation": {
+                            "gate": gate_id, "status": "pass",
+                            "controls": [control] if control else [],
+                            "input_sha256": "0" * 64}})
     gate: dict[str, Any] = {
         "id": gate_id, "subject_id": "p1", "status": "pass",
         "environment": dict(ENV),
