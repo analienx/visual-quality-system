@@ -56,7 +56,7 @@ def _write_report(root: Path,
                 "visual": {"visualType": "card",
                            "query": {"queryState": {
                                role: {"projections": projections}
-                               for role, projections in roles.items()}}}}}),
+                               for role, projections in roles.items()}}}}),
                 encoding="utf-8")
     return report
 
