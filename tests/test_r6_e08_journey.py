@@ -98,7 +98,7 @@ def _visual_doc(name: str, visual_type: str,
     if tick_value is not None:
         visual["objects"] = {"categoryAxis": [{"properties": {
             "labelPrecision": {"expr": {"Literal": {
-                "Value": tick_value}}}}}}]}
+                "Value": tick_value}}}}]}
     return {
         "name": name,
         "position": {"x": 0, "y": 0, "width": 100, "height": 100, "z": 1},
