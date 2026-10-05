@@ -13,7 +13,7 @@ pip install -e ".[test]"
 vqs doctor                        # what external tools are present (never installs)
 vqs cycles tests/powerbi/fixtures/clean_model
 vqs measure tests/powerbi/fixtures/mini_report --model tests/powerbi/fixtures/mini_model/definition
-python -m pytest                  # 950 passed + 7 skipped per ubuntu leg, 956 + 1 on windows, ruff clean
+python -m pytest                  # 957 passed + 7 skipped per ubuntu leg, 962 + 2 on windows, ruff clean
 ```
 
 Real output (`vqs cycles`, exit 0):
