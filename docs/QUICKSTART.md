@@ -95,14 +95,16 @@ errors.
 
 ```console
 vqs-mcp
-{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}}}
+{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "example-client", "version": "1.0.0"}}}
 {"jsonrpc": "2.0", "method": "notifications/initialized"}
 {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "vqs_review", "arguments": {"report_dir": "path/to/Example.Report", "run_root": "runs", "run_id": "rev-1"}}}
 ```
 
 Every session opens with `initialize` (the server speaks
 `2024-11-05`; a mismatched `protocolVersion` is refused) followed by
-the `notifications/initialized` notification. `tools/list` and
+the `notifications/initialized` notification. `initialize` requires
+typed `clientInfo` (`name` and `version` as nonempty strings);
+requests without it are refused with `-32602`. `tools/list` and
 `tools/call` before that handshake are rejected with `-32002` and
 create nothing on disk; malformed arguments (wrong types, wrong
 array elements) fail with `-32602` before the engine runs.
