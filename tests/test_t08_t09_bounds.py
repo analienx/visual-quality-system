@@ -264,9 +264,9 @@ def test_full_chain_static_pass_visual_blocked(tmp_path: Path,
     pack(str(report), str(renders), str(tmp_path / "b1"), "fixer-1")
     checked = verify(str(tmp_path / "b1"), str(report))
     assert checked["status"] == "valid"
-    transport = {"pages": checked["pages"],
-                 "source_sha256": checked["source_sha256"]}
-    decided = adjudicate_bundle(form, transport)
+    # R6-E06: forward the whole verified authority (render bindings,
+    # calibration, fixer); thin lookalikes fail as unverified.
+    decided = adjudicate_bundle(form, checked)
     assert decided["static_conformance"] == "pass"
     assert decided["verdict"] == "blocked"
     assert "image_review_required" in _rules(decided["findings"])
@@ -300,9 +300,8 @@ def test_edited_list_unbound_vs_transport(tmp_path: Path, capsys) -> None:
     form["source_pages"] = ["P1"]
     pack(str(report), str(renders), str(tmp_path / "b1"), "fixer-1")
     checked = verify(str(tmp_path / "b1"))
-    transport = {"pages": checked["pages"],
-                 "source_sha256": checked["source_sha256"]}
-    decided = adjudicate_bundle(form, transport)
+    # R6-E06: the verified authority object, not a thin lookalike.
+    decided = adjudicate_bundle(form, checked)
     assert decided["verdict"] == "fail"
     assert "source_pages_unbound" in _rules(decided["findings"])
 

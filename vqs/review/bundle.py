@@ -16,6 +16,7 @@ import json
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 SCHEMA = 1
 FIXED_MEMBERS = ("capture-manifest.json", "inventory.json")
@@ -79,8 +80,21 @@ def pack(report: str, renders: str, out: str, fixer_id: str) -> dict:
 
 
 def verify(bundle: str, report: str | None = None) -> dict:
-    """Re-hash and cross-check a bundle; raise on any mismatch."""
-    from ..evidence import check_calibration, decode_png_pixels, digest, safe_render_name
+    """Re-hash and cross-check a bundle; raise on any mismatch.
+
+    R6-DEC-06: on success the returned authority object carries the
+    verified per-page render bindings (member, digest, decoded
+    pixels), the verified capture calibration, and the bundle
+    identity digest, so adjudication corroborates the form against
+    verified material instead of bare 64-hex syntax.
+    """
+    from ..evidence import (
+        canonical_json_sha256,
+        check_calibration,
+        decode_png_pixels,
+        digest,
+        safe_render_name,
+    )
     from ..pbir import source_digest
 
     root = Path(bundle)
@@ -194,6 +208,7 @@ def verify(bundle: str, report: str | None = None) -> dict:
             problems.append(f"page without render: {page_id}")
     calibration = manifest.get("calibration")
     shape_issues = check_calibration(calibration)
+    render_pixels: dict[str, list[int]] = {}
     if shape_issues or not isinstance(calibration, dict):
         problems.append("bundle calibration invalid")
     else:
@@ -224,6 +239,7 @@ def verify(bundle: str, report: str | None = None) -> dict:
             except (OSError, ValueError):
                 problems.append(f"unreadable render dimensions: {name}")
                 continue
+            render_pixels[page_id] = list(pixels)
             scale = calibration["scale"]
             if list(pixels) != [canvas[0] * scale, canvas[1] * scale]:
                 problems.append(f"render pixels differ from scaled source canvas: {page_id}")
@@ -236,8 +252,30 @@ def verify(bundle: str, report: str | None = None) -> dict:
             problems.append("bundle source is stale against live report")
     if problems:
         raise ValueError("Bundle invalid: " + "; ".join(sorted(problems)))
-    return {"status": "valid", "source_sha256": header["source_sha256"],
-            "pages": header["pages"], "fixer_id": header["fixer_id"]}
+    # R6-DEC-06: verified render authority. Every binding below was
+    # re-hashed or decoded from current bundle bytes; the identity
+    # digest pins the exact verified content. Defensive guard: any
+    # gap fails closed instead of crashing on malformed members.
+    renders: dict[str, dict[str, Any]] = {}
+    for page_id in header.get("pages") or []:
+        name = mapping.get(page_id)
+        if (not isinstance(page_id, str) or not isinstance(name, str)
+                or name not in files or page_id not in render_pixels):
+            raise ValueError("Bundle invalid: verified render missing "
+                             f"for page {page_id!r}")
+        renders[page_id] = {"image": name, "sha256": files[name],
+                            "pixels": render_pixels[page_id]}
+    identity = canonical_json_sha256({
+        "header": {key: header.get(key) for key in
+                   ("schema", "kind", "fixer_id", "source_sha256",
+                    "policy_version", "pages", "created_utc")},
+        "files": {name: member_hashes[name]
+                  for name in sorted(member_hashes)}})
+    return {"status": "valid", "authority": "vqs.bundle.verify/1",
+            "source_sha256": header["source_sha256"],
+            "pages": list(header["pages"]), "fixer_id": header["fixer_id"],
+            "renders": renders, "calibration": dict(calibration),
+            "bundle_sha256": identity}
 
 
 def unpack(bundle: str, dest: str) -> dict:

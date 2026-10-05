@@ -43,10 +43,18 @@ def _bundle(**overrides):
 
 
 def test_declared_clean_bundle_blocks_for_review() -> None:
-    """S10: even the clean declared bundle blocks; conformance is labeled."""
+    """S10: even the clean declared bundle blocks; conformance is labeled.
+
+    R6-E05: without verified authority, whole-source coverage is
+    unbound — the form's own list can no longer certify
+    completeness, so static conformance fails. Authority-backed
+    conformance is pinned by T09 and the R6-E05/E06 oracles.
+    """
     result = adjudicate_bundle(_bundle(source_pages=["page-1"]))
     assert result["verdict"] == "blocked"
-    assert result.get("static_conformance") == "pass"
+    assert result.get("static_conformance") == "fail"
+    assert any(row["rule"] == "source_pages_unbound"
+               for row in result["findings"])
     assert any(row["rule"] == "image_review_required"
                for row in result["findings"])
 

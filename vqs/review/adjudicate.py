@@ -39,6 +39,108 @@ def _is_pixels(value: object) -> bool:
                     for dim in value))
 
 
+def _clean_str_list(value: object) -> list[str] | None:
+    """A non-empty string inventory, or None when malformed."""
+    if (not isinstance(value, list) or not value
+            or any(not isinstance(entry, str) or not entry
+                   for entry in value)):
+        return None
+    return list(value)
+
+
+def _check_verified_transport(transport: dict[str, Any], bundle: dict[str, Any],
+                              source: object, declared: object,
+                              pages: list[Any], calibration: object,
+                              shape_issues: list[dict[str, Any]],
+                              findings: list[dict[str, Any]]) -> str | None:
+    """Corroborate the form against verified transport authority.
+
+    Returns the authority fixer id for reviewer separation, or None
+    when the authority itself is malformed (lookalikes fail closed).
+    """
+    t_pages = _clean_str_list(transport.get("pages"))
+    t_source = transport.get("source_sha256")
+    t_fixer = transport.get("fixer_id")
+    renders = transport.get("renders")
+    t_calibration = transport.get("calibration")
+    bundle_id = transport.get("bundle_sha256")
+    if (t_pages is None or not _is_bound_image(t_source)
+            or not isinstance(t_fixer, str) or not t_fixer.strip()
+            or not isinstance(renders, dict)
+            or not isinstance(t_calibration, dict)
+            or not _is_bound_image(bundle_id)):
+        findings.append({"rule": "transport_unverified", "verdict": "fail",
+                         "reason": "Verified-transport authority is "
+                                   "malformed; caller lookalikes are rejected"})
+        return None
+    clean_form = _clean_str_list(declared)
+    if (t_source != source or not source or clean_form is None
+            or sorted(t_pages) != sorted(clean_form)):
+        findings.append({"rule": "source_pages_unbound", "verdict": "fail",
+                         "reason": "Completed form diverges from the "
+                                   "verified transport inventory"})
+    if bundle.get("fixer_id", "") != t_fixer:
+        findings.append({"rule": "fixer_unbound", "verdict": "fail",
+                         "reason": "Form fixer differs from the verified "
+                                   "transport fixer"})
+    for page in pages:
+        if not isinstance(page, dict):
+            continue
+        page_id = page.get("id", "?")
+        entry = renders.get(page.get("id"))
+        if (not isinstance(entry, dict)
+                or not _is_bound_image(entry.get("sha256"))
+                or not _is_pixels(entry.get("pixels"))):
+            findings.append({"rule": "transport_unverified", "verdict": "fail",
+                             "page": page_id,
+                             "reason": "Verified authority lacks a render "
+                                       "binding for this page"})
+            continue
+        form_hash = page.get("image_sha256")
+        if _is_bound_image(form_hash) and form_hash != entry["sha256"]:
+            findings.append({"rule": "page_render_substituted", "verdict": "fail",
+                             "page": page_id,
+                             "reason": "Form render digest differs from the "
+                                       "verified transport render"})
+        form_pixels = page.get("pixels")
+        if (_is_pixels(form_pixels)
+                and list(form_pixels) != list(entry["pixels"])):
+            findings.append({"rule": "render_pixels_mismatch", "verdict": "fail",
+                             "page": page_id,
+                             "reason": "Form render resolution differs from "
+                                       "the verified transport render"})
+    # Resolution-binding dims only: canvas/scale pin the capture the
+    # form claims; viewport/method describe setup. A malformed form
+    # calibration is already flagged by check_calibration above.
+    if not shape_issues and isinstance(calibration, dict):
+        for dim in ("canvas_width", "canvas_height", "scale"):
+            if calibration.get(dim) != t_calibration.get(dim):
+                findings.append({"rule": "calibration_unbound",
+                                 "verdict": "fail",
+                                 "reason": "Form capture calibration differs "
+                                           "from the verified transport"})
+                break
+    return t_fixer
+
+
+def _check_live_inventory(transport: dict[str, Any], source: object,
+                          declared: object,
+                          findings: list[dict[str, Any]]) -> None:
+    """Completeness-only corroboration against a live report inventory."""
+    t_pages = _clean_str_list(transport.get("pages"))
+    t_source = transport.get("source_sha256")
+    if t_pages is None or not _is_bound_image(t_source):
+        findings.append({"rule": "transport_unverified", "verdict": "fail",
+                         "reason": "Live-report authority is malformed"})
+        return
+    clean_form = _clean_str_list(declared)
+    if (t_source != source or not source or clean_form is None
+            or sorted(t_pages) != sorted(clean_form)):
+        findings.append({"rule": "source_pages_unbound", "verdict": "fail",
+                         "reason": "Completed form diverges from the live "
+                                   "report inventory"})
+
+
 def adjudicate_bundle(bundle: dict[str, Any],
                       transport: dict[str, Any] | None = None
                       ) -> dict[str, Any]:
@@ -55,6 +157,20 @@ def adjudicate_bundle(bundle: dict[str, Any],
     the form's ``source_pages`` must match the authoritative
     inventory exactly — a caller-edited list fails as
     ``source_pages_unbound`` instead of certifying completeness.
+    R6-DEC-05: without a verified transport or live report
+    inventory, whole-source coverage is unbound (blocked) — the
+    form's own list can never certify its own completeness, and
+    static conformance cannot imply a whole-source pass. R6-DEC-06:
+    a verified transport is the full authority object returned by
+    :func:`vqs.review.bundle.verify` (per-page render digests +
+    pixels, calibration, fixer, bundle identity); thin lookalike
+    dicts fail as ``transport_unverified``. Each form render digest,
+    resolution, calibration, and fixer is corroborated against the
+    verified material, and reviewer separation is checked against
+    the authority fixer. Direct API callers must obtain the
+    authority from :func:`vqs.review.bundle.verify` (or a live
+    report read for inventory-only binding); the verified path is
+    in-process verify -> CLI -> adjudicate.
     """
     findings: list[dict[str, Any]] = []
     if not isinstance(bundle, dict):
@@ -63,8 +179,6 @@ def adjudicate_bundle(bundle: dict[str, Any],
     surface = bundle.get("surface", "")
     findings.extend(check_policy_binding(
         bundle, surface if isinstance(surface, str) else "", source))
-    findings.extend(check_reviewer(bundle.get("reviewer", {}),
-                                   bundle.get("fixer_id", "")))
     capability = bundle.get("image_capability", {})
     if not isinstance(capability, dict) or capability.get("available") is not True:
         findings.append({"rule": "missing_image_capability", "verdict": "blocked",
@@ -125,21 +239,32 @@ def adjudicate_bundle(bundle: dict[str, Any],
                 if pid not in declared:
                     findings.append({"rule": "source_page_undeclared", "verdict": "blocked",
                                      "page": pid})
-    if transport is not None:
-        t_pages = transport.get("pages") if isinstance(transport, dict) else None
-        t_source = (transport.get("source_sha256")
-                    if isinstance(transport, dict) else None)
-        clean_form = (isinstance(declared, list) and bool(declared)
-                      and all(isinstance(entry, str) and entry
-                              for entry in declared))
-        clean_transport = (isinstance(t_pages, list) and bool(t_pages)
-                           and all(isinstance(entry, str) and entry
-                                   for entry in t_pages))
-        if (not clean_transport or not t_source or t_source != source
-                or not clean_form or sorted(t_pages) != sorted(declared)):
-            findings.append({"rule": "source_pages_unbound", "verdict": "fail",
-                             "reason": "Completed form diverges from the "
-                                       "verified transport inventory"})
+    # R6-DEC-05/06: completeness needs verified authority; reviewer
+    # separation binds the authority fixer when one is established.
+    authority_fixer: str | None = None
+    if transport is None:
+        findings.append({"rule": "source_pages_unbound", "verdict": "blocked",
+                         "reason": "No verified transport or live report "
+                                   "inventory; whole-source coverage cannot "
+                                   "be proven"})
+    else:
+        marker = (transport.get("authority")
+                  if isinstance(transport, dict) else None)
+        if marker == "vqs.bundle.verify/1" and isinstance(transport, dict):
+            authority_fixer = _check_verified_transport(
+                transport, bundle, source, declared, pages, calibration,
+                shape_issues, findings)
+        elif marker == "live-report/1" and isinstance(transport, dict):
+            _check_live_inventory(transport, source, declared, findings)
+        else:
+            findings.append({"rule": "transport_unverified", "verdict": "fail",
+                             "reason": "Transport is not a verified "
+                                       "authority object; caller lookalikes "
+                                       "are rejected"})
+    if authority_fixer is None:
+        authority_fixer = bundle.get("fixer_id", "")
+    findings.extend(check_reviewer(bundle.get("reviewer", {}),
+                                   authority_fixer))
     static_ok = not any(row.get("verdict") in ("fail", "blocked") for row in findings)
     findings.append({"rule": "image_review_required", "verdict": "blocked",
                      "reason": "Static conformance never approves; release needs "

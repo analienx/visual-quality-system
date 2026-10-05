@@ -45,12 +45,19 @@ def _bundle(**overrides):
 
 
 def test_conformant_bundle_blocks_for_visual_review() -> None:
-    """RED R12: checklist-conformant still blocks; pixels decide release."""
+    """RED R12: checklist-conformant still blocks; pixels decide release.
+
+    R6-E05: form-only coverage is unbound, so static conformance
+    fails; the completed form is still adjudicated for every other
+    diagnostic. Authority-backed conformance: T09 + R6-E05/E06.
+    """
     result = adjudicate_bundle(_bundle())
     assert result["verdict"] == "blocked"
     assert any(row.get("rule") == "image_review_required"
                for row in result["findings"])
-    assert result.get("static_conformance") == "pass"
+    assert any(row.get("rule") == "source_pages_unbound"
+               for row in result["findings"])
+    assert result.get("static_conformance") == "fail"
 
 
 def test_metadata_only_bundle_blocks() -> None:

@@ -98,14 +98,19 @@ def _validate_plan(plan_path: Path, original: str, candidate_root: str,
 
 
 def _adjudicate_bundle(bundle_path: Path, run_root: Path, run_id: str | None,
-                       transport: Path | None = None) -> int:
+                       transport: Path | None = None,
+                       report: Path | None = None) -> int:
     """Adjudicate a review bundle; static checks only, no pixel judgment.
 
     T09: with --transport-bundle, the transport dir is verified first
     and its authoritative header inventory binds the form: a
     caller-edited source_pages list cannot certify completeness.
-    Without it, static conformance trusts the form's self-declared
-    source_pages (no independent inventory binding).
+    R6-DEC-05/06: the whole verified authority object (render
+    bindings, calibration, fixer, bundle identity) is forwarded —
+    no field dropping — and --report offers a live inventory
+    authority instead. With both, the transport is also staleness-
+    bound to the live report. Without either, coverage is unbound
+    (blocked): the self-declared list is never trusted.
     """
     from vqs.pipeline import seal_verdict
     from vqs.review.adjudicate import adjudicate_bundle
@@ -122,13 +127,26 @@ def _adjudicate_bundle(bundle_path: Path, run_root: Path, run_id: str | None,
     authority = None
     if transport is not None:
         try:
-            checked = verify(str(transport))
+            checked = verify(str(transport),
+                             str(report) if report is not None else None)
         except (OSError, ValueError, TypeError) as exc:
             print(json.dumps({"status": "blocked",
                               "reason": f"Transport invalid: {exc}"}))
             return 2
-        authority = {"pages": checked["pages"],
-                     "source_sha256": checked["source_sha256"]}
+        authority = checked
+    elif report is not None:
+        from vqs.pbir import report_context, source_digest
+
+        try:
+            info = report_context(report)
+            digest = source_digest(report)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            print(json.dumps({"status": "blocked",
+                              "reason": f"Report unreadable: {exc}"}))
+            return 2
+        authority = {"authority": "live-report/1",
+                     "pages": [page["id"] for page in info["pages"]],
+                     "source_sha256": digest}
     decided = adjudicate_bundle(bundle, authority)
     if decided["verdict"] == "pass":
         findings = [{"check": "bundle", "status": "pass", "detail": {}}]
@@ -403,9 +421,14 @@ def main(argv: list[str] | None = None) -> int:
     bundle_cmd = commands.add_parser("adjudicate-bundle", help="Adjudicate a review bundle")
     bundle_cmd.add_argument("bundle", type=Path, help="JSON review-bundle document")
     bundle_cmd.add_argument("--transport-bundle", type=Path, default=None,
-                            help="Verified transport bundle dir whose authoritative "
-                                 "inventory the form's source_pages must match "
-                                 "(without it, the self-declared list is trusted)")
+                            help="Verified transport bundle dir: its render "
+                                 "bindings, calibration, fixer, and inventory "
+                                 "bind the form (with --report, also "
+                                 "staleness-checked against it)")
+    bundle_cmd.add_argument("--report", type=Path, default=None,
+                            help="Live *.Report folder as the completeness "
+                                 "authority when no transport bundle is given "
+                                 "(without either, coverage is unbound)")
     bundle_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
     bundle_cmd.add_argument("--run-id", default=None)
     inspect_cmd = commands.add_parser("inspect", help="Measure check-ready facts (tool vqs.inspect)")
@@ -478,7 +501,7 @@ def main(argv: list[str] | None = None) -> int:
                               args.approve_change, args.run_root, args.run_id)
     if args.command == "adjudicate-bundle":
         return _adjudicate_bundle(args.bundle, args.run_root, args.run_id,
-                                  args.transport_bundle)
+                                  args.transport_bundle, args.report)
     if args.command == "inspect":
         return _inspect(args.report, args.model, args.config, args.out)
     if args.command == "review":
