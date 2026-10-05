@@ -605,13 +605,21 @@ def m_edges(queries: dict[str, str]) -> dict[str, set[str]]:
             shadowed = (not leading and first_frag is not None
                         and index > first_frag)
             inner = bound | ancestors
-            if shadowed and (mid_at is None or index <= mid_at[0]):
+            if (shadowed and mid_at is not None
+                    and index <= mid_at[0]):
                 inner |= scope_names
             regions.append((declared, inner))
             regions.append((body, inner))
-            if shadowed and (mid_at is None or (
-                    mid_at is not None and index > mid_at[0]
-                    and not middle_closed)):
+            if shadowed and mid_at is None:
+                # No middle `in` anywhere past the fragment: the
+                # middle scope is truncated (invalid M), so block
+                # rather than resolving outward guesses. The gate
+                # blocks these shapes too (fragment hides bindings).
+                raise ModelingError(
+                    f"nested let scope end cannot be delimited in query "
+                    f"{name!r}: middle `in` absent (truncated scope)")
+            if (shadowed and mid_at is not None and index > mid_at[0]
+                    and not middle_closed):
                 _raise_on_middle_refs(
                     name, declared, body, rest, extra,
                     scope_names - extra - bound - ancestors, quoted)
