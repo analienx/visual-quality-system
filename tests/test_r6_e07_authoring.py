@@ -17,8 +17,7 @@ from typing import Any
 import pytest
 
 from vqs.pipeline import repair_candidate
-from vqs.powerbi.author import adapter
-from vqs.powerbi.author import mscli
+from vqs.powerbi.author import adapter, mscli
 from vqs.repair.allowlist import validate_plan
 
 SCHEMA_REPORT = ("https://developer.microsoft.com/json-schemas/fabric/item/"

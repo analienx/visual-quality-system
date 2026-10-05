@@ -67,7 +67,7 @@ def probe(tool: str = TOOL_NAME,
     """
     try:
         path = shutil.which(tool)
-    except Exception:
+    except Exception:  # noqa: BLE001 - lookup crash means missing
         path = None
     record: dict[str, Any] = {
         "tool": tool, "available": False, "path": path, "version": None,
@@ -78,7 +78,7 @@ def probe(tool: str = TOOL_NAME,
         return record
     try:
         result = _run([path, *PROBE_ARGS], timeout)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - probe crash degrades
         record["note"] = f"probe failed: {exc}"
         return record
     record["returncode"] = result["returncode"]
@@ -115,14 +115,14 @@ def validate(report_dir: str | Path, timeout: int = 300,
         "warnings": [], "raw_tail": "", "note": None}
     try:
         path = shutil.which(tool)
-    except Exception:
+    except Exception:  # noqa: BLE001 - lookup crash means missing
         path = None
     if path is None:
         record.update(status="missing", note="not on PATH")
         return record
     try:
         result = _run([path, "validate", str(report_dir)], timeout)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - launch crash degrades
         record["note"] = f"validation failed: {exc}"
         return record
     record["returncode"] = result["returncode"]

@@ -1031,20 +1031,20 @@ def repair_candidate(plan_path: str, original: str,
     if authoring_backend not in ("auto", "microsoft", "direct"):
         return blocked_envelope(
             "vqs.repair",
-            [f"authoring_backend must be auto, microsoft, or direct, "
-             f"got {authoring_backend!r}"])
+            [(f"authoring_backend must be auto, microsoft, or direct, "
+              f"got {authoring_backend!r}")])
     if (isinstance(authoring_timeout, bool)
             or not isinstance(authoring_timeout, int)
             or authoring_timeout <= 0):
         return blocked_envelope(
             "vqs.repair",
-            [f"authoring_timeout must be a positive int, "
-             f"got {authoring_timeout!r}"])
+            [(f"authoring_timeout must be a positive int, "
+              f"got {authoring_timeout!r}")])
     if not isinstance(authoring_allow_warnings, bool):
         return blocked_envelope(
             "vqs.repair",
-            ["authoring_allow_warnings must be a bool, "
-             f"got {authoring_allow_warnings!r}"])
+            [("authoring_allow_warnings must be a bool, "
+              f"got {authoring_allow_warnings!r}")])
     try:
         plan = json.loads(Path(plan_path).read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as exc:
@@ -1201,9 +1201,9 @@ def _execute_repair(plan: dict[str, Any], original: str,
             findings=[{"check": "authoring", "status": "fail",
                        "detail": {"reason": authoring["reason"]}}],
             evidence=repair_evidence, provenance=repair_provenance,
-            next_actions=["inspect the preserved candidate and the "
-                          "sealed authoring record, fix the cause, and "
-                          "retry with a fresh candidate root"],
+            next_actions=[("inspect the preserved candidate and the "
+                             "sealed authoring record, fix the cause, and "
+                             "retry with a fresh candidate root")],
             extra={"authoring": authoring["record"]})
     if authoring["verdict"] == "blocked":
         append_event(sealed_run_dir, {"kind": "blocked", "verdict": "blocked"})
@@ -1212,8 +1212,8 @@ def _execute_repair(plan: dict[str, Any], original: str,
         return blocked_envelope(
             "vqs.repair", [f"repair authoring: {authoring['reason']}"],
             run_id=rid, run_dir=str(sealed_run_dir),
-            next_actions=["inspect the preserved candidate and the "
-                          "sealed authoring record, then retry"],
+            next_actions=[("inspect the preserved candidate and the "
+                             "sealed authoring record, then retry")],
             extra={"authoring": authoring["record"]})
     append_event(sealed_run_dir, {"kind": "completed", "verdict": "pass"})
     seal_run(sealed_run_dir, "completed", artifacts=seal_artifacts,

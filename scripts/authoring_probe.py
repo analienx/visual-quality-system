@@ -18,7 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from vqs.powerbi.author import adapter, mscli  # noqa: E402
+
 
 SCHEMA_REPORT = ("https://developer.microsoft.com/json-schemas/fabric/item/"
                  "report/definition/report/3.3.0/schema.json")
@@ -53,6 +53,8 @@ def _synthetic_report(root: Path) -> Path:
 
 def main(argv: list[str]) -> int:
     out = Path(argv[1]) if len(argv) > 1 else Path("authoring-real-cli.json")
+    from vqs.powerbi.author import adapter, mscli
+
     probed = mscli.probe()
     with tempfile.TemporaryDirectory(prefix="vqs-authoring-") as tmp:
         candidate = _synthetic_report(Path(tmp))

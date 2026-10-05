@@ -9,8 +9,9 @@ are recorded as blocked evidence.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from .mscli import TOOL_NAME, probe, validate
 
@@ -82,7 +83,7 @@ def run_backend(candidate: str | Path, *, policy: str = "auto",
     active_runner = validate if runner is None else runner
     try:
         probe_result = active_prober()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - probe crash blocks
         probe_result = {"tool": TOOL_NAME, "available": False,
                         "path": None, "version": None,
                         "note": f"probe raised: {exc}"}
@@ -101,7 +102,7 @@ def run_backend(candidate: str | Path, *, policy: str = "auto",
                 "record": record}
     try:
         validation = active_runner(candidate, timeout=timeout)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - runner crash blocks
         validation = {"tool": TOOL_NAME, "command": [TOOL_NAME],
                       "status": "error", "returncode": None,
                       "errors": [], "warnings": [], "raw_tail": "",

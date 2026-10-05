@@ -640,20 +640,17 @@ def run_acceptance(record: dict[str, Any],
     editor_run_id = record.get("editor_run_id")
     editor_ok = False
     if g6_mentioned or review is not None:
-        if not store_usable:
-            findings.append({"rule": "editor_run_unbound",
-                             "status": "blocked"})
-        elif (not _is_safe_run_id(editor_run_id)
-                or not isinstance(getattr(evidence_store, "root", None), Path)):
+        if (not store_usable or not _is_safe_run_id(editor_run_id)
+                or not isinstance(getattr(evidence_store, "root", None),
+                                  Path)):
             findings.append({"rule": "editor_run_unbound",
                              "status": "blocked"})
         else:
             assert evidence_store is not None
             editor_dir = evidence_store.root / editor_run_id
-            if _resolve_artifact(evidence_store.root, editor_run_id) is None:
-                findings.append({"rule": "editor_run_unbound",
-                                 "status": "blocked"})
-            elif verify_seal(editor_dir):
+            if (_resolve_artifact(evidence_store.root,
+                                   editor_run_id) is None
+                    or verify_seal(editor_dir)):
                 findings.append({"rule": "editor_run_unbound",
                                  "status": "blocked"})
             else:
@@ -697,11 +694,9 @@ def run_acceptance(record: dict[str, Any],
             else:
                 assert evidence_store is not None
                 reviewer_dir = evidence_store.root / reviewer_run
-                if _resolve_artifact(evidence_store.root,
-                                     reviewer_run) is None:
-                    findings.append({"rule": "reviewer_binding_missing",
-                                     "status": "blocked"})
-                elif verify_seal(reviewer_dir):
+                if (_resolve_artifact(evidence_store.root,
+                                       reviewer_run) is None
+                        or verify_seal(reviewer_dir)):
                     findings.append({"rule": "reviewer_binding_missing",
                                      "status": "blocked"})
                 else:
