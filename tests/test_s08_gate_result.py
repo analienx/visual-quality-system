@@ -54,7 +54,7 @@ def _solo(root: Path, *, gate_id: str = "G2", control: str | None = None,
     objects = root / "objects"
     objects.mkdir(parents=True, exist_ok=True)
     (objects / sha).write_bytes(b"tampered" if tamper else raw)
-    run_dir = create_run(root, "solo-1", {"pipeline": "vqs.producer/1"})
+    run_dir = create_run(root, "solo-1", {"pipeline": "vqs.check/1"})
     append_event(run_dir, {"kind": "started"})
     append_event(run_dir, {"kind": "completed"})
     seal_run(run_dir, "completed",

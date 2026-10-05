@@ -84,14 +84,50 @@ def test_absent_nested_with_note_rejects_provenance() -> None:
 
 
 def test_valid_narrow_exception_retained() -> None:
-    """S14 positive: a note binding the exact triple still waives."""
+    """S14 positive: a note binding an exact SUPPORTED triple still waives."""
+    nested = {"surface": "docx", "contract_revision": "1.0.0",
+              "source_sha256": FOREIGN}
+    note = _note(approved_source_sha256=FOREIGN,
+                 approved_surface="docx",
+                 approved_contract_revision="1.0.0")
+    assert validate_manifest(_manifest(
+        _finding(nested, cross_artifact_contract=note))) == []
+
+
+def test_exception_cannot_approve_unsupported_revision() -> None:
+    """T07: an exact note for revision 9.9.9 manufactures no support."""
     nested = {"surface": "docx", "contract_revision": "9.9.9",
               "source_sha256": FOREIGN}
     note = _note(approved_source_sha256=FOREIGN,
                  approved_surface="docx",
                  approved_contract_revision="9.9.9")
-    assert validate_manifest(_manifest(
-        _finding(nested, cross_artifact_contract=note))) == []
+    issues = validate_manifest(_manifest(
+        _finding(nested, cross_artifact_contract=note)))
+    assert "component_contract_revision_mismatch" in _rules(issues)
+
+
+def test_exception_cannot_approve_foreign_surface() -> None:
+    """T07: an exact note for surface 'alien' manufactures no support."""
+    nested = {"surface": "alien", "contract_revision": "1.0.0",
+              "source_sha256": FOREIGN}
+    note = _note(approved_source_sha256=FOREIGN,
+                 approved_surface="alien",
+                 approved_contract_revision="1.0.0")
+    issues = validate_manifest(_manifest(
+        _finding(nested, cross_artifact_contract=note)))
+    assert "component_surface_mismatch" in _rules(issues)
+
+
+def test_exception_with_missing_fixer_rejected() -> None:
+    """T07: a note grants nothing when the run names no fixer."""
+    nested = dict(ARTIFACT, source_sha256=FOREIGN)
+    note = _note(approved_source_sha256=FOREIGN,
+                 approved_surface="powerbi",
+                 approved_contract_revision="1.0.0")
+    manifest = _manifest(_finding(nested, cross_artifact_contract=note))
+    del manifest["fixer_id"]
+    issues = validate_manifest(manifest)
+    assert "component_source_mismatch" in _rules(issues)
 
 
 def test_stranger_narrow_note_rejects() -> None:

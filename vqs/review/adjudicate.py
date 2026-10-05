@@ -39,7 +39,9 @@ def _is_pixels(value: object) -> bool:
                     for dim in value))
 
 
-def adjudicate_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
+def adjudicate_bundle(bundle: dict[str, Any],
+                      transport: dict[str, Any] | None = None
+                      ) -> dict[str, Any]:
     """Adjudicate a review bundle; static checks never approve a release.
 
     R12: a bundle declaring whole-source coverage (``source_pages``)
@@ -49,6 +51,10 @@ def adjudicate_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     block. S10: the inventory itself is required — an omitted or null
     ``source_pages`` blocks as ``source_pages_missing``. Static
     adjudication never passes; there is no metadata-only pass route.
+    T09: with ``transport`` (verified bundle header pages + source),
+    the form's ``source_pages`` must match the authoritative
+    inventory exactly — a caller-edited list fails as
+    ``source_pages_unbound`` instead of certifying completeness.
     """
     findings: list[dict[str, Any]] = []
     if not isinstance(bundle, dict):
@@ -119,6 +125,21 @@ def adjudicate_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
                 if pid not in declared:
                     findings.append({"rule": "source_page_undeclared", "verdict": "blocked",
                                      "page": pid})
+    if transport is not None:
+        t_pages = transport.get("pages") if isinstance(transport, dict) else None
+        t_source = (transport.get("source_sha256")
+                    if isinstance(transport, dict) else None)
+        clean_form = (isinstance(declared, list) and bool(declared)
+                      and all(isinstance(entry, str) and entry
+                              for entry in declared))
+        clean_transport = (isinstance(t_pages, list) and bool(t_pages)
+                           and all(isinstance(entry, str) and entry
+                                   for entry in t_pages))
+        if (not clean_transport or not t_source or t_source != source
+                or not clean_form or sorted(t_pages) != sorted(declared)):
+            findings.append({"rule": "source_pages_unbound", "verdict": "fail",
+                             "reason": "Completed form diverges from the "
+                                       "verified transport inventory"})
     static_ok = not any(row.get("verdict") in ("fail", "blocked") for row in findings)
     findings.append({"rule": "image_review_required", "verdict": "blocked",
                      "reason": "Static conformance never approves; release needs "

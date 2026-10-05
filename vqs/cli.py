@@ -97,10 +97,17 @@ def _validate_plan(plan_path: Path, original: str, candidate_root: str,
                                      verdict, findings, inputs=inputs))
 
 
-def _adjudicate_bundle(bundle_path: Path, run_root: Path, run_id: str | None) -> int:
-    """Adjudicate a review bundle; static checks only, no pixel judgment."""
+def _adjudicate_bundle(bundle_path: Path, run_root: Path, run_id: str | None,
+                       transport: Path | None = None) -> int:
+    """Adjudicate a review bundle; static checks only, no pixel judgment.
+
+    T09: with --transport-bundle, the transport dir is verified first
+    and its authoritative header inventory binds the form: a
+    caller-edited source_pages list cannot certify completeness.
+    """
     from vqs.pipeline import seal_verdict
     from vqs.review.adjudicate import adjudicate_bundle
+    from vqs.review.bundle import verify
 
     try:
         bundle = json.loads(bundle_path.read_text(encoding="utf-8-sig"))
@@ -110,7 +117,17 @@ def _adjudicate_bundle(bundle_path: Path, run_root: Path, run_id: str | None) ->
     if not isinstance(bundle, dict):
         print(json.dumps({"status": "blocked", "reason": "Bundle document is not an object"}))
         return 2
-    decided = adjudicate_bundle(bundle)
+    authority = None
+    if transport is not None:
+        try:
+            checked = verify(str(transport))
+        except (OSError, ValueError, TypeError) as exc:
+            print(json.dumps({"status": "blocked",
+                              "reason": f"Transport invalid: {exc}"}))
+            return 2
+        authority = {"pages": checked["pages"],
+                     "source_sha256": checked["source_sha256"]}
+    decided = adjudicate_bundle(bundle, authority)
     if decided["verdict"] == "pass":
         findings = [{"check": "bundle", "status": "pass", "detail": {}}]
     else:
@@ -383,6 +400,9 @@ def main(argv: list[str] | None = None) -> int:
     plan_cmd.add_argument("--run-id", default=None)
     bundle_cmd = commands.add_parser("adjudicate-bundle", help="Adjudicate a review bundle")
     bundle_cmd.add_argument("bundle", type=Path, help="JSON review-bundle document")
+    bundle_cmd.add_argument("--transport-bundle", type=Path, default=None,
+                            help="Verified transport bundle dir whose authoritative "
+                                 "inventory the form's source_pages must match")
     bundle_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
     bundle_cmd.add_argument("--run-id", default=None)
     inspect_cmd = commands.add_parser("inspect", help="Measure check-ready facts (tool vqs.inspect)")
@@ -454,7 +474,8 @@ def main(argv: list[str] | None = None) -> int:
         return _validate_plan(args.plan, args.original, args.candidate_root,
                               args.approve_change, args.run_root, args.run_id)
     if args.command == "adjudicate-bundle":
-        return _adjudicate_bundle(args.bundle, args.run_root, args.run_id)
+        return _adjudicate_bundle(args.bundle, args.run_root, args.run_id,
+                                  args.transport_bundle)
     if args.command == "inspect":
         return _inspect(args.report, args.model, args.config, args.out)
     if args.command == "review":
@@ -496,7 +517,8 @@ def main(argv: list[str] | None = None) -> int:
         template = review_template("report", info["source_sha256"], pages,
                                      args.fixer_id,
                                      calibration=manifest.get("calibration"),
-                                     data_readiness=manifest.get("data_readiness"))
+                                     data_readiness=manifest.get("data_readiness"),
+                                     source_pages=expected)
         print(json.dumps(template, indent=2, ensure_ascii=False))
         return 0
     except (OSError, ValueError, KeyError, TypeError) as exc:

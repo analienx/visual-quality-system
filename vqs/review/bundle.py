@@ -149,6 +149,9 @@ def verify(bundle: str, report: str | None = None) -> dict:
         except OSError:
             problems.append(f"unreadable member: {name}")
             continue
+        except ValueError:
+            problems.append(f"oversized member: {name}")
+            continue
         if current != expected:
             problems.append(f"tampered member: {name}")
     inv_pages = inventory.get("pages", [])
@@ -178,6 +181,9 @@ def verify(bundle: str, report: str | None = None) -> dict:
             current = digest(path)
         except OSError:
             problems.append(f"unreadable render: {name}")
+            continue
+        except ValueError:
+            problems.append(f"oversized render: {name}")
             continue
         if files.get(name) != current:
             problems.append(f"tampered render: {name}")

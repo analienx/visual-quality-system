@@ -86,7 +86,7 @@ class _Case:
         for sha, raw in self.blobs.items():
             (objects / sha).write_bytes(raw)
         for run_id, spec in self.runs.items():
-            run_dir = create_run(root, run_id, {"pipeline": "vqs.producer/1"})
+            run_dir = create_run(root, run_id, {"pipeline": "vqs.check/1"})
             append_event(run_dir, {"kind": "started"})
             terminal = {"pass": "completed", "fail": "failed"}.get(spec["status"], "blocked")
             append_event(run_dir, {"kind": terminal})

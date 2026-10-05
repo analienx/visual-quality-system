@@ -22,15 +22,12 @@ or accept a manifest without data readiness (downstream blocks it).
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
 import shutil
-import struct
 import subprocess
 import tempfile
-import zlib
 from pathlib import Path
 from typing import Any
 
@@ -125,7 +122,10 @@ def select_instance(report_dir: str, pid: int | None,
 
 
 def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """Bounded file hash; the shared evidence digest caps before reading."""
+    from .evidence import digest
+
+    return digest(path)
 
 
 def _require_bridge() -> list[int]:
@@ -171,55 +171,20 @@ def _safe_page_id(page_id: str) -> str:
 def _png_pixels(path: Path) -> tuple[int, int, bool]:
     """Decode PNG pixels; (width, height, uniform). Raise when unverifiable.
 
-    Supports 8-bit gray/RGB/RGBA, non-interlaced — the screenshot shape.
-    Anything else (or truncated data) raises: unverifiable pixels never
-    pass as proven captures.
+    T08: decoding consolidates on the shared bounded evidence decoder
+    (capped file, IHDR-gated allocation, incremental inflation), so
+    production capture enforces the same bounds as review evidence.
+    Supports 8-bit gray/RGB/RGBA, non-interlaced — the screenshot
+    shape. Anything else (or truncated data) raises: unverifiable
+    pixels never pass as proven captures.
     """
-    data = path.read_bytes()
-    if data[:8] != b"\x89PNG\r\n\x1a\n":
-        raise ValueError("not a PNG file")
-    pos, width, height, depth, color, interlace = 8, 0, 0, 0, 0, 0
-    raw_idat = b""
-    seen_ihdr = end_seen = False
-    while pos + 8 <= len(data):
-        (size,) = struct.unpack(">I", data[pos:pos + 4])
-        kind = data[pos + 4:pos + 8]
-        body = data[pos + 8:pos + 8 + size]
-        check = data[pos + 8 + size:pos + 12 + size]
-        if len(body) != size or len(check) != 4:
-            raise ValueError("truncated PNG chunk")
-        if zlib.crc32(kind + body) & 0xFFFFFFFF != struct.unpack(">I", check)[0]:
-            raise ValueError("corrupt PNG chunk")
-        if kind == b"IHDR":
-            if seen_ihdr or len(body) != 13:
-                raise ValueError("invalid PNG header length")
-            seen_ihdr = True
-            (width, height, depth, color, _comp, _filt,
-             interlace) = struct.unpack(">IIBBBBB", body)
-        elif kind == b"IDAT":
-            if not seen_ihdr:
-                raise ValueError("IDAT before IHDR")
-            raw_idat += body
-        elif kind == b"IEND":
-            end_seen = True
-            break
-        pos += 12 + size
-    if not end_seen:
-        raise ValueError("truncated PNG stream")
-    channels = {0: 1, 2: 3, 6: 4}.get(color)
-    if not width or not height or depth != 8 or channels is None:
-        raise ValueError("unsupported PNG pixel format for blank detection")
-    if interlace != 0:
-        raise ValueError("interlaced PNG is unsupported for blank detection")
-    if height * (width * channels + 1) > 256 * 1024 * 1024:
-        raise ValueError("PNG pixel budget exceeded; refusing to inflate")
-    try:
-        inflated = zlib.decompress(raw_idat)
-    except zlib.error as exc:
-        raise ValueError(f"corrupt PNG data: {exc}") from exc
+    from .evidence import _decode_png
+
+    # Shared bounded decode raises ValueError carrying "Unsupported"
+    # for non-screenshot pixel types, which the caller maps to an
+    # Unsupported (vs Corrupt) capture exactly as before.
+    width, height, channels, inflated = _decode_png(path)
     stride = width * channels
-    if len(inflated) != height * (stride + 1):
-        raise ValueError("PNG data size mismatches dimensions")
     first_pixel: bytes | None = None
     uniform = True
     previous = bytearray(stride)

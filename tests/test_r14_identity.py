@@ -37,7 +37,7 @@ def _case(root: Path, env: dict, scope: dict,
     sha = hashlib.sha256(raw).hexdigest()
     (root / "objects").mkdir(parents=True, exist_ok=True)
     (root / "objects" / sha).write_bytes(raw)
-    run_dir = create_run(root, "prod-1", {"pipeline": "vqs.producer/1"})
+    run_dir = create_run(root, "prod-1", {"pipeline": "vqs.check/1"})
     append_event(run_dir, {"kind": "started"})
     append_event(run_dir, {"kind": "completed"})
     seal_run(run_dir, "completed",

@@ -33,7 +33,26 @@ REVIEWER_ROLE = "independent_visual_reviewer"
 
 
 def digest(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """SHA-256 over a file, enforcing the encoded-size cap first.
+
+    T08: the file size is capped before any bulk read and the hash
+    streams in chunks, so oversized inputs are refused before
+    unbounded allocation. Raises ValueError when over the cap.
+    """
+    try:
+        if path.stat().st_size > _PNG_FILE_CAP:
+            raise ValueError(f"Evidence file exceeds size cap: {path}")
+    except OSError:
+        pass  # the read below surfaces missing files exactly as before
+    digestor = hashlib.sha256()
+    total = 0
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            total += len(chunk)
+            if total > _PNG_FILE_CAP:
+                raise ValueError(f"Evidence file exceeds size cap: {path}")
+            digestor.update(chunk)
+    return digestor.hexdigest()
 
 
 def png_size(path: Path) -> tuple[int, int]:
@@ -552,11 +571,23 @@ def image_evidence(images: Path, source_sha: str, page_ids: list[str],
 
 
 def review_template(kind: str, source_sha: str, pages: list[dict], fixer_id: str,
-                    *, calibration: dict[str, Any], data_readiness: dict[str, Any]) -> dict:
-    """Create an unapproved review form; pending observations never imply approval."""
+                    *, calibration: dict[str, Any],
+                    data_readiness: dict[str, Any],
+                    source_pages: list[str]) -> dict:
+    """Create an unapproved review form; pending observations never imply approval.
+
+    T09: ``source_pages`` is the authoritative whole-source page
+    inventory from the producer (report_context page ids), required
+    so the completed form binds completeness instead of letting a
+    caller-edited list certify it.
+    """
     required_criteria(kind)
     if not source_sha or not fixer_id or not fixer_id.strip():
         raise ValueError("Template needs a source hash and a fixer id")
+    if (not isinstance(source_pages, list) or not source_pages
+            or any(not isinstance(entry, str) or not entry
+                   for entry in source_pages)):
+        raise ValueError("Template needs the authoritative source_pages inventory")
     calibration_issues = check_calibration(calibration)
     if calibration_issues:
         raise ValueError("Template needs valid calibration evidence: "
@@ -567,6 +598,7 @@ def review_template(kind: str, source_sha: str, pages: list[dict], fixer_id: str
                          f"{readiness_issues[0]['rule']}")
     return {"schema": 1, "policy_version": POLICY_VERSION, "surface": kind,
             "source_sha256": source_sha, "fixer_id": fixer_id,
+            "source_pages": list(source_pages),
             "calibration": calibration, "data_readiness": data_readiness,
             "reviewer": {"id": "", "role": "independent_visual_reviewer"},
             "pages": [{"id": page["id"], "image": page["image"], "image_sha256": page["sha256"],

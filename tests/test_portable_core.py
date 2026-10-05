@@ -44,7 +44,7 @@ def test_pending_self_review_or_stale_review_cannot_pass() -> None:
     pages = [{"id": "page-1", "image": "page-1.png", "sha256": "abc",
               "pixels": (500, 500)}]
     review = review_template("report", "source", pages, "executor",
-                             calibration=CALIBRATION, data_readiness=READINESS)
+                             calibration=CALIBRATION, data_readiness=READINESS, source_pages=["page-1"])
     assert review["calibration"] == CALIBRATION
     assert review["data_readiness"] == READINESS
     assert any(row["rule"] == "independent_reviewer_required" for row in
@@ -74,12 +74,12 @@ def test_review_without_calibration_or_readiness_cannot_pass() -> None:
               "pixels": (500, 500)}]
     with pytest.raises(ValueError, match="calibration"):
         review_template("report", "source", pages, "executor",
-                        calibration=None, data_readiness=READINESS)
+                        calibration=None, data_readiness=READINESS, source_pages=["page-1"])
     with pytest.raises(ValueError, match="data_readiness"):
         review_template("report", "source", pages, "executor",
-                        calibration=CALIBRATION, data_readiness=None)
+                        calibration=CALIBRATION, data_readiness=None, source_pages=["page-1"])
     review = review_template("report", "source", pages, "executor",
-                             calibration=CALIBRATION, data_readiness=READINESS)
+                             calibration=CALIBRATION, data_readiness=READINESS, source_pages=["page-1"])
     review["reviewer"]["id"] = "independent"
     for answer in review["pages"][0]["observations"]:
         answer.update(status="pass", reason="Inspected the correct fresh image specifically for this criterion.")
@@ -130,4 +130,4 @@ def test_render_name_rejects_ads_and_whitespace_fixer() -> None:
     pages = [{"id": "p1", "image": "p1.png", "sha256": "s"}]
     with pytest.raises(ValueError, match="fixer id"):
         review_template("report", "source", pages, "   ",
-                        calibration=CALIBRATION, data_readiness=READINESS)
+                        calibration=CALIBRATION, data_readiness=READINESS, source_pages=["page-1"])

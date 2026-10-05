@@ -36,6 +36,21 @@ REQUIRED_NEGATIVES: frozenset[str] = frozenset({
 
 REQUIRED_GATES: frozenset[str] = frozenset({"G0", "G1", "G2", "G3", "G4", "G5", "G6"})
 
+# T05: exact known producer identities. A gate envelope is evidence
+# only when sealed by a run of a genuine VQS pipeline the codebase
+# actually emits (vqs.check/1 backs review/check runs); generic or
+# foreign pipeline labels (vqs.producer/1 and friends) block. A future
+# release publisher adds its exact identity here — never a wildcard.
+KNOWN_ACCEPTANCE_PRODUCERS: frozenset[str] = frozenset({"vqs.check/1"})
+
+# T06: gate-dimension N/A policy. A both-side "not_applicable" pair
+# satisfies a dimension only when (a) the (gate, dim) pair is listed
+# here as genuinely inapplicable, and (b) the gate records a
+# non-blank na_justification for the dim. G5 is docx-only and a
+# document has no report view state, so G5/view_state is the sole
+# authorized pair; every other N/A claim is rejected.
+NA_AUTHORIZED: frozenset[tuple[str, str]] = frozenset({("G5", "view_state")})
+
 GATE_SUBJECT_KINDS: dict[str, frozenset[str]] = {
     "G0": frozenset({"pbip", "docx"}),
     "G1": frozenset({"pbip", "docx"}),
@@ -131,6 +146,31 @@ def _is_hex64(value: object) -> bool:
 def _stated_str(value: object) -> bool:
     """A stated string identity: present, a string, and non-blank."""
     return isinstance(value, str) and bool(value.strip())
+
+
+def _na_violations(gate_id: str, gate_slot: object, envelope_slot: object,
+                   dims: tuple[str, ...],
+                   justification: object) -> list[str]:
+    """Both-side N/A dims that lack policy authorization plus reason.
+
+    T06: runs after equality matching, so only genuine pairs are
+    judged. A pair passes only for a policy-authorized (gate, dim)
+    with a recorded non-blank justification; anything else is an
+    unjustified scope bypass.
+    """
+    if not isinstance(gate_slot, dict) or not isinstance(envelope_slot, dict):
+        return []
+    reasons = justification if isinstance(justification, dict) else {}
+    bad = []
+    for dim in dims:
+        if (gate_slot.get(dim) != IDENTITY_NOT_APPLICABLE
+                or envelope_slot.get(dim) != IDENTITY_NOT_APPLICABLE):
+            continue
+        reason = reasons.get(dim)
+        if ((gate_id, dim) not in NA_AUTHORIZED
+                or not (isinstance(reason, str) and reason.strip())):
+            bad.append(dim)
+    return bad
 
 
 def run_acceptance(record: dict[str, Any],
@@ -253,6 +293,12 @@ def run_acceptance(record: dict[str, Any],
             findings.append({"rule": "evidence_environment_mismatch", "status": "fail",
                              "gate": gate_id})
             continue
+        na_bad = _na_violations(gate_id, gate_env, envelope_env, _ENV_DIMS,
+                                gate.get("na_justification"))
+        if na_bad:
+            findings.append({"rule": "na_unjustified", "status": "fail",
+                             "gate": gate_id, "dims": sorted(na_bad)})
+            continue
         if subject["kind"] == "pbip":
             scope = gate.get("data_scope", {})
             if (not isinstance(scope, dict) or not _stated_str(scope.get("role"))
@@ -273,6 +319,13 @@ def run_acceptance(record: dict[str, Any],
             if _dims_mismatch(scope, envelope_scope, _SCOPE_DIMS):
                 findings.append({"rule": "evidence_data_scope_mismatch", "status": "fail",
                                  "gate": gate_id})
+                continue
+            na_bad = _na_violations(gate_id, scope, envelope_scope,
+                                    _SCOPE_DIMS,
+                                    gate.get("na_justification"))
+            if na_bad:
+                findings.append({"rule": "na_unjustified", "status": "fail",
+                                 "gate": gate_id, "dims": sorted(na_bad)})
                 continue
         producer = envelope.get("producer")
         if (not isinstance(producer, dict)
@@ -303,6 +356,11 @@ def run_acceptance(record: dict[str, Any],
             findings.append({"rule": "producer_seal_invalid", "status": "blocked",
                              "gate": gate_id})
             continue
+        if (not isinstance(manifest, dict)
+                or manifest.get("pipeline") not in KNOWN_ACCEPTANCE_PRODUCERS):
+            findings.append({"rule": "producer_unsupported", "status": "blocked",
+                             "gate": gate_id})
+            continue
         bound = manifest.get("artifacts", {}) if isinstance(manifest, dict) else {}
         if not isinstance(bound, dict) or bound.get("envelope_sha256") != ref["sha256"]:
             findings.append({"rule": "producer_binding_mismatch", "status": "fail",
@@ -331,6 +389,17 @@ def run_acceptance(record: dict[str, Any],
         if result.get("gate") != gate_id:
             findings.append({"rule": "producer_gate_mismatch", "status": "fail",
                              "gate": gate_id})
+            continue
+        result_status = result.get("status")
+        if result_status is None:
+            findings.append({"rule": "gate_result_status_missing",
+                             "status": "blocked", "gate": gate_id})
+            continue
+        if (result_status != status
+                or result_status != producer.get("status")
+                or result_status != bound.get("status")):
+            findings.append({"rule": "gate_result_status_mismatch",
+                             "status": "fail", "gate": gate_id})
             continue
         gate_control = gate.get("negative_control")
         if isinstance(gate_control, str) or gate_control is None:

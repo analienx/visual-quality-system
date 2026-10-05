@@ -2,8 +2,9 @@
 
 Blank strings and wrong types are unknown, never stated values;
 pbip filters must be present dictionaries on both sides (absent on
-both sides no longer compares equal). A documented not-applicable
-pair on both sides stays stated; one-sided N/A still mismatches.
+both sides no longer compares equal). One-sided N/A mismatches;
+both-side N/A on applicable dims is rejected (T06: only
+policy-authorized pairs with a recorded reason pass).
 All tests drive run_acceptance directly with sealed producer runs
 and gate-result artifacts, isolating the identity rules.
 """
@@ -49,7 +50,7 @@ def _case(root: Path, *, gate_env: dict, gate_scope: dict,
     objects = root / "objects"
     objects.mkdir(parents=True, exist_ok=True)
     (objects / sha).write_bytes(raw)
-    run_dir = create_run(root, "solo-1", {"pipeline": "vqs.producer/1"})
+    run_dir = create_run(root, "solo-1", {"pipeline": "vqs.check/1"})
     append_event(run_dir, {"kind": "started"})
     append_event(run_dir, {"kind": "completed"})
     seal_run(run_dir, "completed",
@@ -135,15 +136,15 @@ def test_unjustified_na_still_fails(tmp_path: Path) -> None:
     assert "evidence_environment_mismatch" in _rules(verdict)
 
 
-def test_justified_na_pair_retained(tmp_path: Path) -> None:
-    """S13: a documented both-side N/A pair stays stated."""
+def test_unjustified_na_pair_rejected(tmp_path: Path) -> None:
+    """T06: both-side N/A on applicable G2 dims is rejected, reason or not."""
     na_env = dict(ENV, locale="not_applicable",
                   view_state="not_applicable")
     record, store = _case(tmp_path, gate_env=na_env, gate_scope=SCOPE,
                            env_env=na_env, env_scope=SCOPE)
     verdict = run_acceptance(record, store)
-    assert "evidence_identity_incomplete" not in _rules(verdict)
-    assert "evidence_environment_mismatch" not in _rules(verdict)
+    assert verdict["verdict"] == "fail"
+    assert "na_unjustified" in _rules(verdict)
 
 
 def test_fully_stated_passes_identity(tmp_path: Path) -> None:

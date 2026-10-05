@@ -43,7 +43,7 @@ def _sealed(root: Path, run_id: str) -> str:
     objects = root / "objects"
     objects.mkdir(parents=True, exist_ok=True)
     (objects / sha).write_bytes(raw)
-    run_dir = create_run(root, run_id, {"pipeline": "vqs.producer/1"})
+    run_dir = create_run(root, run_id, {"pipeline": "vqs.check/1"})
     append_event(run_dir, {"kind": "started"})
     append_event(run_dir, {"kind": "completed"})
     seal_run(run_dir, "completed",

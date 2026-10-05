@@ -54,6 +54,7 @@ def _reviewer_bound_exception(contract: object, reviewer_id: object,
             and bool(contract["reviewed_by"])
             and contract["reviewed_by"] == reviewer_id
             and isinstance(reviewer_id, str) and bool(reviewer_id)
+            and isinstance(fixer_id, str) and bool(fixer_id)
             and reviewer_id != fixer_id)
 
 
@@ -65,14 +66,16 @@ def _note_approves_nested(contract: dict, nested: object) -> bool:
     triple and the nested artifact must match it field-for-field. A
     note without an exact approval, or a nested artifact that diverges
     from the approval (including missing keys), is not covered.
+    T07: the approved triple must itself be supported (known surface,
+    current schema major) — an exception waives mismatch, never
+    manufactures support for an invalid contract.
     """
     approved_source = contract.get("approved_source_sha256")
     approved_surface = contract.get("approved_surface")
     approved_revision = contract.get("approved_contract_revision")
     if (not _is_hex64(approved_source)
-            or not isinstance(approved_surface, str) or not approved_surface
-            or not isinstance(approved_revision, str)
-            or not approved_revision):
+            or approved_surface not in SURFACES
+            or _schema_major(approved_revision) != SCHEMA_MAJOR):
         return False
     if not isinstance(nested, dict):
         return False
