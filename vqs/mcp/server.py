@@ -99,14 +99,19 @@ def handle_message(message: Any,
                     "error": {"code": -32602,
                               "message": f"Unsupported protocolVersion {version!r}; "
                                          f"server speaks {PROTOCOL_VERSION}"}}
+        name = client_info.get("name") if isinstance(client_info, dict) else None
+        version_text = (client_info.get("version")
+                        if isinstance(client_info, dict) else None)
         if (not isinstance(fields.get("capabilities"), dict)
                 or not isinstance(client_info, dict)
-                or not client_info.get("name")
-                or not client_info.get("version")):
+                or not isinstance(name, str) or not name.strip()
+                or not isinstance(version_text, str)
+                or not version_text.strip()):
             return {"jsonrpc": "2.0", "id": request_id,
                     "error": {"code": -32602,
                               "message": "initialize requires capabilities "
-                                         "and clientInfo {name, version}"}}
+                                         "and clientInfo {name, version} "
+                                         "as nonempty strings"}}
         if session is not None:
             session["initialized"] = True
             session["protocolVersion"] = version

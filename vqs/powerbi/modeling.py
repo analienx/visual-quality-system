@@ -127,14 +127,14 @@ class StdioModelingClient:
                                 "clientInfo": {
                                     "name": "vqs",
                                     "version": client_version}}})
+        deadline = time.monotonic() + self._timeout
         try:
-            process.stdin.write(hello + "\n")
-            process.stdin.flush()
+            self._write_line(process, hello, deadline)
         except (OSError, ValueError) as exc:
             self._kill()
             raise ModelingError(
                 f"modeling handshake write failed: {exc}") from exc
-        response = self._read_response(process, rid)
+        response = self._read_response(process, rid, deadline)
         if "error" in response:
             self._kill()
             raise ModelingError(
@@ -172,7 +172,12 @@ class StdioModelingClient:
                 f"modeling initialized notify failed: {exc}") from exc
 
     def _call(self, tool: str, request: dict[str, Any]) -> Any:
-        """One tools/call round-trip; parsed result payload or ModelingError."""
+        """One tools/call round-trip; parsed result payload or ModelingError.
+
+        T14: one deadline bounds the whole round-trip including the
+        write, so a server that stops reading cannot wedge the
+        client past the pipe buffer.
+        """
         with self._lock:
             process = self._ensure_process()
             assert process.stdin is not None and process.stdout is not None
@@ -181,19 +186,55 @@ class StdioModelingClient:
                                   "method": "tools/call",
                                   "params": {"name": tool,
                                              "arguments": {"request": request}}})
+            deadline = time.monotonic() + self._timeout
             try:
-                process.stdin.write(message + "\n")
-                process.stdin.flush()
+                self._write_line(process, message, deadline)
             except (OSError, ValueError) as exc:
                 raise ModelingError(f"modeling server write failed: {exc}") from exc
-            response = self._read_response(process, rid)
+            response = self._read_response(process, rid, deadline)
             if "error" in response:
                 detail = response["error"]
                 raise ModelingError(f"modeling {tool} error: {detail}")
             return self._payload(response.get("result"), tool)
 
+    def _write_line(self, process: subprocess.Popen[str], text: str,
+                    deadline: float) -> None:
+        """Write one line under the round-trip deadline (T14).
+
+        The write runs on a worker thread: when the server stops
+        reading and the pipe fills, the deadline still fires instead
+        of blocking forever. Timeout kills the transport and reaps
+        the worker.
+        """
+        assert process.stdin is not None
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            self._kill()
+            raise ModelingError("modeling server write timed out")
+        box: dict[str, Any] = {}
+        worker = threading.Thread(target=self._write_target,
+                                  args=(process.stdin, text + "\n", box),
+                                  daemon=True)
+        worker.start()
+        worker.join(remaining)
+        if worker.is_alive():
+            self._kill()
+            worker.join(5)
+            raise ModelingError("modeling server write timed out")
+        if "error" in box:
+            raise ModelingError(
+                f"modeling server write failed: {box['error']}") from None
+
+    @staticmethod
+    def _write_target(stream: Any, text: str, box: dict[str, Any]) -> None:
+        try:
+            stream.write(text)
+            stream.flush()
+        except (OSError, ValueError) as exc:
+            box["error"] = exc
+
     def _read_response(self, process: subprocess.Popen[str],
-                       rid: str) -> dict[str, Any]:
+                       rid: str, deadline: float) -> dict[str, Any]:
         """Read until the response bearing rid; skip interleaved frames.
 
         S18: legal logging/progress notifications (and any other
@@ -201,8 +242,10 @@ class StdioModelingClient:
         are consumed, never mistaken for the answer. One overall
         deadline bounds the whole wait, so an endless notification
         stream still times out instead of hanging.
+        T13: a matching id alone proves nothing — the frame must be
+        a well-formed JSON-RPC 2.0 response (version tag, no method,
+        exactly one of result/error) or the transport fails closed.
         """
-        deadline = time.monotonic() + self._timeout
         while True:
             line = self._read_line(process, deadline)
             if not line.strip():
@@ -214,8 +257,21 @@ class StdioModelingClient:
                 raise ModelingError(
                     "modeling server is not JSON: "
                     f"{line[:200]}")
-            if isinstance(message, dict) and message.get("id") == rid:
-                return message
+            if not isinstance(message, dict):
+                self._kill()
+                raise ModelingError(
+                    "modeling server sent a malformed frame")
+            if message.get("id") != rid:
+                # Foreign or id-less frame (notification, stale
+                # response, unexpected request): consumed explicitly,
+                # never trusted as this call's answer.
+                continue
+            if (message.get("jsonrpc") != "2.0" or "method" in message
+                    or ("result" in message) == ("error" in message)):
+                self._kill()
+                raise ModelingError(
+                    "modeling server sent a malformed response frame")
+            return message
 
     def _read_line(self, process: subprocess.Popen[str],
                    deadline: float) -> str:

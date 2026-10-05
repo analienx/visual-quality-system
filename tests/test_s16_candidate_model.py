@@ -3,8 +3,10 @@
 A byPath model pins at apply; sealed verify rechecks the original
 pin and the candidate side. Planting a different model beside the
 candidate after sealing fails verification even though both trees
-are untouched; a still-absent candidate model stays legal; a
-relocated-missing original model blocks the repair itself.
+are untouched; a relocated-missing original model blocks the
+repair itself. T10: a missing candidate-side model also blocks
+repair before mutation, and fails sealed verify afterwards —
+unresolved identity is not equivalence.
 """
 import json
 import shutil
@@ -70,12 +72,25 @@ def _plan() -> dict:
 
 
 def _repair_cli(plan_path: Path, original: Path, root: Path,
-                run_id: str) -> tuple:
+                run_id: str, cand: Path | None = None) -> tuple:
+    target = cand if cand is not None else root / "cand"
     code = main(["repair", str(plan_path), "--original", str(original),
-                 "--candidate-root", str(root / "cand"),
+                 "--candidate-root", str(target),
                  "--run-root", str(root / "runs"),
                  "--run-id", run_id])
     return code
+
+
+def _mirror_model(proj: Path, root: Path) -> Path:
+    """Copy the project model beside an other-parent candidate root.
+
+    The separate but initially identical model satisfies relocation
+    by digest, so post-seal deletion/drift/unreadability exercises
+    the candidate side alone.
+    """
+    mirror = root / "Model.SemanticModel"
+    shutil.copytree(proj / "Model.SemanticModel", mirror)
+    return mirror
 
 
 def _sealed(root: Path, run_id: str, capsys) -> tuple:
@@ -89,31 +104,79 @@ def test_model_backed_repair_verifies(tmp_path: Path, capsys) -> None:
     original, _model = _project(tmp_path, "table T\n")
     plan_path = tmp_path / "plan.json"
     plan_path.write_text(json.dumps(_plan()), encoding="utf-8")
-    assert _repair_cli(plan_path, original, tmp_path, "s16m-ok") == 0
+    cand = original.parent / "cand"
+    assert _repair_cli(plan_path, original, tmp_path, "s16m-ok",
+                       cand=cand) == 0
     capsys.readouterr()
     code, out = _sealed(tmp_path, "s16m-ok", capsys)
     assert code == 0, out
     assert json.loads(out)["verdict"] == "pass"
 
 
+def test_missing_candidate_model_blocks_repair(
+        tmp_path: Path, capsys) -> None:
+    """T10: an other-parent candidate without a model blocks pre-write."""
+    original, _model = _project(tmp_path, "table T\n")
+    before = tree_digest(original)
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(_plan()), encoding="utf-8")
+    code = _repair_cli(plan_path, original, tmp_path, "s16m-reloc")
+    out = capsys.readouterr().out
+    assert code == 2, out
+    assert "relocated candidate model missing" in out
+    assert not (tmp_path / "cand").exists()
+    assert tree_digest(original) == before
+
+
 def test_planted_candidate_model_fails_verify(
         tmp_path: Path, capsys) -> None:
     """S16: a drifted candidate-side model fails a sealed verify."""
     original, _model = _project(tmp_path, "table T\n")
+    proj = original.parent
+    _mirror_model(proj, tmp_path)
     plan_path = tmp_path / "plan.json"
     plan_path.write_text(json.dumps(_plan()), encoding="utf-8")
     assert _repair_cli(plan_path, original, tmp_path, "s16m-drift") == 0
     capsys.readouterr()
-    planted = tmp_path / "Model.SemanticModel" / "tables"
-    planted.mkdir(parents=True)
-    (planted / "T.tmdl").write_text("table Evil\n", encoding="utf-8")
-    try:
-        code, out = _sealed(tmp_path, "s16m-drift", capsys)
-    finally:
-        shutil.rmtree(tmp_path / "Model.SemanticModel",
-                      ignore_errors=True)
+    drifted = tmp_path / "Model.SemanticModel" / "tables" / "T.tmdl"
+    drifted.write_text("table Evil\n", encoding="utf-8")
+    code, out = _sealed(tmp_path, "s16m-drift", capsys)
     assert code == 1, out
     assert "sealed_candidate_model_mismatch" in out
+
+
+def test_deleted_candidate_model_fails_verify(
+        tmp_path: Path, capsys) -> None:
+    """T10: deleting the separate candidate model fails sealed verify."""
+    original, _model = _project(tmp_path, "table T\n")
+    proj = original.parent
+    _mirror_model(proj, tmp_path)
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(_plan()), encoding="utf-8")
+    assert _repair_cli(plan_path, original, tmp_path, "s16m-del") == 0
+    capsys.readouterr()
+    shutil.rmtree(tmp_path / "Model.SemanticModel", ignore_errors=True)
+    code, out = _sealed(tmp_path, "s16m-del", capsys)
+    assert code == 1, out
+    assert "sealed_candidate_model_missing" in out
+
+
+def test_unreadable_candidate_model_fails_verify(
+        tmp_path: Path, capsys) -> None:
+    """T10: a candidate model with no readable TMDL fails sealed verify."""
+    original, _model = _project(tmp_path, "table T\n")
+    proj = original.parent
+    _mirror_model(proj, tmp_path)
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(_plan()), encoding="utf-8")
+    assert _repair_cli(plan_path, original, tmp_path, "s16m-unread") == 0
+    capsys.readouterr()
+    tmdl = tmp_path / "Model.SemanticModel" / "tables" / "T.tmdl"
+    tmdl.unlink()
+    tmdl.mkdir()
+    code, out = _sealed(tmp_path, "s16m-unread", capsys)
+    assert code == 1, out
+    assert "sealed_candidate_model_missing" in out
 
 
 def test_relocated_missing_model_blocks_repair(

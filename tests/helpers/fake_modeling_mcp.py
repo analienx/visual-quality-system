@@ -9,6 +9,8 @@ SCRIPT_JSON: {"responses": {"<tool>/<operation>": <payload or
 "sleep": <seconds>, "strict_handshake": <bool>,
 "notify_before": {"<tool>/<operation>": [<raw JSON lines>]},
 "notify_forever": ["<tool>/<operation>", ...],
+"stop_reading": <bool, sleep after initialized without reading>,
+__raw__ lines support {RID} for the current request id,
 "capabilities": {...}, "protocolVersion": "<override, default
 2024-11-05>}. Notifications/initialized is tracked (strict mode
 requires it before tools/call) and logged as
@@ -47,6 +49,9 @@ def main() -> int:
             continue
         if message.get("method") == "notifications/initialized":
             initialized = True
+            if script.get("stop_reading"):
+                time.sleep(300)
+                return 0
             if log_path is not None:
                 with open(log_path, "a", encoding="utf-8") as log:
                     log.write(json.dumps(
@@ -126,7 +131,9 @@ def main() -> int:
                 sys.stdout.flush()
                 continue
             if isinstance(scripted, dict) and "__raw__" in scripted:
-                sys.stdout.write(str(scripted["__raw__"]) + "\n")
+                raw = str(scripted["__raw__"]).replace(
+                    "{RID}", json.dumps(rid))
+                sys.stdout.write(raw + "\n")
                 sys.stdout.flush()
                 continue
             if isinstance(scripted, dict) and "__text__" in scripted:

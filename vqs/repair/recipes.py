@@ -159,6 +159,20 @@ def _same_json_type(old: Any, new: Any) -> bool:
         isinstance(old, (int, float)) and isinstance(new, (int, float)))
 
 
+def _bound_terminal(path: list) -> str | None:
+    """Terminal property after "properties", or None when not a leaf tail.
+
+    T12: precision validation keys on this bound property, never on
+    the op alias that addressed it.
+    """
+    if "properties" not in path:
+        return None
+    tail = path[path.index("properties") + 1:]
+    if len(tail) == 4 and tail[1:] == ["expr", "Literal", "Value"]:
+        return tail[0] if isinstance(tail[0], str) else None
+    return None
+
+
 def bind_leaf(op: dict, visual_doc: dict) -> dict:
     """Bind a scalar property replacement; old and new share a JSON type."""
     op_type = str(op.get("type", ""))
@@ -188,8 +202,9 @@ def bind_leaf(op: dict, visual_doc: dict) -> dict:
     elif not isinstance(new, bool):
         raise RecipeError(f"{op_type}: value type {type(new).__name__} "
                           f"would replace {type(old).__name__}")
-    if op_type == "axis.precision":
+    if _bound_terminal(path) in ("precision", "labelPrecision"):
         _check_precision(op_type, old, "old")
+        _check_precision(op_type, new, "new")
     validate_leaf_path(op_type, path)
     return {"page": page, "visual": visual, "path": list(path),
             "old": old, "new": new}

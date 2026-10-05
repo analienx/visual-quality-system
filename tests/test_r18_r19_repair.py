@@ -97,7 +97,9 @@ def _set_value(report: Path, value: str) -> None:
 
 def _sealed(proj: Path, report: Path, root: Path,
             run_id: str) -> dict:
-    cand = root / f"cand-{run_id}"
+    # T10: same-parent candidate so the byPath model resolves on both
+    # sides; relocated-missing candidates now block (see s16 tests).
+    cand = proj / f"cand-{run_id}"
     envelope = repair_candidate(str(proj / "plan.json"), str(report),
                                 str(cand), run_root=str(root / "runs"),
                                 run_id=run_id)
@@ -236,27 +238,29 @@ def test_changed_answers_fail_sealed(tmp_path: Path) -> None:
     assert verdict["verdict"] == "fail"
 
 
-def test_concurrent_save_does_not_rebaseline(
+def test_concurrent_save_blocks_and_preserves_bytes(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """RED R19: a save during copy must not become the baseline."""
+    """T11: a save to an already-copied file refuses; new bytes survive."""
     proj, report = _project(tmp_path, "table T\n")
-    pre = tree_digest(report)
-    real = execute_module.tree_digest
-    state = {"done": False}
+    real_guard = execute_module._assert_original_pinned
+    state = {"ran": False}
 
-    def hooked(root: object) -> str:
-        if str(root) == str(report) and not state["done"]:
-            state["done"] = True
-            with (report / VISUAL_REL).open(
-                    "ab") as handle:
+    def hooked_guard(original: str, before_digest: str, stage: str) -> None:
+        if not state["ran"]:
+            state["ran"] = True
+            with (report / VISUAL_REL).open("ab") as handle:
                 handle.write(b" ")
-        return real(root)  # type: ignore[arg-type]
+        return real_guard(original, before_digest, stage)
 
-    monkeypatch.setattr(execute_module, "tree_digest", hooked)
+    monkeypatch.setattr(execute_module, "_assert_original_pinned",
+                        hooked_guard)
     result = apply_plan(_plan(proj), str(report),
                         str(tmp_path / "proj" / "cand"))
-    assert result["verdict"] == "applied"
-    assert result["before"] == pre
+    assert state["ran"] is True
+    assert result["verdict"] == "blocked"
+    assert "original changed during copy" in result["reason"]
+    assert not (tmp_path / "proj" / "cand").exists()
+    assert (report / VISUAL_REL).read_bytes().endswith(b" ")
 
 
 def test_mtime_only_save_passes(tmp_path: Path) -> None:

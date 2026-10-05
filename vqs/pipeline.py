@@ -977,8 +977,12 @@ def _execute_repair(plan: dict[str, Any], original: str,
     append_event(sealed_run_dir, {"kind": "started",
                                   "plan_sha256": plan_sha})
     try:
+        # T10: no missing-model bypass on the public path — a repair
+        # either materializes a complete identity-preserving candidate
+        # or blocks before mutation; unresolved identity is not
+        # equivalence.
         result = apply_plan(plan, original, candidate_root,
-                            allow_missing_relocated_model=True)
+                            allow_missing_relocated_model=False)
     except Exception as exc:  # noqa: BLE001 - engine crash seals blocked
         append_event(sealed_run_dir, {"kind": "blocked", "verdict": "blocked"})
         seal_run(sealed_run_dir, "blocked",
@@ -1079,8 +1083,10 @@ def _sealed_model_problems(model_pin: Any, original: str,
     plus the candidate-side model for byPath pins. A candidate
     model that appears or drifts after sealing (planted sibling
     models, post-apply edits) fails even when both trees are
-    otherwise untouched; a still-absent candidate model stays
-    legal under the relocation missing-model allowance.
+    otherwise untouched. T10: a missing candidate model (absent,
+    deleted, or unreadable) fails too — unresolved identity is not
+    equivalence; only genuinely model-less ("absent") and remote
+    pins skip the candidate-side file check.
     """
     from .pbir import resolved_model_digest
     from .repair.execute import RepairError, bypath_claim
@@ -1110,8 +1116,14 @@ def _sealed_model_problems(model_pin: Any, original: str,
         if candidate:
             candidate_digest, _rule, _detail = resolved_model_digest(
                 candidate)
-            if (candidate_digest is not None
-                    and candidate_digest != model_pin.get("digest")):
+            if candidate_digest is None:
+                problems.append(
+                    {"rule": "sealed_candidate_model_missing",
+                     "detail": "candidate-side model is absent, deleted, "
+                               "or unreadable after sealing",
+                     "sealed": model_pin.get("digest"),
+                     "current": None})
+            elif candidate_digest != model_pin.get("digest"):
                 problems.append(
                     {"rule": "sealed_candidate_model_mismatch",
                      "detail": "candidate-side model appeared or drifted "

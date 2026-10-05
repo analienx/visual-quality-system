@@ -81,6 +81,20 @@ def within_root(root_real: str, entry: str) -> bool:
     return target == root_real or target.startswith(root_real + os.sep)
 
 
+def _leaf_terminal(path: object) -> str | None:
+    """Terminal property after "properties" for leaf tails (T12 mirror).
+
+    Mirrors recipes._bound_terminal without importing it, so
+    validate-plan rejects malformed new precision before execution.
+    """
+    if not isinstance(path, list) or "properties" not in path:
+        return None
+    tail = path[path.index("properties") + 1:]
+    if len(tail) == 4 and tail[1:] == ["expr", "Literal", "Value"]:
+        return tail[0] if isinstance(tail[0], str) else None
+    return None
+
+
 def _touches_model(target: str) -> bool:
     """Case/whitespace-qualified match, including qualified refs like Dataset.T[col]."""
     norm = target.strip().casefold()
@@ -130,6 +144,16 @@ def validate_plan(plan: dict[str, Any], original_path: str, candidate_root: str,
         if op_type == "chart.replace" and not (
                 op.get("identical_intent") is True or approved_semantic_change):
             issues.append({"rule": "intent_change_unapproved", "index": index})
+        terminal = _leaf_terminal(op.get("path"))
+        if terminal in ("precision", "labelPrecision"):
+            # T12: the bound property governs, never the op alias —
+            # malformed new precision fails here, not just at apply.
+            value = op.get("value")
+            if not (isinstance(value, str) and value.isdigit()
+                    and 0 <= int(value) <= 15):
+                issues.append({"rule": "precision_value_invalid",
+                               "index": index, "terminal": terminal,
+                               "remediation": "Precision is a 0-15 string"})
         writes = op.get("writes")
         if writes is not None:
             for entry in normalize_targets(writes):

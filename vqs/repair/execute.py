@@ -150,6 +150,44 @@ def _snapshot_original(original: str) -> list[tuple[str, bytes]]:
         raise RepairError(f"original unreadable: {exc}") from exc
 
 
+def _assert_original_pinned(original: str, before_digest: str,
+                            stage: str) -> None:
+    """Re-snapshot the original; any drift since the pin refuses (T11).
+
+    Monkeypatch seam: tests wrap this to stage after-copy saves and
+    assert the hook ran; the guard logic itself always executes, and
+    the original is never written back.
+    """
+    current = _digest_map(_snapshot_original(original))
+    if current != before_digest:
+        raise RepairError(f"original changed {stage}; retry with a fresh "
+                          "candidate root")
+
+
+def _assert_model_pinned(original: str, model_pin: dict,
+                         stage: str) -> None:
+    """Re-resolve the original model identity; drift refuses (T11)."""
+    from vqs.pbir import resolved_model_digest
+
+    kind = model_pin.get("kind")
+    if kind in (None, "absent"):
+        target, connection = bypath_claim(Path(original))
+        if target is not None or connection is not None:
+            raise RepairError(f"original gained a model claim {stage}")
+        return
+    if kind == "remote":
+        _target, connection = bypath_claim(Path(original))
+        if connection != model_pin.get("connection"):
+            raise RepairError(f"original remote model claim changed {stage}")
+        return
+    if kind == "byPath":
+        digest, _rule, _detail = resolved_model_digest(original)
+        if digest != model_pin.get("digest"):
+            raise RepairError(f"original model changed {stage}")
+        return
+    raise RepairError(f"unknown model pin kind {stage}: {kind!r}")
+
+
 def bypath_claim(report: Path) -> tuple[str | None, Any]:
     """Original model claim: (byPath target, byConnection doc).
 
@@ -315,6 +353,13 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
     while the candidate root still does not exist. R19: the original
     baseline is pinned from a pre-copy snapshot (never re-read after
     the copy), and the copy must match the pin before any op lands.
+    T11: the original/model pins are re-verified after the copy and
+    after application — a save landing in between refuses instead of
+    sealing against a changed original. Remaining race boundary: a
+    save landing strictly between the final verification and the
+    seal, or an A->B->A flap restoring byte-identical content, is
+    undetectable here; callers must quiesce the original, and sealed
+    verify re-checks the sealed digests against the current trees.
     """
     plan_issues = validate_plan(plan, original, candidate_root,
                                 approved_semantic_change)
@@ -353,6 +398,13 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
         return {"verdict": "blocked", "stage": "materialize",
                 "reason": "original changed during copy; retry with a "
                           "fresh candidate root"}
+    try:
+        _assert_original_pinned(original, before_digest, "during copy")
+        _assert_model_pinned(original, model_pin, "during copy")
+    except RepairError as exc:
+        shutil.rmtree(candidate_root, ignore_errors=True)
+        return {"verdict": "blocked", "stage": "materialize",
+                "reason": str(exc)}
     candidate = Path(candidate_root)
     operations = plan.get("operations", [])
     snapshot: dict[str, bytes] = {}
@@ -399,6 +451,14 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
                 pages.append(page)
     from vqs.pbir import source_digest
 
+    try:
+        _assert_original_pinned(original, before_digest,
+                                "during application")
+        _assert_model_pinned(original, model_pin, "during application")
+    except RepairError as exc:
+        shutil.rmtree(candidate_root, ignore_errors=True)
+        return {"verdict": "blocked", "stage": "apply",
+                "reason": str(exc)}
     try:
         after_digest = tree_digest(candidate)
         source_sha = source_digest(candidate)
