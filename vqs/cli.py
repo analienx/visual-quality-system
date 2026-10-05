@@ -104,6 +104,8 @@ def _adjudicate_bundle(bundle_path: Path, run_root: Path, run_id: str | None,
     T09: with --transport-bundle, the transport dir is verified first
     and its authoritative header inventory binds the form: a
     caller-edited source_pages list cannot certify completeness.
+    Without it, static conformance trusts the form's self-declared
+    source_pages (no independent inventory binding).
     """
     from vqs.pipeline import seal_verdict
     from vqs.review.adjudicate import adjudicate_bundle
@@ -402,7 +404,8 @@ def main(argv: list[str] | None = None) -> int:
     bundle_cmd.add_argument("bundle", type=Path, help="JSON review-bundle document")
     bundle_cmd.add_argument("--transport-bundle", type=Path, default=None,
                             help="Verified transport bundle dir whose authoritative "
-                                 "inventory the form's source_pages must match")
+                                 "inventory the form's source_pages must match "
+                                 "(without it, the self-declared list is trusted)")
     bundle_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
     bundle_cmd.add_argument("--run-id", default=None)
     inspect_cmd = commands.add_parser("inspect", help="Measure check-ready facts (tool vqs.inspect)")

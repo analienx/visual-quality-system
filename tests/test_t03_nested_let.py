@@ -132,3 +132,53 @@ def test_deep_nesting_blocked() -> None:
         m_edges({"Q": code})
     with pytest.raises(ModelingError, match="nested let"):
         within_let_cycles(code)
+
+
+def test_trailing_outer_ref_after_nested_let_detected() -> None:
+    """T03: trailing global B past the nested scope end stays an edge."""
+    queries = {"A": "(let B = (let C = 1 in C) in B) + B", "B": "A"}
+    assert find_cycles(m_edges(queries)) == [["A", "B", "A"]]
+
+
+def test_trailing_outer_ref_model_blocked(tmp_path: Path) -> None:
+    """T03: trailing-outer shape blocks at the gate (nested bindings)."""
+    model = _model(tmp_path,
+                   "expression A = (let B = (let C = 1 in C) in B) + B\n"
+                   "expression B = A\n")
+    with pytest.raises(ModelingError, match="nested let"):
+        check_model(str(model))
+
+
+@needs_vqs
+def test_installed_cycles_trailing_outer_exit_2(tmp_path: Path) -> None:
+    """T03 installed: trailing-outer shape blocks exit 2, no wrong graph."""
+    model = _model(tmp_path,
+                   "expression A = (let B = (let C = 1 in C) in B) + B\n"
+                   "expression B = A\n")
+    completed = subprocess.run([VQS_BIN, "cycles", str(model)],
+                               capture_output=True, text=True, timeout=120,
+                               check=False)
+    assert completed.returncode == 2, completed.stderr
+    assert json.loads(completed.stdout)["status"] == "blocked"
+
+
+def test_fragment_outer_ref_detected() -> None:
+    """T03: a global ref inside the fragment resolves outward, not masked."""
+    queries = {"A": "(let C = B + (let D = 1 in D) in C)", "B": "A"}
+    assert find_cycles(m_edges(queries)) == [["A", "B", "A"]]
+
+
+def test_middle_closed_later_segment_outer_ref_detected() -> None:
+    """T03: past a delimited scope end, later refs are outer edges."""
+    queries = {"A": "(let B = (let C = 1 in C) in B) + "
+                    "(let D = B in D)",
+               "B": "A"}
+    assert find_cycles(m_edges(queries)) == [["A", "B", "A"]]
+
+
+def test_unclosed_middle_later_ref_blocked() -> None:
+    """T03: middle-scope name past an undelimited end blocks, not guesses."""
+    code = ("X + (let B = (let C = 1 in C) in B + "
+            "let D = B in D)")
+    with pytest.raises(ModelingError, match="cannot be delimited"):
+        m_edges({"A": code, "X": "1", "B": "1"})

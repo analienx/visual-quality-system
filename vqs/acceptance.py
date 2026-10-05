@@ -45,11 +45,20 @@ KNOWN_ACCEPTANCE_PRODUCERS: frozenset[str] = frozenset({"vqs.check/1"})
 
 # T06: gate-dimension N/A policy. A both-side "not_applicable" pair
 # satisfies a dimension only when (a) the (gate, dim) pair is listed
-# here as genuinely inapplicable, and (b) the gate records a
-# non-blank na_justification for the dim. G5 is docx-only and a
-# document has no report view state, so G5/view_state is the sole
-# authorized pair; every other N/A claim is rejected.
-NA_AUTHORIZED: frozenset[tuple[str, str]] = frozenset({("G5", "view_state")})
+# here, (b) the gate's subject kind is one for which the dim is
+# genuinely inapplicable, and (c) the gate records a non-blank
+# na_justification for the dim. A document has no report view
+# state, so view_state N/A is authorized on the docx-capable gates
+# (G0/G1/G5/G6) for docx subjects only; a pbip subject claiming
+# view_state N/A is rejected (its view state must be stated).
+# Every other N/A claim is rejected.
+NA_AUTHORIZED: frozenset[tuple[str, str]] = frozenset({
+    ("G0", "view_state"), ("G1", "view_state"),
+    ("G5", "view_state"), ("G6", "view_state"),
+})
+NA_SUBJECT_KINDS: dict[str, frozenset[str]] = {
+    "view_state": frozenset({"docx"}),
+}
 
 GATE_SUBJECT_KINDS: dict[str, frozenset[str]] = {
     "G0": frozenset({"pbip", "docx"}),
@@ -149,12 +158,13 @@ def _stated_str(value: object) -> bool:
 
 
 def _na_violations(gate_id: str, gate_slot: object, envelope_slot: object,
-                   dims: tuple[str, ...],
-                   justification: object) -> list[str]:
+                   dims: tuple[str, ...], justification: object,
+                   subject_kind: object) -> list[str]:
     """Both-side N/A dims that lack policy authorization plus reason.
 
     T06: runs after equality matching, so only genuine pairs are
     judged. A pair passes only for a policy-authorized (gate, dim)
+    on a subject kind where the dim is genuinely inapplicable,
     with a recorded non-blank justification; anything else is an
     unjustified scope bypass.
     """
@@ -168,6 +178,7 @@ def _na_violations(gate_id: str, gate_slot: object, envelope_slot: object,
             continue
         reason = reasons.get(dim)
         if ((gate_id, dim) not in NA_AUTHORIZED
+                or subject_kind not in NA_SUBJECT_KINDS.get(dim, frozenset())
                 or not (isinstance(reason, str) and reason.strip())):
             bad.append(dim)
     return bad
@@ -294,7 +305,8 @@ def run_acceptance(record: dict[str, Any],
                              "gate": gate_id})
             continue
         na_bad = _na_violations(gate_id, gate_env, envelope_env, _ENV_DIMS,
-                                gate.get("na_justification"))
+                                gate.get("na_justification"),
+                                subject["kind"])
         if na_bad:
             findings.append({"rule": "na_unjustified", "status": "fail",
                              "gate": gate_id, "dims": sorted(na_bad)})
@@ -322,7 +334,8 @@ def run_acceptance(record: dict[str, Any],
                 continue
             na_bad = _na_violations(gate_id, scope, envelope_scope,
                                     _SCOPE_DIMS,
-                                    gate.get("na_justification"))
+                                    gate.get("na_justification"),
+                                    subject["kind"])
             if na_bad:
                 findings.append({"rule": "na_unjustified", "status": "fail",
                                  "gate": gate_id, "dims": sorted(na_bad)})

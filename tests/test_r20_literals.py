@@ -45,3 +45,21 @@ def test_legal_precision_binds() -> None:
     """Control: '2' for '1' binds with the recorded old/new."""
     bound = bind_leaf(_op("2"), _doc("1"))
     assert (bound["old"], bound["new"]) == ("1", "2")
+
+
+def test_raw_number_old_precision_rejected() -> None:
+    """T12/S17: a raw JSON number old literal blocks at bind."""
+    with pytest.raises(RecipeError, match="old precision"):
+        bind_leaf(_op(1), _doc(1))
+
+
+def test_padded_precision_rejected() -> None:
+    """T12: '007' is not canonical and must not bind."""
+    with pytest.raises(RecipeError, match="precision"):
+        bind_leaf(_op("007"), _doc("1"))
+
+
+def test_unicode_digit_precision_rejected() -> None:
+    """T12: non-ASCII digits are not precision literals."""
+    with pytest.raises(RecipeError, match="precision"):
+        bind_leaf(_op("²"), _doc("1"))

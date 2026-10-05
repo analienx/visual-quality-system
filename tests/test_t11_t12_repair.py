@@ -145,7 +145,8 @@ ALIASES = [("axis.tick_format", "labelPrecision", "2"),
 
 
 @pytest.mark.parametrize("op_type,terminal,old", ALIASES)
-@pytest.mark.parametrize("bad", ["banana", "99999", "", 2, 2.5, True])
+@pytest.mark.parametrize("bad", ["banana", "99999", "", 2, 2.5, True,
+                               "007", "²"])
 def test_malformed_precision_rejected_validate_plan(
         tmp_path: Path, capsys, op_type, terminal, old, bad) -> None:
     """T12: validate-plan rejects malformed new precision per property."""
@@ -163,7 +164,7 @@ def test_malformed_precision_rejected_validate_plan(
 
 
 @pytest.mark.parametrize("op_type,terminal,old", ALIASES)
-@pytest.mark.parametrize("bad", ["banana", "99999", 2])
+@pytest.mark.parametrize("bad", ["banana", "99999", 2, "007", "²"])
 def test_malformed_precision_rejected_repair(
         tmp_path: Path, capsys, op_type, terminal, old, bad) -> None:
     """T12: repair fails malformed precision at validate; nothing written."""

@@ -23,6 +23,17 @@ _BAD_CONTROLS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 _PRECISION_STR_RE = re.compile(r"(1[0-5]|[0-9])")
 
 
+def is_precision_str(value: Any) -> bool:
+    """Canonical 0-15 precision literal check shared by both gates.
+
+    T12: validate-plan and bind agree exactly — a string '0'-'15'
+    with no padding, sign, or non-ASCII digits; raw JSON numbers
+    and bools are never legal literals.
+    """
+    return (isinstance(value, str)
+            and _PRECISION_STR_RE.fullmatch(value) is not None)
+
+
 def _check_precision(op_type: str, value: Any, side: str) -> None:
     """Validate one axis.precision operand (old or new).
 
@@ -31,11 +42,7 @@ def _check_precision(op_type: str, value: Any, side: str) -> None:
     padding/sign; raw JSON numbers are never legal literals and
     must block, never be written.
     """
-    if isinstance(value, bool):
-        raise RecipeError(f"{op_type}: {side} precision must be "
-                          "string '0'-'15'")
-    if (isinstance(value, str)
-            and _PRECISION_STR_RE.fullmatch(value) is not None):
+    if is_precision_str(value):
         return
     raise RecipeError(f"{op_type}: {side} precision must be "
                       f"string '0'-'15', not {value!r}")

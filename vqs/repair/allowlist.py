@@ -18,6 +18,8 @@ import posixpath
 import re
 from typing import Any
 
+from .recipes import is_precision_str
+
 ALLOWED_OPS: frozenset[str] = frozenset({
     "theme.set", "palette.assign", "typography.size", "axis.tick_format",
     "axis.title", "axis.precision", "label.format", "chart.resize",
@@ -148,9 +150,9 @@ def validate_plan(plan: dict[str, Any], original_path: str, candidate_root: str,
         if terminal in ("precision", "labelPrecision"):
             # T12: the bound property governs, never the op alias —
             # malformed new precision fails here, not just at apply.
-            value = op.get("value")
-            if not (isinstance(value, str) and value.isdigit()
-                    and 0 <= int(value) <= 15):
+            # The predicate is shared with bind so both gates agree
+            # exactly (padded/unicode-digit strings fail cleanly).
+            if not is_precision_str(op.get("value")):
                 issues.append({"rule": "precision_value_invalid",
                                "index": index, "terminal": terminal,
                                "remediation": "Precision is a 0-15 string"})

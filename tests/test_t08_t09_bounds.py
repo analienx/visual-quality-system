@@ -173,7 +173,8 @@ def test_verify_renders_blocks_oversized(tmp_path: Path,
     assert result["missing_pages"] == ["P1", "P2"]
 
 
-def test_capture_rejects_lying_inflation(tmp_path: Path, monkeypatch) -> None:
+def test_capture_rejects_lying_inflation(tmp_path: Path, monkeypatch,
+                                         capsys) -> None:
     """T08: production capture (stubbed Bridge) refuses lying inflation."""
     import vqs.capture as capture_mod
 
@@ -210,6 +211,10 @@ def test_capture_rejects_lying_inflation(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(capture_mod, "_bridge", fake_bridge)
     code = vqs_main(["capture", str(report), str(tmp_path / "renders")])
     assert code == 2
+    refused = json.loads(capsys.readouterr().out)
+    assert refused["status"] == "blocked"
+    assert "Corrupt capture for p1" in refused["reason"]
+    assert "IDAT pixels exceed expected" in refused["reason"]
 
 
 def test_valid_rgb_rgba_accepted(tmp_path: Path) -> None:

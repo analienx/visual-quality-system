@@ -10,6 +10,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from vqs.acceptance import run_acceptance
 from vqs.evidence import SealedEvidenceStore
 from vqs.run_store import append_event, create_run, seal_run
@@ -175,6 +177,29 @@ def test_g5_locale_na_rejected(tmp_path: Path) -> None:
         tmp_path, gate_id="G5", subject_id="d1", source=SOURCE_D,
         kind="docx", gate_env=na_env, env_env=na_env,
         justification={"locale": "language-neutral document"})
+    verdict = run_acceptance(record, store)
+    assert verdict["verdict"] == "fail"
+    assert "na_unjustified" in _rules(verdict)
+
+
+@pytest.mark.parametrize("gate_id", ["G0", "G1", "G6"])
+def test_docx_view_state_na_accepted(tmp_path: Path, gate_id: str) -> None:
+    """T06: docx-subject view_state N/A with reason passes on docx gates."""
+    na_env = dict(ENV, view_state="not_applicable")
+    record, store = _case(
+        tmp_path, gate_id=gate_id, subject_id="d1", source=SOURCE_D,
+        kind="docx", gate_env=na_env, env_env=na_env,
+        justification={"view_state": "documents have no view state"})
+    assert "na_unjustified" not in _rules(run_acceptance(record, store))
+
+
+@pytest.mark.parametrize("gate_id", ["G0", "G1", "G6"])
+def test_pbip_view_state_na_rejected(tmp_path: Path, gate_id: str) -> None:
+    """T06: pbip-subject view_state N/A fails even with a reason."""
+    na_env = dict(ENV, view_state="not_applicable")
+    record, store = _case(
+        tmp_path, gate_id=gate_id, gate_env=na_env, env_env=na_env,
+        justification={"view_state": "no view state in this run"})
     verdict = run_acceptance(record, store)
     assert verdict["verdict"] == "fail"
     assert "na_unjustified" in _rules(verdict)
