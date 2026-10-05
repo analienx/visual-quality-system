@@ -19,7 +19,7 @@ needs_mcp = pytest.mark.skipif(MCP_BIN is None,
                                reason="installed vqs-mcp not on PATH")
 
 FIXTURES = Path(__file__).resolve().parent / "powerbi" / "fixtures"
-PROJECTS = [("mini_report", "mini_model"), ("insight_report", "mini_model")]
+FAIR = "https://developer.microsoft.com/json-schemas/fabric/item/"
 CYCLE_CASES = [("clean_model", 0), ("cycle_model", 1)]
 
 
@@ -29,27 +29,70 @@ def _stage(tmp_path: Path, name: str) -> Path:
     return target
 
 
-@needs_cli
-@pytest.mark.parametrize("report,model", PROJECTS)
-def test_installed_inspect_measure_outside_checkout(
-        tmp_path: Path, report: str, model: str) -> None:
-    """D09: installed inspect/measure run on out-of-checkout projects."""
-    staged_report = shutil.copytree(FIXTURES / report,
-                                    _stage(tmp_path, report))
-    staged_model = shutil.copytree(FIXTURES / model,
-                                   _stage(tmp_path, model))
+def _run_cli(report: str, model: str) -> None:
     completed = subprocess.run(
-        [VQS_BIN, "inspect", str(staged_report), "--model",
-         str(staged_model)], capture_output=True, text=True, timeout=120,
-        check=False)
-    assert completed.returncode == 0, completed.stderr
-    assert json.loads(completed.stdout)["source_sha256"]
+        [VQS_BIN, "inspect", report, "--model", model],
+        capture_output=True, text=True, timeout=120, check=False)
+    assert completed.returncode == 0, completed.stderr + completed.stdout
+    envelope = json.loads(completed.stdout)
+    assert envelope["verdict"] == "pass"
+    assert envelope["facts"]["rules"]
     completed = subprocess.run(
-        [VQS_BIN, "measure", str(staged_report), "--model",
-         str(staged_model)], capture_output=True, text=True, timeout=120,
-        check=False)
-    assert completed.returncode == 0, completed.stderr
+        [VQS_BIN, "measure", report, "--model", model],
+        capture_output=True, text=True, timeout=120, check=False)
+    assert completed.returncode == 0, completed.stderr + completed.stdout
     assert json.loads(completed.stdout)["rules"]
+
+
+def _synthetic_report(root: Path) -> Path:
+    """A small valid project built outside the checkout (project B)."""
+    report = root / "Synth.Report"
+    visual_dir = report / "definition" / "pages" / "P1" / "visuals" / "v1"
+    visual_dir.mkdir(parents=True, exist_ok=True)
+    (report / "definition" / "pages.json").write_text(
+        json.dumps({"pageOrder": ["P1"]}), encoding="utf-8")
+    (report / "definition" / "version.json").write_text(json.dumps(
+        {"$schema": FAIR + "report/definition/versionMetadata/1.0.0/schema.json",
+         "version": "2.0.0"}), encoding="utf-8")
+    (report / "definition" / "report.json").write_text(json.dumps(
+        {"$schema": FAIR + "report/definition/report/3.3.0/schema.json",
+         "themeCollection": {}}), encoding="utf-8")
+    (report / "definition" / "pages" / "P1" / "page.json").write_text(
+        json.dumps({"displayName": "P1", "width": 1280, "height": 720}),
+        encoding="utf-8")
+    (visual_dir / "visual.json").write_text(json.dumps({
+        "name": "v1",
+        "position": {"x": 0, "y": 0, "width": 400, "height": 200, "z": 1},
+        "visual": {
+            "visualType": "card",
+            "query": {"queryState": {"Values": {"projections": [{
+                "queryRef": "T.Revenue",
+                "field": {"Measure": {
+                    "Expression": {"SourceRef": {"Entity": "T"}},
+                    "Property": "Revenue"}}}}}]}}}}),
+        encoding="utf-8")
+    return report
+
+
+@needs_cli
+def test_installed_inspect_measure_canonical_outside_checkout(
+        tmp_path: Path) -> None:
+    """D09: installed inspect/measure run on a canonical project copy."""
+    staged_report = shutil.copytree(FIXTURES / "mini_report",
+                                    _stage(tmp_path, "mini_report"))
+    staged_model = shutil.copytree(FIXTURES / "mini_model",
+                                   _stage(tmp_path, "mini_model"))
+    _run_cli(str(staged_report), str(staged_model))
+
+
+@needs_cli
+def test_installed_inspect_measure_synthetic_outside_checkout(
+        tmp_path: Path) -> None:
+    """D09: installed inspect/measure run on a second project shape."""
+    staged_report = _synthetic_report(tmp_path)
+    staged_model = shutil.copytree(FIXTURES / "mini_model",
+                                   _stage(tmp_path, "mini_model"))
+    _run_cli(str(staged_report), str(staged_model))
 
 
 @needs_cli
