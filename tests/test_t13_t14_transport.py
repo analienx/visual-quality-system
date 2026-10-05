@@ -75,10 +75,10 @@ def test_valid_notifications_kept_under_deadline(tmp_path: Path) -> None:
     client = _client(
         tmp_path, scripted, notify_before={
             "connection_operations/ListLocalInstances": [
-                '{"jsonrpc": "2.0", "method": "notifications/message", '
-                '"params": {"level": "info"}}',
-                '{"jsonrpc": "2.0", "method": "notifications/progress", '
-                '"params": {"progressToken": 1}}']})
+                ('{"jsonrpc": "2.0", "method": "notifications/message", '
+                 '"params": {"level": "info"}}'),
+                ('{"jsonrpc": "2.0", "method": "notifications/progress", '
+                 '"params": {"progressToken": 1}}')]})
     try:
         bound = client.connect()
     finally:

@@ -17,7 +17,7 @@ import pytest
 
 from vqs.pipeline import repair_candidate, verify_candidate
 from vqs.repair import execute as execute_module
-from vqs.repair.execute import RepairError, apply_plan, tree_digest
+from vqs.repair.execute import RepairError, apply_plan
 from vqs.repair.regress import verify_candidate as compare
 
 SCHEMA_REPORT = ("https://developer.microsoft.com/json-schemas/fabric/item/"

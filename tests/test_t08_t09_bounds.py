@@ -34,7 +34,7 @@ FAIR = "https://developer.microsoft.com/json-schemas/fabric/item/"
 def _write_png(path: Path, width: int = 500, height: int = 500,
                color: int = 2, rows: int | None = None) -> None:
     ihdr = struct.pack(">IIBBBBB", width, height, 8, color, 0, 0, 0)
-    channels = {0: 1, 2: 3, 6: 4}[color]
+
     pixel = {0: b"\x80", 2: b"\x20\x60\xc0", 6: b"\x20\x60\xc0\xff"}[color]
     count = height if rows is None else rows
     raw = b"".join(b"\x00" + pixel * width for _ in range(count))
