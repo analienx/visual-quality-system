@@ -53,7 +53,8 @@ per-fix oracles `tests/test_r6_e01_bindings.py` through
 7. **Truthful public surface (E08).** Docs state
    capability/implementation/independent-acceptance
    distinctions; the developer journey in `docs/JOURNEY.md` is
-   executed verbatim by the two-project oracle to the static
+   executed step-by-step (modulo paths) by the two-project
+   oracle to the static
    boundary. Live/Desktop, filtered/period answers, DOCX
    all-page render, WP11 release, and promotion stay explicitly
    blocked.

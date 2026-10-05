@@ -1,8 +1,9 @@
 """R6-E08: documented installed journey on two unrelated projects.
 
 Oracle A08: the exact commands in docs/JOURNEY.md (modulo paths) run
-through the installed CLI surface on two independently built
-synthetic projects. Project A walks inspect -> measure/check ->
+through CLI argv (in-process) plus an installed-binary leg, on two
+independently built synthetic projects. Project A walks
+inspect -> measure/check ->
 typed repair -> verified bundle review to the static ceiling
 (static_conformance pass, image_review_required blocked). Project B
 exercises negative paths: a missing queryRef blocks the check, a
@@ -195,6 +196,8 @@ def test_sales_journey_to_static_ceiling(tmp_path: Path,
     """Project A: documented commands reach the static ceiling."""
     report, model = _build_sales(tmp_path)
     runs = tmp_path / "runs"
+    assert vqs_main(["doctor"]) == 0
+    capsys.readouterr()
     assert vqs_main(["inspect", str(report), "--model", str(model),
                      "--out", str(tmp_path / "inspect.json")]) == 0
     inspected = json.loads((tmp_path / "inspect.json").read_text(

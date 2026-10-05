@@ -226,3 +226,30 @@ def test_technical_and_promotion_are_separate_outputs(
     assert verdict["promotion"]["status"] == "blocked"
     assert verdict["promotion"]["findings"] != verdict["findings"]
     assert set(verdict) == {"verdict", "promotion", "findings"}
+
+
+def test_missing_editor_run_id_blocks(tmp_path: Path) -> None:
+    """A review without a record-side editor run binds nothing."""
+    suite = _suite()
+    record = {"subjects": _subjects(), "suite": suite, "gates": [],
+              "review": {"reviewer_run_id": "reviewer-9",
+                         "editor_run_id": "editor-1",
+                         "suite_digest": suite["suite_digest"],
+                         "review_envelope_sha256": "1" * 64}}
+    verdict = run_acceptance(record, SealedEvidenceStore(tmp_path))
+    assert verdict["verdict"] == "blocked"
+    assert "editor_run_unbound" in _rules(verdict)
+
+
+def test_unsealed_editor_run_id_blocks(tmp_path: Path) -> None:
+    """A review naming an unsealed editor run binds nothing."""
+    suite = _suite()
+    record = {"subjects": _subjects(), "suite": suite, "gates": [],
+              "editor_run_id": "ghost-9",
+              "review": {"reviewer_run_id": "reviewer-9",
+                         "editor_run_id": "ghost-9",
+                         "suite_digest": suite["suite_digest"],
+                         "review_envelope_sha256": "1" * 64}}
+    verdict = run_acceptance(record, SealedEvidenceStore(tmp_path))
+    assert verdict["verdict"] == "blocked"
+    assert "editor_run_unbound" in _rules(verdict)

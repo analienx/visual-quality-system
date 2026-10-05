@@ -430,8 +430,10 @@ def main(argv: list[str] | None = None) -> int:
                                  "staleness-checked against it)")
     bundle_cmd.add_argument("--report", type=Path, default=None,
                             help="Live *.Report folder as the completeness "
-                                 "authority when no transport bundle is given "
-                                 "(without either, coverage is unbound)")
+                                 "authority (without either authority, "
+                                 "coverage is unbound; with both, the "
+                                 "transport is also staleness-checked "
+                                 "against it)")
     bundle_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
     bundle_cmd.add_argument("--run-id", default=None)
     inspect_cmd = commands.add_parser("inspect", help="Measure check-ready facts (tool vqs.inspect)")

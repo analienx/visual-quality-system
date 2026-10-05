@@ -420,8 +420,18 @@ def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dic
             state = node.get("query", {}).get("queryState", {})
             for role, content in state.items() if isinstance(state, dict) else []:
                 projections = (content or {}).get("projections", [])
+                if projections is None:
+                    projections = []
                 for index, projection in enumerate(projections):
                     if not isinstance(projection, dict):
+                        # R6-E01 (internal review): unknown shapes keep
+                        # a scoped diagnostic instead of vanishing.
+                        bindings.append({
+                            "query_ref": "", "page": page_id,
+                            "visual": visual_id, "role": role,
+                            "projection": index,
+                            "query_ref_missing": True,
+                            "actual_unknown": True})
                         continue
                     # T04: the binding carries the structured actual
                     # field (SourceRef entity + property); queryRef is

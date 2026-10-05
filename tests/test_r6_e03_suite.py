@@ -239,3 +239,25 @@ def test_g6_na_unauthorized_without_subject(tmp_path: Path) -> None:
     verdict = run_acceptance(record, SealedEvidenceStore(tmp_path))
     assert verdict["verdict"] == "fail"
     assert "na_unjustified" in _rules(verdict)
+
+
+def test_suite_extra_member_fails(tmp_path: Path) -> None:
+    """A suite with a fourth member does not bind the record."""
+    members = [{"id": "p1", "kind": "pbip", "source_sha256": SOURCE_A},
+               {"id": "p2", "kind": "pbip", "source_sha256": SOURCE_B},
+               {"id": "d1", "kind": "docx", "source_sha256": SOURCE_D},
+               {"id": "p3", "kind": "pbip", "source_sha256": SOURCE_OLD}]
+    record = {"subjects": _subjects(), "suite": _suite(members),
+              "gates": []}
+    verdict = run_acceptance(record, SealedEvidenceStore(tmp_path))
+    assert verdict["verdict"] == "fail"
+    assert "suite_digest_mismatch" in _rules(verdict)
+
+
+def test_canonical_bytes_golden_vector() -> None:
+    """The canonical form is pinned byte-for-byte, not by rehash."""
+    assert canonical_json_sha256({"b": [1, 2], "a": 1}
+                                 ) == hashlib.sha256(
+        b'{"a":1,"b":[1,2]}').hexdigest()
+    assert canonical_json_sha256({"n": "å"}) == hashlib.sha256(
+        b'{"n":"\xc3\xa5"}').hexdigest()

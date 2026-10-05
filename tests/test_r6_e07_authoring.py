@@ -11,6 +11,9 @@ executor cannot touch model bytes (no silent TMDL fallback under a
 live authoritative session).
 """
 import json
+import os
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +22,10 @@ import pytest
 from vqs.pipeline import repair_candidate
 from vqs.powerbi.author import adapter, mscli
 from vqs.repair.allowlist import validate_plan
+
+VQS_BIN = shutil.which("vqs")
+needs_vqs = pytest.mark.skipif(VQS_BIN is None,
+                               reason="installed vqs entry point not on PATH")
 
 SCHEMA_REPORT = ("https://developer.microsoft.com/json-schemas/fabric/item/"
                  "report/definition/report/3.3.0/schema.json")
@@ -268,3 +275,34 @@ def test_model_target_plan_fails_closed_without_touch(tmp_path: Path) -> None:
         run_root=str(tmp_path / "runs"), run_id="model1")
     assert envelope["verdict"] == "fail"
     assert not (proj / "candidate-x").exists()
+
+
+@needs_vqs
+def test_installed_repair_direct_records_backend(tmp_path: Path) -> None:
+    """Installed: vqs repair --authoring-backend direct passes aloud."""
+    proj, report = _project(tmp_path)
+    proc = subprocess.run(
+        [VQS_BIN, "repair", str(proj / "plan.json"),
+         "--original", str(report),
+         "--candidate-root", str(proj / "candidate-inst"),
+         "--run-root", str(tmp_path / "runs"), "--run-id", "inst1",
+         "--authoring-backend", "direct"],
+        capture_output=True, text=True, timeout=180, check=False)
+    assert proc.returncode == 0, proc.stderr + proc.stdout
+    assert '"backend": "direct"' in proc.stdout
+
+
+@pytest.mark.skipif(os.name != "posix",
+                    reason="exec-bit stub needs posix")
+def test_mscli_validate_argv_pinned(tmp_path: Path) -> None:
+    """The real port execs [tool, validate, path] verbatim."""
+    witness = tmp_path / "argv.txt"
+    stub = tmp_path / "powerbi-report-author"
+    stub.write_text(f'#!/bin/sh\necho "$@" > "{witness}"\nexit 0\n',
+                    encoding="utf-8")
+    stub.chmod(0o755)
+    decided = mscli.validate(str(tmp_path), tool=str(stub))
+    assert decided["status"] == "valid"
+    assert decided["command"] == [str(stub), "validate", str(tmp_path)]
+    assert witness.read_text(encoding="utf-8").split() == [
+        "validate", str(tmp_path)]

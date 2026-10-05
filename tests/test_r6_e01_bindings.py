@@ -191,7 +191,7 @@ def test_missing_query_ref_blocks_instead_of_erasing(tmp_path: Path) -> None:
     assert _run_model(facts["models"][0])["verdict"] == "blocked"
 
 
-def test_fields_units_categories_preserved(tmp_path: Path) -> None:
+def test_fields_units_preserved(tmp_path: Path) -> None:
     """Scoped identity adds location; fields/units stay intact."""
     report = _write_report(tmp_path / "r", {"P1": {
         "v1": {"Values": [_measure_projection("Value", "T", "Good")]},
@@ -248,3 +248,22 @@ def test_installed_measure_check_unsupported_blocks(tmp_path: Path) -> None:
         capture_output=True, text=True, timeout=180, check=False)
     assert checked.returncode == 2, checked.stderr + checked.stdout
     assert "binding_expression_unsupported" in checked.stdout
+
+
+def test_non_dict_projection_keeps_scoped_diagnostic(
+        tmp_path: Path) -> None:
+    """A malformed (non-dict) projection blocks with its position."""
+    report = _write_report(tmp_path / "r", {"P1": {
+        "v1": {"Values": [_measure_projection("Value", "T", "Good")]},
+        "v2": {"Values": ["not-a-projection"]}}})
+    model = _model(tmp_path / "m")
+    facts = measure_report(str(report), str(model))
+    bindings = facts["models"][0]["bindings"]
+    assert len(bindings) == 2
+    stray = [b for b in bindings if b.get("query_ref_missing")]
+    assert len(stray) == 1
+    assert (stray[0]["page"], stray[0]["visual"],
+            stray[0]["role"], stray[0]["projection"]) == (
+                "P1", "v2", "Values", 0)
+    assert stray[0]["actual_unknown"] is True
+    assert _run_model(facts["models"][0])["verdict"] == "blocked"

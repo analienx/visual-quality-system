@@ -2,7 +2,7 @@
 
 Scope: the installed `vqs` commands that work today on a synthetic
 or real report, to their actual supported static boundary. Every
-command below is executed verbatim (modulo paths) by
+`vqs` command below is executed verbatim (modulo paths) by
 `tests/test_r6_e08_journey.py` on two unrelated synthetic projects;
 if this page and that oracle disagree, the oracle wins and this page
 is a bug. Exit codes: 0 pass, 1 fail, 2 blocked.
@@ -48,7 +48,7 @@ envelope emission needs the Python API with `source_sha256`.
 ## 3. Typed candidate repair
 
 ```console
-vqs validate-plan plan.json --original sales.Report --candidate-root candidate-sales.Report
+vqs validate-plan plan.json --original sales.Report --candidate-root candidate-sales.Report --run-root runs --run-id vp1
 vqs repair plan.json --original sales.Report --candidate-root candidate-sales.Report --run-root runs --run-id repair1 --authoring-backend direct
 ```
 
@@ -76,7 +76,10 @@ Complete the requested template into `form.json` (every verdict
 carries its reason). `pack` binds renders, calibration, fixer, and
 source identity; `verify` re-hashes and cross-checks. Adjudication
 needs a verified transport or a live `--report` inventory —
-otherwise coverage is unbound (blocked). Static ceiling: a
+otherwise coverage is unbound (blocked). A live report
+inventory binds completeness only, not fixer/reviewer identity:
+without a verified transport, reviewer separation is checked
+against the form-declared fixer. Static ceiling: a
 conformant form yields engine-level `static_conformance: pass`;
 the sealed CLI verdict is `blocked` with rule
 `image_review_required`. Static adjudication never passes; release

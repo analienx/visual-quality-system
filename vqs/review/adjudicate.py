@@ -167,7 +167,10 @@ def adjudicate_bundle(bundle: dict[str, Any],
     dicts fail as ``transport_unverified``. Each form render digest,
     resolution, calibration, and fixer is corroborated against the
     verified material, and reviewer separation is checked against
-    the authority fixer. Direct API callers must obtain the
+    the authority fixer. A live report inventory binds completeness
+    only, not fixer/reviewer identity: without a verified
+    transport, separation is checked against the form-declared
+    fixer. Direct API callers must obtain the
     authority from :func:`vqs.review.bundle.verify` (or a live
     report read for inventory-only binding); the verified path is
     in-process verify -> CLI -> adjudicate.
