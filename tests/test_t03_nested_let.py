@@ -182,3 +182,69 @@ def test_unclosed_middle_later_ref_blocked() -> None:
             "let D = B in D)")
     with pytest.raises(ModelingError, match="cannot be delimited"):
         m_edges({"A": code, "X": "1", "B": "1"})
+
+
+def test_sibling_deeper_lets_trailing_outer_detected() -> None:
+    """T03/B1: middle `in` in a later rest still delimits the tail."""
+    queries = {"A": "(let x = (let y = 1 in y) + (let z = 1 in z), "
+                    "B = 1 in B) + B",
+               "B": "A"}
+    assert find_cycles(m_edges(queries)) == [["A", "B", "A"]]
+
+
+def test_sibling_deeper_lets_model_blocked(tmp_path: Path) -> None:
+    """T03/B1 through check_model: the gate blocks nested bindings."""
+    model = _model(tmp_path,
+                   "expression A = (let x = (let y = 1 in y) + "
+                   "(let z = 1 in z), B = 1 in B) + B\n"
+                   "expression B = A\n")
+    with pytest.raises(ModelingError, match="nested let"):
+        check_model(str(model))
+
+
+def test_enclosing_binding_in_deeper_scope_masked() -> None:
+    """T03/B2: enclosing middle binding inside a deeper let is inner."""
+    queries = {"A": "(let B = 1, x = (let D = B in D) in x)", "B": "A"}
+    assert m_edges(queries) == {"A": set(), "B": {"A"}}
+    assert find_cycles(m_edges(queries)) == []
+
+
+def test_enclosing_binding_model_blocked(tmp_path: Path) -> None:
+    """T03/B2 through check_model: explicitly blocked, never a cycle."""
+    model = _model(tmp_path,
+                   "expression A = (let B = 1, x = (let D = B in D) "
+                   "in x)\n"
+                   "expression B = A\n")
+    with pytest.raises(ModelingError, match="nested let"):
+        check_model(str(model))
+
+
+def test_same_scope_sibling_in_fragment_masked() -> None:
+    """T03/B3: later same-scope sibling in the fragment is inner."""
+    queries = {"A": "(let x = B + (let y = 1 in y), B = 1 in B)",
+               "B": "A"}
+    assert m_edges(queries) == {"A": set(), "B": {"A"}}
+    assert find_cycles(m_edges(queries)) == []
+
+
+def test_same_scope_sibling_model_blocked(tmp_path: Path) -> None:
+    """T03/B3 through check_model: explicitly blocked, never a cycle."""
+    model = _model(tmp_path,
+                   "expression A = (let x = B + (let y = 1 in y), "
+                   "B = 1 in B)\n"
+                   "expression B = A\n")
+    with pytest.raises(ModelingError, match="nested let"):
+        check_model(str(model))
+
+
+def test_swallowed_middle_in_resolves() -> None:
+    """T03: middle `in` inside an undelimited body still masks inner."""
+    code = "Q + (let B = let C = 1 in C + 0 in B)"
+    assert m_edges({"A": code, "Q": "1"}) == {"A": {"Q"}, "Q": set()}
+
+
+def test_truncated_middle_scope_blocked() -> None:
+    """T03: middle scope with no `in` anywhere blocks, never guesses."""
+    code = "X + (let B = (let C = 1 in C) + B)"
+    with pytest.raises(ModelingError, match="cannot be delimited"):
+        m_edges({"A": code, "X": "1", "B": "1"})

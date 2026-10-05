@@ -424,11 +424,12 @@ def _raise_on_middle_refs(query: str, declared: str, body: str, rest: str,
     """Block when a middle-scope name sits in an undelimitable region.
 
     T03: with the middle nested scope possibly still open, a
-    reference to one of its bindings in a later segment is inner
-    if the middle body reaches this far and outer if it ended.
-    Either attribution may be wrong, so any occurrence raises
-    ModelingError instead of resolving. Names bound in this
-    segment's own rest (``extra``) are certain and excluded.
+    reference to one of its bindings past the middle ``in`` is
+    inner if the middle body reaches this far and outer if it
+    ended. Either attribution may be wrong, so any occurrence
+    raises ModelingError instead of resolving. Names bound in
+    this segment's own rest (``extra``) are certain and excluded,
+    as are deeper-scope and ancestor names.
     """
     masked_rest = _mask_binding_lhs(rest, extra)
     for candidate in sorted(ambiguous):
@@ -441,30 +442,47 @@ def _raise_on_middle_refs(query: str, declared: str, body: str, rest: str,
                 f"or outer")
 
 
-def _following_rest_regions(query: str, rest: str, extra: set[str],
-                            scope_names: set[str], ancestors: set[str],
-                            quoted: list[str],
-                            regions: list[tuple[str, set[str]]]) -> bool:
-    """Attribute the following segment's rest across the scope end.
+def _raise_scope_chain(query: str) -> None:
+    """Block an ``in``-chain past the middle scope end (T03).
 
-    T03: the rest mixes the middle nested scope's ``in``-body with
-    outer text. Text before the middle ``in`` is binding remainder
-    (outer); the ``in``-body runs to the first depth-zero
-    delimiter (proven inner, masked); anything after is outer.
-    A rest without ``in`` is binding remainder plus closers: its
-    own bindings still mask, everything else resolves outward.
+    An ``in`` after the middle scope's own ``in`` opens an
+    ancestor scope whose end is undelimitable here, so resolving
+    would guess. Raise instead; the gate blocks these shapes too.
+    """
+    raise ModelingError(
+        f"nested let scope chain beyond supported analysis in query "
+        f"{query!r}: `in` past the middle scope end is unsupported "
+        f"by static scope analysis")
+
+
+def _mid_rest_regions(query: str, rest: str, extra: set[str],
+                      scope_names: set[str], ancestors: set[str],
+                      quoted: list[str],
+                      regions: list[tuple[str, set[str]]]) -> bool:
+    """Attribute the middle-``in`` rest across the scope end.
+
+    T03: this rest holds the middle nested scope's ``in``. Text
+    before it is binding remainder (inner, masked with the middle
+    set); the ``in``-body runs to the first depth-zero delimiter
+    (proven inner, masked); anything after is outer and masks
+    ancestors only, unmasked (a tail ``NAME =`` is an equality
+    reference, never a binding). A further ``in`` in the tail
+    opens an ancestor scope: undelimitable, so it raises.
     Returns True when a scope end delimited (the middle scope
     provably closed).
     """
-    outer = ancestors | extra
     found = _IN.search(rest)
-    if found is None:
-        regions.append((_mask_binding_lhs(rest, extra), outer))
-        return rest != ""
-    regions.append((_mask_binding_lhs(rest[:found.start()], extra), outer))
+    if found is None:  # unreachable: caller only routes `in` rests
+        regions.append((_mask_binding_lhs(rest, extra),
+                        scope_names | ancestors))
+        return False
+    inner = scope_names | ancestors
+    regions.append((_mask_binding_lhs(rest[:found.start()], extra), inner))
     inner_part, tail = _split_let_body(rest[found.end():], query)
-    regions.append((inner_part, scope_names | ancestors | extra))
-    regions.append((_mask_binding_lhs(tail, extra), outer))
+    regions.append((inner_part, inner))
+    if _IN.search(tail) is not None:
+        _raise_scope_chain(query)
+    regions.append((tail, ancestors))
     return tail != ""
 
 
@@ -483,11 +501,13 @@ def m_edges(queries: dict[str, str]) -> dict[str, set[str]]:
     (``, B = 1 in B``) still complete the root scope instead of
     reading as global references. One level of nesting inside a
     binding expression (two levels total) resolves only with
-    delimiter proof: the following rest re-splits at the middle
-    ``in`` and its scope end, so trailing outer references stay
-    global edges while the proven inner body stays masked.
-    Deeper nesting, truncated shapes, and middle-scope names in
-    regions past an undelimited scope end raise ModelingError
+    delimiter proof: M lets are order-independent, so the middle
+    scope's bindings (fragment plus every later rest's pre-``in``
+    pairs) mask everywhere inside the middle span, while the rest
+    holding the middle ``in`` re-splits into proven-inner body
+    and outer tail. Deeper nesting, truncated shapes,
+    middle-scope names past an undelimited scope end, and
+    ``in``-chains past the middle scope end raise ModelingError
     instead of mis-resolving.
     """
     edges: dict[str, set[str]] = {name: set() for name in queries}
@@ -539,52 +559,89 @@ def m_edges(queries: dict[str, str]) -> dict[str, set[str]]:
         if leading:
             for _bound, _body, _rest, extra in infos:
                 ancestors |= extra
-        # Non-leading single nested scope: its split bindings mask
-        # only where delimiter proof places them (the proven inner
-        # body); every other reference resolves outward, and
-        # middle-scope names past an undelimited scope end block.
+        # Non-leading single nested scope: M lets are
+        # order-independent, so the middle scope's bindings mask
+        # everywhere inside the middle span (fragment, deeper
+        # regions, pre-`in` remainders, proven inner body). The
+        # middle set unions the fragment with every later rest's
+        # pre-`in` pairs; only text past the delimited middle scope
+        # end resolves outward, and anything undelimitable raises.
         scope_names: set[str] = set()
         first_frag = frag_at[0] if frag_at else None
-        following = None
         if not leading and first_frag is not None:
             scope_names |= infos[first_frag][0]
-            following = next(
-                (index for index in range(first_frag + 1, len(infos))
-                 if _IN.search(nested[index]) is not None), None)
-            if following is not None:
-                scope_names |= infos[following][3]
+            for pos in range(first_frag + 1, len(infos)):
+                if _IN.search(nested[pos]) is not None:
+                    scope_names |= infos[pos][3]
+        # Locate the middle `in`: first `in` past the fragment,
+        # bodies before rests per segment; a later `in` opens an
+        # ancestor scope. Absent entirely, the shape is truncated.
+        mid_at: tuple[int, bool] | None = None
+        if not leading and first_frag is not None:
+            for pos in range(first_frag + 1, len(infos)):
+                if _IN.search(nested[pos]) is None:
+                    continue
+                _seg_bound, _seg_body, _seg_rest, _seg_extra = infos[pos]
+                if _IN.search(_seg_body) is not None:
+                    mid_at = (pos, True)
+                    break
+                if _IN.search(_seg_rest) is not None:
+                    mid_at = (pos, False)
+                    break
         middle_closed = False
         for index, segment in enumerate(nested):
             bound, body, rest, extra = infos[index]
             has_in = _IN.search(segment)
             if has_in is None:
                 # let-fragment from a nested let inside a binding
-                # expression: definitions still mask, every other
-                # reference resolves outward (fail closed). Names
-                # bound later (following-segment rest bindings) are
-                # not masked: an earlier binding expression cannot
-                # see later ancestor bindings, so masking them
-                # would erase genuine outer edges.
-                full = bound | ancestors
+                # expression: definitions mask, and same-middle-scope
+                # references are inner in both directions (M lets
+                # are order-independent, matching within_let_cycles).
+                # Only names bound nowhere in range resolve outward.
+                full = bound | scope_names | ancestors
                 regions.append((_mask_binding_lhs(segment, full), full))
                 continue
             declared = _mask_binding_lhs(segment[:has_in.start()], bound)
-            inner = bound | ancestors
-            regions.append((declared, inner))
-            regions.append((body, inner))
             shadowed = (not leading and first_frag is not None
                         and index > first_frag)
-            if shadowed and index != following and not middle_closed:
+            inner = bound | ancestors
+            if shadowed and (mid_at is None or index <= mid_at[0]):
+                inner |= scope_names
+            regions.append((declared, inner))
+            regions.append((body, inner))
+            if shadowed and (mid_at is None or (
+                    mid_at is not None and index > mid_at[0]
+                    and not middle_closed)):
                 _raise_on_middle_refs(
                     name, declared, body, rest, extra,
                     scope_names - extra - bound - ancestors, quoted)
-            if shadowed and index == following:
-                middle_closed = _following_rest_regions(
-                    name, rest, extra, scope_names, ancestors, quoted,
-                    regions)
+            if shadowed and mid_at is not None and index == mid_at[0]:
+                if mid_at[1]:
+                    # Middle `in` swallowed in the body: the body is
+                    # deeper-body plus middle-body-start (masked
+                    # above); a non-empty rest is post-body outer.
+                    if rest == "":
+                        middle_closed = False
+                    elif _IN.search(rest) is not None:
+                        _raise_scope_chain(query=name)
+                    else:
+                        regions.append((rest, ancestors))
+                        middle_closed = True
+                else:
+                    middle_closed = _mid_rest_regions(
+                        name, rest, extra, scope_names, ancestors,
+                        quoted, regions)
+            elif (shadowed and mid_at is not None
+                    and index > mid_at[0] and middle_closed):
+                if _IN.search(rest) is not None:
+                    _raise_scope_chain(query=name)
+                regions.append((_mask_binding_lhs(rest, extra),
+                                ancestors | extra))
             else:
-                outer = ancestors | extra
-                regions.append((_mask_binding_lhs(rest, extra), outer))
+                mask = ancestors | extra
+                if shadowed:
+                    mask |= scope_names
+                regions.append((_mask_binding_lhs(rest, extra), mask))
         if leading:
             top_text = parts[1] if len(parts) > 1 else ""
             regions.append((_mask_binding_lhs(top_text, ancestors),
