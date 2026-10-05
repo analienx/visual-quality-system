@@ -73,10 +73,13 @@ def test_dangling_actual_fails_despite_valid_alias(tmp_path: Path) -> None:
     assert bindings[0]["query_ref"] == "T.Good"
     inventory = inventory_model(model)
     findings = check_bindings(bindings, inventory)
+    # R6-E01: findings echo the producer's scoped identity.
     assert findings == [{"rule": "missing_dimension_or_measure",
                          "status": "fail", "query_ref": "T.Good",
                          "kind": "Measure", "entity": "T",
-                         "property": "Missing"}]
+                         "property": "Missing", "page": "P1",
+                         "visual": "v1", "role": "Values",
+                         "projection": 0}]
     # The unit reading exists (undeclared) but cannot mask the failure.
     assert {"measure": "T.Missing", "unit": "undeclared",
             "page": "P1"} in facts["rules"][

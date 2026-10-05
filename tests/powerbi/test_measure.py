@@ -46,11 +46,23 @@ def test_model_sections_needs_model_dir() -> None:
     facts = measure_report(REPORT, MODEL)
     assert facts["rules"]["encoding.metric_unit_consistency"] == {"readings": [
         {"measure": "Fact Sales.Revenue", "page": "P1", "unit": "raw:$#,0"}]}
+    # R6-E01: the fixture carries "Dim Date.Year" in three slicer
+    # visuals; the old two-binding expectation encoded the E01 data
+    # loss (two same-label projections silently dropped). Scoped
+    # identity preserves all four projections.
     assert facts["models"] == [{"bindings": [
         {"query_ref": "Dim Date.Year", "kind": "Column",
-         "entity": "Dim Date", "property": "Year"},
+         "entity": "Dim Date", "property": "Year", "page": "P1",
+         "visual": "slicera", "role": "Values", "projection": 0},
+        {"query_ref": "Dim Date.Year", "kind": "Column",
+         "entity": "Dim Date", "property": "Year", "page": "P1",
+         "visual": "slicerb", "role": "Values", "projection": 0},
+        {"query_ref": "Dim Date.Year", "kind": "Column",
+         "entity": "Dim Date", "property": "Year", "page": "P1",
+         "visual": "slicerc", "role": "Values", "projection": 0},
         {"query_ref": "Fact Sales.Revenue", "kind": "Measure",
-         "entity": "Fact Sales", "property": "Revenue"}],
+         "entity": "Fact Sales", "property": "Revenue", "page": "P1",
+         "visual": "cardx", "role": "Values", "projection": 0}],
         "model_dir": MODEL}]
     bare = measure_report(REPORT)
     assert "encoding.metric_unit_consistency" not in bare["rules"]

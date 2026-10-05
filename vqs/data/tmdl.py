@@ -392,7 +392,8 @@ def _check_actual(binding: dict, ref: str, tables: dict) -> dict:
     entity = binding.get("entity")
     prop = binding.get("property")
     kind = binding.get("kind", "")
-    base: dict[str, object] = {"query_ref": ref}
+    base: dict[str, object] = {"query_ref": ref,
+                               **_scoped_identity(binding)}
     if isinstance(kind, str) and kind:
         base["kind"] = kind
     if isinstance(entity, str) and entity:
@@ -422,6 +423,25 @@ def _check_actual(binding: dict, ref: str, tables: dict) -> dict:
     return {"rule": "missing_dimension_or_measure", "status": "fail", **base}
 
 
+def _scoped_identity(binding: object) -> dict[str, object]:
+    """Echo producer scoped identity (R6-DEC-01); {} when absent.
+
+    Only keys the producer actually emitted are echoed, so hand-fed
+    legacy bindings keep their historical finding shape.
+    """
+    if not isinstance(binding, dict):
+        return {}
+    scoped: dict[str, object] = {}
+    for key in ("page", "visual", "role"):
+        value = binding.get(key)
+        if isinstance(value, str) and value:
+            scoped[key] = value
+    index = binding.get("projection")
+    if isinstance(index, int) and not isinstance(index, bool) and index >= 0:
+        scoped["projection"] = index
+    return scoped
+
+
 def check_bindings(bindings: list[dict], inventory: dict) -> list[dict]:
     """Resolve PBIR projection bindings against the declared model.
 
@@ -434,7 +454,11 @@ def check_bindings(bindings: list[dict], inventory: dict) -> list[dict]:
     names in legacy labels resolve via longest-table match. Unknown
     tables/fields fail; measures without a recorded expression
     are ``unknown`` — their values require a live authorized query
-    (blocked).
+    (blocked). R6-DEC-01: every finding echoes the producer's scoped
+    identity (page/visual/role/projection) when present, and a
+    projection without a label (``query_ref_missing``) blocks
+    coverage as ``binding_projection_unidentified`` instead of
+    vanishing.
     """
     tables = inventory.get("tables", {})
     findings = []
@@ -442,11 +466,20 @@ def check_bindings(bindings: list[dict], inventory: dict) -> list[dict]:
         ref = binding.get("query_ref", "") if isinstance(binding, dict) else ""
         if not isinstance(ref, str):
             ref = ""
+        scoped = _scoped_identity(binding)
+        if isinstance(binding, dict) and binding.get("query_ref_missing"):
+            findings.append({"rule": "binding_projection_unidentified",
+                             "status": "unknown", "query_ref": ref,
+                             "reason": "Projection has no queryRef label; "
+                                       "coverage cannot be proven",
+                             **scoped})
+            continue
         if isinstance(binding, dict) and binding.get("actual_unknown"):
             findings.append({"rule": "binding_expression_unsupported",
                              "status": "unknown", "query_ref": ref,
                              "reason": "Projection field expression is outside "
-                                       "supported coverage"})
+                                       "supported coverage",
+                             **scoped})
             continue
         if isinstance(binding, dict) and (
                 "entity" in binding or "property" in binding):
@@ -455,23 +488,24 @@ def check_bindings(bindings: list[dict], inventory: dict) -> list[dict]:
         table, field = split_table_field(ref, tables)
         if not table or not field or table not in tables:
             findings.append({"rule": "missing_dimension_or_measure", "status": "fail",
-                             "query_ref": ref})
+                             "query_ref": ref, **scoped})
             continue
         content = tables[table]
         if field in content["columns"]:
             findings.append({"rule": "binding_resolved", "status": "pass",
-                             "query_ref": ref})
+                             "query_ref": ref, **scoped})
         elif field in content["measures"]:
             if content["measures"][field]:
                 findings.append({"rule": "binding_resolved", "status": "pass",
-                                 "query_ref": ref})
+                                 "query_ref": ref, **scoped})
             else:
                 findings.append({"rule": "measure_without_expression", "status": "unknown",
                                  "query_ref": ref,
-                                 "reason": "Values require a live authorized query"})
+                                 "reason": "Values require a live authorized query",
+                                 **scoped})
         else:
             findings.append({"rule": "missing_dimension_or_measure", "status": "fail",
-                             "query_ref": ref})
+                             "query_ref": ref, **scoped})
     return findings
 
 

@@ -401,7 +401,12 @@ def _literal(raw: Any) -> Any:
 def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dict]]:
     from .insights import _aggregation_function, _ref_parts
 
-    bindings: dict[str, dict] = {}
+    # R6-DEC-01: one entry per projection with scoped identity
+    # (page/visual/role/projection). queryRef is projection identity
+    # *within* a visual, never a report-wide field key: identical
+    # labels across visuals/pages/roles must not collapse, and a
+    # missing label must block coverage instead of vanishing.
+    bindings: list[dict] = []
     units: list[dict] = []
     cohorts: dict[str, dict[str, Any]] = {}
     for page_id in found["order"]:
@@ -414,7 +419,8 @@ def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dic
             visual_type = node.get("visualType", "?")
             state = node.get("query", {}).get("queryState", {})
             for role, content in state.items() if isinstance(state, dict) else []:
-                for projection in (content or {}).get("projections", []):
+                projections = (content or {}).get("projections", [])
+                for index, projection in enumerate(projections):
                     if not isinstance(projection, dict):
                         continue
                     # T04: the binding carries the structured actual
@@ -425,13 +431,17 @@ def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dic
                     if kind == "Measure" and entity and prop:
                         units.append({"measure": f"{entity}.{prop}",
                                       "page": page_id})
-                    ref = (projection.get("query_ref")
-                           or projection.get("queryRef"))
-                    if (not (isinstance(ref, str) and ref)
-                            or ref in bindings):
-                        continue
-                    entry: dict[str, Any] = {"query_ref": ref}
-                    if entity and prop and kind in (
+                    raw_ref = (projection.get("query_ref")
+                               or projection.get("queryRef"))
+                    ref = raw_ref if isinstance(raw_ref, str) and raw_ref else ""
+                    entry: dict[str, Any] = {
+                        "query_ref": ref, "page": page_id,
+                        "visual": visual_id, "role": role,
+                        "projection": index}
+                    if not ref:
+                        entry["query_ref_missing"] = True
+                        entry["actual_unknown"] = True
+                    elif entity and prop and kind in (
                             "Measure", "Column", "Aggregation"):
                         entry["kind"] = kind
                         entry["entity"] = entity
@@ -443,7 +453,7 @@ def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dic
                                 entry["function"] = func
                     else:
                         entry["actual_unknown"] = True
-                    bindings[ref] = entry
+                    bindings.append(entry)
             objects = node.get("objects", {})
             for path, value in _walk(objects):
                 segments = [s.split("[")[0] for s in path.split("/") if s]
@@ -462,7 +472,7 @@ def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dic
             page_id, visual_id = key.split("/", 1)
             readings.append({"cohort": cohort, "visual": visual_id,
                              "page": page_id, "value": cohorts[cohort][key]})
-    return list(bindings.values()), units, readings
+    return bindings, units, readings
 
 
 def _cohort_nulls(found: dict, readings: list[dict]) -> list[dict]:
@@ -568,12 +578,18 @@ def measure_report(report_dir: str, model_dir: str | None = None) -> dict:
                      "page": ref["page"]} for ref in unit_refs]
         if readings:
             facts["rules"]["encoding.metric_unit_consistency"] = {"readings": readings}
-        ordered = sorted(bindings, key=lambda item: item["query_ref"])
+        # R6-DEC-01: stable order across equal labels; scoped
+        # identity rides the wire so consumers keep every actual.
+        ordered = sorted(bindings, key=lambda item: (
+            item["query_ref"], item.get("page", ""),
+            item.get("visual", ""), item.get("role", ""),
+            item.get("projection", 0)))
         emitted = []
         for item in ordered:
             entry = {"query_ref": item["query_ref"]}
             for key in ("kind", "entity", "property", "function",
-                        "actual_unknown"):
+                        "actual_unknown", "page", "visual", "role",
+                        "projection", "query_ref_missing"):
                 if key in item:
                     entry[key] = item[key]
             emitted.append(entry)
