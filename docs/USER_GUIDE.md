@@ -8,7 +8,7 @@ End-to-end workflows with copy-paste commands. Command details live in
 
 ```bash
 pip install -e ".[test]"
-vqs doctor     # presence of pbir, Bridge, MCP, Desktop; never installs
+vqs doctor     # presence of report author, Bridge, MCP, Desktop; never installs
 python -m pytest
 ```
 
@@ -35,7 +35,7 @@ Exits: `0` pass/acyclic, `1` demonstrated violation (or a cycle),
 under `.vqs-runs/<run-id>/` (gitignored): the manifest carries the
 terminal status plus a `verdict_sha256` digest.
 
-Try it on the shipped fixtures (no PBIP needed):
+Try it on the committed fixtures (no PBIP needed):
 
 ```bash
 vqs measure tests/powerbi/fixtures/mini_report --model tests/powerbi/fixtures/mini_model/definition
@@ -72,12 +72,16 @@ visual id, severity, proposed fix), plus the `image_capability` and
 `calibration` blocks. Only then:
 
 ```bash
-vqs adjudicate-bundle template.json --run-id adj-01
+vqs adjudicate-bundle template.json --report path/to/Example.Report --run-id adj-01
 ```
 
 Adjudication is static and strict: unfilled observations, missing
 capability/calibration, self-review, or stale images block or fail.
-A bare template can never pass — that is the point.
+Without `--report` (or a transport bundle) coverage is unbound and
+blocked. Static adjudication never passes at all: the ceiling is
+`static_conformance: pass` with verdict `blocked` and rule
+`image_review_required` — release needs a capable image review of
+fresh full-canvas renders.
 
 ## Workflow 3: remote handoff (fixer → independent reviewer)
 
@@ -93,7 +97,12 @@ vqs bundle unpack path/to/bundle path/to/copy
 
 `verify` re-hashes every render, checks manifest/header/inventory
 agreement, and `--report` rejects bundles stale against the live
-source. Tampered or partial bundles fail closed.
+source. Tampered or partial bundles fail closed. Adjudicate with
+the verified transport as authority:
+
+```bash
+vqs adjudicate-bundle form.json --transport-bundle path/to/bundle --report path/to/Example.Report --run-id adj-02
+```
 
 ## Verdict semantics
 

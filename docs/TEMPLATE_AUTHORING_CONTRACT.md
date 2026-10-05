@@ -2,7 +2,7 @@
 
 **Status:** contract definition, not an implementation. Authoring builds
 only on a merged, independently verified visual-repair milestone
-(WP-09, candidate [PR #29](https://github.com/analienx/visual-quality-system/pull/29));
+(WP-09, candidate [PR #31](https://github.com/analienx/visual-quality-system/pull/31));
 no authoring code ships in this snapshot. Broader DAX/model mutation
 stays a later, separately authorized capability and is explicitly out
 of this contract.
@@ -24,7 +24,7 @@ the original report, the semantic model, or any DAX/RLS object.
 | Vetted template body | real captured `visual.json` + capture provenance | fabricated bodies are evidence fabrication; registration is a reviewed act |
 | Required bindings | template declaration | every `queryRef` must resolve on the target; missing bindings refuse |
 
-## 3. Registry rules (mechanism: `vqs/repair/templates.py` in PR #29)
+## 3. Registry rules (mechanism: `vqs/repair/templates.py` in PR #31)
 
 - Register `(name, version, visual_type, body, required_bindings,
   oracle_id)`; shape, finiteness, and size checks reject malformed

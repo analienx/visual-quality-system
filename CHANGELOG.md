@@ -1,5 +1,35 @@
 # Changelog
 
+## Unreleased (work/wp02-integration-r2 — R6 E01-E08, draft PR #31, NOT merged)
+
+- R6 trust remediation for issue #22 on the integration candidate
+  branch (draft PR #31, unmerged; no work package verified):
+  - E01 scoped projection identity: one binding per projection
+    keyed by page/visual/role/projection; missing `queryRef`
+    blocks as `query_ref_missing` + `actual_unknown`.
+  - E02 gate-specific producer capability: `vqs.check/1` observes
+    G0 only; `run_check` strips caller seal keys, seals the actual
+    observation, and binds its own envelope.
+  - E03 suite binding for G6 via canonical suite digest.
+  - E04 reviewer/editor/promotion split: review binds both run
+    ids; promotion has no registered authorities and blocks.
+  - E05/E06 verified review authority: whole-source completeness
+    needs a verified transport or live report inventory; static
+    adjudication never passes (`image_review_required` ceiling).
+  - E07 Microsoft-guided authoring: new `vqs/powerbi/author` port
+    (auto/microsoft/direct); pbir-cli/BPA legs removed from
+    doctor, probes, and `pbip_acceptance.py`; repair seals
+    `authoring.json`.
+  - E08 truthful public surface: `docs/JOURNEY.md` (oracle-tested
+    installed-command walk), ADR 0001, README/CLI/USER_GUIDE/
+    ARCHITECTURE status corrections.
+- Oracles `tests/test_r6_e01_bindings.py` … `tests/test_r6_e08_journey.py`
+  (two-project journey included); hosted lanes
+  `.github/workflows/authoring.yml` (real-CLI probe) and
+  `.github/workflows/r6-oracles.yml` (per-oracle counts).
+- No ledger, issue, or PR state advances here: independent Codex
+  acceptance review stays pending.
+
 ## Unreleased (agent-first review candidates — NOT merged)
 
 - Six draft PRs with green hosted CI (3.11/3.12/3.13) await Codex

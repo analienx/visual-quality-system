@@ -13,7 +13,7 @@ pip install -e ".[test]"
 vqs doctor                        # what external tools are present (never installs)
 vqs cycles tests/powerbi/fixtures/clean_model
 vqs measure tests/powerbi/fixtures/mini_report --model tests/powerbi/fixtures/mini_model/definition
-python -m pytest                  # 212 tests, plus ruff clean
+python -m pytest                  # full suite, plus ruff clean (exact counts in PR evidence)
 ```
 
 Real output (`vqs cycles`, exit 0):
@@ -51,23 +51,26 @@ Static facts come from parsing sources; rendered facts come from Desktop Bridge 
 
 | Command | Does | Status |
 | --- | --- | --- |
-| `vqs measure` | PBIR/TMDL facts: contrast, cohorts, units, bindings, page insights, duplication + chart-practice + layout checks | ✅ shipped (WP-19) |
-| `vqs cycles` | Static DAX/M/`let` acyclicity gate | ✅ shipped |
-| `vqs check` | Facts → sealed verdict under `.vqs-runs/` | ✅ shipped |
-| `vqs capture` | Bridge screenshots + capture manifest | ✅ shipped |
-| `vqs request-review` | Source-bound review template from renders | ✅ shipped |
-| `vqs bundle` | Portable fixer→reviewer evidence bundles | ✅ shipped |
-| `vqs adjudicate-bundle` | Independent static adjudication | ✅ shipped |
-| `vqs doctor` | Capability report (pbir, Bridge, MCP, Desktop) | ✅ shipped |
-| `vqs inventory` / `status` | PBIR inventory / ledger snapshot | ✅ shipped |
-| Typed PBIR repairs | Allowlisted edits in disposable candidates | 🔶 review candidate ([PR #29](https://github.com/analienx/visual-quality-system/pull/29), unmerged; [WP-09](https://github.com/analienx/visual-quality-system/issues/14)) |
+| `vqs measure` | PBIR/TMDL facts: contrast, cohorts, units, scoped bindings, page insights, duplication + chart-practice + layout checks | Implemented on this branch |
+| `vqs cycles` | Static DAX/M/`let` acyclicity gate | Implemented on this branch |
+| `vqs check` | Facts → sealed verdict under run roots (G0 observation) | Implemented on this branch |
+| `vqs capture` | Bridge screenshots + capture manifest | Implemented on this branch; needs Desktop + Bridge |
+| `vqs request-review` | Source-bound review template from renders | Implemented on this branch |
+| `vqs bundle` | Portable fixer→reviewer evidence bundles | Implemented on this branch |
+| `vqs adjudicate-bundle` | Independent static adjudication (never passes statically) | Implemented on this branch |
+| `vqs doctor` | Capability report (report author, Bridge, MCP, Desktop) | Implemented on this branch |
+| `vqs inventory` / `status` | PBIR inventory / ledger snapshot | Implemented on this branch |
+| Typed candidate repair | Allowlisted edits in disposable candidates + explicit authoring backends | Review candidate ([PR #31](https://github.com/analienx/visual-quality-system/pull/31), draft unmerged; [WP-09](https://github.com/analienx/visual-quality-system/issues/14)) |
 | Word/DOCX backend | Paginated all-page verification | 🔶 planned ([WP-08](https://github.com/analienx/visual-quality-system/issues/13)) |
 | Fabric Apps | React/TS adapter | ⏸ deferred ([WP-13](https://github.com/analienx/visual-quality-system/issues/18)) |
+
+Implemented means the command works on this branch with hosted CI; nothing here is independently accepted — the ledger reports zero verified work packages. The trust boundaries are recorded in [ADR 0001](docs/adr/0001-r6-trust-boundaries.md).
 
 Machine-readable status: [roadmap/STATUS.md](roadmap/STATUS.md) and [roadmap/work_packages.json](roadmap/work_packages.json). Program tracking: [issue #4](https://github.com/analienx/visual-quality-system/issues/4).
 
 ## Docs
 
+- [Developer journey](docs/JOURNEY.md) — the supported installed-command walk, oracle-tested
 - [User guide](docs/USER_GUIDE.md) — end-to-end workflows with copy-paste commands
 - [Command reference](docs/CLI.md) — every `vqs` command
 - [Architecture](docs/ARCHITECTURE.md) — system design + Power BI tool interfaces
