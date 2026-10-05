@@ -126,7 +126,11 @@ def test_reserved_seal_keys_cannot_be_smuggled(tmp_path: Path) -> None:
     assert result["verdict"] == "pass"
     manifest = result["manifest"]
     assert manifest["pipeline"] == "vqs.check/1"
-    assert "gate" not in manifest["artifacts"]
+    # R6-DEC-02: the producer emits the actual gate/status/control
+    # after stripping caller values — "G1" never survives.
+    assert manifest["artifacts"]["gate"] == "G0"
+    assert manifest["artifacts"]["status"] == "pass"
+    assert manifest["artifacts"]["control"] is None
     assert manifest["artifacts"]["observation"]["gate"] == "G0"
     assert manifest["artifacts"]["observation"]["status"] == "pass"
     assert manifest["artifacts"]["observation"]["controls"] == []

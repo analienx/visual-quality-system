@@ -66,18 +66,22 @@ def _microsoft_record(probe_result: dict[str, Any], policy: str,
 
 def run_backend(candidate: str | Path, *, policy: str = "auto",
                 timeout: int = 300, allow_warnings: bool = False,
-                prober: Prober = probe,
-                runner: Runner = validate) -> dict[str, Any]:
+                prober: Prober | None = None,
+                runner: Runner | None = None) -> dict[str, Any]:
     """Select the backend and validate the candidate; never raises.
 
     Returns backend/policy/verdict/reason/record. Microsoft verdicts:
     valid maps to pass (warnings block unless explicitly allowed and
     are always recorded verbatim); invalid maps to fail; missing,
     timeout, error, or runner crashes map to blocked. A Microsoft
-    failure never silently falls back to direct.
+    failure never silently falls back to direct. The default ports
+    resolve late (module attribute at call time) so the seam stays
+    patchable; behavior is identical.
     """
+    active_prober = probe if prober is None else prober
+    active_runner = validate if runner is None else runner
     try:
-        probe_result = prober()
+        probe_result = active_prober()
     except Exception as exc:
         probe_result = {"tool": TOOL_NAME, "available": False,
                         "path": None, "version": None,
@@ -96,7 +100,7 @@ def run_backend(candidate: str | Path, *, policy: str = "auto",
                 "verdict": "pass", "reason": record["reason"],
                 "record": record}
     try:
-        validation = runner(candidate, timeout=timeout)
+        validation = active_runner(candidate, timeout=timeout)
     except Exception as exc:
         validation = {"tool": TOOL_NAME, "command": [TOOL_NAME],
                       "status": "error", "returncode": None,
