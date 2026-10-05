@@ -25,7 +25,8 @@ SOURCE_D = "d" * 64
 ENV = {"renderer": "r", "renderer_version": "1", "locale": "en",
        "view_state": "default"}
 SCOPE = {"role": "analyst", "refresh_id": "r1",
-         "filters": {"period": "FY26"}}
+         "filters": {"period": "FY26"}, "query_context": "ctx-1",
+         "query_hash": "q" * 64}
 
 
 def _subjects() -> list[dict[str, str]]:
