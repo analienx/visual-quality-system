@@ -166,7 +166,7 @@ def test_malformed_precision_rejected_validate_plan(
 @pytest.mark.parametrize("bad", ["banana", "99999", 2])
 def test_malformed_precision_rejected_repair(
         tmp_path: Path, capsys, op_type, terminal, old, bad) -> None:
-    """T12: repair refuses malformed precision; nothing is written."""
+    """T12: repair fails malformed precision at validate; nothing written."""
     original = _project(tmp_path)
     before = tree_digest(original)
     plan_path = _write_plan(tmp_path, "plan.json",
@@ -176,7 +176,8 @@ def test_malformed_precision_rejected_repair(
                  "--run-root", str(tmp_path / "runs"),
                  "--run-id", f"t12r-{terminal}-{bad!r}"[:40]])
     out = capsys.readouterr().out
-    assert code == 2, out
+    assert code == 1, out
+    assert "precision_value_invalid" in out
     assert not (tmp_path / "cand").exists()
     assert tree_digest(original) == before
 
@@ -185,8 +186,8 @@ def test_malformed_precision_rejected_repair(
 def test_malformed_old_precision_blocks_at_apply(
         tmp_path: Path, capsys, op_type, terminal, old) -> None:
     """T12: valid new over malformed old blocks at bind, not silently."""
-    kwargs = {"precision_old": 1} if terminal == "precision" else {
-        "label_old": 1}
+    kwargs = {"precision_old": "banana"} if terminal == "precision" else {
+        "label_old": "banana"}
     original = _project(tmp_path, **kwargs)
     plan_path = _write_plan(tmp_path, "plan.json",
                             _plan(op_type, terminal, "3"))

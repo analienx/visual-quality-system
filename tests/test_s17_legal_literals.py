@@ -2,8 +2,9 @@
 
 Semantic-query QueryLiteralExpression.Value is a string, so
 axis.precision "1"->"3" applies and seals through ``vqs repair``
-plus ``vqs verify``; raw JSON numbers on either side block at
-apply with the candidate removed and the original pinned.
+plus ``vqs verify``; malformed new values fail validation, and
+malformed source literals block at apply, with the candidate
+removed and the original pinned.
 """
 import json
 from pathlib import Path
@@ -87,27 +88,26 @@ def test_legal_precision_applies_and_verifies(
 
 
 def test_numeric_new_value_blocks(tmp_path: Path, capsys) -> None:
-    """S17: a raw JSON number replacement blocks at apply."""
+    """T12: a raw JSON number replacement fails plan validation."""
     original, plan_path = _repair(tmp_path, 3, "s17-new")
     before = tree_digest(original)
     code = main(["repair", str(plan_path), "--original", str(original),
                  "--candidate-root", str(tmp_path / "cand"),
                  "--run-root", str(tmp_path / "runs"),
                  "--run-id", "s17-new"])
-    out = json.loads(capsys.readouterr().out)
-    assert code == 2
-    assert out["verdict"] == "blocked"
-    assert any("repair apply:" in reason for reason in
-               out.get("blocked_reasons", []))
+    out = capsys.readouterr().out
+    assert code == 1, out
+    assert json.loads(out)["verdict"] == "fail"
+    assert "precision_value_invalid" in out
     assert not (tmp_path / "cand").exists()
     assert tree_digest(original) == before
 
 
 def test_numeric_old_value_blocks(tmp_path: Path, capsys) -> None:
-    """S17: a raw JSON number already in source blocks at apply."""
-    original = _make_report(tmp_path, 1)
+    """T12: a malformed precision literal in source blocks at apply."""
+    original = _make_report(tmp_path, "banana")
     plan_path = tmp_path / "s17-old.json"
-    plan_path.write_text(json.dumps(_plan(3)), encoding="utf-8")
+    plan_path.write_text(json.dumps(_plan("3")), encoding="utf-8")
     before = tree_digest(original)
     code = main(["repair", str(plan_path), "--original", str(original),
                  "--candidate-root", str(tmp_path / "cand"),
