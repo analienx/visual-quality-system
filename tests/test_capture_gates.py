@@ -97,7 +97,7 @@ def _make_report(root: Path, pages: dict[str, tuple[int, int]] | None = None,
     (report / "definition" / "pages.json").write_text(
         json.dumps({"pageOrder": sorted(pages)}), encoding="utf-8")
     (report / "definition" / "version.json").write_text(
-        json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "1.0"}), encoding="utf-8")
+        json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "2.0.0"}), encoding="utf-8")
     (report / "definition" / "report.json").write_text(json.dumps({
         "$schema": ("https://developer.microsoft.com/json-schemas/fabric/item/"
                     "report/definition/report/3.3.0/schema.json"),

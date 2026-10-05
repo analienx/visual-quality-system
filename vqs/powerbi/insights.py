@@ -62,7 +62,12 @@ def _slot_text(slot: object, *keys: str) -> str:
 
 
 def _ref_parts(field: dict) -> tuple[str | None, str | None, str | None]:
-    """Split a projection field into (kind, entity, property)."""
+    """Split a projection field into (kind, entity, property).
+
+    T04: Aggregation expressions unwrap to their underlying
+    Column/Measure (or direct SourceRef), keeping the Aggregation
+    identity so aggregates never mis-resolve as bare labels.
+    """
     if not isinstance(field, dict):
         return None, None, None
     for kind in ("Measure", "Column"):
@@ -74,7 +79,34 @@ def _ref_parts(field: dict) -> tuple[str | None, str | None, str | None]:
         if entity and prop:
             return kind, entity, prop
         return kind, None, None
+    slot = field.get("Aggregation")
+    if isinstance(slot, dict):
+        expression = slot.get("Expression")
+        if isinstance(expression, dict):
+            for sub in ("Column", "Measure"):
+                subslot = expression.get(sub)
+                if not isinstance(subslot, dict):
+                    continue
+                entity = _slot_text(subslot, "Expression", "SourceRef",
+                                    "Entity")
+                prop = _slot_text(subslot, "Property")
+                if entity and prop:
+                    return "Aggregation", entity, prop
+            entity = _slot_text(expression, "SourceRef", "Entity")
+            prop = _slot_text(slot, "Property")
+            if entity and prop:
+                return "Aggregation", entity, prop
+        return "Aggregation", None, None
     return None, None, None
+
+
+def _aggregation_function(field: dict) -> str | int | None:
+    """Aggregation function label/code when the field carries one."""
+    slot = field.get("Aggregation") if isinstance(field, dict) else None
+    if not isinstance(slot, dict):
+        return None
+    func = slot.get("Function", slot.get("function"))
+    return func if isinstance(func, (str, int)) else None
 
 
 def _query_fields(node: dict) -> dict[str, dict[str, list]]:
@@ -111,6 +143,14 @@ def _query_fields(node: dict) -> dict[str, dict[str, list]]:
                 slot["measures"].append(f"{entity}.{prop}")
                 slot["measures_structured"].append({"entity": entity,
                                                    "property": prop})
+            elif kind == "Aggregation" and entity and prop:
+                slot["measures"].append(f"{entity}.{prop}")
+                structured: dict[str, object] = {"entity": entity,
+                                                 "property": prop}
+                func = _aggregation_function(projection.get("field", {}))
+                if func is not None:
+                    structured["aggregation"] = func
+                slot["measures_structured"].append(structured)
             elif kind == "Column" and entity and prop:
                 slot["dimensions"].append(f"{entity}.{prop}")
                 slot["dimensions_structured"].append({"entity": entity,

@@ -35,7 +35,7 @@ def _report(root: Path, pages=("P1",), report_doc=None, version=None,
     else:
         pages_root.mkdir(parents=True, exist_ok=True)
     if version is None:
-        version = {"$schema": VERSION_SCHEMA, "version": "1.0"}
+        version = {"$schema": VERSION_SCHEMA, "version": "2.0.0"}
     (report / "definition" / "version.json").write_text(
         version if isinstance(version, str) else json.dumps(version),
         encoding="utf-8")
@@ -95,16 +95,61 @@ def test_version_banana_blocked(tmp_path: Path) -> None:
 
 def test_version_wrong_schema_blocked(tmp_path: Path) -> None:
     """S03: a non-versionMetadata $schema blocks version.json."""
-    version = {"$schema": REPORT_SCHEMA.format("3.3"), "version": "1.0"}
+    version = {"$schema": REPORT_SCHEMA.format("3.3"), "version": "2.0.0"}
     with pytest.raises(ValueError, match="version_invalid"):
         report_context(_report(tmp_path, version=version))
 
 
-def test_version_incompatible_blocked(tmp_path: Path) -> None:
-    """S03: version 2.0 against schema 1.0.0 blocks as incompatible."""
+def test_version_content_two_part_spelling_accepted(tmp_path: Path) -> None:
+    """T01: content "2.0" spells 2.0.0 and passes under schema 1.0.0."""
     version = {"$schema": VERSION_SCHEMA, "version": "2.0"}
+    info = report_context(_report(tmp_path, version=version))
+    assert [page["id"] for page in info["pages"]] == ["P1"]
+
+
+@pytest.mark.parametrize("content", ["1.0", "1.0.0", "2.1.0", "3.0.0",
+                                     "2.0.0.0"])
+def test_version_unsupported_content_blocked(tmp_path: Path,
+                                            content: str) -> None:
+    """T01: content other than 2.0.0 blocks ("1.0" was never valid)."""
+    version = {"$schema": VERSION_SCHEMA, "version": content}
     with pytest.raises(ValueError, match="version_invalid"):
         report_context(_report(tmp_path, version=version))
+
+
+def test_version_foreign_metadata_identity_blocked(tmp_path: Path) -> None:
+    """T02: a foreign versionMetadata URL blocks even with content 2.0.0."""
+    version = {"$schema": ("https://example.invalid/fabric/item/report/"
+                           "definition/versionMetadata/1.0.0/schema.json"),
+               "version": "2.0.0"}
+    with pytest.raises(ValueError, match="version_invalid"):
+        report_context(_report(tmp_path, version=version))
+
+
+def test_version_unsupported_metadata_patch_blocked(tmp_path: Path) -> None:
+    """T02: versionMetadata 1.0.1 is not in the supported identity set."""
+    version = {"$schema": (FAIR_USE + "report/definition/versionMetadata/"
+                           "1.0.1/schema.json"),
+               "version": "2.0.0"}
+    with pytest.raises(ValueError, match="version_invalid"):
+        report_context(_report(tmp_path, version=version))
+
+
+@pytest.mark.parametrize("schema", [
+    "https://example.invalid/definition/report/3.3.999/schema.json",
+    FAIR_USE + "report/definition/report/3.3.999/schema.json",
+    FAIR_USE + "report/definition/report/3.3.1/schema.json",
+    FAIR_USE + "report/definition/report/3.3/schema.json",
+    FAIR_USE + "report/definition/report/banana/schema.json",
+    FAIR_USE + "report/definition/dataset/3.3.0/schema.json",
+])
+def test_report_foreign_malformed_unsupported_blocked(tmp_path: Path,
+                                                     schema: str) -> None:
+    """T02: foreign/unsupported-patch/malformed report identities block."""
+    doc = {"$schema": schema, "layoutOptimization": "None",
+           "themeCollection": {}}
+    with pytest.raises(ValueError, match="unsupported_report_version"):
+        report_context(_report(tmp_path, report_doc=doc))
 
 
 def test_canonical_index_without_pageorder_accepted(tmp_path: Path) -> None:

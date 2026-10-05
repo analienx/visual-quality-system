@@ -218,7 +218,7 @@ def _report(root: Path) -> Path:
         json.dumps({"pageOrder": ["p1"]}), encoding="utf-8")
     (report / "definition" / "version.json").write_text(
         json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json",
-                    "version": "1.0"}), encoding="utf-8")
+                    "version": "2.0.0"}), encoding="utf-8")
     (report / "definition" / "report.json").write_text(
         json.dumps(REPORT_JSON), encoding="utf-8")
     (report / "definition" / "pages" / "p1" / "page.json").write_text(

@@ -22,7 +22,7 @@ def _make_report(root: Path) -> Path:
     (pages / "P1" / "visuals" / "cardx").mkdir(parents=True)
     (pages.parent / "pages.json").write_text(json.dumps({"pageOrder": ["P1"]}),
                                       encoding="utf-8")
-    (pages.parent / "version.json").write_text(json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "1.0"}),
+    (pages.parent / "version.json").write_text(json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "2.0.0"}),
                                         encoding="utf-8")
     (pages.parent / "report.json").write_text(json.dumps({
         "$schema": ("https://developer.microsoft.com/json-schemas/fabric/item/"

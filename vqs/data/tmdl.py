@@ -382,12 +382,57 @@ def split_table_field(ref: str, tables: dict) -> tuple[str | None, str | None]:
     return table, field
 
 
-def check_bindings(bindings: list[dict], inventory: dict) -> list[dict]:
-    """Resolve PBIR `queryRef` bindings against the declared model.
+def _check_actual(binding: dict, ref: str, tables: dict) -> dict:
+    """Resolve a structured actual (entity/property) against the model.
 
-    Each binding needs ``query_ref`` like ``"Dim Product.Brand"``. Dotted
-    table names resolve via longest-table match. Unknown tables/fields
-    fail; measures without a recorded expression
+    T04: the actual semantic field resolves exactly — no label
+    splitting, no queryRef fallback. A dangling actual fails even
+    when the projection label names an existing field.
+    """
+    entity = binding.get("entity")
+    prop = binding.get("property")
+    kind = binding.get("kind", "")
+    base: dict[str, object] = {"query_ref": ref}
+    if isinstance(kind, str) and kind:
+        base["kind"] = kind
+    if isinstance(entity, str) and entity:
+        base["entity"] = entity
+    if isinstance(prop, str) and prop:
+        base["property"] = prop
+    if (not isinstance(entity, str) or not entity
+            or not isinstance(prop, str) or not prop
+            or entity not in tables):
+        return {"rule": "missing_dimension_or_measure", "status": "fail",
+                **base}
+    content = tables[entity]
+    if kind == "Column":
+        if prop in content["columns"]:
+            return {"rule": "binding_resolved", "status": "pass", **base}
+        return {"rule": "missing_dimension_or_measure", "status": "fail",
+                **base}
+    if kind == "Aggregation" and prop in content["columns"]:
+        return {"rule": "binding_resolved", "status": "pass", **base}
+    if prop in content["measures"]:
+        if content["measures"][prop]:
+            return {"rule": "binding_resolved", "status": "pass", **base}
+        return {"rule": "measure_without_expression", "status": "unknown",
+                "reason": "Values require a live authorized query", **base}
+    if not kind and prop in content["columns"]:
+        return {"rule": "binding_resolved", "status": "pass", **base}
+    return {"rule": "missing_dimension_or_measure", "status": "fail", **base}
+
+
+def check_bindings(bindings: list[dict], inventory: dict) -> list[dict]:
+    """Resolve PBIR projection bindings against the declared model.
+
+    T04: structured bindings resolve their actual field expression
+    (SourceRef entity + property); ``query_ref`` is projection
+    identity only. ``actual_unknown`` marks unsupported expression
+    coverage (``unknown``, never pass). Bare ``query_ref``-only
+    bindings keep legacy label resolution for hand-fed facts; the
+    PBIR producer always emits structured actuals. Dotted table
+    names in legacy labels resolve via longest-table match. Unknown
+    tables/fields fail; measures without a recorded expression
     are ``unknown`` — their values require a live authorized query
     (blocked).
     """
@@ -395,6 +440,18 @@ def check_bindings(bindings: list[dict], inventory: dict) -> list[dict]:
     findings = []
     for binding in bindings:
         ref = binding.get("query_ref", "") if isinstance(binding, dict) else ""
+        if not isinstance(ref, str):
+            ref = ""
+        if isinstance(binding, dict) and binding.get("actual_unknown"):
+            findings.append({"rule": "binding_expression_unsupported",
+                             "status": "unknown", "query_ref": ref,
+                             "reason": "Projection field expression is outside "
+                                       "supported coverage"})
+            continue
+        if isinstance(binding, dict) and (
+                "entity" in binding or "property" in binding):
+            findings.append(_check_actual(binding, ref, tables))
+            continue
         table, field = split_table_field(ref, tables)
         if not table or not field or table not in tables:
             findings.append({"rule": "missing_dimension_or_measure", "status": "fail",

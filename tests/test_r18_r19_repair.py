@@ -53,7 +53,7 @@ def _project(root: Path, model_text: str | None) -> tuple[Path, Path]:
     (definition / "pages.json").write_text(
         json.dumps({"pageOrder": ["P1"]}), encoding="utf-8")
     (definition / "version.json").write_text(
-        json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "1.0"}), encoding="utf-8")
+        json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "2.0.0"}), encoding="utf-8")
     (definition / "report.json").write_text(json.dumps({
         "$schema": SCHEMA_REPORT, "layoutOptimization": "None",
         "themeCollection": {}}), encoding="utf-8")

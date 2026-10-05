@@ -20,7 +20,7 @@ def _report(root: Path, *, pbir_dataset: str | None = None) -> Path:
     (pages / "P1" / "visuals" / "cardx").mkdir(parents=True)
     (pages.parent / "pages.json").write_text(json.dumps({"pageOrder": ["P1"]}),
                                       encoding="utf-8")
-    (pages.parent / "version.json").write_text(json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "1.0"}),
+    (pages.parent / "version.json").write_text(json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "2.0.0"}),
                                         encoding="utf-8")
     (pages.parent / "report.json").write_text(json.dumps({
         "$schema": ("https://developer.microsoft.com/json-schemas/fabric/item/"
@@ -37,7 +37,7 @@ def _report(root: Path, *, pbir_dataset: str | None = None) -> Path:
         encoding="utf-8")
     if pbir_dataset is not None:
         (report / "definition.pbir").write_text(json.dumps(
-            {"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "1.0", "datasetReference": {
+            {"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "2.0.0", "datasetReference": {
                 "byPath": {"path": f"../{pbir_dataset}.SemanticModel"}}}),
             encoding="utf-8")
     return report

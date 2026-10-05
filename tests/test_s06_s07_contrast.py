@@ -18,7 +18,7 @@ SCHEMA_REPORT = ("https://developer.microsoft.com/json-schemas/fabric/item/"
 VERSION_DOC = {
     "$schema": ("https://developer.microsoft.com/json-schemas/fabric/item/"
                 "report/definition/versionMetadata/1.0.0/schema.json"),
-    "version": "1.0"}
+    "version": "2.0.0"}
 
 
 def _textbox(name, text_color, visual_bg=None):

@@ -30,11 +30,26 @@ IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".gif", ".svg", ".bmp",
                               ".webp"})
 KNOWN_SCHEMA_MAJORS = {"page": 2, "visualcontainer": 2,
                        "pagesmetadata": 1}
-SUPPORTED_REPORT_VERSIONS = frozenset({(2, 0), (3, 0), (3, 3)})
-PINNED_REPORT_SCHEMA = ("https://developer.microsoft.com/json-schemas/fabric/item/"
+_FABRIC_ITEM = ("https://developer.microsoft.com/json-schemas/fabric/item/")
+PINNED_REPORT_SCHEMA = (_FABRIC_ITEM +
                         "report/definition/report/3.3.0/schema.json")
-VERSION_METADATA_SCHEMA = ("https://developer.microsoft.com/json-schemas/fabric/item/"
+VERSION_METADATA_SCHEMA = (_FABRIC_ITEM +
                            "report/definition/versionMetadata/1.0.0/schema.json")
+# T01/T02: metadata contract identity and report content format are
+# separate axes. Only these exact canonical $schema URLs are claimed
+# supported (host + document path + full patch); anything else —
+# foreign hosts, wrong paths, malformed segments, unlisted patches —
+# blocks. Never fetch caller-supplied schema URLs during review.
+SUPPORTED_REPORT_SCHEMAS = frozenset({
+    _FABRIC_ITEM + "report/definition/report/2.0.0/schema.json",
+    _FABRIC_ITEM + "report/definition/report/3.0.0/schema.json",
+    PINNED_REPORT_SCHEMA,
+})
+SUPPORTED_VERSION_METADATA_SCHEMAS = frozenset({VERSION_METADATA_SCHEMA})
+# Supported report content formats, as padded (major, minor, patch).
+# Real exports carry content 2.0.0 under versionMetadata schema 1.0.0;
+# "1.0" was never a valid content version and is rejected.
+SUPPORTED_CONTENT_VERSIONS = frozenset({(2, 0, 0)})
 _VERSION_RE = re.compile(r"(\d+)\.(\d+)(?:\.(\d+))?")
 
 
@@ -91,19 +106,6 @@ def _read_index_file(path: Path) -> tuple[list[str] | None, list[dict[str, Any]]
     return list(order), []
 
 
-def _schema_version(schema: object) -> tuple[str, tuple[int, ...] | None]:
-    """Parse a Fabric $schema URL into (entity, version parts)."""
-    entity, _major = _schema_major(schema)
-    if not isinstance(schema, str):
-        return entity, None
-    segment = schema.rsplit("/", 2)[-2] if schema.count("/") >= 2 else ""
-    match = _VERSION_RE.fullmatch(segment.strip())
-    if match is None:
-        return entity, None
-    return entity, tuple(int(group) for group in match.groups()
-                         if group is not None)
-
-
 def _pad3(parts: tuple[int, ...]) -> tuple[int, int, int]:
     """Compare version prefixes on equal footing (1.0 == 1.0.0)."""
     full = tuple(parts[:3]) + (0, 0, 0)
@@ -111,23 +113,26 @@ def _pad3(parts: tuple[int, ...]) -> tuple[int, int, int]:
 
 
 def _version_contract_problem(data: dict) -> str | None:
-    """S03: versionMetadata must carry a compatible $schema and version."""
+    """S03: versionMetadata needs an exact supported $schema plus content 2.0.0.
+
+    T01: the $schema names the metadata contract (exactly versionMetadata
+    1.0.0); ``version`` names the report content format (exactly 2.0.0,
+    spelled "2.0" or "2.0.0"). The two are never equated.
+    """
     schema = data.get("$schema")
-    if not isinstance(schema, str) or "/versionMetadata/" not in schema:
-        return "versionMetadata $schema required"
-    _entity, parts = _schema_version(schema)
-    if parts is None:
-        return "versionMetadata $schema carries no version"
+    if (not isinstance(schema, str)
+            or schema.strip() not in SUPPORTED_VERSION_METADATA_SCHEMAS):
+        return f"unsupported versionMetadata $schema {schema!r}"
     version = data.get("version")
     if not isinstance(version, str):
         return "version must be a string"
     match = _VERSION_RE.fullmatch(version.strip())
     if match is None:
-        return "version must look like 1.0 or 1.0.0"
+        return "version must look like 2.0 or 2.0.0"
     claimed = tuple(int(group) for group in match.groups()
                     if group is not None)
-    if _pad3(claimed) != _pad3(parts):
-        return f"version {version!r} incompatible with schema {schema!r}"
+    if _pad3(claimed) not in SUPPORTED_CONTENT_VERSIONS:
+        return f"unsupported report content version {version!r}"
     return None
 
 
@@ -275,12 +280,12 @@ def read_report_files(report_dir: str | Path) -> dict[str, Any]:
                 # never silently drop report content (filters, config).
                 report_doc = data
             if not missing and not mistyped:
-                # S01: explicit supported-version contract; only
-                # 2.0/3.0/3.3 report schemas are claimed supported.
-                entity, parts = _schema_version(data.get("$schema"))
-                claimed = tuple(parts[:2]) if parts else None
-                if (entity != "report"
-                        or claimed not in SUPPORTED_REPORT_VERSIONS):
+                # S01/T02: exact supported-identity contract; only the
+                # allowlisted canonical report $schema URLs (exact host,
+                # path, and patch) are claimed supported.
+                schema = data.get("$schema")
+                if (not isinstance(schema, str)
+                        or schema.strip() not in SUPPORTED_REPORT_SCHEMAS):
                     issues.append({"rule": "unsupported_report_version",
                                    "path": "definition/report.json",
                                    "schema": data.get("$schema")})

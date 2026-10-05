@@ -46,9 +46,12 @@ def test_model_sections_needs_model_dir() -> None:
     facts = measure_report(REPORT, MODEL)
     assert facts["rules"]["encoding.metric_unit_consistency"] == {"readings": [
         {"measure": "Fact Sales.Revenue", "page": "P1", "unit": "raw:$#,0"}]}
-    assert facts["models"] == [{"bindings": [{"query_ref": "Dim Date.Year"},
-                                             {"query_ref": "Fact Sales.Revenue"}],
-                                "model_dir": MODEL}]
+    assert facts["models"] == [{"bindings": [
+        {"query_ref": "Dim Date.Year", "kind": "Column",
+         "entity": "Dim Date", "property": "Year"},
+        {"query_ref": "Fact Sales.Revenue", "kind": "Measure",
+         "entity": "Fact Sales", "property": "Revenue"}],
+        "model_dir": MODEL}]
     bare = measure_report(REPORT)
     assert "encoding.metric_unit_consistency" not in bare["rules"]
     assert "models" not in bare

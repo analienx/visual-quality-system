@@ -429,8 +429,11 @@ def m_edges(queries: dict[str, str]) -> dict[str, set[str]]:
     an A<->B cycle. Binding left-hand sides are definitions, never
     references; same-scope binding expressions resolve against the
     scope's bindings. Text after a nested body belongs to an
-    ancestor scope. Scopes the splitter cannot delimit raise
-    ModelingError instead of mis-resolving.
+    ancestor scope, so root bindings after a nested let
+    (``, B = 1 in B``) still complete the root scope instead of
+    reading as global references. Nesting inside binding
+    expressions is supported to two levels; deeper or truncated
+    shapes raise ModelingError instead of mis-resolving.
     """
     edges: dict[str, set[str]] = {name: set() for name in queries}
     for name, code in queries.items():
@@ -447,25 +450,71 @@ def m_edges(queries: dict[str, str]) -> dict[str, set[str]]:
             ancestors = set()
             nested = parts[1:]
             regions = [(parts[0], set())]
+        # T03: a nested fragment (split piece with no `in`) is a scope
+        # broken open by a deeper let. Leading queries tolerate none
+        # (root bindings split once already); non-leading queries
+        # tolerate exactly one (their single nested scope). Anything
+        # deeper cannot be delimited: block, never mis-resolve.
+        frag_at = [index for index, segment in enumerate(nested)
+                   if _IN.search(segment) is None]
+        if (leading and frag_at) or len(frag_at) > 1:
+            raise ModelingError(
+                f"nested let beyond supported depth in query {name!r}: "
+                "unsupported by static scope analysis")
+        # Precompute each segment's bounds and body/rest split (one
+        # split per segment; unbalanced bodies raise here as before).
+        # Rest tails belong to an ancestor scope: their bindings
+        # complete that scope instead of vanishing.
+        infos: list[tuple[set[str], str, str, set[str]]] = []
         for segment in nested:
+            has_in = _IN.search(segment)
+            if has_in is None:
+                pairs = _top_bindings(segment)
+                infos.append(
+                    ({_restore(binding, quoted) for binding, _ in pairs},
+                     segment, "", set()))
+                continue
+            pairs = _top_bindings(segment[:has_in.start()])
+            bound = {_restore(binding, quoted) for binding, _ in pairs}
+            body, rest = _split_let_body(segment[has_in.end():], name)
+            rest_pairs = _top_bindings(_let_scope(rest))
+            extra = {_restore(binding, quoted)
+                     for binding, _ in rest_pairs}
+            infos.append((bound, body, rest, extra))
+        if leading:
+            for _bound, _body, _rest, extra in infos:
+                ancestors |= extra
+        # Non-leading single nested scope: its split bindings mask
+        # together across the fragment, inner, and rest regions.
+        scope_names: set[str] = set()
+        first_frag = frag_at[0] if frag_at else None
+        if not leading and first_frag is not None:
+            scope_names |= infos[first_frag][0]
+            following = next(
+                (index for index in range(first_frag + 1, len(infos))
+                 if _IN.search(nested[index]) is not None), None)
+            if following is not None:
+                scope_names |= infos[following][3]
+        for index, segment in enumerate(nested):
+            bound, body, rest, extra = infos[index]
             has_in = _IN.search(segment)
             if has_in is None:
                 # let-fragment from a nested let inside a binding
                 # expression: definitions still mask, every other
                 # reference resolves outward (fail closed).
-                pairs = _top_bindings(segment)
-                bound = {_restore(binding, quoted)
-                         for binding, _ in pairs}
-                regions.append((_mask_binding_lhs(segment, bound),
-                                bound | ancestors))
+                full = bound | scope_names | ancestors
+                regions.append((_mask_binding_lhs(segment, full), full))
                 continue
-            pairs = _top_bindings(segment[:has_in.start()])
-            bound = {_restore(binding, quoted) for binding, _ in pairs}
             declared = _mask_binding_lhs(segment[:has_in.start()], bound)
-            body, rest = _split_let_body(segment[has_in.end():], name)
-            regions.append((declared, bound | ancestors))
-            regions.append((body, bound | ancestors))
-            regions.append((rest, set(ancestors)))
+            inner = bound | ancestors
+            if not leading and first_frag is not None and index > first_frag:
+                inner |= scope_names
+            regions.append((declared, inner))
+            regions.append((body, inner))
+            outer = ancestors | extra
+            if not leading and first_frag is not None and index > first_frag:
+                outer |= scope_names
+            regions.append((_mask_binding_lhs(rest, extra), outer))
         if leading:
             top_text = parts[1] if len(parts) > 1 else ""
             regions.append((_mask_binding_lhs(top_text, ancestors),
@@ -526,11 +575,23 @@ def within_let_cycles(code: str) -> list[list[str]]:
 
     Operates on comment/string-blanked code so ``in`` inside literals
     cannot truncate scope; #"quoted binding names" round-trip through
-    placeholders and are restored in reported cycles.
+    placeholders and are restored in reported cycles. A nested ``let``
+    inside a scope's own bindings hides the bindings after it, so it
+    raises ModelingError (blocked) instead of a narrowed verdict.
     """
     clean, quoted = _m_clean(code)
+    segments = _LET.split(clean)[1:]
+    for segment in segments[:-1]:
+        if _IN.search(segment) is None:
+            # T03: a nested let inside this scope's bindings hides the
+            # bindings after it (`, b = a in a` never parses): the
+            # scope cannot be delimited, so block instead of reporting
+            # a narrowed, possibly acyclic graph.
+            raise ModelingError(
+                "nested let inside a let binding hides later bindings: "
+                "unsupported by static scope analysis")
     found: list[list[str]] = []
-    for segment in _LET.split(clean)[1:]:
+    for segment in segments:
         has_in = _IN.search(segment)
         scope = segment[:has_in.start()] if has_in else segment
         pairs = _top_bindings(scope)

@@ -59,7 +59,7 @@ def _report(root: Path, pages: dict[str, str],
 def _valid(version: bool = True, report_doc: bool = True) -> dict:
     extra: dict = {}
     if version:
-        extra["version"] = {"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "1.0"}
+        extra["version"] = {"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "2.0.0"}
     if report_doc:
         extra["report_doc"] = {
             "$schema": SCHEMA_REPORT,

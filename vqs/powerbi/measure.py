@@ -399,6 +399,8 @@ def _literal(raw: Any) -> Any:
 
 
 def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dict]]:
+    from .insights import _aggregation_function, _ref_parts
+
     bindings: dict[str, dict] = {}
     units: list[dict] = []
     cohorts: dict[str, dict[str, Any]] = {}
@@ -413,16 +415,35 @@ def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dic
             state = node.get("query", {}).get("queryState", {})
             for role, content in state.items() if isinstance(state, dict) else []:
                 for projection in (content or {}).get("projections", []):
-                    ref = projection.get("query_ref") or projection.get("queryRef")
-                    if isinstance(ref, str) and ref and ref not in bindings:
-                        bindings[ref] = {"query_ref": ref, "measure": None}
-                    field = projection.get("field", {}).get("Measure", {})
-                    entity = (field.get("Expression", {}).get("SourceRef", {})
-                              or {}).get("Entity", "")
-                    prop = field.get("Property", "")
-                    if entity and prop:
+                    if not isinstance(projection, dict):
+                        continue
+                    # T04: the binding carries the structured actual
+                    # field (SourceRef entity + property); queryRef is
+                    # projection identity only and never resolves.
+                    kind, entity, prop = _ref_parts(
+                        projection.get("field", {}))
+                    if kind == "Measure" and entity and prop:
                         units.append({"measure": f"{entity}.{prop}",
                                       "page": page_id})
+                    ref = (projection.get("query_ref")
+                           or projection.get("queryRef"))
+                    if (not (isinstance(ref, str) and ref)
+                            or ref in bindings):
+                        continue
+                    entry: dict[str, Any] = {"query_ref": ref}
+                    if entity and prop and kind in (
+                            "Measure", "Column", "Aggregation"):
+                        entry["kind"] = kind
+                        entry["entity"] = entity
+                        entry["property"] = prop
+                        if kind == "Aggregation":
+                            func = _aggregation_function(
+                                projection.get("field", {}))
+                            if func is not None:
+                                entry["function"] = func
+                    else:
+                        entry["actual_unknown"] = True
+                    bindings[ref] = entry
             objects = node.get("objects", {})
             for path, value in _walk(objects):
                 segments = [s.split("[")[0] for s in path.split("/") if s]
@@ -548,7 +569,14 @@ def measure_report(report_dir: str, model_dir: str | None = None) -> dict:
         if readings:
             facts["rules"]["encoding.metric_unit_consistency"] = {"readings": readings}
         ordered = sorted(bindings, key=lambda item: item["query_ref"])
+        emitted = []
+        for item in ordered:
+            entry = {"query_ref": item["query_ref"]}
+            for key in ("kind", "entity", "property", "function",
+                        "actual_unknown"):
+                if key in item:
+                    entry[key] = item[key]
+            emitted.append(entry)
         facts["models"] = [{"model_dir": resolved_model,
-                            "bindings": [{"query_ref": b["query_ref"]}
-                                         for b in ordered]}]
+                            "bindings": emitted}]
     return facts

@@ -29,7 +29,7 @@ def _make_report(root: Path, name: str = "original.Report",
         json.dumps({"pageOrder": ["P1"]}), encoding="utf-8")
     (pages.parent / "version.json").write_text(json.dumps(
         {"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json",
-         "version": "1.0"}), encoding="utf-8")
+         "version": "2.0.0"}), encoding="utf-8")
     (pages.parent / "report.json").write_text(json.dumps({
         "$schema": ("https://developer.microsoft.com/json-schemas/fabric/item/"
                     "report/definition/report/3.3.0/schema.json"),

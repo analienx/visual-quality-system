@@ -34,7 +34,7 @@ def _project(root: Path, model_text: str | None) -> tuple[Path, Path]:
         json.dumps({"$schema": SCHEMA_INDEX, "pageOrder": ["P1"]}),
         encoding="utf-8")
     (definition / "version.json").write_text(
-        json.dumps({"$schema": SCHEMA_VERSION, "version": "1.0"}),
+        json.dumps({"$schema": SCHEMA_VERSION, "version": "2.0.0"}),
         encoding="utf-8")
     (definition / "report.json").write_text(json.dumps({
         "$schema": SCHEMA_REPORT, "layoutOptimization": "None",
