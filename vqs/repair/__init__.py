@@ -6,18 +6,6 @@ from .allowlist import (
     validate_materialized_roots,
     validate_plan,
 )
-from .promote import (
-    PromoteError,
-    rollback_promotion,
-    swap_original_with_candidate,
-)
-from .runtime import (
-    BridgePort,
-    BridgeUnavailable,
-    LocalBridgePort,
-    bind_candidate_instance,
-    capture_candidate,
-)
 from .answers import answers_preserved, collect_answers
 from .execute import (
     RepairError,
@@ -26,9 +14,21 @@ from .execute import (
     rollback_candidate,
     tree_digest,
 )
+from .promote import (
+    PromoteError,
+    rollback_promotion,
+    swap_original_with_candidate,
+)
 from .recipes import RecipeError, affected_pages, bind_operation
 from .regress import rerender_requirements, verify_candidate, verify_renders
 from .rounds import MAX_ROUNDS, run_rounds
+from .runtime import (
+    BridgePort,
+    BridgeUnavailable,
+    LocalBridgePort,
+    bind_candidate_instance,
+    capture_candidate,
+)
 from .synthesize import PLAN_SCHEMA_VERSION, synthesize_plan
 from .templates import (
     TemplateError,

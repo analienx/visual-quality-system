@@ -1576,13 +1576,13 @@ def _sealed_repair_evidence(run_root: str, run_id: str, tool: str
             tool, [f"run {run_id!r} seal invalid: {rule}"])
     if manifest.get("pipeline") != "vqs.repair/1":
         return None, blocked_envelope(
-            tool, [f"run {run_id!r} is not a sealed repair run "
-                   f"(pipeline {manifest.get('pipeline')!r})"])
+            tool, [(f"run {run_id!r} is not a sealed repair run "
+                     f"(pipeline {manifest.get('pipeline')!r}")])
     if manifest.get("status") != "completed":
         return None, blocked_envelope(
-            tool, [f"run {run_id!r} is not a completed repair run "
-                   f"(status {manifest.get('status')!r}); only completed "
-                   "repairs verify at runtime or promote"])
+            tool, [(f"run {run_id!r} is not a completed repair run "
+                    f"(status {manifest.get('status')!r}); only completed "
+                    "repairs verify at runtime or promote")])
     repair = manifest.get("repair") or {}
     original = repair.get("original")
     candidate = repair.get("candidate")
@@ -1592,8 +1592,8 @@ def _sealed_repair_evidence(run_root: str, run_id: str, tool: str
                     and isinstance(entry.get("sha256"), str)
                     and isinstance(entry.get("path"), str))):
         return None, blocked_envelope(
-            tool, [f"run {run_id!r} predates verifiable repair evidence; "
-                   "re-run repair"])
+            tool, [(f"run {run_id!r} predates verifiable repair evidence; "
+                    "re-run repair")])
     try:
         repairs = json.loads((Path(run_root) / run_id / entry["path"]
                               ).read_text(encoding="utf-8"))
@@ -1638,8 +1638,7 @@ def verify_runtime(*, run_root: str, run_id: str,
     ``vqs.verify-runtime/1`` separately from technical repair evidence.
     """
     from .repair.execute import RepairError, tree_digest
-    from .repair.runtime import (BridgeUnavailable, LocalBridgePort,
-                                 bind_candidate_instance, capture_candidate)
+    from .repair.runtime import BridgeUnavailable, LocalBridgePort, bind_candidate_instance, capture_candidate
 
     tool = "vqs.verify-runtime"
     if not isinstance(run_root, str) or not run_root:
@@ -1671,8 +1670,8 @@ def verify_runtime(*, run_root: str, run_id: str,
         except BridgeUnavailable as exc:
             return blocked_envelope(
                 tool, [f"no live Desktop capability: {exc}"],
-                next_actions=["open the disposable candidate in Power BI "
-                              "Desktop on a Bridge host and retry"],
+                next_actions=[("open the disposable candidate in Power BI "
+                               "Desktop on a Bridge host and retry")],
                 provenance={"repair_run": run_id, "candidate": candidate})
     rid = runtime_run_id or f"rt-{uuid.uuid4().hex[:12]}"
     try:
@@ -1701,8 +1700,8 @@ def verify_runtime(*, run_root: str, run_id: str,
         return blocked_envelope(
             tool, [f"candidate binding failed: {exc}"],
             run_id=rid, run_dir=str(sealed_run_dir),
-            next_actions=["open the disposable candidate in Desktop and "
-                          "pass its exact --pid"],
+            next_actions=[("open the disposable candidate in Desktop and "
+                            "pass its exact --pid")],
             provenance=provenance)
     if reload_first:
         try:
@@ -1830,9 +1829,9 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
         return blocked_envelope(tool, ["run_id must be a nonempty string"])
     if (not isinstance(owner_approval, str) or not owner_approval.strip()):
         return blocked_envelope(
-            tool, ["owner approval required: promotion never overwrites "
-                   "silently; pass --owner-approval with the owner identity "
-                   "and reason"])
+            tool, [("owner approval required: promotion never overwrites "
+                    "silently; pass --owner-approval with the owner identity "
+                    "and reason")])
     if runtime_run_id is not None and (
             not isinstance(runtime_run_id, str) or not runtime_run_id):
         return blocked_envelope(
@@ -1861,14 +1860,14 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
                                 provenance=provenance)
     if current_original != evidence["before"]:
         return blocked_envelope(
-            tool, ["original drifted since repair; promotion refused: "
-                   f"{current_original} != {evidence['before']}"],
+            tool, [(f"original drifted since repair; promotion refused: "
+                    f"{current_original} != {evidence['before']}")],
             provenance=provenance,
             next_actions=["re-run repair against the current original"])
     if current_candidate != evidence["after"]:
         return blocked_envelope(
-            tool, ["candidate drifted since repair; promotion refused: "
-                   f"{current_candidate} != {evidence['after']}"],
+            tool, [(f"candidate drifted since repair; promotion refused: "
+                    f"{current_candidate} != {evidence['after']}")],
             provenance=provenance,
             next_actions=["re-run repair to seal the current candidate"])
     try:
@@ -1879,20 +1878,20 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
             provenance=provenance)
     if candidate_source != evidence["source_sha256"]:
         return blocked_envelope(
-            tool, ["candidate source differs from the sealed repair source; "
-                   "promotion refused"],
+            tool, [("candidate source differs from the sealed repair source; "
+                    "promotion refused")],
             provenance=provenance)
     try:
         comparison = compare(original, candidate, evidence["edits"], set())
     except Exception as exc:  # noqa: BLE001 - comparison crash blocks
         return blocked_envelope(
-            tool, [f"candidate verification crashed: "
-                   f"{type(exc).__name__}: {exc}"],
+            tool, [(f"candidate verification crashed: "
+                    f"{type(exc).__name__}: {exc}")],
             provenance=provenance)
     if comparison.get("verdict") != "pass":
         return blocked_envelope(
-            tool, ["candidate not verified: "
-                   f"{comparison.get('problems', comparison)}"],
+            tool, [("candidate not verified: "
+                    f"{comparison.get('problems', comparison)}")],
             provenance=provenance,
             next_actions=["inspect the problems and re-repair"])
     model_problems = _sealed_model_problems(evidence["model"], original,
@@ -1913,21 +1912,22 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
         runtime_seal = verify_seal(Path(run_root) / runtime_run_id)
         if runtime_seal:
             return blocked_envelope(
-                tool, [f"runtime run {runtime_run_id!r} seal invalid: "
-                       f"{runtime_seal[0].get('rule', 'unknown')}"],
+                tool, [(f"runtime run {runtime_run_id!r} seal invalid: "
+                        f"{runtime_seal[0].get('rule', 'unknown')}")],
                 provenance=provenance)
         if runtime_manifest.get("pipeline") != "vqs.verify-runtime/1":
             return blocked_envelope(
-                tool, [f"run {runtime_run_id!r} is not a runtime verification "
-                       f"(pipeline {runtime_manifest.get('pipeline')!r})"],
+                tool, [(f"run {runtime_run_id!r} is not a runtime "
+                        f"verification "
+                        f"(pipeline {runtime_manifest.get('pipeline')!r})")],
                 provenance=provenance)
         if runtime_manifest.get("status") != "completed":
             return blocked_envelope(
-                tool, [f"runtime verification {runtime_run_id!r} is "
-                       f"{runtime_manifest.get('status')!r}: required "
-                       "live regressions are unresolved; re-run runtime "
-                       "verification or omit --runtime-run-id to record the "
-                       "gap explicitly"],
+                tool, [(f"runtime verification {runtime_run_id!r} is "
+                        f"{runtime_manifest.get('status')!r}: required "
+                        "live regressions are unresolved; re-run runtime "
+                        "verification or omit --runtime-run-id to record the "
+                        "gap explicitly")],
                 provenance=provenance)
         try:
             runtime_doc = json.loads(
@@ -1940,8 +1940,8 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
         if not isinstance(runtime_doc, dict) or (
                 runtime_doc.get("candidate_digest") != evidence["after"]):
             return blocked_envelope(
-                tool, ["runtime verification binds a different candidate; "
-                       "promotion refused"],
+                tool, [("runtime verification binds a different candidate; "
+                        "promotion refused")],
                 provenance=provenance)
         runtime_summary = {"status": "pass", "run_id": runtime_run_id,
                            "candidate_digest": runtime_doc.get(
@@ -1983,8 +1983,8 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
                            "detail": {"reason": str(exc),
                                       "state": exc.state}}],
                 provenance=provenance,
-                next_actions=["inspect the partial state and roll back from "
-                              f"{exc.state.get('backup')}"])
+                next_actions=[("inspect the partial state and roll back from "
+                             f"{exc.state.get('backup')}")])
         return blocked_envelope(
             tool, [f"promotion refused: {exc}"],
             run_id=rid, run_dir=str(sealed_run_dir), provenance=provenance)
@@ -2069,11 +2069,11 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
                   "match": model_ok},
         "desktop_recheck": recheck,
         "rollback": {
-            "steps": [f"rename {swap['final']} to "
-                      f"{swap['final']}.vqs-retired (must not exist)",
+            "steps": [(f"rename {swap['final']} to "
+                       f"{swap['final']}.vqs-retired (must not exist)"),
                       f"rename {swap['backup']} to {swap['final']}",
-                      f"verify tree_digest({swap['final']}) == "
-                      f"{evidence['before']}"],
+                      (f"verify tree_digest({swap['final']}) == "
+                       f"{evidence['before']}")],
             "backup": swap["backup"],
             "precondition_digest": evidence["before"]}}
     try:
@@ -2106,8 +2106,8 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
                        "detail": {"model_match": model_ok,
                                   "desktop_recheck": recheck}}],
             evidence=evidence_rows, provenance=provenance,
-            next_actions=[f"inspect the corroboration failure; roll back "
-                          f"from {swap['backup']} if needed"])
+            next_actions=[(f"inspect the corroboration failure; roll back "
+                           f"from {swap['backup']} if needed")])
     _seal_terminal(sealed_run_dir, "completed", artifacts, bindings)
     return _envelope(
         tool, "pass", run_id=rid, run_dir=str(sealed_run_dir),

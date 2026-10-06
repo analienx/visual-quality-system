@@ -203,7 +203,7 @@ def test_runtime_without_capability_blocks_precisely(
 def test_runtime_pass_seals_and_never_touches_original(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Happy path: reload + capture the candidate, seal runtime evidence."""
-    _envelope, report, cand, result = _passing_runtime(
+    _envelope, _report, cand, result = _passing_runtime(
         monkeypatch, tmp_path)
     assert result["evidence"][0]["kind"] == "sealed_runtime"
     run_dir = tmp_path / "runs" / "rt1"
@@ -220,8 +220,8 @@ def test_runtime_pass_seals_and_never_touches_original(
 def test_runtime_refuses_instance_holding_original(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Desktop holds the original: binding fails, original never driven."""
-    _envelope, report, cand = _sealed_repair(tmp_path, "proj", "rep1")
-    _fake_capture(monkeypatch, cand)
+    _envelope, report, _cand = _sealed_repair(tmp_path, "proj", "rep1")
+    _fake_capture(monkeypatch, _cand)
     port = _FakePort(report)
     result = verify_runtime(run_root=str(tmp_path / "runs"), run_id="rep1",
                             pid=PID, bridge=port,
