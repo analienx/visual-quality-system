@@ -295,19 +295,25 @@ def test_runtime_candidate_drift_fails(
 
 def test_runtime_and_promote_need_completed_repair(
         tmp_path: Path) -> None:
-    """A blocked (never applied) repair verifies and promotes nowhere."""
+    """A sealed blocked repair verifies and promotes nowhere."""
     proj, _report = _project(tmp_path, "proj")
-    (proj / "plan.json").write_text("not a plan", encoding="utf-8")
+    occupied = proj / "cand-blocked"
+    occupied.mkdir()
+    (occupied / "stale.txt").write_text("x", encoding="utf-8")
     envelope = repair_candidate(str(proj / "plan.json"), str(_report),
-                                str(proj / "cand-bad"),
+                                str(occupied),
                                 run_root=str(tmp_path / "runs"),
-                                run_id="rep-bad")
+                                run_id="rep-blocked")
     assert envelope["verdict"] == "blocked"
+    manifest = json.loads((tmp_path / "runs" / "rep-blocked" / "manifest.json")
+                          .read_text(encoding="utf-8"))
+    assert manifest["status"] == "blocked"
+    assert verify_seal(tmp_path / "runs" / "rep-blocked") == []
     assert verify_runtime(run_root=str(tmp_path / "runs"),
-                          run_id="rep-bad", pid=PID,
+                          run_id="rep-blocked", pid=PID,
                           bridge=_FakePort(_report))["verdict"] == "blocked"
     refused = promote_candidate(run_root=str(tmp_path / "runs"),
-                                run_id="rep-bad",
+                                run_id="rep-blocked",
                                 owner_approval="owner: test")
     assert refused["verdict"] == "blocked"
     assert "not a completed repair run" in refused["blocked_reasons"][0]
@@ -388,7 +394,7 @@ def test_promote_happy_path_static_only(tmp_path: Path) -> None:
 def test_promote_binds_passing_runtime(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A sealed passing runtime run binds; the record names it."""
-    _envelope, _report, _cand = _passing_runtime(monkeypatch, tmp_path)
+    _envelope, _report, _cand, _rt = _passing_runtime(monkeypatch, tmp_path)
     result = promote_candidate(run_root=str(tmp_path / "runs"), run_id="rep1",
                                owner_approval="owner: accept with runtime",
                                runtime_run_id="rt1", desktop_recheck=False,
@@ -403,9 +409,18 @@ def test_promote_binds_passing_runtime(
 
 def test_promote_refuses_failed_runtime(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Unresolved live regressions refuse even with owner approval."""
+    """Unresolved live regressions refuse even with owner approval.
+
+    The regression is observed (runtime fail), then the candidate is
+    restored byte-for-byte, so every earlier promotion gate passes and
+    the failed runtime record itself is what refuses.
+    """
+    import shutil as _shutil
+
     _envelope, _report, cand = _sealed_repair(tmp_path, "proj", "rep1")
     _fake_capture(monkeypatch, cand)
+    pristine = tmp_path / "cand-pristine"
+    _shutil.copytree(cand, pristine, symlinks=False)
     (cand / VISUAL_REL).write_text(
         (cand / VISUAL_REL).read_text(encoding="utf-8") + " ",
         encoding="utf-8")
@@ -413,6 +428,8 @@ def test_promote_refuses_failed_runtime(
                              pid=PID, bridge=_FakePort(cand),
                              runtime_run_id="rtfail")
     assert drifted["verdict"] == "fail"
+    _shutil.rmtree(cand)
+    _shutil.copytree(pristine, cand, symlinks=False)
     refused = promote_candidate(run_root=str(tmp_path / "runs"),
                                 run_id="rep1",
                                 owner_approval="owner: override attempt",
