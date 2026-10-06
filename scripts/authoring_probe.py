@@ -1,13 +1,14 @@
 """Hosted real-CLI lane for R6-E07 (oracle A07, real-tool leg).
 
-Probes the Microsoft-guided `powerbi-report-author` CLI on PATH and,
+Probes the Microsoft-guided `powerbi-report-author` executable
+(documented `@microsoft/powerbi-report-authoring-cli`) on PATH and,
 when present, runs `validate` against a synthetic .Report project
 through the genuine vqs.powerbi.author port (no fakes). The record is
 written as JSON and the process always exits 0: a missing tool is a
 recorded blocked outcome, never a harness failure. No install is
-attempted: the Microsoft reference names no distribution channel, so
-guessing a package identity would be a supply-chain risk; absence is
-reported with its reproduction instead.
+attempted.
+
+
 """
 import json
 import sys

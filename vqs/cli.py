@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from .evidence import image_evidence, review_template
+from .install import package_version
 from .pbir import report_context
 
 
@@ -476,6 +477,8 @@ def _bundle(action: str, args) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="vqs", description="Visual Quality System pre-alpha tools")
+    parser.add_argument("--version", action="version",
+                        version=f"vqs {package_version() or 'unknown'}")
     commands = parser.add_subparsers(dest="command", required=True)
     inventory = commands.add_parser("inventory", help="Read PBIR definition and bindings; not design approval")
     inventory.add_argument("report", type=Path, help="Enhanced-format *.Report folder")

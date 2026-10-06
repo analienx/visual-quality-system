@@ -1,5 +1,7 @@
 """Subprocess port for Microsoft's powerbi-report-author CLI (R6-E07).
 
+The probed executable is ``powerbi-report-author`` from the documented
+``@microsoft/powerbi-report-authoring-cli`` distribution channel.
 Only two surfaces are executed: the presence probe (documented
 ``--help``; ``--version`` is undocumented for this CLI) and
 ``validate <path>`` on a candidate report directory. Nothing else is
@@ -19,6 +21,8 @@ from pathlib import Path
 from typing import Any
 
 TOOL_NAME = "powerbi-report-author"
+# Documented distribution channel for the executable above.
+PACKAGE_NAME = "@microsoft/powerbi-report-authoring-cli"
 PROBE_ARGS = ("--help",)
 PROBE_TIMEOUT = 60
 RAW_TAIL_LIMIT = 8192
@@ -70,7 +74,8 @@ def probe(tool: str = TOOL_NAME,
     except Exception:  # noqa: BLE001 - lookup crash means missing
         path = None
     record: dict[str, Any] = {
-        "tool": tool, "available": False, "path": path, "version": None,
+        "tool": tool, "package": PACKAGE_NAME,
+        "available": False, "path": path, "version": None,
         "probe_command": [tool, *PROBE_ARGS], "returncode": None,
         "note": None}
     if path is None:
@@ -110,7 +115,8 @@ def validate(report_dir: str | Path, timeout: int = 300,
     raw tail; callers adjudicate warnings by explicit policy.
     """
     record: dict[str, Any] = {
-        "tool": tool, "command": [tool, "validate", str(report_dir)],
+        "tool": tool, "package": PACKAGE_NAME,
+        "command": [tool, "validate", str(report_dir)],
         "status": "error", "returncode": None, "errors": [],
         "warnings": [], "raw_tail": "", "note": None}
     try:

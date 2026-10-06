@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from scripts.pbip_acceptance import _report_author, main
 
 
@@ -73,14 +75,16 @@ def test_check_pass_keeps_overall_pass_and_exit_0(tmp_path: Path, capsys,
     assert summary["verdict"] == "pass"
 
 
-def test_skip_pbir_alias_still_skips(tmp_path: Path, capsys,
+def test_skip_pbir_flag_is_gone(tmp_path: Path, capsys,
                                      monkeypatch) -> None:
-    """The old flag stays a hidden alias of --skip-external."""
+    """Item 37: no pbir.tools hook remains; the old flag is rejected."""
     report = tmp_path / "Example.Report"
     report.mkdir()
     monkeypatch.setattr("vqs.powerbi.measure.measure_report",
                         lambda *a, **k: _facts(failing=False))
-    code = main([str(report), "--skip-pbir"])
+    with pytest.raises(SystemExit):
+        main([str(report), "--skip-pbir"])
+    code = main([str(report), "--skip-external"])
     assert code == 0
     summary = json.loads(capsys.readouterr().out)
     assert summary["report_author"]["status"] == "skipped"

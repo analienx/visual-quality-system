@@ -75,10 +75,11 @@ def _report_author() -> dict[str, Any]:
     zero-exit documented ``--help``). Schema validation runs
     through ``validate`` at repair time, never here.
     """
-    from .powerbi.author.mscli import TOOL_NAME, probe
+    from .powerbi.author.mscli import PACKAGE_NAME, TOOL_NAME, probe
 
     found = probe()
     return {"name": TOOL_NAME,
+            "package": PACKAGE_NAME,
             "status": "present" if found["available"] else "missing",
             "path": found["path"],
             "version": found["version"] if found["available"] else None,
@@ -88,6 +89,8 @@ def _report_author() -> dict[str, Any]:
 
 def report() -> dict[str, Any]:
     """Collect every capability check into one JSON-serializable report."""
+    from .install import installation_report
+
     report_author = _report_author()
     bridge = _tool("powerbi-desktop", "--version")
     mcp = _tool("powerbi-modeling-mcp")
@@ -96,4 +99,5 @@ def report() -> dict[str, Any]:
     return {"status": "ok",
             "checks": {"report_author": report_author,
                        "desktop_bridge": bridge, "modeling_mcp": mcp,
-                       "desktop_process": _desktop_process()}}
+                       "desktop_process": _desktop_process(),
+                       "installation": installation_report()}}

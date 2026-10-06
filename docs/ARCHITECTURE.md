@@ -50,7 +50,8 @@ Verified against the installed tools, not assumed:
 - **VQS owns** quality logic, design rules, evidence reconciliation,
   repair planning, and acceptance.
 - **Report-side validation is optional**: the Microsoft-guided
-  `powerbi-report-author` CLI validates candidates
+  `powerbi-report-author` executable (documented distribution channel
+  `@microsoft/powerbi-report-authoring-cli`) validates candidates
   (`vqs/powerbi/author`, policies auto/microsoft/direct). R6 removed
   the former pbir-cli legs: Microsoft rejection fails, warnings
   block unless explicitly allowed, and outages block — failures

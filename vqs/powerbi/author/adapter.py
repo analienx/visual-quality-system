@@ -13,7 +13,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from .mscli import TOOL_NAME, probe, validate
+from .mscli import PACKAGE_NAME, TOOL_NAME, probe, validate
 
 POLICIES = ("auto", "microsoft", "direct")
 
@@ -84,8 +84,8 @@ def run_backend(candidate: str | Path, *, policy: str = "auto",
     try:
         probe_result = active_prober()
     except Exception as exc:  # noqa: BLE001 - probe crash blocks
-        probe_result = {"tool": TOOL_NAME, "available": False,
-                        "path": None, "version": None,
+        probe_result = {"tool": TOOL_NAME, "package": PACKAGE_NAME,
+                        "available": False, "path": None, "version": None,
                         "note": f"probe raised: {exc}"}
     try:
         selection = select(policy, probe_result)
@@ -103,12 +103,14 @@ def run_backend(candidate: str | Path, *, policy: str = "auto",
     try:
         validation = active_runner(candidate, timeout=timeout)
     except Exception as exc:  # noqa: BLE001 - runner crash blocks
-        validation = {"tool": TOOL_NAME, "command": [TOOL_NAME],
+        validation = {"tool": TOOL_NAME, "package": PACKAGE_NAME,
+                      "command": [TOOL_NAME],
                       "status": "error", "returncode": None,
                       "errors": [], "warnings": [], "raw_tail": "",
                       "note": f"runner raised: {exc}"}
     if not isinstance(validation, dict):
-        validation = {"tool": TOOL_NAME, "command": [TOOL_NAME],
+        validation = {"tool": TOOL_NAME, "package": PACKAGE_NAME,
+                      "command": [TOOL_NAME],
                       "status": "error", "returncode": None,
                       "errors": [], "warnings": [], "raw_tail": "",
                       "note": "runner returned malformed output"}

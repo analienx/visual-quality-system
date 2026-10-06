@@ -35,6 +35,17 @@
   value plus named provenance; unproven bindings need the owner.
   Tests `tests/test_u7_typography.py`; `scripts/smoke.py` honest
   blocked (rule unknown on the mixed mini_report fixture, not fail).
+- P1 items 32-37 install/version hygiene and authoring correction:
+  new `vqs --version` and `python -m vqs` (`vqs/__main__.py`); `vqs
+  doctor` reports an `installation` check (package version,
+  import/package root, engine/tool schemas, git SHA when
+  discoverable) that flags stale editable installs without ever
+  modifying them; the Microsoft authoring identity is recorded as
+  the `powerbi-report-author` executable from
+  `@microsoft/powerbi-report-authoring-cli` in probe/validate
+  records, doctor, and docs; the legacy `--skip-pbir` alias is
+  removed (no pbir.tools hook remains). Tests
+  `tests/test_p1_install.py` plus `tests/test_doctor.py` updates.
 - P1 items 30-31 live answer regression: the coordinator baseline now
   persists the query/scope/result evidence per DAX question, so the
   `answer_regression` stage re-asks the identical scoped query against

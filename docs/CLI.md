@@ -195,7 +195,9 @@ typed visual edits only (the executor cannot touch model bytes),
 and validate the candidate. Model/DAX/RLS targets fail closed
 without an owner approval id. `--authoring-backend` selects the
 validation route: `auto` (default) probes the Microsoft-guided
-`powerbi-report-author` CLI and records any fallback, `microsoft`
+`powerbi-report-author` executable (documented distribution channel
+`@microsoft/powerbi-report-authoring-cli`) and records any fallback,
+`microsoft`
 never falls back silently, `direct` is the explicit typed-writer
 fallback. Microsoft rejection fails; warnings block unless
 `--authoring-allow-warnings` is given; missing, timed-out, or

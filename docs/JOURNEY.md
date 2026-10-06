@@ -16,8 +16,12 @@ vqs doctor
 
 `vqs doctor` reports external capabilities and never installs or
 gates. `report_author` is the Microsoft-guided `powerbi-report-author`
-CLI (optional); without it, repair records an explicit direct
-fallback. Desktop capture needs the Desktop Bridge plus a saved
+executable (documented distribution channel
+`@microsoft/powerbi-report-authoring-cli`).
+
+Without it, repair records an explicit direct fallback. Desktop
+capture needs
+the Desktop Bridge plus a saved
 report/PID; the journey oracle uses synthetic stand-in renders that
 are labeled as such — pixels stay uncorroborated.
 

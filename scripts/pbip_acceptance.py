@@ -53,8 +53,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--skip-external", dest="skip_external",
                         action="store_true",
                         help="Skip the optional Microsoft validation leg")
-    parser.add_argument("--skip-pbir", dest="skip_external",
-                        action="store_true", help=argparse.SUPPRESS)
+
+
     args = parser.parse_args(argv)
 
     import tempfile
