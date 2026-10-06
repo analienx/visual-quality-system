@@ -10,11 +10,17 @@
 
 ```bash
 pip install -e ".[test]"
-vqs doctor                        # what external tools are present (never installs)
-vqs cycles tests/powerbi/fixtures/clean_model
-vqs measure tests/powerbi/fixtures/mini_report --model tests/powerbi/fixtures/mini_model/definition
-python -m pytest                  # 957 passed + 7 skipped per ubuntu leg, 962 + 2 on windows, ruff clean
+vqs --version
+vqs doctor                        # capabilities + install identity (never installs)
+vqs run tests/powerbi/fixtures/mini_report --mode review --run-root runs --run-id demo
+python -m pytest                  # full suite green plus ruff clean
 ```
+
+The demo review blocks (exit 2), honestly: the fixture mixes
+slicer textSize declarations with an unknown effective value, so
+the run reports `needs_render_evidence` instead of failing. The
+low-level tool sequence (`measure`, `check`, `repair`, …) is the
+expert/debug interface — see `docs/QUICKSTART.md`.
 
 Real output (`vqs cycles`, exit 0):
 
@@ -51,6 +57,7 @@ Static facts come from parsing sources; rendered facts come from Desktop Bridge 
 
 | Command | Does | Status |
 | --- | --- | --- |
+| `vqs run` | One-command workflow: inspect → review → propose → repair → verify → remeasure | Implemented on this branch |
 | `vqs measure` | PBIR/TMDL facts: contrast, cohorts, units, scoped bindings, page insights, duplication + chart-practice + layout checks | Implemented on this branch |
 | `vqs cycles` | Static DAX/M/`let` acyclicity gate | Implemented on this branch |
 | `vqs check` | Facts → sealed verdict under run roots (G0 observation) | Implemented on this branch |
@@ -58,7 +65,7 @@ Static facts come from parsing sources; rendered facts come from Desktop Bridge 
 | `vqs request-review` | Source-bound review template from renders | Implemented on this branch |
 | `vqs bundle` | Portable fixer→reviewer evidence bundles | Implemented on this branch |
 | `vqs adjudicate-bundle` | Independent static adjudication (never passes statically) | Implemented on this branch |
-| `vqs doctor` | Capability report (report author, Bridge, MCP, Desktop) | Implemented on this branch |
+| `vqs doctor` | Capability + install-identity report (never installs or gates) | Implemented on this branch |
 | `vqs inventory` / `status` | PBIR inventory / ledger snapshot | Implemented on this branch |
 | Typed candidate repair | Allowlisted edits in disposable candidates + explicit authoring backends | Review candidate ([PR #31](https://github.com/analienx/visual-quality-system/pull/31), draft unmerged; [WP-09](https://github.com/analienx/visual-quality-system/issues/14)) |
 | Word/DOCX backend | Paginated all-page verification | 🔶 planned ([WP-08](https://github.com/analienx/visual-quality-system/issues/13)) |
@@ -81,7 +88,7 @@ Machine-readable status: [roadmap/STATUS.md](roadmap/STATUS.md) and [roadmap/wor
 
 ## Ecosystem: VQS owns the quality decision
 
-VQS parses facts itself and uses first-party tools at arm's length: the Microsoft-guided `powerbi-report-author` CLI (optional, report-side validation only — VQS records an explicit direct fallback without it), [Microsoft Power BI Modeling MCP](https://github.com/microsoft/powerbi-modeling-mcp) (live semantic models), [Desktop Bridge](https://www.npmjs.com/package/@microsoft/powerbi-desktop-bridge-cli) (captures). VQS has no ADOMD dependency. Details: [tool interfaces](docs/ARCHITECTURE.md#power-bi-tool-interfaces-decided-2026-09-26).
+VQS parses facts itself and uses first-party tools at arm's length: the Microsoft-guided `powerbi-report-author` executable (documented distribution channel `@microsoft/powerbi-report-authoring-cli`; optional, report-side validation only — VQS records an explicit direct fallback without it), [Microsoft Power BI Modeling MCP](https://github.com/microsoft/powerbi-modeling-mcp) (live semantic models), [Desktop Bridge](https://www.npmjs.com/package/@microsoft/powerbi-desktop-bridge-cli) (captures). VQS has no ADOMD dependency. Details: [tool interfaces](docs/ARCHITECTURE.md#power-bi-tool-interfaces-decided-2026-09-26).
 
 ## Security
 

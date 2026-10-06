@@ -1,35 +1,58 @@
 # VQS developer workflow quickstart (pre-alpha)
 
 One engine behind two adapters: the `vqs` CLI and the optional `vqs-mcp`
-stdio server call the same six tools (`inspect`, `review`, `propose`,
-`repair`, `verify`, `run_status`) with the same envelopes and verdicts.
+stdio server call the same tools with the same envelopes and verdicts.
 Every command below is implemented behavior against static sources;
 anything needing live Desktop, Word pagination, or cloud data blocks
 with the reason instead of guessing.
 
-Install once (this also verifies the packaged entry points):
+Install once (this also verifies the packaged entry points), then
+confirm what is running:
 
 ```console
 pip install .
-vqs --help
+vqs --version
+python -m vqs --version
+vqs doctor
 ```
 
-Exit codes: `0` pass, `1` demonstrated violation, `2` blocked
-(environment, capability, or input prevents a verdict).
+`vqs doctor` reports external capabilities and install identity
+(package version, import root, engine/tool schemas) and never
+installs, modifies, or gates anything: a stale editable install is
+reported obvious, never auto-repaired. Exit codes: `0` pass,
+`1` demonstrated violation, `2` blocked (environment, capability,
+or input prevents a verdict).
 
-## 1. Inspect, then review a report
+## 1. The one-command workflow (start here)
 
-`inspect` measures check-ready facts (read-only). `review` seals them to
-a verdict under `--run-root <id>/` (`manifest.json`, `findings.json`,
-`events.jsonl`); keep run roots private and gitignored.
+`vqs run` owns the whole sequence — inspect, review, propose, repair,
+verify, remeasure — in one sealed run with per-stage evidence
+(`review`, `propose`, or `repair` modes stop earlier; `static`,
+`desktop`, or `release` scopes add runtime legs that block precisely
+when Desktop/Bridge capability is missing). Keep run roots private
+and gitignored.
+
+```console
+vqs run path/to/Example.Report --mode repair --run-root runs --run-id flow-1
+vqs run path/to/Example.Report --mode review --run-root runs --run-id rev-1
+```
+
+## 2. Expert: individual tools (debug)
+
+The commands below expose each stage separately for debugging. They
+are the expert interface: prefer `vqs run` unless you are diagnosing
+one stage. Run IDs are confined to the run root (`../..` and
+absolute IDs block).
+
+`inspect` measures check-ready facts (read-only). `review` seals them
+to a verdict under `--run-root <id>/` (`manifest.json`,
+`findings.json`, `events.jsonl`).
 
 ```console
 vqs inspect path/to/Example.Report --model path/to/Example.SemanticModel/definition
 vqs review path/to/Example.Report --model path/to/Example.SemanticModel/definition --run-root runs --run-id rev-1
 vqs review --facts facts.json --run-root runs --run-id rev-facts
 ```
-
-## 2. Status and resume
 
 `run-status` re-validates the seal before reporting, so tampered runs
 block instead of replaying stale verdicts. `resume` revalidates sealed
@@ -40,33 +63,19 @@ vqs run-status runs rev-1
 vqs review --facts facts.json --run-root runs --run-id rev-2 --resume-from rev-1
 ```
 
-Run IDs are confined to the run root (`../..` and absolute IDs block).
-
-## 3. Propose work items
-
-`propose` triages the sealed findings of a review run into plan-eligible
-work items. Findings VQS can bind safely (small geometry overlaps and
-outside-page visuals with measured facts, explicit leaf bindings with
-proven old/new values) become deterministic typed candidates with a
-complete plan document; anything ambiguous becomes
-`needs_owner_decision` and is never guessed. Caller facts are accepted
-only when their digest matches the sealed run, so stale sources block.
+`propose` triages the sealed findings of a review run into
+plan-eligible work items. Findings VQS can bind safely (small
+geometry overlaps and outside-page visuals with measured facts,
+explicit leaf bindings with proven old/new values) become
+deterministic typed candidates with a complete plan document;
+anything ambiguous becomes `needs_owner_decision` and is never
+guessed. Caller facts are accepted only when their digest matches
+the sealed run, so stale sources block.
 
 ```console
 vqs propose --run-root runs --run-id rev-1
 vqs propose --run-root runs --run-id rev-1 --facts facts.json --out plan.json
 ```
-
-One command can own the whole sequence instead (`review`, `propose`,
-or `repair` modes; `static`, `desktop`, or `release` scopes). Every
-stage lands in a sealed ledger with its evidence; runtime legs block
-precisely when Desktop/Bridge capability is missing.
-
-```console
-vqs run path/to/Example.Report --mode repair --run-root runs --run-id flow-1
-```
-
-## 4. Author a plan, repair in isolation, verify
 
 Write a JSON plan against the allowlist (see `vqs validate-plan` to
 check one without executing). `repair` validates, copies the original
@@ -81,8 +90,6 @@ vqs repair plan.json --original path/to/Example.Report --candidate-root cand-1 -
 vqs verify --run-root runs --run-id rep-1
 vqs verify --original path/to/Example.Report --candidate cand-1 --edits runs/rep-1/repairs.json
 ```
-
-## 4b. Verify the candidate live, then promote with approval
 
 `verify-runtime` binds a Desktop PID to the sealed candidate (never the
 original), reloads it, captures it, and seals the runtime evidence
@@ -113,7 +120,7 @@ value must differ from the current one):
 }
 ```
 
-## 5. Same workflow over MCP
+## 3. Same workflow over MCP
 
 `vqs-mcp` speaks newline-delimited JSON-RPC 2.0 on stdio (one response
 per request, exit 0 on EOF); `vqs mcp` launches it. Tool names are

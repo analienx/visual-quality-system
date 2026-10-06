@@ -1,11 +1,13 @@
 # Developer journey: inspect to verified bundle review
 
 Scope: the installed `vqs` commands that work today on a synthetic
-or real report, to their actual supported static boundary. Every
-`vqs` command below is executed verbatim (modulo paths) by
-`tests/test_r6_e08_journey.py` on two unrelated synthetic projects;
-if this page and that oracle disagree, the oracle wins and this page
-is a bug. Exit codes: 0 pass, 1 fail, 2 blocked.
+or real report, to their actual supported static boundary. Start
+with `vqs run` (section 1): one sealed run for the whole sequence.
+The expert tool sequence in sections 2-5 exposes each stage
+separately for debugging; those `vqs` commands are executed verbatim
+(modulo paths) by `tests/test_r6_e08_journey.py` on two unrelated
+synthetic projects; if this page and that oracle disagree, the oracle
+wins and this page is a bug. Exit codes: 0 pass, 1 fail, 2 blocked.
 
 ## 0. Install and tool availability
 
@@ -25,7 +27,18 @@ the Desktop Bridge plus a saved
 report/PID; the journey oracle uses synthetic stand-in renders that
 are labeled as such — pixels stay uncorroborated.
 
-## 1. Inspect
+## 1. One command (start here)
+
+```console
+vqs run sales.Report --mode repair --run-root runs --run-id sales1
+```
+
+`vqs run` owns inspect, review, propose, repair, verify, and
+remeasure in one sealed run with per-stage evidence (`review`,
+`propose`, or `repair` modes stop earlier). Runtime legs block
+precisely when Desktop/Bridge capability is missing.
+
+## 2. Inspect (expert: one stage at a time)
 
 ```console
 vqs inspect sales.Report --model sales.SemanticModel --out inspect.json
@@ -34,7 +47,7 @@ vqs inspect sales.Report --model sales.SemanticModel --out inspect.json
 Measures check-ready facts into an envelope (exit 0). Blocking
 coverage gaps (unreadable sources) block instead.
 
-## 2. Measure and check
+## 3. Measure and check (expert)
 
 ```console
 vqs measure sales.Report --model sales.SemanticModel --out facts.json
@@ -49,7 +62,7 @@ Boundary: the CLI passes no source evidence, so a CLI check run
 carries no acceptance-bindable envelope (`envelope_sha256` null);
 envelope emission needs the Python API with `source_sha256`.
 
-## 3. Typed candidate repair
+## 4. Typed candidate repair (expert)
 
 ```console
 vqs validate-plan plan.json --original sales.Report --candidate-root candidate-sales.Report --run-root runs --run-id vp1
@@ -67,7 +80,7 @@ invalid fails, warnings block unless `--authoring-allow-warnings` is
 given, missing/timeout/error blocks. The run seals `authoring.json`
 and carries a top-level `authoring` block.
 
-## 4. Verified bundle review
+## 5. Verified bundle review (expert)
 
 ```console
 vqs request-review candidate-sales.Report renders --fixer-id you > form-template.json

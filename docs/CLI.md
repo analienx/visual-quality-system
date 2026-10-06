@@ -9,8 +9,12 @@ Exit codes: `0` pass, `1` demonstrated violation, `2` blocked
 (environment, capability, or input prevents a verdict). Nothing here
 renders pixels, queries live data, or approves a
 release — those need leased backends plus owner promotion.
-Isolated static repair execution lives in the six-tool workflow
-(see QUICKSTART.md); the original is never modified.
+Start with `vqs run` for the whole sequence in one sealed run
+(`review`, `propose`, or `repair` modes stop earlier); the commands
+below expose each stage separately for debugging (expert interface).
+`vqs --version` prints the package version and `python -m vqs`
+works anywhere the installed `vqs` does.
+
 
 ## vqs status
 
@@ -91,9 +95,12 @@ vqs bundle unpack path/to/bundle path/to/copy
 ## vqs doctor
 
 Report which external Power BI tools are present (Microsoft-guided
-report author CLI, Desktop Bridge, Modeling MCP, running Desktop).
-Read-only and informational: it installs nothing, and always exits
-0. VQS has no ADOMD dependency.
+report author executable, Desktop Bridge, Modeling MCP, running
+Desktop) plus install identity (package version, import root,
+engine/tool schemas, git SHA when discoverable). Read-only and
+informational: it installs and modifies nothing — a stale editable
+install is reported obvious, never auto-repaired — and always
+exits 0. VQS has no ADOMD dependency.
 
 ```console
 vqs doctor
