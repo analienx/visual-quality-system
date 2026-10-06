@@ -380,6 +380,49 @@ def _run_status(run_root: Path, run_id: str) -> int:
     return _verdict_exit(run_status_report(str(run_root), run_id))
 
 
+def _run(args) -> int:
+    """Run the orchestrated Power BI workflow; same engine as vqs_run."""
+    from vqs.coordinator import run_workflow
+    from vqs.pipeline import blocked_envelope
+
+    config, issues = _tool_config(args.config)
+    if issues:
+        return _verdict_exit(blocked_envelope("vqs.run", issues))
+    facts = None
+    if args.facts is not None:
+        try:
+            facts = json.loads(args.facts.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.run", [f"unreadable facts file: {exc}"]))
+        if not isinstance(facts, dict):
+            return _verdict_exit(blocked_envelope(
+                "vqs.run", ["facts file is not an object"]))
+    envelope = run_workflow(
+        report_dir=str(args.report) if args.report is not None else None,
+        model_dir=str(args.model) if args.model is not None else None,
+        facts=facts, mode=args.mode, scope=args.scope, config=config,
+        run_root=str(args.run_root), run_id=args.run_id,
+        resume_from=args.resume_from,
+        candidate_root=(str(args.candidate_root)
+                        if args.candidate_root is not None else None),
+        renders_dir=(str(args.renders_dir)
+                     if args.renders_dir is not None else None),
+        plan_path=str(args.plan) if args.plan is not None else None,
+        fixer_id=args.fixer_id, pid=args.pid,
+        authoring_backend=args.authoring_backend,
+        live_answers=args.live_answers)
+    if args.report_out is not None:
+        try:
+            args.report_out.write_text(
+                json.dumps(envelope, indent=2, ensure_ascii=False,
+                           default=str) + chr(10), encoding="utf-8")
+        except OSError as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.run", [f"{type(exc).__name__}: {exc}"]))
+    return _verdict_exit(envelope)
+
+
 def _mcp() -> int:
     """Launch the stdio MCP server on this process's stdio."""
     from vqs.mcp.server import serve
@@ -545,6 +588,44 @@ def main(argv: list[str] | None = None) -> int:
     run_status_cmd = commands.add_parser("run-status", help="Report a sealed run (tool vqs.run_status)")
     run_status_cmd.add_argument("run_root", type=Path)
     run_status_cmd.add_argument("run_id")
+    run_cmd = commands.add_parser("run", help="Orchestrated Power BI workflow (tool vqs.run)")
+    run_cmd.add_argument("report", type=Path, nargs="?",
+                         help="Enhanced-format *.Report folder (or --facts)")
+    run_cmd.add_argument("--facts", type=Path, default=None,
+                         help="JSON measured-facts document (or REPORT)")
+    run_cmd.add_argument("--model", type=Path, default=None,
+                         help="Optional *.SemanticModel definition folder")
+    run_cmd.add_argument("--mode", choices=("review", "propose", "repair"),
+                         default="review",
+                         help="How far the sequence goes")
+    run_cmd.add_argument("--scope", default="static",
+                         help="static, desktop, or release (runtime legs "
+                              "need Desktop + Bridge or block precisely)")
+    run_cmd.add_argument("--config", type=Path, default=None,
+                         help="vqs.json project config (else ./vqs.json or defaults)")
+    run_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
+    run_cmd.add_argument("--run-id", default=None)
+    run_cmd.add_argument("--resume-from", default=None,
+                         help="Resume a coordinator run after revalidating "
+                              "sealed provenance")
+    run_cmd.add_argument("--candidate-root", type=Path, default=None,
+                         help="Disposable repair target (else a run-owned dir)")
+    run_cmd.add_argument("--renders-dir", type=Path, default=None,
+                         help="Baseline renders dir (else a run-owned dir)")
+    run_cmd.add_argument("--plan", type=Path, default=None,
+                         help="Owner-authored plan (else the synthesized one)")
+    run_cmd.add_argument("--fixer-id", default="vqs-run",
+                         help="Fixer identity sealed into review handoffs")
+    run_cmd.add_argument("--pid", type=int, default=None,
+                         help="Target a specific PBIDesktop.exe process")
+    run_cmd.add_argument("--authoring-backend",
+                         choices=("auto", "microsoft", "direct"),
+                         default="auto")
+    run_cmd.add_argument("--live-answers", action="store_true",
+                         help="Opt into live DAX answer collection when a "
+                              "model is reachable")
+    run_cmd.add_argument("--report-out", type=Path, default=None,
+                         help="Write the run envelope JSON here")
     commands.add_parser("mcp", help="Launch the stdio MCP server (tools vqs_*)")
     args = parser.parse_args(argv)
     if args.command == "measure":
@@ -580,6 +661,8 @@ def main(argv: list[str] | None = None) -> int:
         return _verify(args)
     if args.command == "run-status":
         return _run_status(args.run_root, args.run_id)
+    if args.command == "run":
+        return _run(args)
     if args.command == "mcp":
         return _mcp()
     try:

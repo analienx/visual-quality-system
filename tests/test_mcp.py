@@ -13,7 +13,7 @@ POWERBI_FIX = Path(__file__).parent / "powerbi" / "fixtures"
 REPORT = str(POWERBI_FIX / "mini_report")
 
 EXPECTED_TOOLS = {"vqs_inspect", "vqs_review", "vqs_propose", "vqs_repair",
-                  "vqs_verify", "vqs_run_status"}
+                  "vqs_verify", "vqs_run_status", "vqs_run"}
 
 
 def _open() -> list[str]:
@@ -44,7 +44,7 @@ def _session(lines: list[str]) -> list[dict]:
             if line.strip()]
 
 
-def test_tools_list_is_exactly_the_six() -> None:
+def test_tools_list_is_exactly_the_seven() -> None:
     responses = _session(_open() + [json.dumps({"jsonrpc": "2.0", "id": 1,
                                       "method": "tools/list"})])
     assert len(responses) == 2

@@ -61,6 +61,21 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                   if k in ("run_root", "run_id", "original", "candidate",
                            "edits", "approved_removals")}
         return pipeline.verify_candidate(**params)
+    if name == "vqs_run":
+        from vqs.coordinator import run_workflow
+
+        run_params: dict[str, Any] = {"mode": "review", "scope": "static",
+                                      "run_root": arguments["run_root"]}
+        run_params.update({k: v for k, v in arguments.items()
+                           if k in ("report_dir", "model_dir", "facts",
+                                    "mode", "scope", "run_id",
+                                    "resume_from", "candidate_root",
+                                    "plan_path", "fixer_id")
+                           and v is not None})
+        config, issues = load_config(arguments.get("config_path"))
+        if issues:
+            return pipeline.blocked_envelope("vqs.run", issues)
+        return run_workflow(config=config, **run_params)
     return pipeline.run_status_report(arguments["run_root"],
                                       arguments["run_id"])
 

@@ -757,6 +757,30 @@ def _read_manifest(run_root: str, run_id: str) -> tuple[dict | None, str | None]
     return data, None
 
 
+def merge_review_facts(facts: dict[str, Any],
+                       config: dict[str, Any]) -> dict[str, Any]:
+    """Merge configured questions/oracles into review facts (deterministic).
+
+    Shared by ``review_report`` and the ``vqs.run`` coordinator so both
+    seal the identical merged document and digest. Config oracles pass
+    through unfiltered: malformed entries must block in ``_run_oracle``,
+    never vanish here.
+    """
+    merged = dict(facts)
+    oracles = list(merged.get("oracles", [])) if isinstance(
+        merged.get("oracles", []), list) else []
+    questions = config.get("questions", [])
+    for question in questions if isinstance(questions, list) else [questions]:
+        oracles.append({"question": question} if isinstance(question, str)
+                       else question)
+    extra_oracles = config.get("oracles", [])
+    oracles.extend(extra_oracles if isinstance(extra_oracles, list)
+                   else [extra_oracles])
+    if oracles:
+        merged["oracles"] = oracles
+    return merged
+
+
 def review_report(*, report_dir: str | None = None,
                   model_dir: str | None = None,
                   facts: dict[str, Any] | None = None,
@@ -788,11 +812,27 @@ def review_report(*, report_dir: str | None = None,
                 [f"{scope} scope needs data_permissions.allow_desktop"],
                 scope=scope,
                 next_actions=["grant desktop permission in vqs.json or use static scope"])
-        return blocked_envelope(
-            "vqs.review",
-            [f"{scope} scope needs runtime adapters (Task 5, WP-03/WP-07)"],
-            scope=scope,
-            next_actions=["use static scope until adapters land"])
+        if report_dir is None:
+            return blocked_envelope(
+                "vqs.review",
+                [(f"{scope} scope needs a live report_dir; facts alone "
+                  "prove no runtime (Task 5, WP-03/WP-07)")],
+                scope=scope,
+                next_actions=["provide the live report directory"])
+        from vqs.coordinator import bridge_present, run_workflow
+
+        if not bridge_present():
+            return blocked_envelope(
+                "vqs.review",
+                [(f"{scope} scope needs the Desktop Bridge "
+                  "(powerbi-desktop not found); no runtime evidence can "
+                  "be captured (Task 5, WP-03/WP-07)")],
+                scope=scope,
+                next_actions=["install the Bridge or use static scope"])
+        return run_workflow(report_dir=report_dir, model_dir=model_dir,
+                            mode="review", scope=scope, config=config,
+                            run_root=run_root, run_id=run_id,
+                            resume_from=resume_from)
     provenance: dict[str, Any] = {"source_sha256": None,
                                   "model_sha256": None,
                                   "config_schema": config.get("schema_version")}
@@ -808,20 +848,7 @@ def review_report(*, report_dir: str | None = None,
             inspected["tool"] = "vqs.review"
             return inspected
         facts = inspected["facts"]
-    merged = dict(facts)
-    oracles = list(merged.get("oracles", [])) if isinstance(
-        merged.get("oracles", []), list) else []
-    questions = config.get("questions", [])
-    for question in questions if isinstance(questions, list) else [questions]:
-        oracles.append({"question": question} if isinstance(question, str)
-                       else question)
-    # Config oracles pass through unfiltered: malformed entries must
-    # block in _run_oracle, never vanish here.
-    extra_oracles = config.get("oracles", [])
-    oracles.extend(extra_oracles if isinstance(extra_oracles, list)
-                   else [extra_oracles])
-    if oracles:
-        merged["oracles"] = oracles
+    merged = merge_review_facts(facts, config)
     provenance["facts_sha256"] = hashlib.sha256(json.dumps(
         merged, sort_keys=True, ensure_ascii=False, default=str).encode(
             "utf-8")).hexdigest()

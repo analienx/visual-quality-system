@@ -108,7 +108,7 @@ def test_lifecycle_flow_keeps_working(tmp_path: Path) -> None:
     listed = responses[1]["result"]["tools"]
     assert {spec["name"] for spec in listed} == {
         "vqs_inspect", "vqs_review", "vqs_propose",
-        "vqs_repair", "vqs_verify", "vqs_run_status"}
+        "vqs_repair", "vqs_verify", "vqs_run_status", "vqs_run"}
     assert "error" not in responses[2]
     envelope = json.loads(responses[2]["result"]["content"][0]["text"])
     assert envelope["verdict"] == "blocked"

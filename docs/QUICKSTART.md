@@ -57,6 +57,15 @@ vqs propose --run-root runs --run-id rev-1
 vqs propose --run-root runs --run-id rev-1 --facts facts.json --out plan.json
 ```
 
+One command can own the whole sequence instead (`review`, `propose`,
+or `repair` modes; `static`, `desktop`, or `release` scopes). Every
+stage lands in a sealed ledger with its evidence; runtime legs block
+precisely when Desktop/Bridge capability is missing.
+
+```console
+vqs run path/to/Example.Report --mode repair --run-root runs --run-id flow-1
+```
+
 ## 4. Author a plan, repair in isolation, verify
 
 Write a JSON plan against the allowlist (see `vqs validate-plan` to

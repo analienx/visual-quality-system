@@ -77,6 +77,27 @@ TOOL_SPECS: tuple[dict[str, Any], ...] = (
              "run_id": {"type": "string"}},
          "required": ["run_root", "run_id"],
          "additionalProperties": False}},
+    {"name": "vqs_run", "tool": "vqs.run",
+     "description": "Run the orchestrated Power BI workflow.",
+     "inputSchema": {
+         "type": "object",
+         "properties": {
+             "report_dir": {"type": ["string", "null"]},
+             "model_dir": {"type": ["string", "null"]},
+             "facts": {"type": ["object", "null"]},
+             "mode": {"type": "string",
+                      "enum": ["review", "propose", "repair"]},
+             "scope": {"type": "string",
+                       "enum": ["static", "desktop", "release"]},
+             "config_path": {"type": ["string", "null"]},
+             "run_root": {"type": "string"},
+             "run_id": {"type": ["string", "null"]},
+             "resume_from": {"type": ["string", "null"]},
+             "candidate_root": {"type": ["string", "null"]},
+             "plan_path": {"type": ["string", "null"]},
+             "fixer_id": {"type": ["string", "null"]}},
+         "required": ["run_root"],
+         "additionalProperties": False}},
 )
 
 _BY_NAME = {spec["name"]: spec for spec in TOOL_SPECS}
