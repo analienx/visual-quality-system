@@ -35,6 +35,12 @@
   value plus named provenance; unproven bindings need the owner.
   Tests `tests/test_u7_typography.py`; `scripts/smoke.py` honest
   blocked (rule unknown on the mixed mini_report fixture, not fail).
+- P1 items 30-31 live answer regression: the coordinator baseline now
+  persists the query/scope/result evidence per DAX question, so the
+  `answer_regression` stage re-asks the identical scoped query against
+  the candidate (previously the rebuild lost DAX/scope and could only
+  block); non-empty filters/period stay fail-closed with the exact
+  blocker. Tests `tests/test_p1_answer_regression.py`.
 - Oracles `tests/test_r6_e01_bindings.py` … `tests/test_r6_e08_journey.py`
   (two-project journey included); hosted lanes
   `.github/workflows/authoring.yml` (real-CLI probe) and

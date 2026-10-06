@@ -515,6 +515,17 @@ def _answers_collect(questions: list, client: Any) -> dict:
                     "reason": f"answer collection failed: {exc}",
                     "held": held}
         collected = result if isinstance(result, dict) else {}
+    # Preserve the query/scope evidence with each observed result: the
+    # regression stage rebuilds the identical scoped query from the
+    # persisted baseline, so dropping dax/scope here would make that
+    # rebuild unprovable (empty DAX blocks as unasked).
+    asked = {item["id"]: item for item in supported
+             if isinstance(item, dict) and isinstance(item.get("id"), str)}
+    for qid, item in collected.items():
+        if (isinstance(item, dict) and item.get("verdict") == "observed"
+                and qid in asked):
+            item["dax"] = asked[qid]["dax"]
+            item["scope"] = asked[qid]["scope"]
     merged = dict(collected)
     for item in held:
         merged[item["id"]] = {"verdict": "blocked",
