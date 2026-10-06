@@ -15,6 +15,7 @@ import hashlib
 import json
 import struct
 import zlib
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -384,6 +385,43 @@ def _is_positive_int(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value > 0
 
 
+def _parse_effective_scale(value: object) -> Fraction | None:
+    """Parse a recorded measured scale (``"5/2"``, ``"2"``, ``2``); None when unproven."""
+    try:
+        if isinstance(value, bool):
+            return None
+        ratio = Fraction(value) if not isinstance(value, Fraction) else value
+    except (ValueError, ZeroDivisionError, TypeError):
+        return None
+    if ratio <= 0:
+        return None
+    return ratio
+
+
+def calibration_expected_pixels(calibration: dict[str, Any]) -> list[int] | None:
+    """Expected full-canvas PNG pixels from recorded calibration (pure).
+
+    U3 measured calibration: when the producer recorded a Bridge-proven
+    ``effective_scale`` (host-DPI transforms the requested scale cannot
+    describe), the expectation follows the measurement, not the request.
+    Otherwise the requested ``scale`` governs exactly as before. Returns
+    None when the calibration shape is invalid or the measured product
+    is non-integral — unproven, never rounded into a pass.
+    """
+    width = calibration.get("canvas_width")
+    height = calibration.get("canvas_height")
+    if not _is_positive_int(width) or not _is_positive_int(height):
+        return None
+    raw = calibration.get("effective_scale", calibration.get("scale"))
+    ratio = _parse_effective_scale(raw)
+    if ratio is None:
+        return None
+    expected_w, expected_h = width * ratio, height * ratio
+    if expected_w.denominator != 1 or expected_h.denominator != 1:
+        return None
+    return [int(expected_w), int(expected_h)]
+
+
 def check_calibration(calibration: object,
                       pixels: tuple[int, int] | list[int] | None = None
                       ) -> list[dict[str, Any]]:
@@ -400,12 +438,15 @@ def check_calibration(calibration: object,
             or not isinstance(viewport, str) or not viewport.strip()
             or not isinstance(method, str) or not method.strip()):
         return [{"rule": "calibration_invalid", "verdict": "blocked"}]
+    if "effective_scale" in calibration and calibration_expected_pixels(calibration) is None:
+        return [{"rule": "calibration_invalid", "verdict": "blocked"}]
     if pixels is None:
         return []
+    expected = calibration_expected_pixels(calibration)
     actual = tuple(pixels) if isinstance(pixels, (list, tuple)) else None
-    if actual != (width * scale, height * scale):  # type: ignore[operator]
+    if expected is None or actual != (expected[0], expected[1]):
         return [{"rule": "calibration_mismatch", "verdict": "blocked",
-                 "expected": [width * scale, height * scale],  # type: ignore[operator]
+                 "expected": expected,
                  "actual": list(actual) if actual is not None else pixels}]
     return []
 

@@ -8,10 +8,25 @@ the exact missing piece: no binary, no instance, wrong report,
 unsaved changes, several instances without ``--pid``, missing or
 corrupt page PNGs.
 
-Manifest v2 additionally binds a canvas-size fit (PNG dimensions equal
-PBIR canvas x scale; content coverage is NOT proven - a same-size
-viewport slice passes the size gate) and scoped data readiness
-(modeling-port row evidence queried twice). Capture refuses to manifest
+Manifest v2 additionally binds a canvas-size fit and scoped data
+readiness (modeling-port row evidence queried twice). U3 measured
+calibration: the PNG-to-canvas relation is MEASURED per page from
+decoded pixels and cross-checked against uniform Bridge viewport
+evidence (device pixels equal decoded pixels, measured scale equals
+Bridge DPR) — never assumed from the requested ``--scale``. Genuine
+host-DPI captures with a non-integer measured scale pass only with
+that Bridge proof, recorded as ``effective_scale`` with the device
+pixels, DPR, source image hashes, and tool versions. Malformed or
+mixed viewports, non-uniform per-axis scales, and unproven upscales
+block with a precise calibration reason. Size fit is still not
+content proof — a same-size viewport slice passes the size gate;
+content coverage remains unproven by geometry alone. When NO page
+carries a viewport (older Bridge contract), capture keeps the strict
+requested-scale equality as the strongest supported alternative;
+downstream review still requires viewport honesty. Environmental
+limitation: without Bridge viewport/DPR metadata VQS cannot prove a
+host-DPI full-canvas transform, so such captures block instead of
+passing on assumed geometry. Capture refuses to manifest
 blank captures, canvas size mismatch, below-minimum pixels, unproven
 data, pre/post drift (source, target, or readiness), stale staging,
 unsupported interactions, non-default
@@ -28,6 +43,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
@@ -257,6 +273,132 @@ def _screenshot_map(output: str) -> dict[str, dict[str, str]]:
             mapping[str(shot["pageId"])] = record
     return mapping
 
+_VIEWPORT_RE = re.compile(r"^(\d+)x(\d+)@(\d+(?:\.\d+)?)x$")
+
+
+def _parse_viewport(viewport: object) -> tuple[int, int, Fraction] | None:
+    """Parse a Bridge viewport ``WxH@Dx`` into device pixels + DPR.
+
+    Returns None for anything that is not a well-formed positive
+    measurement — an unparseable viewport proves no transform and the
+    caller blocks instead of guessing.
+    """
+    if not isinstance(viewport, str):
+        return None
+    match = _VIEWPORT_RE.match(viewport.strip())
+    if match is None:
+        return None
+    width, height = int(match.group(1)), int(match.group(2))
+    try:
+        dpr = Fraction(match.group(3))
+    except (ValueError, ZeroDivisionError):
+        return None
+    if width <= 0 or height <= 0 or dpr <= 0:
+        return None
+    return width, height, dpr
+
+
+def _measured_calibration(*, canvas_width: int, canvas_height: int,
+                          scale: int, ordered_pages: list[str],
+                          pixels_by_page: dict[str, list[int]],
+                          viewports_by_page: dict[str, object]) -> dict[str, Any]:
+    """Derive measured full-canvas calibration or raise a precise OSError.
+
+    U3: the PNG-to-canvas relation is MEASURED per page from decoded
+    pixels and cross-checked against uniform Bridge viewport evidence —
+    never assumed from the requested scale:
+
+    - every page's measured per-axis scale must agree exactly (one
+      uniform full-canvas transform), else
+      ``calibration_nonuniform_scale`` (wrong aspect/content mapping);
+    - when the Bridge reports a viewport for every page it must be
+      well-formed and uniform; decoded PNG pixels must equal the
+      Bridge-reported device pixels
+      (``calibration_viewport_pixels_mismatch``) and the measured scale
+      must equal the Bridge DPR (``calibration_dpr_mismatch``) — this
+      measured path is what admits genuine host-DPI captures whose
+      non-integer scale the requested ``--scale`` cannot describe;
+    - a malformed viewport or mixed presence/shape across pages blocks
+      (``calibration_viewport_unparseable`` /
+      ``calibration_viewport_inconsistent``): an unproven transform
+      never degrades silently into the strict path;
+    - when NO page carries a viewport (older Bridge contract), the
+      strongest supported alternative is exact requested-scale
+      equality per page (``Canvas size mismatch``), recorded with the
+      legacy strict method. Downstream review still requires viewport
+      honesty, so this path documents the environmental limitation
+      instead of inventing geometry.
+    """
+    parsed: dict[str, tuple[int, int, Fraction]] = {}
+    for page_id in ordered_pages:
+        raw = viewports_by_page.get(page_id)
+        if raw is None:
+            continue
+        footprint = _parse_viewport(raw)
+        if footprint is None:
+            raise OSError(
+                f"calibration_viewport_unparseable for {page_id}: "
+                f"Bridge viewport {raw!r} proves no transform")
+        parsed[page_id] = footprint
+    if parsed and len(parsed) != len(ordered_pages):
+        raise OSError(
+            "calibration_viewport_inconsistent: Bridge viewport present "
+            "for some pages and absent for others; unproven transform")
+    if parsed:
+        if len(set(parsed.values())) != 1:
+            raise OSError(
+                "calibration_viewport_inconsistent: Bridge viewports "
+                "differ across pages; unproven transform")
+        device_w, device_h, dpr = next(iter(parsed.values()))
+        measured: Fraction | None = None
+        for page_id in ordered_pages:
+            width, height = pixels_by_page[page_id]
+            scale_w, scale_h = (Fraction(width, canvas_width),
+                                Fraction(height, canvas_height))
+            if scale_w != scale_h or (measured is not None
+                                      and scale_w != measured):
+                raise OSError(
+                    f"calibration_nonuniform_scale for {page_id}: "
+                    f"measured {width}x{height} against canvas "
+                    f"{canvas_width}x{canvas_height} is not one uniform "
+                    "scale; full canvas unproven")
+            measured = scale_w
+        assert measured is not None
+        first_w, first_h = pixels_by_page[ordered_pages[0]]
+        if (first_w, first_h) != (device_w, device_h):
+            raise OSError(
+                f"calibration_viewport_pixels_mismatch for "
+                f"{ordered_pages[0]}: Bridge reports device "
+                f"{device_w}x{device_h} but decoded "
+                f"{first_w}x{first_h}")
+        if measured != dpr:
+            raise OSError(
+                f"calibration_dpr_mismatch: measured scale {measured} "
+                f"!= Bridge DPR {dpr} (requested scale {scale}); "
+                "host-DPI transform unproven")
+        first_raw = viewports_by_page[ordered_pages[0]]
+        return {"canvas_width": canvas_width,
+                "canvas_height": canvas_height,
+                "scale": scale,
+                "png_pixels": f"{first_w}x{first_h}",
+                "method": "bridge-viewport-measured",
+                "viewport": first_raw,
+                "viewport_device_pixels": [device_w, device_h],
+                "viewport_dpr": str(dpr),
+                "effective_scale": str(measured)}
+    for page_id in ordered_pages:
+        width, height = pixels_by_page[page_id]
+        if (width, height) != (canvas_width * scale, canvas_height * scale):
+            raise OSError(
+                f"Canvas size mismatch for {page_id}: expected "
+                f"{canvas_width * scale}x{canvas_height * scale}, "
+                f"got {width}x{height}")
+    first = pixels_by_page[ordered_pages[0]] if ordered_pages else [0, 0]
+    return {"canvas_width": canvas_width, "canvas_height": canvas_height,
+            "scale": scale, "png_pixels": f"{first[0]}x{first[1]}",
+            "method": "pbir-canvas-png-size-crosscheck"}
+
+
 def _resolve_modeling(modeling: Any) -> tuple[Any, bool]:
     """Resolve the modeling port: explicit, auto (env opt-in), or skipped.
 
@@ -449,10 +591,6 @@ def capture(report: str, renders: str, pid: int | None = None,
                         if "unsupported" in str(exc).lower()
                         else "Corrupt capture")
                 raise OSError(f"{kind} for {page_id}: {exc}") from exc
-            if (width, height) != (canvas_width * scale, canvas_height * scale):
-                raise OSError(f"Canvas size mismatch for {page_id}: expected "
-                              f"{canvas_width * scale}x{canvas_height * scale}, "
-                              f"got {width}x{height}")
             if min(width, height) < MIN_REVIEWABLE_PIXELS:
                 raise OSError(f"Capture for {page_id} below reviewable "
                               f"minimum {MIN_REVIEWABLE_PIXELS}px")
@@ -473,12 +611,15 @@ def capture(report: str, renders: str, pid: int | None = None,
         # pass evidence binding later.
         if source_after != source_before:
             raise OSError("Report changed during capture; no manifest written")
-        first_pixels = pixels[expected[0]] if expected else [0, 0]
-        seen_viewports = {mapping[page_id].get("viewport") for page_id in expected
-                          if isinstance(mapping.get(page_id), dict)}
-        viewport = next(iter(seen_viewports)) if len(seen_viewports) == 1 else None
-        if not isinstance(viewport, str) or not viewport:
-            viewport = None
+        shot_viewports: dict[str, object] = {}
+        for page_id in expected:
+            shot = mapping.get(page_id)
+            shot_viewports[page_id] = (
+                shot.get("viewport") if isinstance(shot, dict) else None)
+        calibration = _measured_calibration(
+            canvas_width=canvas_width, canvas_height=canvas_height,
+            scale=scale, ordered_pages=expected,
+            pixels_by_page=pixels, viewports_by_page=shot_viewports)
         manifest: dict[str, Any] = {
             "source_sha256": source_after,
             "page_images": page_images,
@@ -490,11 +631,7 @@ def capture(report: str, renders: str, pid: int | None = None,
                         "desktop_version": instance.get("desktopVersion")},
             "state": state,
             "interactions_applied": [],
-            "calibration": {
-                "canvas_width": canvas_width, "canvas_height": canvas_height,
-                "scale": scale,
-                "png_pixels": f"{first_pixels[0]}x{first_pixels[1]}",
-                "method": "pbir-canvas-png-size-crosscheck"},
+            "calibration": calibration,
         }
         if port is not None:
             if readiness_before is None:
@@ -514,8 +651,6 @@ def capture(report: str, renders: str, pid: int | None = None,
                 "status": "skipped",
                 "reason": "no modeling port supplied (pass one or set "
                           "VQS_MODELING_AUTO=1)"}
-        if viewport is not None:
-            manifest["calibration"]["viewport"] = viewport
         (renders_path / "capture-manifest.json").write_text(
             json.dumps(manifest, indent=2), encoding="utf-8")
         return manifest

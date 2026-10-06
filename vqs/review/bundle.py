@@ -89,6 +89,7 @@ def verify(bundle: str, report: str | None = None) -> dict:
     verified material instead of bare 64-hex syntax.
     """
     from ..evidence import (
+        calibration_expected_pixels,
         canonical_json_sha256,
         check_calibration,
         decode_png_pixels,
@@ -240,8 +241,8 @@ def verify(bundle: str, report: str | None = None) -> dict:
                 problems.append(f"unreadable render dimensions: {name}")
                 continue
             render_pixels[page_id] = list(pixels)
-            scale = calibration["scale"]
-            if list(pixels) != [canvas[0] * scale, canvas[1] * scale]:
+            expected = calibration_expected_pixels(calibration)
+            if expected is None or list(pixels) != expected:
                 problems.append(f"render pixels differ from scaled source canvas: {page_id}")
     if report is not None:
         try:
