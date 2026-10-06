@@ -12,6 +12,15 @@ not_run with its evidence: out-of-scope legs are not_run, requested
 but unavailable capability is blocked with the exact missing piece,
 never a guess. Resume revalidates sealed provenance before reusing
 any prior stage.
+
+P0-U5 outcome semantics: stages describe execution, while the sealed
+summary additionally exposes quality_before / quality_after,
+resolved / remaining / new findings, candidate status, promotion
+status (always not-performed: the coordinator never promotes), and an
+outcome (accepted / improved_not_accepted / not_accepted / regressed /
+no_safe_fix / blocked / failed). Envelope pass requires the requested
+acceptance scope to pass; a stage pass never implies quality
+acceptance.
 """
 from __future__ import annotations
 
@@ -387,6 +396,7 @@ def run_workflow(*, report_dir: str | None = None,
         state["review_dir"] = reviewed.get("run_dir")
         state["review_verdict"] = reviewed["verdict"]
         state["review_coverage"] = reviewed.get("coverage", {})
+        state["review_findings"] = reviewed.get("findings", [])
         if reviewed["verdict"] == "blocked":
             record(_stage("review", "blocked",
                           "; ".join(reviewed["blocked_reasons"])
@@ -399,13 +409,16 @@ def run_workflow(*, report_dir: str | None = None,
                       reason=f"static verdict {reviewed['verdict']}",
                       run_id=reviewed.get("run_id"),
                       run_dir=reviewed.get("run_dir"),
-                      evidence={"verdict": reviewed["verdict"]}))
+                      evidence={"verdict": reviewed["verdict"],
+                                "findings": reviewed.get("findings", [])}))
     else:
         state["review_id"] = entry.get("run_id")
         state["review_dir"] = entry.get("run_dir")
         evidence = entry.get("evidence")
         state["review_verdict"] = (evidence.get("verdict")
                                    if isinstance(evidence, dict) else None)
+        state["review_findings"] = (evidence.get("findings")
+                                    if isinstance(evidence, dict) else None)
     # -- readiness (runtime scopes only) --------------------------------
     if not runtime:
         record(_stage("readiness", "not_run",
@@ -872,6 +885,7 @@ def _verify_sequence(run_dir: Any, rid: str, stages: list,
                 report_dir=state["candidate"],
                 run_root=run_root, run_id=_child_id(rid, "remeasure"))
             state["quality_after"] = again["verdict"]
+            state["remeasure_findings"] = again.get("findings", [])
             if again["verdict"] == "blocked":
                 record(_stage("remeasure", "blocked",
                               "; ".join(again["blocked_reasons"])
@@ -884,12 +898,17 @@ def _verify_sequence(run_dir: Any, rid: str, stages: list,
                                       "(execution only, not acceptance)"),
                               run_id=again.get("run_id"),
                               run_dir=again.get("run_dir"),
-                              evidence={"verdict": again["verdict"]}))
+                              evidence={"verdict": again["verdict"],
+                                        "findings": again.get("findings",
+                                                              [])}))
         else:
             evidence = entry.get("evidence")
             state["quality_after"] = (evidence.get("verdict")
                                       if isinstance(evidence, dict)
                                       else None)
+            state["remeasure_findings"] = (evidence.get("findings")
+                                           if isinstance(evidence, dict)
+                                           else None)
     return _finish(run_dir, rid, stages, state, mode, params["scope"],
                    run_root)
 
@@ -962,16 +981,130 @@ def _answer_regression(params: dict, state: dict, run_dir: Any) -> dict:
                 pass
 
 
+def _finding_states(findings: Any) -> tuple[dict[str, str], bool]:
+    """Map check id to status; complete only for a well-formed list."""
+    if not isinstance(findings, list):
+        return {}, False
+    states: dict[str, str] = {}
+    for item in findings:
+        if not isinstance(item, dict):
+            return {}, False
+        check, status = item.get("check"), item.get("status")
+        if not isinstance(check, str) or not isinstance(status, str):
+            return {}, False
+        states[check] = status
+    return states, True
+
+
+def _reconcile_quality(before: Any, after: Any) -> dict[str, Any]:
+    """Reconcile quality findings across remeasure (pure, P0-U5).
+
+    resolved = failing before and passing after; remaining = still
+    failing; new = proven pass before and failing after (strict
+    regressions only — unevaluated checks never count as new). When
+    either side is missing or malformed the lists stay empty and
+    complete is False: unknown quality is reported, never zeroed.
+    """
+    before_states, before_ok = _finding_states(before)
+    after_states, after_ok = _finding_states(after)
+    if not (before_ok and after_ok):
+        return {"resolved": [], "remaining": [], "new": [],
+                "complete": False}
+    if after_states == {} and before_states != {}:
+        return {"resolved": [], "remaining": [], "new": [],
+                "complete": False}
+    before_fail = {check for check, status in before_states.items()
+                   if status == "fail"}
+    after_fail = {check for check, status in after_states.items()
+                  if status == "fail"}
+    after_pass = {check for check, status in after_states.items()
+                  if status == "pass"}
+    before_pass = {check for check, status in before_states.items()
+                   if status == "pass"}
+    return {"resolved": sorted(before_fail & after_pass),
+            "remaining": sorted(after_fail),
+            "new": sorted(after_fail & before_pass),
+            "complete": True}
+
+
+def _candidate_status(stages: list) -> dict[str, Any]:
+    """Candidate lifecycle from the stage ledger (pure, P0-U5)."""
+    by_stage = {entry["stage"]: entry for entry in stages
+                if isinstance(entry, dict)
+                and isinstance(entry.get("stage"), str)}
+    repair = by_stage.get("repair")
+    if repair is None or repair.get("status") == "not_run":
+        return {"status": "none", "run_id": None, "candidate": None}
+    evidence = repair.get("evidence")
+    evidence = evidence if isinstance(evidence, dict) else {}
+    status = repair.get("status")
+    if status == "blocked":
+        return {"status": "blocked", "run_id": repair.get("run_id"),
+                "candidate": evidence.get("candidate")}
+    if status == "fail":
+        return {"status": "failed", "run_id": repair.get("run_id"),
+                "candidate": evidence.get("candidate")}
+    verify = by_stage.get("verify")
+    verify_status = (verify.get("status") if isinstance(verify, dict)
+                     else "not_run")
+    if verify_status == "pass":
+        return {"status": "verified", "run_id": repair.get("run_id"),
+                "candidate": evidence.get("candidate")}
+    if verify_status == "fail":
+        return {"status": "failed-verification",
+                "run_id": repair.get("run_id"),
+                "candidate": evidence.get("candidate")}
+    return {"status": "applied-unverified",
+            "run_id": repair.get("run_id"),
+            "candidate": evidence.get("candidate")}
+
+
+OUTCOMES = ("accepted", "improved_not_accepted", "not_accepted",
+            "regressed", "no_safe_fix", "blocked", "failed")
+
+
+def _acceptance(mode: str, *, review_verdict: Any, quality_after: Any,
+                candidates: int,
+                regression_failed: bool) -> bool:
+    """The requested acceptance scope actually passed (pure, P0-U5).
+
+    review asks "is the report good"; propose asks "produce safe fixes"
+    (a clean report needs none); repair asks "fix the report" (the
+    remeasured candidate meets the bar with no same-task regression).
+    """
+    if mode == "review":
+        return review_verdict == "pass"
+    if mode == "propose":
+        return review_verdict == "pass" or candidates > 0
+    return (quality_after == "pass" and not regression_failed)
+
+
+def _decide_outcome(*, mode: str, execution: str, acceptance: bool,
+                    resolved: list, new: list,
+                    candidates: int) -> str:
+    """Outcome name from execution, acceptance, and quality delta."""
+    if execution == "blocked":
+        return "blocked"
+    if execution == "fail":
+        return "failed"
+    if acceptance:
+        return "accepted"
+    if new:
+        return "regressed"
+    if resolved:
+        return "improved_not_accepted"
+    if mode == "propose" and candidates == 0:
+        return "no_safe_fix"
+    return "not_accepted"
+
+
 def _next_actions(verdict: str, rid: str, scope: str,
                   summary: dict) -> list[str]:
-    """Operator guidance for the coordinator outcome."""
+    """Operator guidance for the coordinator outcome (P0-U5)."""
+    outcome = summary.get("outcome", "")
     if verdict == "pass":
-        actions = ["inspect the stage ledger and sealed child runs"]
-        if (summary["review_verdict"] == "fail"
-                or summary["quality_after"] not in (None, "pass")):
-            actions.append("quality findings remain: owner acceptance is "
-                           "still required (outcome semantics land in "
-                           "P0-U5)")
+        actions = ["acceptance scope passed; sealed evidence supports the "
+                   "verdict"]
         if scope in RUNTIME_SCOPES:
             actions.append("hand the sealed bundle to the independent "
                            "reviewer (fixer/reviewer separation holds)")
@@ -980,6 +1113,20 @@ def _next_actions(verdict: str, rid: str, scope: str,
         return [(f"resolve blocked stage(s): "
                  f"{', '.join(summary['blocked_stages'])}"),
                 f"resume with vqs run --resume-from {rid}"]
+    if outcome == "regressed":
+        return [(f"new regressions introduced: "
+                 f"{', '.join(summary['new_regressions'])}; roll back to the "
+                 "sealed candidate state and re-repair")]
+    if outcome == "improved_not_accepted":
+        return [(f"remaining findings need owner decisions or another "
+                 f"repair round: {', '.join(summary['remaining_findings'])}"),
+                "execution pass is never quality acceptance"]
+    if outcome == "no_safe_fix":
+        return ["no finding admits a source-provable safe fix; owner "
+                "decision required"]
+    if outcome == "not_accepted":
+        return ["quality findings remain and nothing improved; owner "
+                "decision required"]
     return [(f"address failed stage(s): "
              f"{', '.join(summary['failed_stages'])}")]
 
@@ -990,10 +1137,43 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
     from vqs.pipeline import _envelope, blocked_envelope
     from vqs.run_store import append_event, seal_run
 
+    after_findings = state.get("remeasure_findings")
+    if after_findings is None:
+        after_findings = state.get("review_findings")
+    reconcile = _reconcile_quality(state.get("review_findings"),
+                                   after_findings)
+    candidate_state = _candidate_status(stages)
+    propose_entry = next((entry for entry in stages
+                          if isinstance(entry, dict)
+                          and entry.get("stage") == "propose"), {})
+    propose_evidence = (propose_entry.get("evidence")
+                        if isinstance(propose_entry, dict) else None)
+    proposed = (propose_evidence.get("candidates")
+                if isinstance(propose_evidence, dict) else [])
+    candidate_count = len(proposed) if isinstance(proposed, list) else 0
+    regression_failed = any(
+        isinstance(entry, dict) and entry.get("stage") == "answer_regression"
+        and entry.get("status") == "fail" for entry in stages)
+    acceptance = _acceptance(
+        mode, review_verdict=state.get("review_verdict"),
+        quality_after=state.get("quality_after"),
+        candidates=candidate_count, regression_failed=regression_failed)
     summary = {
         "mode": mode, "scope": scope,
         "review_verdict": state.get("review_verdict"),
+        "quality_before": state.get("review_verdict"),
         "quality_after": state.get("quality_after"),
+        "resolved_findings": reconcile["resolved"],
+        "remaining_findings": reconcile["remaining"],
+        "new_regressions": reconcile["new"],
+        "findings_complete": reconcile["complete"],
+        "candidates_proposed": candidate_count,
+        "candidate_status": candidate_state,
+        "promotion_status": {
+            "status": "not-performed",
+            "reason": ("the coordinator never promotes; promotion is "
+                       "owner-explicit via vqs.promote after independent "
+                       "acceptance")},
         "blocked_stages": [entry["stage"] for entry in stages
                            if entry["status"] == "blocked"],
         "failed_stages": [entry["stage"] for entry in stages
@@ -1002,23 +1182,36 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
                                         "run_dir": entry.get("run_dir")}
                        for entry in stages if entry.get("run_id")},
         "candidate": state.get("candidate"),
-        "note": ("execution ledger only: a pass means the requested "
-                 "stages executed, not report-quality acceptance")}
+        "acceptance": acceptance,
+        "note": ("stages describe execution; outcome and acceptance "
+                 "describe report quality. Envelope pass requires the "
+                 "requested acceptance scope to pass; a stage pass never "
+                 "implies quality acceptance")}
 
     # -- summary (always recorded) --------------------------------------
     terminal = [entry for entry in stages
                 if entry["status"] in ("fail", "blocked")]
     if any(entry["status"] == "fail" for entry in terminal):
-        verdict = "fail"
+        execution = "fail"
     elif terminal:
-        verdict = "blocked"
+        execution = "blocked"
     else:
-        verdict = "pass"
+        execution = "pass"
+    outcome = _decide_outcome(
+        mode=mode, execution=execution, acceptance=acceptance,
+        resolved=reconcile["resolved"], new=reconcile["new"],
+        candidates=candidate_count)
+    summary["outcome"] = outcome
+    verdict = "pass" if (execution == "pass" and acceptance) else execution
+    if execution == "pass" and not acceptance:
+        verdict = "fail"
     record = _stage("summary", verdict,
-                    reason=("; ".join(summary["blocked_stages"]
-                                      + summary["failed_stages"])
-                            or f"{mode}/{scope} workflow {verdict}"),
-                    evidence={"summary": summary["blocked_stages"]})
+                    reason=(f"outcome={outcome}; "
+                            + ("; ".join(summary["blocked_stages"]
+                                         + summary["failed_stages"])
+                               or f"{mode}/{scope} workflow {verdict}")),
+                    evidence={"summary": summary["blocked_stages"],
+                              "outcome": outcome})
     stages.append(record)
     try:
         append_event(run_dir, {"kind": "stage", **record})
@@ -1048,6 +1241,9 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
                  "detail": {key: value for key, value in entry.items()
                             if key != "stage"}}
                 for entry in stages if entry["status"] != "not_run"]
+    findings.append({"check": "outcome", "status": verdict,
+                     "detail": {"outcome": outcome,
+                                "acceptance": acceptance}})
     coverage = state.get("review_coverage", {})
     return _envelope(
         TOOL_ID, verdict, run_id=rid, run_dir=str(run_dir), scope=scope,
@@ -1063,4 +1259,5 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
         extra={"stages": stages, "summary": summary,
                "plan": state.get("plan"),
                "review_verdict": state.get("review_verdict"),
-               "quality_after": state.get("quality_after")})
+               "quality_after": state.get("quality_after"),
+               "outcome": outcome})

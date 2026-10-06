@@ -53,7 +53,7 @@ def test_review_mode_facts_only_static(tmp_path: Path) -> None:
                             scope="static", run_root=str(tmp_path),
                             run_id="u2-review")
     assert envelope["tool"] == "vqs.run"
-    assert envelope["verdict"] == "pass"
+    assert envelope["verdict"] == "fail"
     stages = _stages(envelope)
     assert set(stages) >= set(STAGE_ORDER)
     assert stages["inspect"]["status"] == "pass"
@@ -63,7 +63,8 @@ def test_review_mode_facts_only_static(tmp_path: Path) -> None:
                  "answer_regression", "recapture", "handoff"):
         assert stages[name]["status"] == "not_run", name
     assert stages["propose"]["status"] == "not_run"
-    assert stages["summary"]["status"] == "pass"
+    assert stages["summary"]["status"] == "fail"
+    assert envelope["summary"]["outcome"] == "not_accepted"
     assert envelope["summary"]["blocked_stages"] == []
     assert envelope["summary"]["child_runs"]["review"]["run_id"]
     by_check = {item["check"]: item for item in envelope["findings"]}
@@ -81,6 +82,7 @@ def test_propose_mode_synthesizes_plan(tmp_path: Path) -> None:
     assert envelope["verdict"] == "pass"
     stages = _stages(envelope)
     assert stages["propose"]["status"] == "pass"
+    assert envelope["summary"]["outcome"] == "accepted"
     plan = envelope["plan"]
     assert plan is not None
     assert validate_plan(plan, "orig", "cand") == []
@@ -104,7 +106,7 @@ def test_repair_mode_static_end_to_end(tmp_path: Path) -> None:
                             mode="repair", scope="static",
                             run_root=str(tmp_path / "runs"),
                             run_id="u2-repair")
-    assert envelope["verdict"] == "pass", envelope["summary"]
+    assert envelope["verdict"] == "fail", envelope["summary"]
     stages = _stages(envelope)
     assert stages["inspect"]["status"] == "pass"
     assert stages["review"]["status"] == "pass"
@@ -113,6 +115,11 @@ def test_repair_mode_static_end_to_end(tmp_path: Path) -> None:
     assert stages["repair"]["status"] == "pass"
     assert stages["verify"]["status"] == "pass"
     assert stages["remeasure"]["status"] == "pass"
+    assert envelope["summary"]["outcome"] == "improved_not_accepted"
+    assert envelope["summary"]["resolved_findings"] != []
+    assert envelope["summary"]["remaining_findings"] != []
+    assert envelope["summary"]["new_regressions"] == []
+    assert envelope["summary"]["candidate_status"]["status"] == "verified"
     candidate = envelope["summary"]["candidate"]
     assert candidate is not None
     moved = json.loads((Path(candidate) / "definition" / "pages" / "P1"
@@ -156,11 +163,13 @@ def test_resume_reuses_sealed_evidence(tmp_path: Path) -> None:
     facts = _overlap_facts()
     first = run_workflow(facts=facts, mode="review", scope="static",
                          run_root=str(tmp_path), run_id="u2-a")
-    assert first["verdict"] == "pass"
+    assert first["verdict"] == "fail"
+    assert first["summary"]["outcome"] == "not_accepted"
     second = run_workflow(facts=facts, mode="review", scope="static",
                           run_root=str(tmp_path), run_id="u2-b",
                           resume_from="u2-a")
-    assert second["verdict"] == "pass"
+    assert second["verdict"] == "fail"
+    assert second["summary"]["outcome"] == "not_accepted"
     first_review = _stages(first)["review"]["run_id"]
     assert _stages(second)["review"]["run_id"] == first_review
     manifest = json.loads((tmp_path / "u2-b" / "manifest.json").read_text(
@@ -222,11 +231,12 @@ def test_cli_run_review_mode(tmp_path: Path, capsys) -> None:
                      "--run-id", "u2-cli", "--report-out",
                      str(tmp_path / "envelope.json")])
     capsys.readouterr()
-    assert code == 0
+    assert code == 1
     envelope = json.loads((tmp_path / "envelope.json").read_text(
         encoding="utf-8"))
     assert envelope["tool"] == "vqs.run"
-    assert envelope["verdict"] == "pass"
+    assert envelope["verdict"] == "fail"
+    assert envelope["summary"]["outcome"] == "not_accepted"
 
 
 def test_mcp_run_schema() -> None:
