@@ -39,7 +39,7 @@ def _visual(value: str) -> dict:
             "visualType": "barChart",
             "objects": {"categoryAxis": [{"properties": {
                 "labelPrecision": {"expr": {"Literal": {
-                    "Value": value}}}}}]}}}}
+                    "Value": value}}}}}]}}}
 
 
 def _project(root: Path, name: str, value: str = "3") -> tuple[Path, Path]:
