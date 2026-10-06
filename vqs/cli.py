@@ -373,6 +373,31 @@ def _verify(args) -> int:
         approved_removals=approvals))
 
 
+def _verify_runtime(args) -> int:
+    """Verify a sealed candidate live in Desktop (tool vqs.verify-runtime)."""
+    from vqs.pipeline import verify_runtime
+
+    return _verdict_exit(verify_runtime(
+        run_root=str(args.run_root), run_id=args.run_id, pid=args.pid,
+        scale=args.scale, wait_seconds=args.wait_seconds,
+        reload_first=not args.no_reload,
+        runtime_run_id=args.runtime_run_id))
+
+
+def _promote(args) -> int:
+    """Promote a verified candidate with owner approval (tool vqs.promote)."""
+    from vqs.pipeline import promote_candidate
+
+    return _verdict_exit(promote_candidate(
+        run_root=str(args.run_root), run_id=args.run_id,
+        owner_approval=args.owner_approval,
+        runtime_run_id=args.runtime_run_id,
+        backup_dir=(str(args.backup_dir)
+                    if args.backup_dir is not None else None),
+        desktop_recheck=not args.no_desktop_recheck,
+        promote_run_id=args.promote_run_id))
+
+
 def _run_status(run_root: Path, run_id: str) -> int:
     """Report a sealed run; same engine as vqs_run_status."""
     from vqs.pipeline import run_status_report
@@ -585,6 +610,34 @@ def main(argv: list[str] | None = None) -> int:
                             help="JSON edits list (or a repair run's repairs.json)")
     verify_cmd.add_argument("--approved-removals", default=None,
                             help="Comma-separated owner-approved page/visual pairs")
+    runtime_cmd = commands.add_parser("verify-runtime", help="Verify a sealed candidate live in Desktop (tool vqs.verify-runtime)")
+    runtime_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
+    runtime_cmd.add_argument("--run-id", required=True,
+                             help="Sealed completed vqs.repair run id")
+    runtime_cmd.add_argument("--pid", type=int, default=None,
+                             help="Desktop PID holding the disposable candidate")
+    runtime_cmd.add_argument("--scale", type=int, default=2)
+    runtime_cmd.add_argument("--wait-seconds", type=int, default=60)
+    runtime_cmd.add_argument("--no-reload", action="store_true",
+                             help="Skip the candidate reload before capture")
+    runtime_cmd.add_argument("--runtime-run-id", default=None,
+                             help="Sealed id for the runtime run (else generated)")
+    promote_cmd = commands.add_parser("promote", help="Promote a verified candidate with owner approval (tool vqs.promote)")
+    promote_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
+    promote_cmd.add_argument("--run-id", required=True,
+                             help="Sealed completed vqs.repair run id")
+    promote_cmd.add_argument("--owner-approval", required=True,
+                             help="Owner identity and reason; promotion never "
+                                  "overwrites silently")
+    promote_cmd.add_argument("--runtime-run-id", default=None,
+                             help="Sealed completed vqs.verify-runtime run to bind")
+    promote_cmd.add_argument("--backup-dir", type=Path, default=None,
+                             help="Backup path for the preserved original "
+                                  "(else <original>.vqs-backup)")
+    promote_cmd.add_argument("--no-desktop-recheck", action="store_true",
+                             help="Skip the post-promotion Desktop reload/recheck")
+    promote_cmd.add_argument("--promote-run-id", default=None,
+                             help="Sealed id for the promotion run (else generated)")
     run_status_cmd = commands.add_parser("run-status", help="Report a sealed run (tool vqs.run_status)")
     run_status_cmd.add_argument("run_root", type=Path)
     run_status_cmd.add_argument("run_id")
@@ -659,6 +712,10 @@ def main(argv: list[str] | None = None) -> int:
         return _repair(args)
     if args.command == "verify":
         return _verify(args)
+    if args.command == "verify-runtime":
+        return _verify_runtime(args)
+    if args.command == "promote":
+        return _promote(args)
     if args.command == "run-status":
         return _run_status(args.run_root, args.run_id)
     if args.command == "run":

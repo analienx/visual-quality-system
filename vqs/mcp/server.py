@@ -61,6 +61,19 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                   if k in ("run_root", "run_id", "original", "candidate",
                            "edits", "approved_removals")}
         return pipeline.verify_candidate(**params)
+    if name == "vqs_verify_runtime":
+        params = {k: v for k, v in arguments.items()
+                  if k in ("run_root", "run_id", "pid", "scale",
+                           "wait_seconds", "reload_first", "runtime_run_id")
+                  and v is not None}
+        return pipeline.verify_runtime(**params)
+    if name == "vqs_promote":
+        params = {k: v for k, v in arguments.items()
+                  if k in ("run_root", "run_id", "owner_approval",
+                           "runtime_run_id", "backup_dir", "desktop_recheck",
+                           "promote_run_id")
+                  and v is not None}
+        return pipeline.promote_candidate(**params)
     if name == "vqs_run":
         from vqs.coordinator import run_workflow
 

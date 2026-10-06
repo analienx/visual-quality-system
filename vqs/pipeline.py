@@ -1555,6 +1555,584 @@ def verify_candidate(*, run_root: str | None = None,
         provenance={"original": original, "candidate": candidate})
 
 
+def _sealed_repair_evidence(run_root: str, run_id: str, tool: str
+                            ) -> tuple[dict[str, Any] | None,
+                                       dict[str, Any] | None]:
+    """Load a completed sealed repair run; (evidence, None) or (None, envelope).
+
+    Evidence holds manifest, repairs doc, original, candidate, before,
+    after, source_sha256, model, and edits. Anything unproven returns a
+    blocked envelope: bad seal, wrong pipeline, unfinished run, or
+    unreadable/missing repair evidence.
+    """
+    manifest, error = _read_manifest(run_root, run_id)
+    if error is not None:
+        return None, blocked_envelope(tool, [error])
+    assert manifest is not None
+    seal_findings = verify_seal(Path(run_root) / run_id)
+    if seal_findings:
+        rule = seal_findings[0].get("rule", "unknown")
+        return None, blocked_envelope(
+            tool, [f"run {run_id!r} seal invalid: {rule}"])
+    if manifest.get("pipeline") != "vqs.repair/1":
+        return None, blocked_envelope(
+            tool, [f"run {run_id!r} is not a sealed repair run "
+                   f"(pipeline {manifest.get('pipeline')!r})"])
+    if manifest.get("status") != "completed":
+        return None, blocked_envelope(
+            tool, [f"run {run_id!r} is not a completed repair run "
+                   f"(status {manifest.get('status')!r}); only completed "
+                   "repairs verify at runtime or promote"])
+    repair = manifest.get("repair") or {}
+    original = repair.get("original")
+    candidate = repair.get("candidate")
+    entry = (manifest.get("artifacts") or {}).get("edits")
+    if (not isinstance(original, str) or not isinstance(candidate, str)
+            or not (isinstance(entry, dict)
+                    and isinstance(entry.get("sha256"), str)
+                    and isinstance(entry.get("path"), str))):
+        return None, blocked_envelope(
+            tool, [f"run {run_id!r} predates verifiable repair evidence; "
+                   "re-run repair"])
+    try:
+        repairs = json.loads((Path(run_root) / run_id / entry["path"]
+                              ).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return None, blocked_envelope(
+            tool, [f"run {run_id!r} repair evidence unreadable: {exc}"])
+    if not isinstance(repairs, dict) or not isinstance(
+            repairs.get("edits"), list):
+        return None, blocked_envelope(
+            tool, [f"run {run_id!r} repair evidence is not an object"])
+    evidence = {"manifest": manifest, "repairs": repairs,
+                "original": original, "candidate": candidate,
+                "before": repairs.get("before"),
+                "after": repairs.get("after"),
+                "source_sha256": repairs.get("source_sha256"),
+                "model": repairs.get("model", {"kind": "absent"}),
+                "edits": repairs.get("edits", [])}
+    return evidence, None
+
+
+def _seal_terminal(run_dir: Path, kind: str, artifacts: dict,
+                   bindings: dict) -> None:
+    """Append the terminal event and seal; the seal itself never fails here."""
+    append_event(run_dir, {"kind": kind})
+    seal_run(run_dir, kind, artifacts=artifacts, bindings=bindings)
+
+
+def verify_runtime(*, run_root: str, run_id: str,
+                   pid: int | None = None, scale: int = 2,
+                   wait_seconds: int = 60, reload_first: bool = True,
+                   bridge: Any = None,
+                   runtime_run_id: str | None = None) -> dict[str, Any]:
+    """Verify the disposable candidate live in Desktop; never the original.
+
+    Binds the given Desktop PID to the sealed candidate path (exact
+    match, save state proven), optionally reloads it, captures it
+    through the hardened capture path, and checks the capture against
+    the sealed candidate digests. The original path is never opened,
+    reloaded, or captured — a Desktop instance holding it refuses.
+    Without a live Desktop capability the result is blocked with the
+    exact missing piece; nothing is faked. Seals pipeline
+    ``vqs.verify-runtime/1`` separately from technical repair evidence.
+    """
+    from .repair.execute import RepairError, tree_digest
+    from .repair.runtime import (BridgeUnavailable, LocalBridgePort,
+                                 bind_candidate_instance, capture_candidate)
+
+    tool = "vqs.verify-runtime"
+    if not isinstance(run_root, str) or not run_root:
+        return blocked_envelope(tool, ["run_root must be a nonempty path"])
+    if not isinstance(run_id, str) or not run_id:
+        return blocked_envelope(tool, ["run_id must be a nonempty string"])
+    if pid is not None and (isinstance(pid, bool) or not isinstance(pid, int)):
+        return blocked_envelope(tool, ["pid must be an int Desktop PID"])
+    if scale not in (1, 2):
+        return blocked_envelope(tool, [f"scale must be 1 or 2, not {scale!r}"])
+    if (isinstance(wait_seconds, bool) or not isinstance(wait_seconds, int)
+            or wait_seconds <= 0):
+        return blocked_envelope(tool, ["wait_seconds must be a positive int"])
+    if not isinstance(reload_first, bool):
+        return blocked_envelope(tool, ["reload_first must be a bool"])
+    if runtime_run_id is not None and (
+            not isinstance(runtime_run_id, str) or not runtime_run_id):
+        return blocked_envelope(tool, ["runtime_run_id must be a nonempty string"])
+    evidence, envelope = _sealed_repair_evidence(run_root, run_id, tool)
+    if envelope is not None:
+        return envelope
+    assert evidence is not None
+    original = evidence["original"]
+    candidate = evidence["candidate"]
+    port = bridge
+    if port is None:
+        try:
+            port = LocalBridgePort()
+        except BridgeUnavailable as exc:
+            return blocked_envelope(
+                tool, [f"no live Desktop capability: {exc}"],
+                next_actions=["open the disposable candidate in Power BI "
+                              "Desktop on a Bridge host and retry"],
+                provenance={"repair_run": run_id, "candidate": candidate})
+    rid = runtime_run_id or f"rt-{uuid.uuid4().hex[:12]}"
+    try:
+        sealed_run_dir = create_run(
+            Path(run_root), rid,
+            {"pipeline": "vqs.verify-runtime/1",
+             "runtime": {"repair_run": run_id,
+                         "candidate": os.path.realpath(candidate),
+                         "candidate_digest": evidence["after"]}})
+    except FileExistsError:
+        return blocked_envelope(tool, [f"Run already exists: {rid}"])
+    except ValueError as exc:
+        return blocked_envelope(tool, [f"Unusable run id: {exc}"])
+    bindings = {"input_sha256": _canonical_sha256(
+        {"repair_run": run_id, "candidate": candidate,
+         "candidate_digest": evidence["after"]}),
+        "policy_version": POLICY_VERSION, "tool": "vqs.verify-runtime/1",
+        "config_sha256": None}
+    append_event(sealed_run_dir, {"kind": "started", "repair_run": run_id})
+    provenance = {"repair_run": run_id, "candidate": candidate}
+    try:
+        instance = bind_candidate_instance(port, original, candidate, pid,
+                                           wait_seconds)
+    except BridgeUnavailable as exc:
+        _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
+        return blocked_envelope(
+            tool, [f"candidate binding failed: {exc}"],
+            run_id=rid, run_dir=str(sealed_run_dir),
+            next_actions=["open the disposable candidate in Desktop and "
+                          "pass its exact --pid"],
+            provenance=provenance)
+    if reload_first:
+        try:
+            port.reload(int(instance["pid"]))
+        except (BridgeUnavailable, OSError) as exc:
+            _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
+            return blocked_envelope(
+                tool, [f"candidate reload refused: {exc}"],
+                run_id=rid, run_dir=str(sealed_run_dir), provenance=provenance)
+        try:
+            instance = bind_candidate_instance(port, original, candidate,
+                                               int(instance["pid"]),
+                                               wait_seconds)
+        except BridgeUnavailable as exc:
+            _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
+            return blocked_envelope(
+                tool, [f"candidate binding failed after reload: {exc}"],
+                run_id=rid, run_dir=str(sealed_run_dir), provenance=provenance)
+    renders = sealed_run_dir / "renders"
+    try:
+        manifest = capture_candidate(
+            candidate, str(renders), int(instance["pid"]), scale=scale,
+            wait_seconds=wait_seconds)
+    except (OSError, LookupError) as exc:
+        _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
+        return blocked_envelope(
+            tool, [f"no verified candidate capture: {exc}"],
+            run_id=rid, run_dir=str(sealed_run_dir), provenance=provenance)
+    try:
+        current = tree_digest(candidate)
+    except RepairError as exc:
+        _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
+        return blocked_envelope(
+            tool, [f"candidate unreadable after capture: {exc}"],
+            run_id=rid, run_dir=str(sealed_run_dir), provenance=provenance)
+    problems = []
+    if current != evidence["after"]:
+        problems.append({"rule": "runtime_candidate_drift",
+                         "sealed": evidence["after"], "current": current})
+    if manifest.get("source_sha256") != evidence["source_sha256"]:
+        problems.append({"rule": "runtime_source_mismatch",
+                         "sealed": evidence["source_sha256"],
+                         "current": manifest.get("source_sha256")})
+    problems += _sealed_model_problems(evidence["model"], original, candidate)
+    runtime_doc = {
+        "repair_run": run_id, "candidate": os.path.realpath(candidate),
+        "candidate_digest": current,
+        "source_sha256": manifest.get("source_sha256"),
+        "pid": int(instance["pid"]),
+        "instance": {"report": instance.get("currentFilePath"),
+                     "desktop_version": instance.get("desktopVersion")},
+        "capture": {"renders": "renders",
+                    "manifest_sha256": _canonical_sha256(manifest),
+                    "calibration": manifest.get("calibration")},
+        "problems": problems}
+    try:
+        runtime_bytes = json.dumps(runtime_doc, sort_keys=True,
+                                   ensure_ascii=False, default=str
+                                   ).encode("utf-8")
+        (sealed_run_dir / "runtime.json").write_bytes(runtime_bytes)
+        runtime_sha = hashlib.sha256(runtime_bytes).hexdigest()
+        capture_bytes = json.dumps(manifest, sort_keys=True,
+                                   ensure_ascii=False, default=str
+                                   ).encode("utf-8")
+        (sealed_run_dir / "capture-manifest.json").write_bytes(capture_bytes)
+        capture_sha = hashlib.sha256(capture_bytes).hexdigest()
+    except OSError as exc:
+        _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
+        return blocked_envelope(
+            tool, [f"cannot persist runtime evidence: {exc}"],
+            run_id=rid, run_dir=str(sealed_run_dir), provenance=provenance)
+    artifacts = {"runtime.json": {"sha256": runtime_sha,
+                                  "path": "runtime.json"},
+                 "capture-manifest.json": {"sha256": capture_sha,
+                                           "path": "capture-manifest.json"}}
+    if problems:
+        _seal_terminal(sealed_run_dir, "failed", artifacts, bindings)
+        return _envelope(
+            tool, "fail", run_id=rid, run_dir=str(sealed_run_dir),
+            findings=[{"check": f"runtime:{p.get('rule', '?')}",
+                       "status": "fail", "detail": p} for p in problems],
+            evidence=[{"kind": "sealed_runtime", "run_id": rid,
+                       "candidate": candidate,
+                       "candidate_digest": current}],
+            provenance=provenance,
+            next_actions=["inspect the problems and re-repair"])
+    _seal_terminal(sealed_run_dir, "completed", artifacts, bindings)
+    return _envelope(
+        tool, "pass", run_id=rid, run_dir=str(sealed_run_dir),
+        findings=[{"check": "runtime", "status": "pass"}],
+        evidence=[{"kind": "sealed_runtime", "run_id": rid,
+                   "candidate": candidate, "candidate_digest": current,
+                   "pid": int(instance["pid"])}],
+        provenance=provenance,
+        next_actions=["promote with vqs.promote and owner approval"])
+
+
+def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
+                      runtime_run_id: str | None = None,
+                      backup_dir: str | None = None,
+                      desktop_recheck: bool = True, bridge: Any = None,
+                      promote_run_id: str | None = None) -> dict[str, Any]:
+    """Promote a verified candidate onto the original; never silently.
+
+    Gates in order: explicit owner approval; completed sealed repair;
+    original and candidate digests recomputed against the seal (any
+    drift refuses); fresh structural verification plus model pin;
+    optional runtime record binding (a failed or mismatched runtime
+    record refuses); rename-swap with backup preservation; final source
+    digest; Desktop reload/recheck when a live capability exists.
+    Refusals before the swap seal blocked and touch nothing; a failed
+    Desktop recheck after the swap seals failed with the rollback plan.
+    Promotion evidence seals separately as ``vqs.promote/1``.
+    """
+    from .pbir import resolved_model_digest, source_digest
+    from .repair.execute import RepairError, tree_digest
+    from .repair.promote import PromoteError, swap_original_with_candidate
+    from .repair.regress import verify_candidate as compare
+    from .repair.runtime import BridgeUnavailable, LocalBridgePort
+
+    tool = "vqs.promote"
+    if not isinstance(run_root, str) or not run_root:
+        return blocked_envelope(tool, ["run_root must be a nonempty path"])
+    if not isinstance(run_id, str) or not run_id:
+        return blocked_envelope(tool, ["run_id must be a nonempty string"])
+    if (not isinstance(owner_approval, str) or not owner_approval.strip()):
+        return blocked_envelope(
+            tool, ["owner approval required: promotion never overwrites "
+                   "silently; pass --owner-approval with the owner identity "
+                   "and reason"])
+    if runtime_run_id is not None and (
+            not isinstance(runtime_run_id, str) or not runtime_run_id):
+        return blocked_envelope(
+            tool, ["runtime_run_id must be a nonempty string"])
+    if backup_dir is not None and (
+            not isinstance(backup_dir, str) or not backup_dir):
+        return blocked_envelope(tool, ["backup_dir must be a nonempty path"])
+    if not isinstance(desktop_recheck, bool):
+        return blocked_envelope(tool, ["desktop_recheck must be a bool"])
+    if promote_run_id is not None and (
+            not isinstance(promote_run_id, str) or not promote_run_id):
+        return blocked_envelope(tool, ["promote_run_id must be a nonempty string"])
+    evidence, envelope = _sealed_repair_evidence(run_root, run_id, tool)
+    if envelope is not None:
+        return envelope
+    assert evidence is not None
+    original = evidence["original"]
+    candidate = evidence["candidate"]
+    provenance = {"repair_run": run_id, "original": original,
+                  "candidate": candidate}
+    try:
+        current_original = tree_digest(original)
+        current_candidate = tree_digest(candidate)
+    except RepairError as exc:
+        return blocked_envelope(tool, [f"promotion trees unreadable: {exc}"],
+                                provenance=provenance)
+    if current_original != evidence["before"]:
+        return blocked_envelope(
+            tool, ["original drifted since repair; promotion refused: "
+                   f"{current_original} != {evidence['before']}"],
+            provenance=provenance,
+            next_actions=["re-run repair against the current original"])
+    if current_candidate != evidence["after"]:
+        return blocked_envelope(
+            tool, ["candidate drifted since repair; promotion refused: "
+                   f"{current_candidate} != {evidence['after']}"],
+            provenance=provenance,
+            next_actions=["re-run repair to seal the current candidate"])
+    try:
+        candidate_source = source_digest(Path(candidate))
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return blocked_envelope(
+            tool, [f"candidate source unreadable: {exc}"],
+            provenance=provenance)
+    if candidate_source != evidence["source_sha256"]:
+        return blocked_envelope(
+            tool, ["candidate source differs from the sealed repair source; "
+                   "promotion refused"],
+            provenance=provenance)
+    try:
+        comparison = compare(original, candidate, evidence["edits"], set())
+    except Exception as exc:  # noqa: BLE001 - comparison crash blocks
+        return blocked_envelope(
+            tool, [f"candidate verification crashed: "
+                   f"{type(exc).__name__}: {exc}"],
+            provenance=provenance)
+    if comparison.get("verdict") != "pass":
+        return blocked_envelope(
+            tool, ["candidate not verified: "
+                   f"{comparison.get('problems', comparison)}"],
+            provenance=provenance,
+            next_actions=["inspect the problems and re-repair"])
+    model_problems = _sealed_model_problems(evidence["model"], original,
+                                            candidate)
+    if model_problems:
+        return blocked_envelope(
+            tool, [f"model identity no longer holds: {model_problems}"],
+            provenance=provenance)
+    runtime_summary: dict[str, Any] = {"status": "not-performed",
+                                       "reason": "no runtime verification "
+                                                 "bound; static verification "
+                                                 "only"}
+    if runtime_run_id is not None:
+        runtime_manifest, error = _read_manifest(run_root, runtime_run_id)
+        if error is not None:
+            return blocked_envelope(tool, [error], provenance=provenance)
+        assert runtime_manifest is not None
+        runtime_seal = verify_seal(Path(run_root) / runtime_run_id)
+        if runtime_seal:
+            return blocked_envelope(
+                tool, [f"runtime run {runtime_run_id!r} seal invalid: "
+                       f"{runtime_seal[0].get('rule', 'unknown')}"],
+                provenance=provenance)
+        if runtime_manifest.get("pipeline") != "vqs.verify-runtime/1":
+            return blocked_envelope(
+                tool, [f"run {runtime_run_id!r} is not a runtime verification "
+                       f"(pipeline {runtime_manifest.get('pipeline')!r})"],
+                provenance=provenance)
+        if runtime_manifest.get("status") != "completed":
+            return blocked_envelope(
+                tool, [f"runtime verification {runtime_run_id!r} is "
+                       f"{runtime_manifest.get('status')!r}: required "
+                       "live regressions are unresolved; re-run runtime "
+                       "verification or omit --runtime-run-id to record the "
+                       "gap explicitly"],
+                provenance=provenance)
+        try:
+            runtime_doc = json.loads(
+                (Path(run_root) / runtime_run_id / "runtime.json"
+                 ).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            return blocked_envelope(
+                tool, [f"runtime evidence unreadable: {exc}"],
+                provenance=provenance)
+        if not isinstance(runtime_doc, dict) or (
+                runtime_doc.get("candidate_digest") != evidence["after"]):
+            return blocked_envelope(
+                tool, ["runtime verification binds a different candidate; "
+                       "promotion refused"],
+                provenance=provenance)
+        runtime_summary = {"status": "pass", "run_id": runtime_run_id,
+                           "candidate_digest": runtime_doc.get(
+                               "candidate_digest"),
+                           "pid": runtime_doc.get("pid")}
+    rid = promote_run_id or f"promote-{uuid.uuid4().hex[:12]}"
+    try:
+        sealed_run_dir = create_run(
+            Path(run_root), rid,
+            {"pipeline": "vqs.promote/1",
+             "promotion": {"repair_run": run_id,
+                           "original": os.path.realpath(original),
+                           "candidate": os.path.realpath(candidate)}})
+    except FileExistsError:
+        return blocked_envelope(tool, [f"Run already exists: {rid}"])
+    except ValueError as exc:
+        return blocked_envelope(tool, [f"Unusable run id: {exc}"])
+    bindings = {"input_sha256": _canonical_sha256(
+        {"repair_run": run_id, "candidate_digest": evidence["after"],
+         "precondition_digest": evidence["before"],
+         "approval": owner_approval}),
+        "policy_version": POLICY_VERSION, "tool": "vqs.promote/1",
+        "config_sha256": None}
+    append_event(sealed_run_dir, {"kind": "started", "repair_run": run_id})
+    backup = backup_dir or f"{os.path.realpath(original)}.vqs-backup"
+    try:
+        swap = swap_original_with_candidate(
+            original=original, candidate=candidate, backup_dir=backup,
+            precondition_digest=evidence["before"],
+            candidate_digest=evidence["after"])
+    except PromoteError as exc:
+        partial = isinstance(exc.state, dict) and "state" in exc.state
+        kind = "failed" if partial else "blocked"
+        _seal_terminal(sealed_run_dir, kind, {}, bindings)
+        if partial:
+            return _envelope(
+                tool, "fail", run_id=rid, run_dir=str(sealed_run_dir),
+                findings=[{"check": "promote:swap", "status": "fail",
+                           "detail": {"reason": str(exc),
+                                      "state": exc.state}}],
+                provenance=provenance,
+                next_actions=["inspect the partial state and roll back from "
+                              f"{exc.state.get('backup')}"])
+        return blocked_envelope(
+            tool, [f"promotion refused: {exc}"],
+            run_id=rid, run_dir=str(sealed_run_dir), provenance=provenance)
+    try:
+        final_source = source_digest(Path(swap["final"]))
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        _seal_terminal(sealed_run_dir, "failed", {}, bindings)
+        return _envelope(
+            tool, "fail", run_id=rid, run_dir=str(sealed_run_dir),
+            findings=[{"check": "promote:final-source", "status": "fail",
+                       "detail": f"promoted original unreadable: {exc}"}],
+            provenance=provenance,
+            next_actions=[f"roll back from {swap['backup']}"])
+    model_current: dict[str, Any] = {"kind": evidence["model"].get("kind")}
+    model_ok = True
+    if evidence["model"].get("kind") == "byPath":
+        try:
+            current_model, _rule, _detail = resolved_model_digest(
+                swap["final"])
+        except Exception as exc:  # noqa: BLE001 - model doubt fails closed
+            model_current["error"] = (
+                f"model digest unreadable: {type(exc).__name__}: {exc}")
+            model_ok = False
+        else:
+            model_current["digest"] = current_model
+            model_ok = current_model == evidence["model"].get("digest")
+    elif evidence["model"].get("kind") == "remote":
+        model_current["connection"] = evidence["model"].get("connection")
+    recheck: dict[str, Any] = {"status": "skipped",
+                               "reason": "owner opted out"}
+    if desktop_recheck:
+        port = bridge
+        if port is None:
+            try:
+                port = LocalBridgePort()
+            except BridgeUnavailable as exc:
+                port = None
+                recheck = {"status": "skipped",
+                           "reason": f"no live Desktop capability: {exc}"}
+        if port is not None:
+            try:
+                payload = port.status()
+            except OSError as exc:
+                recheck = {"status": "failed",
+                           "reason": f"Bridge status failed: {exc}"}
+            else:
+                holder = _instance_holding(payload, swap["final"])
+                if holder is None:
+                    recheck = {"status": "skipped",
+                               "reason": "no Desktop instance holds the "
+                                         "promoted report"}
+                else:
+                    try:
+                        port.reload(int(holder["pid"]))
+                        rebound = port.status()
+                    except OSError as exc:
+                        recheck = {"status": "failed",
+                                   "reason": f"reload/recheck failed: {exc}"}
+                    else:
+                        again = _instance_holding(rebound, swap["final"])
+                        if again is not None and str(again.get("pid")) == str(
+                                holder.get("pid")):
+                            recheck = {"status": "pass",
+                                       "pid": int(holder["pid"])}
+                        else:
+                            recheck = {"status": "failed",
+                                       "reason": "promoted report not bound "
+                                                 "after reload"}
+    promotion_doc = {
+        "repair_run": run_id,
+        "runtime": runtime_summary,
+        "owner_approval": owner_approval,
+        "original": os.path.realpath(original),
+        "candidate": os.path.realpath(candidate),
+        "precondition_digest": evidence["before"],
+        "candidate_digest": evidence["after"],
+        "candidate_source_sha256": evidence["source_sha256"],
+        "backup": swap["backup"], "backup_digest": swap["backup_digest"],
+        "final": swap["final"], "final_digest": swap["final_digest"],
+        "final_source_sha256": final_source,
+        "model": {"sealed": evidence["model"], "current": model_current,
+                  "match": model_ok},
+        "desktop_recheck": recheck,
+        "rollback": {
+            "steps": [f"rename {swap['final']} to "
+                      f"{swap['final']}.vqs-retired (must not exist)",
+                      f"rename {swap['backup']} to {swap['final']}",
+                      f"verify tree_digest({swap['final']}) == "
+                      f"{evidence['before']}"],
+            "backup": swap["backup"],
+            "precondition_digest": evidence["before"]}}
+    try:
+        promotion_bytes = json.dumps(promotion_doc, sort_keys=True,
+                                     ensure_ascii=False, default=str
+                                     ).encode("utf-8")
+        (sealed_run_dir / "promotion.json").write_bytes(promotion_bytes)
+        promotion_sha = hashlib.sha256(promotion_bytes).hexdigest()
+    except OSError as exc:
+        _seal_terminal(sealed_run_dir, "failed", {}, bindings)
+        return _envelope(
+            tool, "fail", run_id=rid, run_dir=str(sealed_run_dir),
+            findings=[{"check": "promote:seal", "status": "fail",
+                       "detail": f"cannot persist promotion evidence: {exc}"}],
+            provenance=provenance,
+            next_actions=[f"roll back from {swap['backup']}"])
+    artifacts = {"promotion.json": {"sha256": promotion_sha,
+                                    "path": "promotion.json"}}
+    evidence_rows = [{"kind": "sealed_promotion", "run_id": rid,
+                      "original": swap["final"], "backup": swap["backup"],
+                      "final_digest": swap["final_digest"],
+                      "final_source_sha256": final_source,
+                      "desktop_recheck": recheck.get("status"),
+                      "runtime": runtime_summary.get("status")}]
+    if not model_ok or recheck.get("status") == "failed":
+        _seal_terminal(sealed_run_dir, "failed", artifacts, bindings)
+        return _envelope(
+            tool, "fail", run_id=rid, run_dir=str(sealed_run_dir),
+            findings=[{"check": "promote:corroboration", "status": "fail",
+                       "detail": {"model_match": model_ok,
+                                  "desktop_recheck": recheck}}],
+            evidence=evidence_rows, provenance=provenance,
+            next_actions=[f"inspect the corroboration failure; roll back "
+                          f"from {swap['backup']} if needed"])
+    _seal_terminal(sealed_run_dir, "completed", artifacts, bindings)
+    return _envelope(
+        tool, "pass", run_id=rid, run_dir=str(sealed_run_dir),
+        findings=[{"check": "promote", "status": "pass"}],
+        evidence=evidence_rows, provenance=provenance,
+        next_actions=[f"backup preserved at {swap['backup']}"])
+
+
+def _instance_holding(payload: Any, report: str) -> dict[str, Any] | None:
+    """Desktop instance whose report dir is exactly ``report`` (or None)."""
+    if not isinstance(payload, dict):
+        return None
+    instances = payload.get("instances")
+    if not isinstance(instances, list):
+        return None
+    for instance in instances:
+        if not isinstance(instance, dict):
+            continue
+        if os.path.normcase(os.path.abspath(
+                str(instance.get("reportDir", "")))) == os.path.normcase(
+                    os.path.abspath(report)):
+            return instance
+    return None
+
+
 def render_report(envelope: dict[str, Any]) -> str:
     """Render a readable local report from a tool envelope; never raises."""
     try:

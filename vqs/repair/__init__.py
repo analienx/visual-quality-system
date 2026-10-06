@@ -6,6 +6,18 @@ from .allowlist import (
     validate_materialized_roots,
     validate_plan,
 )
+from .promote import (
+    PromoteError,
+    rollback_promotion,
+    swap_original_with_candidate,
+)
+from .runtime import (
+    BridgePort,
+    BridgeUnavailable,
+    LocalBridgePort,
+    bind_candidate_instance,
+    capture_candidate,
+)
 from .answers import answers_preserved, collect_answers
 from .execute import (
     RepairError,
@@ -31,13 +43,19 @@ __all__ = [
     "ALLOWED_OPS",
     "MAX_ROUNDS",
     "PLAN_SCHEMA_VERSION",
+    "BridgePort",
+    "BridgeUnavailable",
+    "LocalBridgePort",
+    "PromoteError",
     "RecipeError",
     "RepairError",
     "TemplateError",
     "affected_pages",
     "answers_preserved",
     "apply_plan",
+    "bind_candidate_instance",
     "bind_operation",
+    "capture_candidate",
     "clear_templates",
     "collect_answers",
     "get_template",
@@ -47,7 +65,9 @@ __all__ = [
     "rerender_requirements",
     "rollback_candidate",
     "rollback_ok",
+    "rollback_promotion",
     "run_rounds",
+    "swap_original_with_candidate",
     "synthesize_plan",
     "tree_digest",
     "validate_materialized_roots",

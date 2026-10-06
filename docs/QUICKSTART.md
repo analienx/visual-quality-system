@@ -82,6 +82,20 @@ vqs verify --run-root runs --run-id rep-1
 vqs verify --original path/to/Example.Report --candidate cand-1 --edits runs/rep-1/repairs.json
 ```
 
+## 4b. Verify the candidate live, then promote with approval
+
+`verify-runtime` binds a Desktop PID to the sealed candidate (never the
+original), reloads it, captures it, and seals the runtime evidence
+separately. `promote` then requires explicit `--owner-approval`,
+recomputed digests, a preserved backup, and seals the promotion
+separately; without approval, with drift, or with unresolved runtime
+regressions it refuses and touches nothing.
+
+```console
+vqs verify-runtime --run-root runs --run-id rep-1 --pid 4242
+vqs promote --run-root runs --run-id rep-1 --owner-approval "owner: accept static repair" --runtime-run-id rt-1
+```
+
 Minimal plan shape (adapt selectors/values to the real visual; the new
 value must differ from the current one):
 
@@ -104,8 +118,8 @@ value must differ from the current one):
 `vqs-mcp` speaks newline-delimited JSON-RPC 2.0 on stdio (one response
 per request, exit 0 on EOF); `vqs mcp` launches it. Tool names are
 `vqs_inspect`, `vqs_review`, `vqs_propose`, `vqs_repair`, `vqs_verify`,
-`vqs_run_status`. Blocked verdicts are normal results, never transport
-errors.
+`vqs_verify_runtime`, `vqs_promote`, `vqs_run_status`, `vqs_run`.
+Blocked verdicts are normal results, never transport errors.
 
 ```console
 vqs-mcp

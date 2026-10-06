@@ -85,19 +85,28 @@ def _same_path(left: str, right: str) -> bool:
 
 
 def select_instance(report_dir: str, pid: int | None,
-                    wait_seconds: int) -> dict:
-    """Pick the instance showing this report; raise blocked errors."""
-    try:
-        code, output = _bridge(
-            ["status"], timeout=max(wait_seconds, 30) + 30)
-    except FileNotFoundError as exc:
-        raise LookupError(str(exc)) from exc
-    if code != 0:
-        raise LookupError(f"Bridge status failed: {output[:300]}")
-    try:
-        payload = json.loads(output)
-    except ValueError as exc:
-        raise LookupError(f"Bridge status is not JSON: {exc}") from exc
+                    wait_seconds: int, *,
+                    status_payload: dict | None = None) -> dict:
+    """Pick the instance showing this report; raise blocked errors.
+
+    ``status_payload`` injects an already-fetched Bridge status object
+    (the runtime port path); None fetches live via the Bridge binary.
+    The binding rule is identical either way.
+    """
+    if status_payload is None:
+        try:
+            code, output = _bridge(
+                ["status"], timeout=max(wait_seconds, 30) + 30)
+        except FileNotFoundError as exc:
+            raise LookupError(str(exc)) from exc
+        if code != 0:
+            raise LookupError(f"Bridge status failed: {output[:300]}")
+        try:
+            payload = json.loads(output)
+        except ValueError as exc:
+            raise LookupError(f"Bridge status is not JSON: {exc}") from exc
+    else:
+        payload = status_payload
     if not isinstance(payload, dict):
         raise TypeError("Bridge status is not a JSON object")
     instances = payload.get("instances", [])

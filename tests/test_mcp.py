@@ -13,7 +13,7 @@ POWERBI_FIX = Path(__file__).parent / "powerbi" / "fixtures"
 REPORT = str(POWERBI_FIX / "mini_report")
 
 EXPECTED_TOOLS = {"vqs_inspect", "vqs_review", "vqs_propose", "vqs_repair",
-                  "vqs_verify", "vqs_run_status", "vqs_run"}
+                  "vqs_verify", "vqs_verify_runtime", "vqs_promote", "vqs_run_status", "vqs_run"}
 
 
 def _open() -> list[str]:
