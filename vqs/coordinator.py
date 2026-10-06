@@ -257,7 +257,8 @@ def run_workflow(*, report_dir: str | None = None,
                  authoring_backend: str = "auto",
                  live_answers: bool = False,
                  dax_questions: list | None = None,
-                 modeling: Any = None) -> dict[str, Any]:
+                 modeling: Any = None,
+                 reviewer: Any = None) -> dict[str, Any]:
     """Run the orchestrated Power BI workflow; never raises on bad input.
 
     Returns a ``vqs.run`` envelope whose ``stages`` ledger records every
@@ -461,7 +462,7 @@ def run_workflow(*, report_dir: str | None = None,
          "fixer_id": fixer_id, "pid": pid,
          "authoring_backend": authoring_backend,
          "live_answers": live_answers, "dax_questions": dax_questions,
-         "modeling": modeling})
+         "modeling": modeling, "reviewer": reviewer})
 
 
 def _capture_stage(name: str, report: str, renders: str, pid: int | None,
@@ -855,20 +856,8 @@ def _verify_sequence(run_dir: Any, rid: str, stages: list,
             record(_stage("handoff", "blocked",
                           reason="handoff needs the report directory"))
         else:
-            from vqs.review.bundle import pack
-
-            source = (state["candidate"]
-                      if state.get("candidate_renders") else
-                      params["report_dir"])
-            out = str(run_dir / "handoff-bundle")
-            try:
-                bundle = pack(source, renders, out, params["fixer_id"])
-            except (OSError, ValueError, TypeError) as exc:
-                record(_stage("handoff", "blocked",
-                              reason=f"{type(exc).__name__}: {exc}"))
-            else:
-                record(_stage("handoff", "pass", evidence={
-                    "bundle": out, "manifest": bundle}))
+            record(_handoff_stage(params, state, renders, run_dir,
+                                 str(run_dir / "handoff-bundle")))
     # -- remeasure (repair mode, static re-review of the candidate) -----
     if mode != "repair":
         record(_stage("remeasure", "not_run",
@@ -911,6 +900,77 @@ def _verify_sequence(run_dir: Any, rid: str, stages: list,
                                            else None)
     return _finish(run_dir, rid, stages, state, mode, params["scope"],
                    run_root)
+
+
+def _handoff_stage(params: dict, state: dict, renders: str,
+                   run_dir: Any, out: str) -> dict:
+    """Pack the visual bundle and obtain reviewer observations (P0-U6).
+
+    The bundle stays packable directly as a debugging escape hatch,
+    but the coordinator handoff additionally requires a configured
+    reviewer provider: the port consumes the verified bundle and its
+    typed observations seal into reviewer.json (bound by the run seal
+    via the recorded sha). A missing reviewer, a refusing port, or a
+    malformed observation blocks the handoff loudly; observations that
+    evaluate cleanly record visual acceptance, while failing
+    observations keep the stage green (delivery completed) and fail
+    visual acceptance as quality evidence, never as execution.
+    """
+    from vqs.review.bundle import pack
+    from vqs.review.port import ReviewError, resolve_reviewer, review_bundle
+
+    source = (state["candidate"]
+              if state.get("candidate_renders") else
+              params["report_dir"])
+    try:
+        bundle = pack(source, renders, out, params["fixer_id"])
+    except (OSError, ValueError, TypeError) as exc:
+        return _stage("handoff", "blocked",
+                      reason=f"{type(exc).__name__}: {exc}")
+    try:
+        reviewer, reviewer_id = resolve_reviewer(params.get("reviewer"))
+    except ReviewError as exc:
+        return _stage("handoff", "blocked", reason=f"reviewer refused: {exc}",
+                      evidence={"bundle": out, "manifest": bundle})
+    if reviewer is None:
+        return _stage(
+            "handoff", "blocked",
+            reason=("no reviewer capability: visual acceptance blocked; "
+                    "pass an explicit reviewer provider (--reviewer) or "
+                    "use vqs request-review as a debugging escape hatch"),
+            evidence={"bundle": out, "manifest": bundle})
+    assert reviewer_id is not None
+    try:
+        record_doc = review_bundle(
+            bundle_dir=out, reviewer=reviewer,
+            reviewer_id=reviewer_id, fixer_id=params["fixer_id"])
+    except ReviewError as exc:
+        return _stage("handoff", "blocked", reason=f"reviewer refused: {exc}",
+                      evidence={"bundle": out, "manifest": bundle,
+                                "reviewer": reviewer_id})
+    if record_doc["visual"] == "blocked":
+        return _stage("handoff", "blocked",
+                      reason="reviewer could not evaluate the renders",
+                      evidence={"bundle": out, "manifest": bundle,
+                                "reviewer": reviewer_id})
+    try:
+        reviewer_path = Path(run_dir) / "reviewer.json"
+        reviewer_bytes = json.dumps(record_doc, indent=2,
+                                    ensure_ascii=False,
+                                    default=str).encode("utf-8")
+        reviewer_path.write_bytes(reviewer_bytes)
+        reviewer_sha = hashlib.sha256(reviewer_bytes).hexdigest()
+    except OSError as exc:
+        return _stage("handoff", "blocked",
+                      reason=f"cannot persist reviewer evidence: {exc}",
+                      evidence={"bundle": out, "manifest": bundle,
+                                "reviewer": reviewer_id})
+    return _stage("handoff", "pass", evidence={
+        "bundle": out, "manifest": bundle, "reviewer": reviewer_id,
+        "reviewer_evidence": "reviewer.json",
+        "reviewer_sha256": reviewer_sha,
+        "observations": record_doc["observations"],
+        "visual_acceptance": record_doc["visual"]})
 
 
 def _answer_regression(params: dict, state: dict, run_dir: Any) -> dict:
@@ -1064,19 +1124,24 @@ OUTCOMES = ("accepted", "improved_not_accepted", "not_accepted",
 
 
 def _acceptance(mode: str, *, review_verdict: Any, quality_after: Any,
-                candidates: int,
-                regression_failed: bool) -> bool:
-    """The requested acceptance scope actually passed (pure, P0-U5).
+                candidates: int, regression_failed: bool,
+                visual: str = "not_run", runtime: bool = False) -> bool:
+    """The requested acceptance scope actually passed (pure, P0-U5/U6).
 
     review asks "is the report good"; propose asks "produce safe fixes"
     (a clean report needs none); repair asks "fix the report" (the
     remeasured candidate meets the bar with no same-task regression).
+    Runtime scopes additionally require visual acceptance from the
+    reviewer port; a static run has no visual evidence to accept.
     """
+    visual_ok = visual in ("pass", "not_run")
     if mode == "review":
-        return review_verdict == "pass"
+        return review_verdict == "pass" and visual_ok
     if mode == "propose":
-        return review_verdict == "pass" or candidates > 0
-    return (quality_after == "pass" and not regression_failed)
+        return (review_verdict == "pass" or candidates > 0) and visual_ok
+    if visual == "not_run":
+        visual_ok = not runtime
+    return (quality_after == "pass" and not regression_failed and visual_ok)
 
 
 def _decide_outcome(*, mode: str, execution: str, acceptance: bool,
@@ -1154,10 +1219,45 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
     regression_failed = any(
         isinstance(entry, dict) and entry.get("stage") == "answer_regression"
         and entry.get("status") == "fail" for entry in stages)
+    handoff = next((entry for entry in stages
+                    if isinstance(entry, dict)
+                    and entry.get("stage") == "handoff"), {})
+    handoff = handoff if isinstance(handoff, dict) else {}
+    handoff_evidence = (handoff.get("evidence")
+                        if isinstance(handoff.get("evidence"), dict) else {})
+    if handoff.get("status") == "pass":
+        visual_acceptance = {
+            "status": ("pass"
+                       if handoff_evidence.get("visual_acceptance") == "pass"
+                       else "fail"),
+            "reason": ("reviewer observations evaluate cleanly"
+                       if handoff_evidence.get("visual_acceptance") == "pass"
+                       else "reviewer observations report visual findings"),
+            "reviewer": handoff_evidence.get("reviewer")}
+        reviewer_fails = [
+            f"reviewer:{item.get('page_id')}:{item.get('check')}"
+            for item in handoff_evidence.get("observations", [])
+            if isinstance(item, dict) and item.get("verdict") == "fail"]
+    elif handoff.get("status") == "blocked":
+        visual_acceptance = {
+            "status": "blocked",
+            "reason": handoff.get("reason", "handoff blocked"),
+            "reviewer": handoff_evidence.get("reviewer")}
+        reviewer_fails = []
+    else:
+        visual_acceptance = {
+            "status": "not_run",
+            "reason": "static scope requests no visual evidence",
+            "reviewer": None}
+        reviewer_fails = []
+    reconcile["remaining"] = sorted(set(reconcile["remaining"])
+                                    | set(reviewer_fails))
     acceptance = _acceptance(
         mode, review_verdict=state.get("review_verdict"),
         quality_after=state.get("quality_after"),
-        candidates=candidate_count, regression_failed=regression_failed)
+        candidates=candidate_count, regression_failed=regression_failed,
+        visual=visual_acceptance["status"],
+        runtime=scope in RUNTIME_SCOPES)
     summary = {
         "mode": mode, "scope": scope,
         "review_verdict": state.get("review_verdict"),
@@ -1174,6 +1274,7 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
             "reason": ("the coordinator never promotes; promotion is "
                        "owner-explicit via vqs.promote after independent "
                        "acceptance")},
+        "visual_acceptance": visual_acceptance,
         "blocked_stages": [entry["stage"] for entry in stages
                            if entry["status"] == "blocked"],
         "failed_stages": [entry["stage"] for entry in stages

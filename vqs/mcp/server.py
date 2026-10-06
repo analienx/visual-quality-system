@@ -83,7 +83,7 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                            if k in ("report_dir", "model_dir", "facts",
                                     "mode", "scope", "run_id",
                                     "resume_from", "candidate_root",
-                                    "plan_path", "fixer_id")
+                                    "plan_path", "fixer_id", "reviewer")
                            and v is not None})
         config, issues = load_config(arguments.get("config_path"))
         if issues:

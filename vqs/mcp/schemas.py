@@ -123,7 +123,8 @@ TOOL_SPECS: tuple[dict[str, Any], ...] = (
              "resume_from": {"type": ["string", "null"]},
              "candidate_root": {"type": ["string", "null"]},
              "plan_path": {"type": ["string", "null"]},
-             "fixer_id": {"type": ["string", "null"]}},
+             "fixer_id": {"type": ["string", "null"]},
+             "reviewer": {"type": ["string", "null"]}},
          "required": ["run_root"],
          "additionalProperties": False}},
 )

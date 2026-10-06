@@ -436,7 +436,7 @@ def _run(args) -> int:
         plan_path=str(args.plan) if args.plan is not None else None,
         fixer_id=args.fixer_id, pid=args.pid,
         authoring_backend=args.authoring_backend,
-        live_answers=args.live_answers)
+        live_answers=args.live_answers, reviewer=args.reviewer)
     if args.report_out is not None:
         try:
             args.report_out.write_text(
@@ -677,6 +677,10 @@ def main(argv: list[str] | None = None) -> int:
     run_cmd.add_argument("--live-answers", action="store_true",
                          help="Opt into live DAX answer collection when a "
                               "model is reachable")
+    run_cmd.add_argument("--reviewer", default=None,
+                         help="Reviewer provider dotted path for visual "
+                              "acceptance (runtime handoff blocks without "
+                              "one)")
     run_cmd.add_argument("--report-out", type=Path, default=None,
                          help="Write the run envelope JSON here")
     commands.add_parser("mcp", help="Launch the stdio MCP server (tools vqs_*)")
