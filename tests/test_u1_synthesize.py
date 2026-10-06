@@ -246,7 +246,11 @@ def test_propose_out_writes_repair_plan(tmp_path: Path, capsys) -> None:
 
 def test_propose_out_refuses_without_candidate(tmp_path: Path,
                                                capsys) -> None:
-    """--out with nothing synthesizable fails closed and writes nothing."""
+    """--out with nothing synthesizable fails closed and writes nothing.
+
+    U7: the mixed cohort is unknown (needs_render_evidence), so review
+    blocks (exit 2, not fail); propose still refuses and writes nothing.
+    """
     facts = {"rules": {"typography.format_declaration_consistency": {
         "readings": [
             {"cohort": "slicer/header.textSize", "visual": "v1",
@@ -257,7 +261,7 @@ def test_propose_out_refuses_without_candidate(tmp_path: Path,
     facts_path.write_text(json.dumps(facts), encoding="utf-8")
     runs = str(tmp_path / "runs")
     assert vqs_main(["review", "--facts", str(facts_path),
-                     "--run-root", runs, "--run-id", "u1-node"]) == 1
+                     "--run-root", runs, "--run-id", "u1-node"]) == 2
     capsys.readouterr()
     plan_path = tmp_path / "plan.json"
     assert vqs_main(["propose", "--run-root", runs, "--run-id", "u1-node",

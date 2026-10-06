@@ -34,7 +34,7 @@
   ops bind, apply, verify, and synthesize only with a proved effective
   value plus named provenance; unproven bindings need the owner.
   Tests `tests/test_u7_typography.py`; `scripts/smoke.py` honest
-  unknown (not fail) on the mixed mini_report fixture.
+  blocked (rule unknown on the mixed mini_report fixture, not fail).
 - Oracles `tests/test_r6_e01_bindings.py` … `tests/test_r6_e08_journey.py`
   (two-project journey included); hosted lanes
   `.github/workflows/authoring.yml` (real-CLI probe) and

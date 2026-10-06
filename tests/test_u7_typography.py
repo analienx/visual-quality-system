@@ -118,7 +118,10 @@ def _doc(value) -> dict:
 
 
 def _unset(old, effective, proof="render:adapter/run-1") -> dict:
+    # Sealed-finding bindings carry top-level page/visual (the U1 leaf
+    # convention); plan operations additionally need the selector.
     return {"type": "format.unset_override", "target": "visual",
+            "page": "P1", "visual": "cardx",
             "selector": {"page": "P1", "visual": "cardx"},
             "path": list(PROP), "old": old, "effective": effective,
             "proof": proof,
@@ -127,6 +130,7 @@ def _unset(old, effective, proof="render:adapter/run-1") -> dict:
 
 def _setter(old, value, effective, proof="render:adapter/run-1") -> dict:
     return {"type": "format.set_explicit", "target": "visual",
+            "page": "P1", "visual": "cardx",
             "selector": {"page": "P1", "visual": "cardx"},
             "path": list(PROP), "old": old, "value": value,
             "effective": effective, "proof": proof,
@@ -310,3 +314,23 @@ def test_unknown_render_evidence_needs_owner() -> None:
     assert any(entry["status"] == "needs_owner_decision"
                and "inherited default" in entry["reason"]
                for entry in result["decisions"])
+
+
+def test_blocked_review_halts_workflow_before_runtime(tmp_path: Path) -> None:
+    """U7: a needs_render_evidence review blocks the run; no runtime stages."""
+    from vqs.coordinator import run_workflow
+
+    facts = {"rules": {"typography.format_declaration_consistency": {
+        "readings": [
+            {"cohort": COHORT, "visual": "v1", "page": "P1", "value": "12D"},
+            {"cohort": COHORT, "visual": "v2", "page": "P1",
+             "value": None}]}}}
+    envelope = run_workflow(facts=facts, mode="review", scope="static",
+                            run_root=str(tmp_path / "runs"),
+                            run_id="u7-blocked")
+    stages = {entry["stage"]: entry for entry in envelope["stages"]}
+    assert stages["review"]["status"] == "blocked"
+    assert "readiness" not in stages and "handoff" not in stages
+    assert envelope["verdict"] == "blocked"
+    assert envelope["summary"]["outcome"] == "blocked"
+    assert envelope["summary"]["review_verdict"] == "blocked"

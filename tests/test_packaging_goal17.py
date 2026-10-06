@@ -100,5 +100,8 @@ def test_offline_review_without_optional_tools(tmp_path: Path,
     envelope = review_report(report_dir=REPORT,
                              run_root=str(tmp_path / "runs"),
                              run_id="offline1")
-    assert envelope["verdict"] in ("pass", "fail")
+    # U7: mixed declarations with an unknown effective value block on
+    # render evidence (unknown rule verdicts block); offline review still
+    # completes without optional tools.
+    assert envelope["verdict"] in ("pass", "fail", "blocked")
     assert envelope["provenance"]["source_sha256"]

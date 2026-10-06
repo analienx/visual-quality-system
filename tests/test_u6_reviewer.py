@@ -234,11 +234,34 @@ def _ready(monkeypatch: pytest.MonkeyPatch) -> None:
                         lambda: {"verdict": "ready", "missing": []})
 
 
+def _unmix_typography(report: Path) -> None:
+    """U7: the handoff tests need a reviewable baseline.
+
+    The shared mini_report mixes slicer textSize declarations with an
+    unknown effective inherited value, which now (correctly) blocks the
+    review before any runtime stage. Removing the redundant override
+    leaves an all-default cohort that passes, so these tests exercise
+    the handoff rather than the halt; mixed-cohort behavior is pinned
+    by U7 rule/coordinator tests instead.
+    """
+    visual_file = (report / "definition" / "pages" / "P1" / "visuals"
+                   / "slicerb" / "visual.json")
+    doc = json.loads(visual_file.read_text(encoding="utf-8"))
+    node = doc["visual"]["objects"]["header"]
+    entries = node if isinstance(node, list) else [node]
+    for entry in entries:
+        props = entry.get("properties") if isinstance(entry, dict) else None
+        if isinstance(props, dict):
+            props.pop("textSize", None)
+    visual_file.write_text(json.dumps(doc), encoding="utf-8")
+
+
 def _run_review(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                 reviewer: object, run_id: str,
                 fixer_id: str = FIXER) -> dict:
     report = tmp_path / "Live.Report"
     shutil.copytree(FIXTURES / "mini_report", report)
+    _unmix_typography(report)
     _ready(monkeypatch)
     _stub_capture(monkeypatch)
     return run_workflow(report_dir=str(report), mode="review",

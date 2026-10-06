@@ -91,7 +91,12 @@ def test_propose_mode_synthesizes_plan(tmp_path: Path) -> None:
 
 
 def test_repair_mode_static_end_to_end(tmp_path: Path) -> None:
-    """Repair mode applies the synthesized overlap move and remeasures."""
+    """Repair mode applies the synthesized overlap move and remeasures.
+
+    U7: the overlap resolves, but the mixed textSize cohort (unknown
+    effective inherited value) blocks the remeasure verdict instead of
+    failing it; the run reports blocked with the move sealed.
+    """
     report = tmp_path / "Overlap.Report"
     shutil.copytree(POWERBI_FIX / "mini_report", report)
     visual_path = (report / "definition" / "pages" / "P1" / "visuals"
@@ -106,7 +111,7 @@ def test_repair_mode_static_end_to_end(tmp_path: Path) -> None:
                             mode="repair", scope="static",
                             run_root=str(tmp_path / "runs"),
                             run_id="u2-repair")
-    assert envelope["verdict"] == "fail", envelope["summary"]
+    assert envelope["verdict"] == "blocked", envelope["summary"]
     stages = _stages(envelope)
     assert stages["inspect"]["status"] == "pass"
     assert stages["review"]["status"] == "pass"
@@ -114,10 +119,11 @@ def test_repair_mode_static_end_to_end(tmp_path: Path) -> None:
     assert stages["propose"]["status"] == "pass"
     assert stages["repair"]["status"] == "pass"
     assert stages["verify"]["status"] == "pass"
-    assert stages["remeasure"]["status"] == "pass"
-    assert envelope["summary"]["outcome"] == "improved_not_accepted"
+    assert stages["remeasure"]["status"] == "blocked"
+    assert envelope["summary"]["outcome"] == "blocked"
+    assert envelope["summary"]["blocked_stages"] == ["remeasure"]
     assert envelope["summary"]["resolved_findings"] != []
-    assert envelope["summary"]["remaining_findings"] != []
+    assert envelope["summary"]["remaining_findings"] == []
     assert envelope["summary"]["new_regressions"] == []
     assert envelope["summary"]["candidate_status"]["status"] == "verified"
     candidate = envelope["summary"]["candidate"]
@@ -126,7 +132,7 @@ def test_repair_mode_static_end_to_end(tmp_path: Path) -> None:
                         / "visuals" / "slicerb"
                         / "visual.json").read_text(encoding="utf-8"))
     assert moved["position"]["x"] == 944
-    assert envelope["quality_after"] == "fail"
+    assert envelope["quality_after"] == "blocked"
     assert (tmp_path / "runs" / "u2-repair" / "plan.json").is_file()
 
 
