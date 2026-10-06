@@ -118,9 +118,12 @@ def _doc(value) -> dict:
 
 
 def _unset(old, effective, proof="render:adapter/run-1") -> dict:
-    # Sealed-finding bindings carry top-level page/visual (the U1 leaf
-    # convention); plan operations additionally need the selector.
-    return {"type": "format.unset_override", "target": "visual",
+    # Sealed-finding bindings carry top-level page/visual plus "op"
+    # (the U1 leaf convention); plan operations additionally need
+    # "type" and the selector. Both keys ride along; each consumer
+    # reads its own convention and ignores the other.
+    return {"op": "format.unset_override", "type": "format.unset_override",
+            "target": "visual",
             "page": "P1", "visual": "cardx",
             "selector": {"page": "P1", "visual": "cardx"},
             "path": list(PROP), "old": old, "effective": effective,
@@ -129,7 +132,8 @@ def _unset(old, effective, proof="render:adapter/run-1") -> dict:
 
 
 def _setter(old, value, effective, proof="render:adapter/run-1") -> dict:
-    return {"type": "format.set_explicit", "target": "visual",
+    return {"op": "format.set_explicit", "type": "format.set_explicit",
+            "target": "visual",
             "page": "P1", "visual": "cardx",
             "selector": {"page": "P1", "visual": "cardx"},
             "path": list(PROP), "old": old, "value": value,

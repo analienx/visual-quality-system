@@ -540,10 +540,13 @@ def _plan_format_binding(check: str, binding: Any, all_pages: list[str]
                          ) -> tuple[list[dict], list[dict]]:
     """Synthesize one proven format binding; repair re-validates it.
 
-    Only bindings with a proved effective value plus named provenance
-    become candidates: format.unset_override removes a redundant
-    override (preferred when safe), format.set_explicit writes the
-    proved desired value. Anything unproven needs the owner.
+    Bindings follow the leaf convention ("op" plus top-level
+    page/visual/path/old) with two extra proven keys: "effective"
+    (the render-adapter-proved value) and "proof" (naming that
+    evidence). Only bindings with a proved effective value plus named
+    provenance become candidates: format.unset_override removes a
+    redundant override (preferred when safe), format.set_explicit
+    writes the proved desired value. Anything unproven needs the owner.
     """
     if not isinstance(binding, dict):
         return [], [_decision(check, "needs_owner_decision",
