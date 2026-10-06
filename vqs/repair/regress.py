@@ -16,7 +16,15 @@ from pathlib import Path
 from typing import Any
 
 from ..pbir import listed_page_order
-from .recipes import FORMAT_OPS, GEOMETRY_OPS, LEAF_OPS, RecipeError, affected_pages, validate_format_path, validate_leaf_path
+from .recipes import (
+    FORMAT_OPS,
+    GEOMETRY_OPS,
+    LEAF_OPS,
+    RecipeError,
+    affected_pages,
+    validate_format_path,
+    validate_leaf_path,
+)
 
 _MISSING = object()
 
