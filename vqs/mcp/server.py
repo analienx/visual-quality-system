@@ -44,8 +44,11 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                        and v is not None})
         return pipeline.review_report(config=config, **params)
     if name == "vqs_propose":
-        return pipeline.propose_candidates(arguments["run_root"],
-                                           arguments["run_id"])
+        params_propose: dict[str, Any] = {"run_root": arguments["run_root"],
+                                          "run_id": arguments["run_id"]}
+        if arguments.get("facts") is not None:
+            params_propose["facts"] = arguments["facts"]
+        return pipeline.propose_candidates(**params_propose)
     if name == "vqs_repair":
         params = {"plan_path": arguments["plan_path"],
                   "original": arguments["original"],

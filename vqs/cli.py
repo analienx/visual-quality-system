@@ -290,11 +290,50 @@ def _review(args) -> int:
     return _verdict_exit(envelope)
 
 
-def _propose(run_root: Path, run_id: str) -> int:
-    """Triage a sealed review run into plan-eligible work items."""
-    from vqs.pipeline import propose_candidates
+def _propose(run_root: Path, run_id: str, facts_path: Path | None,
+             out: Path | None) -> int:
+    """Triage a sealed review run into plan-eligible work items.
 
-    return _verdict_exit(propose_candidates(str(run_root), run_id))
+    Optional ``--facts`` supplies the measured-facts document the run
+    sealed; its digest must match or the run blocks as stale. Optional
+    ``--out`` writes the synthesized plan document (for ``vqs repair``);
+    with no synthesizable candidate the run refuses instead of writing
+    a plan-shaped file.
+    """
+    from vqs.pipeline import blocked_envelope, propose_candidates
+
+    facts = None
+    if facts_path is not None:
+        try:
+            facts = json.loads(facts_path.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.propose", [f"unreadable facts file: {exc}"]))
+        if not isinstance(facts, dict):
+            return _verdict_exit(blocked_envelope(
+                "vqs.propose", ["facts file is not an object"]))
+    envelope = propose_candidates(str(run_root), run_id, facts)
+    if envelope.get("verdict") != "pass":
+        return _verdict_exit(envelope)
+    if out is not None:
+        plan = envelope.get("plan")
+        if not isinstance(plan, dict):
+            return _verdict_exit(blocked_envelope(
+                "vqs.propose",
+                ["no synthesizable candidates; decisions are in the "
+                 "triage envelope, not a plan file"],
+                run_id=run_id,
+                run_dir=envelope.get("run_dir")))
+        try:
+            out.write_text(json.dumps(plan, indent=2,
+                                      ensure_ascii=False) + chr(10),
+                           encoding="utf-8")
+        except OSError as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.propose", [f"{type(exc).__name__}: {exc}"],
+                run_id=run_id,
+                run_dir=envelope.get("run_dir")))
+    return _verdict_exit(envelope)
 
 
 def _repair(args) -> int:
@@ -466,6 +505,14 @@ def main(argv: list[str] | None = None) -> int:
     propose_cmd = commands.add_parser("propose", help="Propose repairs for a run (tool vqs.propose)")
     propose_cmd.add_argument("--run-root", type=Path, required=True)
     propose_cmd.add_argument("--run-id", required=True)
+    propose_cmd.add_argument("--facts", type=Path, default=None,
+                             help="Measured-facts JSON the run sealed; "
+                                  "digest must match or the run blocks "
+                                  "as stale (enables candidate synthesis)")
+    propose_cmd.add_argument("--out", type=Path, default=None,
+                             help="Write the synthesized plan document "
+                                  "here for vqs repair; refused when no "
+                                  "candidate was synthesizable")
     repair_cmd = commands.add_parser("repair", help="Validate then apply a repair plan (tool vqs.repair)")
     repair_cmd.add_argument("plan", type=Path, help="JSON repair-plan document")
     repair_cmd.add_argument("--original", required=True, help="Read-only original source path")
@@ -526,7 +573,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "review":
         return _review(args)
     if args.command == "propose":
-        return _propose(args.run_root, args.run_id)
+        return _propose(args.run_root, args.run_id, args.facts, args.out)
     if args.command == "repair":
         return _repair(args)
     if args.command == "verify":

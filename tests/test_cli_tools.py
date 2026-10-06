@@ -256,8 +256,10 @@ def test_propose_repair_verify_honesty(tmp_path: Path) -> None:
     assert triage["candidates"] == []
     assert [item["check"] for item in triage["work_items"]] == ["nope.rule"]
     assert all(item["needs_plan"] for item in triage["work_items"])
-    assert any("no automatic plan author" in action
+    assert any("no safe automatic candidate was synthesizable" in action
                for action in triage["next_actions"])
+    assert any(item["status"] == "needs_owner_decision"
+               for item in triage["decisions"])
 
     plan_path = tmp_path / "plan.json"
     plan_path.write_text(json.dumps(_plan()), encoding="utf-8")

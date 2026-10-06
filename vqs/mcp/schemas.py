@@ -1,4 +1,4 @@
-﻿"""Tool schemas and strict argument validation for the MCP server."""
+"""Tool schemas and strict argument validation for the MCP server."""
 from __future__ import annotations
 
 from typing import Any
@@ -32,12 +32,13 @@ TOOL_SPECS: tuple[dict[str, Any], ...] = (
          "required": [],
          "additionalProperties": False}},
     {"name": "vqs_propose", "tool": "vqs.propose",
-     "description": "Triage a sealed review run into plan-eligible work items.",
+     "description": "Triage a sealed review run into typed candidates.",
      "inputSchema": {
          "type": "object",
          "properties": {
              "run_root": {"type": "string"},
-             "run_id": {"type": "string"}},
+             "run_id": {"type": "string"},
+             "facts": {"type": ["object", "null"]}},
          "required": ["run_root", "run_id"],
          "additionalProperties": False}},
     {"name": "vqs_repair", "tool": "vqs.repair",

@@ -932,13 +932,18 @@ def run_status_report(run_root: str, run_id: str) -> dict[str, Any]:
                             "events": events[-20:]})
 
 
-def propose_candidates(run_root: str, run_id: str) -> dict[str, Any]:
+def propose_candidates(run_root: str, run_id: str,
+                       facts: dict[str, Any] | None = None
+                       ) -> dict[str, Any]:
     """Triage a sealed review run into plan-eligible work items.
 
     Reads the sealed findings artifact (never the live sources), so the
-    triage provably matches the reviewed verdict. There is no automatic
-    plan author: each actionable item needs an owner-authored plan that
-    vqs.repair validates before executing.
+    triage provably matches the reviewed verdict. Caller facts are
+    accepted only when their digest matches the sealed run: a stale
+    finding/source blocks plan generation. Findings VQS can bind safely
+    become deterministic typed candidates with a complete plan document;
+    everything else becomes needs_owner_decision / unsupported, never a
+    guessed value. vqs.repair validates the plan before executing.
     """
     manifest, error = _read_manifest(run_root, run_id)
     if error is not None:
@@ -977,23 +982,66 @@ def propose_candidates(run_root: str, run_id: str) -> dict[str, Any]:
                         [f"run {run_id!r} findings are not a list"],
                         run_id=run_id,
                         run_dir=str(Path(run_root) / run_id))
+    artifacts = manifest.get("artifacts")
+    artifacts = artifacts if isinstance(artifacts, dict) else {}
+    bindings = manifest.get("bindings")
+    bindings = bindings if isinstance(bindings, dict) else {}
+    expected = bindings.get("input_sha256") or artifacts.get("facts_sha256")
+    if facts is not None:
+        if not isinstance(facts, dict):
+            return blocked_envelope(
+                "vqs.propose", ["facts must be an object"],
+                run_id=run_id, run_dir=str(Path(run_root) / run_id))
+        if not isinstance(expected, str):
+            return blocked_envelope(
+                "vqs.propose",
+                [(f"run {run_id!r} predates facts binding; "
+                  "re-run review to propose")],
+                run_id=run_id, run_dir=str(Path(run_root) / run_id))
+        if _canonical_sha256(facts) != expected:
+            return blocked_envelope(
+                "vqs.propose",
+                [(f"stale finding/source: supplied facts do not match "
+                  f"the sealed run {run_id!r}; re-run review on the "
+                  "current sources")],
+                run_id=run_id, run_dir=str(Path(run_root) / run_id))
+    from vqs.repair.synthesize import synthesize_plan
+
+    source_sha = artifacts.get("source_sha256")
+    result = synthesize_plan(
+        findings, facts, source_run_id=run_id,
+        source_sha256=source_sha if isinstance(source_sha, str) else None,
+        facts_sha256=expected if isinstance(expected, str) else None)
     items = [{"check": item.get("check", "?"),
               "status": item.get("status", "unknown"),
               "needs_plan": item.get("status") in ("fail", "blocked")}
              for item in findings if isinstance(item, dict)]
     actionable = sum(1 for item in items if item["needs_plan"])
+    plan = result["plan"]
+    if plan is not None:
+        next_actions = [
+            ("apply the synthesized plan with vqs.repair against a "
+             "disposable candidate, then vqs.verify"),
+            "unresolved findings still need an owner-authored plan"]
+    else:
+        next_actions = [
+            ("author an owner-approved plan for each actionable finding "
+             "(no safe automatic candidate was synthesizable)"),
+            "execute it with vqs.repair, then vqs.verify"]
     return _envelope("vqs.propose", "pass", run_id=run_id,
                      run_dir=str(Path(run_root) / run_id),
                      findings=[{"check": item["check"],
                                 "status": item["status"]} for item in items],
                      evidence=[{"kind": "triage", "run_id": run_id,
                                 "items": len(items),
-                                "actionable": actionable}],
-                     next_actions=[
-                         ("author an owner-approved plan for each actionable "
-                          "finding (no automatic plan author is implemented)"),
-                         "execute it with vqs.repair, then vqs.verify"],
-                     extra={"work_items": items, "candidates": []})
+                                "actionable": actionable,
+                                "synthesized": len(result["candidates"]),
+                                "needs_decision": len(result["decisions"])}],
+                     next_actions=next_actions,
+                     extra={"work_items": items,
+                            "candidates": result["candidates"],
+                            "decisions": result["decisions"],
+                            "plan": plan})
 
 
 def _repair_bindings(plan_sha: str) -> dict[str, Any]:

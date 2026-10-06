@@ -45,11 +45,16 @@ Run IDs are confined to the run root (`../..` and absolute IDs block).
 ## 3. Propose work items
 
 `propose` triages the sealed findings of a review run into plan-eligible
-work items. There is no automatic plan author: each actionable item
-needs an owner-authored plan.
+work items. Findings VQS can bind safely (small geometry overlaps and
+outside-page visuals with measured facts, explicit leaf bindings with
+proven old/new values) become deterministic typed candidates with a
+complete plan document; anything ambiguous becomes
+`needs_owner_decision` and is never guessed. Caller facts are accepted
+only when their digest matches the sealed run, so stale sources block.
 
 ```console
 vqs propose --run-root runs --run-id rev-1
+vqs propose --run-root runs --run-id rev-1 --facts facts.json --out plan.json
 ```
 
 ## 4. Author a plan, repair in isolation, verify

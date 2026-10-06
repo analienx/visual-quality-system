@@ -17,6 +17,7 @@ from .execute import (
 from .recipes import RecipeError, affected_pages, bind_operation
 from .regress import rerender_requirements, verify_candidate, verify_renders
 from .rounds import MAX_ROUNDS, run_rounds
+from .synthesize import PLAN_SCHEMA_VERSION, synthesize_plan
 from .templates import (
     TemplateError,
     clear_templates,
@@ -29,6 +30,7 @@ from .templates import (
 __all__ = [
     "ALLOWED_OPS",
     "MAX_ROUNDS",
+    "PLAN_SCHEMA_VERSION",
     "RecipeError",
     "RepairError",
     "TemplateError",
@@ -46,6 +48,7 @@ __all__ = [
     "rollback_candidate",
     "rollback_ok",
     "run_rounds",
+    "synthesize_plan",
     "tree_digest",
     "validate_materialized_roots",
     "validate_plan",
