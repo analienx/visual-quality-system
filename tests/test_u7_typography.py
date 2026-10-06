@@ -267,7 +267,7 @@ def _fail_finding(binding: dict) -> dict:
 
 def test_unset_binding_synthesizes_candidate() -> None:
     result = synthesize_plan([_fail_finding(_unset(11, 11))], {"rules": {}})
-    assert len(result["candidates"]) == 1
+    assert len(result["candidates"]) == 1, result["decisions"]
     record = result["candidates"][0]
     assert record["op"] == "format.unset_override"
     assert result["plan"] is not None
@@ -277,7 +277,7 @@ def test_unset_binding_synthesizes_candidate() -> None:
 def test_set_binding_synthesizes_candidate() -> None:
     result = synthesize_plan([_fail_finding(_setter(10, 12, 12))],
                              {"rules": {}})
-    assert len(result["candidates"]) == 1
+    assert len(result["candidates"]) == 1, result["decisions"]
     assert result["candidates"][0]["op"] == "format.set_explicit"
     assert result["plan"] is not None
 
@@ -289,14 +289,14 @@ def test_unproven_binding_needs_owner() -> None:
     assert result["plan"] is None
     assert any(entry["status"] == "needs_owner_decision"
                and "provenance" in entry["reason"]
-               for entry in result["decisions"])
+               for entry in result["decisions"]), result["decisions"]
 
 
 def test_mismatched_effective_needs_owner() -> None:
     result = synthesize_plan([_fail_finding(_unset(11, 12))], {"rules": {}})
     assert result["candidates"] == []
     assert any("would change the rendering" in entry["reason"]
-               for entry in result["decisions"])
+               for entry in result["decisions"]), result["decisions"]
 
 
 def test_unknown_render_evidence_needs_owner() -> None:
