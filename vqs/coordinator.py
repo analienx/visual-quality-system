@@ -1103,8 +1103,8 @@ def _next_actions(verdict: str, rid: str, scope: str,
     """Operator guidance for the coordinator outcome (P0-U5)."""
     outcome = summary.get("outcome", "")
     if verdict == "pass":
-        actions = ["acceptance scope passed; sealed evidence supports the "
-                   "verdict"]
+        actions = [("acceptance scope passed; sealed evidence supports the "
+                    "verdict")]
         if scope in RUNTIME_SCOPES:
             actions.append("hand the sealed bundle to the independent "
                            "reviewer (fixer/reviewer separation holds)")
@@ -1122,13 +1122,13 @@ def _next_actions(verdict: str, rid: str, scope: str,
                  f"repair round: {', '.join(summary['remaining_findings'])}"),
                 "execution pass is never quality acceptance"]
     if outcome == "no_safe_fix":
-        return ["no finding admits a source-provable safe fix; owner "
-                "decision required"]
+        return [("no finding admits a source-provable safe fix; owner "
+                 "decision required")]
     if outcome == "not_accepted":
-        return ["quality findings remain and nothing improved; owner "
-                "decision required"]
+        return [("quality findings remain and nothing improved; owner "
+                 "decision required")]
     return [(f"address failed stage(s): "
-             f"{', '.join(summary['failed_stages'])}")]
+              f"{', '.join(summary['failed_stages'])}")]
 
 
 def _finish(run_dir: Any, rid: str, stages: list, state: dict,

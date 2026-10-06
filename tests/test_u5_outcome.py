@@ -7,9 +7,13 @@ acceptance scope to pass. Hosted CI only (no live Desktop).
 """
 from pathlib import Path
 
-from vqs.coordinator import (_acceptance, _candidate_status,
-                              _decide_outcome, _reconcile_quality,
-                              run_workflow)
+from vqs.coordinator import (
+    _acceptance,
+    _candidate_status,
+    _decide_outcome,
+    _reconcile_quality,
+    run_workflow,
+)
 
 
 def _checks(states: dict[str, str]) -> list[dict[str, str]]:
