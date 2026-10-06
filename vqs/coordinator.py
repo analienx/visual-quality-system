@@ -255,8 +255,7 @@ def run_workflow(*, report_dir: str | None = None,
     step with its evidence. See the module docstring for the sequence.
     """
     from vqs.config import default_config
-    from vqs.pipeline import (blocked_envelope, inspect_report,
-                              merge_review_facts, review_report)
+    from vqs.pipeline import blocked_envelope, inspect_report, merge_review_facts, review_report
     from vqs.run_store import append_event
 
     if mode not in MODES:

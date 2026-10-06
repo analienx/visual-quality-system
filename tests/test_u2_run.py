@@ -201,7 +201,7 @@ def test_review_desktop_ladder(tmp_path: Path, monkeypatch) -> None:
     assert denied["verdict"] == "blocked"
     assert any("Task 5" in reason and "report_dir" in reason
                for reason in denied["blocked_reasons"])
-    import vqs.coordinator as coordinator
+    from vqs import coordinator
 
     monkeypatch.setattr(coordinator, "bridge_present", lambda: False)
     noreport = review_report(
