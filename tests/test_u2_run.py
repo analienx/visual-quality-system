@@ -137,7 +137,7 @@ def test_desktop_scope_without_runtime_blocks_readiness(tmp_path: Path
     assert "desktop-bridge-cli" in str(
         stages["readiness"].get("evidence", {}))
     assert envelope["verdict"] == "blocked"
-    assert envelope["summary"]["blocked_stages"] == ["readiness"]
+    assert envelope["summary"]["blocked_stages"] == ["readiness", "handoff"]
 
 
 def test_desktop_scope_needs_permission(tmp_path: Path) -> None:
@@ -196,6 +196,7 @@ def test_invalid_mode_blocked(tmp_path: Path) -> None:
 def test_review_desktop_ladder(tmp_path: Path, monkeypatch) -> None:
     """Review desktop scope names each missing prerequisite precisely."""
     denied = review_report(facts={}, scope="desktop",
+                           config=_desktop_config(),
                            run_root=str(tmp_path), run_id="u2-noacc")
     assert denied["verdict"] == "blocked"
     assert any("Task 5" in reason and "report_dir" in reason
