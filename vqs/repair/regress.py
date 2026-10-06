@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from ..pbir import listed_page_order
-from .recipes import GEOMETRY_OPS, LEAF_OPS, RecipeError, affected_pages, validate_leaf_path
+from .recipes import FORMAT_OPS, GEOMETRY_OPS, LEAF_OPS, RecipeError, affected_pages, validate_format_path, validate_leaf_path
 
 _MISSING = object()
 
@@ -34,6 +34,40 @@ def _node_at(doc: Any, path: list) -> Any:
     return node
 
 
+def _declared_unset(original: Path, candidate: Path,
+                    edit: dict, index: int) -> list[dict]:
+    """Re-derive an override removal: the original still holds the bound
+    override literal at the property leaf, and the candidate no longer
+    holds the property entry at all."""
+    path = edit.get("path")
+    target = edit.get("file")
+    if (not isinstance(path, list) or not isinstance(target, str)
+            or not target or "old" not in edit
+            or "effective" not in edit or "proof" not in edit):
+        return [{"rule": "edits_unreadable",
+                 "detail": f"edit {index} has no verifiable declaration"}]
+    problems = []
+    try:
+        before = _load(original / target)
+    except _Unreadable:
+        return [{"rule": "report_unreadable", "file": target}]
+    if _node_at(before, [*path, "expr", "Literal", "Value"]) != edit["old"]:
+        problems.append({"rule": "declared_value_mismatch",
+                         "file": target, "path": list(path),
+                         "side": "original", "expected": edit["old"]})
+        return problems
+    try:
+        after = _load(candidate / target)
+    except _Unreadable:
+        return [{"rule": "report_unreadable", "file": target}]
+    if _node_at(after, path) is not _MISSING:
+        problems.append({"rule": "declared_value_mismatch",
+                         "file": target, "path": list(path),
+                         "side": "candidate",
+                         "expected": "property entry removed"})
+    return problems
+
+
 def _declared_values(original: Path, candidate: Path,
                      edits: list[dict]) -> list[dict]:
     """Re-derive declared content: original must still hold each bound
@@ -47,7 +81,12 @@ def _declared_values(original: Path, candidate: Path,
         if not isinstance(edit, dict):
             return [{"rule": "edits_unreadable",
                      "detail": f"edit {index} is not an object"}]
-        if edit.get("op") not in LEAF_OPS | GEOMETRY_OPS | {"sort.set"}:
+        if edit.get("op") not in LEAF_OPS | GEOMETRY_OPS | {"sort.set"} | FORMAT_OPS:
+            continue
+        if edit.get("op") == "format.unset_override":
+            problems.extend(_declared_unset(original, candidate, edit, index))
+            if len(problems) >= 20:
+                return problems
             continue
         path = edit.get("path")
         target = edit.get("file")
@@ -140,10 +179,19 @@ def _declared_for(edits: list[dict]) -> dict[str, dict[str, set]]:
                 raise _Unreadable(f"edit {index} has no edit path")
             # F02: a declared cosmetic path is re-validated against the
             # recipe schema; forbidden declarations are unreadable.
+            # format.set_explicit binds the full leaf like any leaf
+            # replacement; format.unset_override declares the removed
+            # property entry itself (the diff path of a deleted key).
             op = edit.get("op", "")
-            if op in LEAF_OPS:
+            if op in LEAF_OPS | {"format.set_explicit"}:
                 try:
                     validate_leaf_path(op, path)
+                except RecipeError as exc:
+                    raise _Unreadable(f"edit {index} declares a path "
+                        f"outside the {op} recipe: {exc}")
+            elif op == "format.unset_override":
+                try:
+                    validate_format_path(op, path)
                 except RecipeError as exc:
                     raise _Unreadable(f"edit {index} declares a path "
                         f"outside the {op} recipe: {exc}")

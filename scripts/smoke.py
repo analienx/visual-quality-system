@@ -37,10 +37,12 @@ def main() -> int:
         check("measure", ["measure", str(fixtures / "mini_report"), "--model",
                           str(fixtures / "mini_model" / "definition"),
                           "--out", facts], 0)
-        # mini_report fails format_declaration_consistency (mixed slicer
-        # textSize declarations), so the honest check verdict is fail.
+        # mini_report mixes slicer textSize declarations with an unknown
+        # effective inherited value, so format_declaration_consistency is
+        # unknown (needs_render_evidence) rather than fail; with no other
+        # failing check the honest check verdict is pass.
         check("check", ["check", facts, "--run-root", tmp,
-                        "--run-id", "smoke"], 1)
+                        "--run-id", "smoke"], 0)
     check("cycles-clean", ["cycles", str(fixtures / "clean_model")], 0)
     check("cycles-loopy", ["cycles", str(fixtures / "cycle_model")], 1)
     check("cycles-missing", ["cycles", str(fixtures / "absent")], 2)

@@ -182,16 +182,45 @@ def palette_semantic_consistency(
                     overrides=sorted(overrides))
 
 
+def _format_literal(value: object) -> bool:
+    """A JSON literal that can be honestly compared (finite, scalar)."""
+    if value is None or isinstance(value, (str, bool)):
+        return True
+    if isinstance(value, (int, float)):
+        return not isinstance(value, float) or math.isfinite(value)
+    return False
+
+
+_NEEDS_RENDER_EVIDENCE = (
+    "needs_render_evidence: mixed explicit/inherited declarations with "
+    "an unknown effective inherited value; resolve with render evidence, "
+    "never guesses")
+
+
 def format_declaration_consistency(readings: Sequence[dict] | None) -> dict:
-    """One cohort of visuals must declare one formatting value (DES-06).
+    """One cohort of visuals must render one formatting value (DES-06).
 
     Each reading needs ``cohort`` (visual type + property, e.g.
     ``"slicer/header.textSize"``), ``visual``, ``page``, and ``value`` —
     the declared literal, or null when the visual leaves the property
-    to the theme default. A cohort fails when declarations are mixed
-    (some visuals override while others inherit) or disagree; an
-    all-default cohort passes. Effective rendered values are NOT
-    inferred here — resolving the default needs a render adapter.
+    to the theme default. An explicit declaration proves its own
+    effective value; an inherited (null) reading may additionally carry
+    ``effective`` — a render-adapter-proved effective literal. Nothing
+    else proves an effective value here.
+
+    Verdicts per cohort:
+
+    - proved effective values different => fail (explicit declarations
+      that disagree already prove this);
+    - mixed explicit/inherited with an unknown effective value =>
+      unknown (``needs_render_evidence``), never a visual-quality fail;
+    - all-default => pass;
+    - every effective value proved and equal => pass, with an
+      optional declaration-hygiene notice kept separate from the
+      verdict (removing a redundant override is hygiene, not quality).
+
+    Hygiene notices never change the status; visual-quality correctness
+    and declaration hygiene stay separate evidence keys.
     """
     rule = "typography.format_declaration_consistency"
     if not readings:
@@ -209,23 +238,62 @@ def format_declaration_consistency(readings: Sequence[dict] | None) -> dict:
         if "value" not in item:
             return _finding(rule, "unknown", reason="reading needs a value key")
         value = item["value"]
-        if value is not None and not isinstance(value, (str, int, float, bool)):
+        if not _format_literal(value):
             return _finding(rule, "unknown", reason="value must be a literal or null")
-        slot = by_cohort.setdefault(cohort, {"declared": [], "visuals": []})
+        effective = item.get("effective")
+        if effective is not None and not _format_literal(effective):
+            return _finding(rule, "unknown",
+                             reason="effective must be a proven literal or omitted")
+        slot = by_cohort.setdefault(
+            cohort, {"declared": [], "forms": [], "visuals": [],
+                     "known": [], "unknown": []})
         slot["visuals"].append(f"{page}/{visual}")
         if value is not None:
             slot["declared"].append(str(value))
+            slot["forms"].append(repr(value))
+            slot["known"].append(str(value))
+        elif effective is not None:
+            slot["known"].append(str(effective))
+        else:
+            slot["unknown"].append(f"{page}/{visual}")
     conflicts = []
+    pending = []
+    hygiene = []
     for cohort, slot in by_cohort.items():
-        distinct = sorted(set(slot["declared"]))
-        if 0 < len(slot["declared"]) < len(slot["visuals"]):
-            conflicts.append({"cohort": cohort, "kind": "mixed_declaration",
-                              "declared": distinct, "visuals": slot["visuals"]})
-        elif len(distinct) > 1:
-            conflicts.append({"cohort": cohort, "kind": "divergent_values",
-                              "declared": distinct, "visuals": slot["visuals"]})
-    return _finding(rule, "fail" if conflicts else "pass",
-                    cohorts=len(by_cohort), conflicts=conflicts)
+        distinct = sorted(set(slot["known"]))
+        declared = sorted(set(slot["declared"]))
+        if len(distinct) > 1:
+            kind = ("divergent_values" if len(declared) > 1
+                    else "divergent_effective_values")
+            conflicts.append({"cohort": cohort, "kind": kind,
+                              "declared": declared,
+                              "effective": distinct,
+                              "visuals": slot["visuals"]})
+        elif slot["unknown"]:
+            if slot["declared"]:
+                pending.append(
+                    {"cohort": cohort, "kind": "mixed_declaration",
+                     "declared": declared, "visuals": slot["visuals"],
+                     "reason": _NEEDS_RENDER_EVIDENCE})
+        elif (slot["declared"] and
+              (len(slot["declared"]) != len(slot["visuals"])
+               or len(set(slot["forms"])) > 1)):
+            hygiene.append(
+                {"cohort": cohort, "declared": declared,
+                 "effective": distinct, "visuals": slot["visuals"],
+                 "note": ("declarations share one proved effective value; "
+                          "removing a redundant override "
+                          "(format.unset_override) is optional declaration "
+                          "hygiene, not a visual-quality failure")})
+    evidence: dict[str, object] = {"cohorts": len(by_cohort),
+                                   "conflicts": conflicts,
+                                   "pending": pending, "hygiene": hygiene}
+    if conflicts:
+        return _finding(rule, "fail", **evidence)
+    if pending:
+        return _finding(rule, "unknown",
+                         reason=_NEEDS_RENDER_EVIDENCE, **evidence)
+    return _finding(rule, "pass", **evidence)
 
 
 def cross_page_metric_units(readings: Sequence[dict] | None) -> dict:

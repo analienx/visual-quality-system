@@ -51,6 +51,11 @@ LEAF_OPS = frozenset({"typography.size", "axis.tick_format", "axis.title",
                       "axis.precision", "label.format", "theme.set",
                       "palette.assign"})
 GEOMETRY_OPS = frozenset({"chart.resize", "spacing.adjust"})
+# U7: narrow typography declaration ops. Cohorts only track font/text
+# sizes, so these recipes address exactly those terminals, and only
+# with a proved effective value plus named provenance — declaration
+# text alone never authorizes an edit.
+FORMAT_OPS = frozenset({"format.unset_override", "format.set_explicit"})
 
 # F02: cosmetic recipes may only replace literal scalar leaves.
 _LEAF_BANNED_SEGMENTS = frozenset({
@@ -68,7 +73,11 @@ _LEAF_TERMINALS = {
     "axis.tick_format": frozenset({"labelPrecision"}),
     "palette.assign": frozenset({"color"}),
     "theme.set": frozenset({"show"}),
+    "format.set_explicit": frozenset({"fontSize", "textSize"}),
 }
+
+# Terminals the declaration ops may address (cohort-tracked properties).
+_FORMAT_TERMINALS = frozenset({"fontSize", "textSize"})
 
 
 def validate_leaf_path(op_type: str, path: list) -> None:
@@ -217,6 +226,161 @@ def bind_leaf(op: dict, visual_doc: dict) -> dict:
             "old": old, "new": new}
 
 
+def validate_format_path(op_type: str, path: Any) -> list:
+    """Enforce the declaration-op schema path (public for synthesize).
+
+    A format op addresses one properties entry (``[..., "properties",
+    PROP]`` with PROP a cohort-tracked terminal); the literal-expr tail
+    is walked by bind, never caller-supplied. Shared by bind and plan
+    synthesis so the two cannot drift.
+    """
+    if (not isinstance(path, list) or len(path) < 4
+            or path[0] != "visual"
+            or path[1] not in ("objects", "visualContainerObjects")):
+        raise RecipeError(
+            f"{op_type}: path must address visual.objects* or "
+            f"visual.visualContainerObjects*, not {path!r}")
+    for step in path:
+        if step in _LEAF_BANNED_SEGMENTS:
+            raise RecipeError(
+                f"{op_type}: path segment {step!r} is not settable "
+                "by a cosmetic recipe")
+    try:
+        anchor = path.index("properties")
+    except ValueError:
+        raise RecipeError(
+            f"{op_type}: path must address a properties entry") from None
+    tail = path[anchor + 1:]
+    prop = tail[0] if len(tail) == 1 else None
+    if prop not in _FORMAT_TERMINALS:
+        raise RecipeError(
+            f"{op_type}: property {prop!r} is outside this recipe "
+            "(terminal: ['fontSize', 'textSize'])")
+    return list(path)
+
+
+def _check_format_literal(op_type: str, value: Any, side: str) -> None:
+    """A settable format literal is a string or number, never bool/None."""
+    if isinstance(value, bool) or value is None:
+        raise RecipeError(
+            f"{op_type}: {side} must be a string or number literal, "
+            f"not {value!r}")
+    if isinstance(value, str):
+        if (not value or len(value) > 500
+                or _BAD_CONTROLS_RE.search(value)):
+            raise RecipeError(
+                f"{op_type}: {side} string value rejected "
+                "(empty, too long, or control characters)")
+    elif isinstance(value, (int, float)):
+        if not math.isfinite(value):
+            raise RecipeError(
+                f"{op_type}: {side} non-finite number rejected")
+    else:
+        raise RecipeError(
+            f"{op_type}: {side} type {type(value).__name__} "
+            "is not a format literal")
+
+
+def _require_proof(op: dict, op_type: str) -> str:
+    """Named render-adapter evidence authorizing a declaration edit."""
+    proof = op.get("proof")
+    if not isinstance(proof, str) or not proof.strip():
+        raise RecipeError(
+            f"{op_type}: proven provenance required: proof must name "
+            "the render-adapter evidence; declaration text alone "
+            "proves nothing")
+    return proof
+
+
+def _bind_format_common(op: dict) -> tuple[str, str, str, list, str]:
+    """Selector, property path, and proof shared by the format ops."""
+    op_type = str(op.get("type", ""))
+    page, visual = _require_selector(op)
+    path = validate_format_path(op_type, op.get("path"))
+    return op_type, page, visual, path, _require_proof(op, op_type)
+
+
+def _live_format_literal(visual_doc: dict, path: list) -> Any:
+    """Current literal at property-path + expr/Literal/Value."""
+    return _walk(visual_doc, [*path, "expr", "Literal", "Value"])
+
+
+def _check_format_precondition(op_type: str, live: Any, old: Any) -> None:
+    if (isinstance(live, (dict, list)) or not _same_json_type(live, old)
+            or live != old:
+        raise RecipeError(
+            f"{op_type}: precondition failed: live value {live!r} "
+            f"is not the bound old {old!r}")
+
+
+def bind_format_unset(op: dict, visual_doc: dict) -> dict:
+    """Bind removing a redundant explicit override.
+
+    Safe only when the proved effective value equals the declared
+    override: unsetting then keeps the rendering identical and only
+    cleans the declaration. The executor deletes the property entry.
+    """
+    op_type, page, visual, path, proof = _bind_format_common(op)
+    old = op.get("old", None if "old" in op else ...)
+    effective = op.get("effective", None if "effective" in op else ...)
+    if old is ...:
+        raise RecipeError(
+            f"{op_type}: missing old (the declared override literal)")
+    if effective is ...:
+        raise RecipeError(
+            f"{op_type}: missing effective (the proved effective value)")
+    _check_format_literal(op_type, old, "old")
+    _check_format_literal(op_type, effective, "effective")
+    if not _same_json_type(old, effective) or old != effective:
+        raise RecipeError(
+            f"{op_type}: effective must equal the declared override; "
+            "unsetting would change the rendering")
+    _check_format_precondition(
+        op_type, _live_format_literal(visual_doc, path), old)
+    return {"page": page, "visual": visual, "path": path,
+            "old": old, "effective": effective, "proof": proof}
+
+
+def bind_format_set(op: dict, visual_doc: dict) -> dict:
+    """Bind setting an explicit value equal to a proved desired effective.
+
+    The new literal must equal the proved desired effective value —
+    defaults are never guessed. The binding addresses the full leaf so
+    the executor, allowlist, and regression confinement treat it like
+    any leaf replacement.
+    """
+    op_type, page, visual, path, proof = _bind_format_common(op)
+    old = op.get("old", None if "old" in op else ...)
+    value = op.get("value", None if "value" in op else ...)
+    effective = op.get("effective", None if "effective" in op else ...)
+    if old is ...:
+        raise RecipeError(
+            f"{op_type}: missing old (the current declared literal)")
+    if value is ...:
+        raise RecipeError(f"{op_type}: missing value")
+    if effective is ...:
+        raise RecipeError(
+            f"{op_type}: missing effective (the proved desired value)")
+    _check_format_literal(op_type, old, "old")
+    _check_format_literal(op_type, value, "new")
+    _check_format_literal(op_type, effective, "effective")
+    if not _same_json_type(value, effective) or value != effective:
+        raise RecipeError(
+            f"{op_type}: value must equal the proved desired effective "
+            "value; defaults are never guessed")
+    if _same_json_type(old, value) and old == value:
+        raise RecipeError(
+            f"{op_type}: already explicit: old already equals "
+            "the proved value")
+    _check_format_precondition(
+        op_type, _live_format_literal(visual_doc, path), old)
+    leaf = [*path, "expr", "Literal", "Value"]
+    validate_leaf_path(op_type, leaf)
+    return {"page": page, "visual": visual, "path": leaf,
+            "old": old, "new": value, "effective": effective,
+            "proof": proof}
+
+
 def bind_geometry(op: dict, visual_doc: dict,
                   canvas: tuple[int, int]) -> dict:
     """Bind a position change; the result must stay finite and in-canvas."""
@@ -352,6 +516,12 @@ def bind_operation(op: dict, visual_doc: dict | None,
         if not isinstance(visual_doc, dict):
             raise RecipeError(f"{op_type}: visual document required")
         return {"op": op_type, **bind_leaf(op, visual_doc)}
+    if op_type in FORMAT_OPS:
+        if not isinstance(visual_doc, dict):
+            raise RecipeError(f"{op_type}: visual document required")
+        if op_type == "format.unset_override":
+            return {"op": op_type, **bind_format_unset(op, visual_doc)}
+        return {"op": op_type, **bind_format_set(op, visual_doc)}
     if op_type in GEOMETRY_OPS:
         if not isinstance(visual_doc, dict):
             raise RecipeError(f"{op_type}: visual document required")

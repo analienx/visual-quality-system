@@ -23,6 +23,18 @@
   - E08 truthful public surface: `docs/JOURNEY.md` (oracle-tested
     installed-command walk), ADR 0001, README/CLI/USER_GUIDE/
     ARCHITECTURE status corrections.
+- P1-U7 typography declaration rule: `format_declaration_consistency`
+  proves effective values (explicit declarations prove themselves;
+  inherited readings may carry a render-adapter-proved `effective`).
+  Proven-different fails; mixed explicit/inherited with an unknown
+  effective value is unknown (`needs_render_evidence`), never a
+  visual-quality fail; all-default passes; proved-equal passes with a
+  hygiene-only notice kept separate from the verdict. Narrow typed
+  `format.unset_override` (preferred when safe) and `format.set_explicit`
+  ops bind, apply, verify, and synthesize only with a proved effective
+  value plus named provenance; unproven bindings need the owner.
+  Tests `tests/test_u7_typography.py`; `scripts/smoke.py` honest
+  unknown (not fail) on the mixed mini_report fixture.
 - Oracles `tests/test_r6_e01_bindings.py` … `tests/test_r6_e08_journey.py`
   (two-project journey included); hosted lanes
   `.github/workflows/authoring.yml` (real-CLI probe) and

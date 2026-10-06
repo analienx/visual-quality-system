@@ -12,7 +12,14 @@ safely:
 - explicit leaf bindings: an ``axis.*``/``label.format``/``theme.set``/
   ``palette.assign``/``typography.size`` edit whose page, visual, property
   path, old literal and new literal are all proven in the sealed finding
-  detail (old/new actually known, never guessed).
+  detail (old/new actually known, never guessed);
+- proven format bindings: ``format.unset_override`` (proved effective
+  equals the declared override; preferred when safe) and
+  ``format.set_explicit`` (new literal equals the proved desired
+  effective value), each with named render-adapter provenance;
+- unknown ``needs_render_evidence`` findings (mixed declarations with
+  an unknown effective inherited value) become
+  ``needs_owner_decision``, never guesses.
 
 Everything else becomes ``needs_owner_decision`` / ``unsupported`` with an
 exact reason. Pure function: no IO, no live sources, deterministic order.
@@ -26,10 +33,12 @@ from typing import Any
 
 from .allowlist import validate_plan
 from .recipes import (
+    FORMAT_OPS,
     LEAF_OPS,
     RecipeError,
     affected_pages,
     is_precision_str,
+    validate_format_path,
     validate_leaf_path,
 )
 
@@ -493,6 +502,141 @@ def _finding_binding(item: dict) -> Any:
     return None
 
 
+def _unknown_render_evidence(item: dict) -> bool:
+    """An unknown finding that names its missing render proof.
+
+    U7: mixed explicit/inherited declarations with an unknown effective
+    inherited value are unknown, never fail; triage still routes them
+    to the owner instead of guessing.
+    """
+    detail = item.get("detail")
+    evidence = detail.get("evidence") if isinstance(detail, dict) else None
+    reason = evidence.get("reason") if isinstance(evidence, dict) else None
+    return isinstance(reason, str) and "needs_render_evidence" in reason
+
+
+def _is_format_literal(value: Any) -> bool:
+    """A synthesizable format literal: string or number, never bool/None."""
+    if isinstance(value, bool) or value is None:
+        return False
+    if isinstance(value, str):
+        return (bool(value) and len(value) <= 500
+                and _BAD_CONTROLS_RE.search(value) is None)
+    return (isinstance(value, (int, float))
+            and math.isfinite(value))
+
+
+def _format_literals_equal(first: Any, second: Any) -> bool:
+    """Type-preserving literal equality (numeric tower, bool-strict)."""
+    if isinstance(first, bool) or isinstance(second, bool):
+        return (isinstance(first, bool) and isinstance(second, bool)
+                and first == second)
+    if isinstance(first, (int, float)) and isinstance(second, (int, float)):
+        return first == second
+    return type(first) is type(second) and first == second
+
+
+def _plan_format_binding(check: str, binding: Any, all_pages: list[str]
+                         ) -> tuple[list[dict], list[dict]]:
+    """Synthesize one proven format binding; repair re-validates it.
+
+    Only bindings with a proved effective value plus named provenance
+    become candidates: format.unset_override removes a redundant
+    override (preferred when safe), format.set_explicit writes the
+    proved desired value. Anything unproven needs the owner.
+    """
+    if not isinstance(binding, dict):
+        return [], [_decision(check, "needs_owner_decision",
+                              "missing source binding: no proven format "
+                              "binding with effective provenance")]
+    op_type = binding.get("op")
+    page, visual = binding.get("page"), binding.get("visual")
+    path = binding.get("path")
+    if op_type not in FORMAT_OPS:
+        return [], [_decision(check, "unsupported",
+                              f"unsupported: leaf op {op_type!r} is not a "
+                              "supported cosmetic recipe")]
+    if not (_safe_segment(page) and _safe_segment(visual)):
+        return [], [_decision(check, "needs_owner_decision",
+                              "missing source binding: unsafe page/visual "
+                              "segment")]
+    rel = _visual_rel(page, visual)
+    assert rel is not None
+    try:
+        clean = validate_format_path(op_type, path)
+    except RecipeError as exc:
+        return [], [_decision(check, "needs_owner_decision",
+                              f"missing source binding: {exc}",
+                              page, visual)]
+    proof = binding.get("proof")
+    if not isinstance(proof, str) or not proof.strip():
+        return [], [_decision(check, "needs_owner_decision",
+                              "missing source binding: no proven "
+                              "provenance; declaration text alone proves "
+                              "nothing", page, visual)]
+    old = binding.get("old", None if "old" in binding else ...)
+    if old is ... or not _is_format_literal(old):
+        return [], [_decision(check, "needs_owner_decision",
+                              "missing source binding: old is not a proven "
+                              "format literal", page, visual)]
+    effective = binding.get(
+        "effective", None if "effective" in binding else ...)
+    if effective is ... or not _is_format_literal(effective):
+        return [], [_decision(check, "needs_owner_decision",
+                              "missing source binding: effective is not "
+                              "proven; defaults are never guessed",
+                              page, visual)]
+    affected = affected_pages(
+        {"type": op_type, "selector": {"page": page, "visual": visual}},
+        all_pages)
+    if op_type == "format.unset_override":
+        if not _format_literals_equal(old, effective):
+            return [], [_decision(
+                check, "needs_owner_decision",
+                "missing source binding: effective does not equal the "
+                "declared override; unsetting would change the rendering",
+                page, visual)]
+        op = {"type": op_type,
+              "selector": {"page": page, "visual": visual},
+              "target": "visual", "path": clean, "old": old,
+              "effective": effective, "proof": proof, "value": None,
+              "writes": [rel]}
+        return [_candidate(
+            check, page, visual, op, old, None, rel, affected["pages"],
+            f"remove redundant {page}/{visual} override {old!r} "
+            f"(proved effective {effective!r} via {proof}); rendering "
+            "is unchanged, declaration hygiene only; repair "
+            "re-validates the precondition before deleting",
+            "high", "rendering-unchanged-by-proof",
+            "old equals the proved effective value and repair "
+            "re-validates before deleting")], []
+    value = binding.get("value", None if "value" in binding else ...)
+    if value is ... or not _is_format_literal(value):
+        return [], [_decision(check, "needs_owner_decision",
+                              "missing source binding: new value is not a "
+                              "proven format literal", page, visual)]
+    if not _format_literals_equal(value, effective):
+        return [], [_decision(check, "needs_owner_decision",
+                              "missing source binding: value must equal "
+                              "the proved desired effective value; "
+                              "defaults are never guessed", page, visual)]
+    if _format_literals_equal(old, value):
+        return [], [_decision(check, "needs_owner_decision",
+                              "already explicit: old already equals the "
+                              "proved value; no edit needed", page, visual)]
+    op = {"type": op_type, "selector": {"page": page, "visual": visual},
+          "target": "visual", "path": clean, "old": old, "value": value,
+          "effective": effective, "proof": proof, "writes": [rel]}
+    return [_candidate(
+        check, page, visual, op, old, value, rel, affected["pages"],
+        f"set {page}/{visual} {old!r} -> {value!r} (proved desired "
+        f"effective {effective!r} via {proof}); repair re-validates "
+        "the precondition before writing",
+        "medium", "leaf-type-preserving",
+        "value equals the proved effective value and repair "
+        "re-validates before writing")], []
+
+
 def synthesize_plan(findings: Any, facts: Any, *,
                     source_run_id: str | None = None,
                     source_sha256: str | None = None,
@@ -526,6 +670,13 @@ def synthesize_plan(findings: Any, facts: Any, *,
             continue
         check = item.get("check", "?")
         status = item.get("status")
+        if status == "unknown" and _unknown_render_evidence(item):
+            decisions.append(_decision(
+                check if isinstance(check, str) else "?",
+                "needs_owner_decision",
+                "needs_owner_decision: unknown inherited default; "
+                "effective values need render evidence, never guesses"))
+            continue
         if status not in ("fail", "blocked"):
             continue
         if not isinstance(check, str):
@@ -576,9 +727,14 @@ def synthesize_plan(findings: Any, facts: Any, *,
                     candidates.extend(made)
                     decisions.extend(held)
             elif _finding_binding(item) is not None:
-                made, held = _plan_leaf_binding(
-                    check, _finding_binding(item),
-                    all_pages or ["unknown"])
+                binding = _finding_binding(item)
+                if (isinstance(binding, dict)
+                        and binding.get("op") in FORMAT_OPS):
+                    made, held = _plan_format_binding(
+                        check, binding, all_pages or ["unknown"])
+                else:
+                    made, held = _plan_leaf_binding(
+                        check, binding, all_pages or ["unknown"])
                 candidates.extend(made)
                 decisions.extend(held)
             elif check.startswith(("coverage:", "oracle:", "document:",

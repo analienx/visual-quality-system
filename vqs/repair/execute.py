@@ -335,6 +335,35 @@ def _set_path(doc: dict, path: list, value: Any) -> None:
         node[int(last)] = value
 
 
+def _del_path(doc: dict, path: list) -> None:
+    """Delete one property entry (format.unset_override only).
+
+    The recipe bind proved the entry holds the bound override literal;
+    a missing entry at apply time is source drift and blocks.
+    """
+    node = doc
+    for step in path[:-1]:
+        if isinstance(node, dict) and step in node or (
+                isinstance(node, list) and isinstance(step, int)
+                and 0 <= step < len(node)):
+            node = node[step]
+        else:
+            raise RepairError(
+                f"precondition failed: path {path!r} missing")
+    last = path[-1]
+    if isinstance(node, dict):
+        if last not in node:
+            raise RepairError(
+                f"precondition failed: path {path!r} missing")
+        del node[last]
+    elif (isinstance(node, list) and isinstance(last, int)
+            and 0 <= last < len(node)):
+        del node[last]
+    else:
+        raise RepairError(
+            f"precondition failed: path {path!r} missing")
+
+
 def _unified_patch(rel: str, before: bytes, after: bytes) -> str:
     before_lines = before.decode("utf-8-sig").splitlines()
     after_lines = after.decode("utf-8-sig").splitlines()
@@ -520,7 +549,10 @@ def _apply_op(op: dict, candidate: Path, all_pages: list[str],
                               all_pages, approved,
                               allow_unresolved_model=allow_unresolved_model)
     binding = bind_operation(op, visual_doc, canvas)
-    _set_path(visual_doc, binding["path"], binding["new"])
+    if op.get("type") == "format.unset_override":
+        _del_path(visual_doc, binding["path"])
+    else:
+        _set_path(visual_doc, binding["path"], binding["new"])
     _write_json(target_file, visual_doc)
     binding["file"] = rel
     binding["affected"] = affected_pages(op, all_pages)
