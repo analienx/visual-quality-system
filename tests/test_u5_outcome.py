@@ -158,7 +158,7 @@ def test_review_failing_report_not_accepted(tmp_path: Path) -> None:
     assert summary["promotion_status"]["status"] == "not-performed"
     assert "never" in summary["note"] or "acceptance" in summary["note"]
     by_check = {item["check"]: item for item in envelope["findings"]}
-    assert by_check["outcome"]["detail"]["outcome"] == "not_accepted"
+    assert by_check["outcome"]["evidence_basis"]["outcome"] == "not_accepted"
 
 
 def test_review_passing_report_accepted(tmp_path: Path) -> None:
