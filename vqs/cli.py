@@ -320,8 +320,8 @@ def _propose(run_root: Path, run_id: str, facts_path: Path | None,
         if not isinstance(plan, dict):
             return _verdict_exit(blocked_envelope(
                 "vqs.propose",
-                ["no synthesizable candidates; decisions are in the "
-                 "triage envelope, not a plan file"],
+                [("no synthesizable candidates; decisions are in the "
+                  "triage envelope, not a plan file")],
                 run_id=run_id,
                 run_dir=envelope.get("run_dir")))
         try:
