@@ -110,7 +110,7 @@ class _SyntheticReviewer:
 def test_reviewer_pass_record_binds_verified_renders(
         tmp_path: Path) -> None:
     """Clean observations seal with the exact verified render hashes."""
-    _report, renders, out = _bundle(tmp_path)
+    _report, _renders, out = _bundle(tmp_path)
     observations = [{"page_id": "P1", "check": "synthetic-layout",
                      "verdict": "pass"}]
     record = review_bundle(bundle_dir=str(out),
@@ -171,7 +171,7 @@ def test_unsealable_observations_refuse(tmp_path: Path) -> None:
 
 def test_reviewer_crash_and_tampered_bundle_refuse(tmp_path: Path) -> None:
     """Port crashes and post-pack tampering refuse with precise reasons."""
-    _report, renders, out = _bundle(tmp_path)
+    _report, _renders, out = _bundle(tmp_path)
     with pytest.raises(ReviewError, match="reviewer failed"):
         review_bundle(bundle_dir=str(out),
                       reviewer=_SyntheticReviewer(
@@ -228,7 +228,7 @@ def _stub_capture(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _ready(monkeypatch: pytest.MonkeyPatch) -> None:
-    import vqs.powerbi.desktop as desktop
+    from vqs.powerbi import desktop
 
     monkeypatch.setattr(desktop, "desktop_spike_readiness",
                         lambda: {"verdict": "ready", "missing": []})

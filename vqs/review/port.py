@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import importlib
 import json
-from pathlib import Path
 from typing import Any
 
 REVIEWER_VERSION = "vqs.reviewer/1"
@@ -147,7 +146,7 @@ def review_bundle(*, bundle_dir: str, reviewer: Any, reviewer_id: str,
         payload = reviewer.review(bundle_dir)
     except ReviewError:
         raise
-    except Exception as exc:  # noqa: BLE001 - reviewer crash is a refusal
+    except Exception as exc:
         raise ReviewError(f"reviewer failed: {type(exc).__name__}: "
                           f"{exc}") from exc
     observations = _check_observations(payload, [
