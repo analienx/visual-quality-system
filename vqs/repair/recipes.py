@@ -307,7 +307,7 @@ def _live_format_literal(visual_doc: dict, path: list) -> Any:
 
 def _check_format_precondition(op_type: str, live: Any, old: Any) -> None:
     if (isinstance(live, (dict, list)) or not _same_json_type(live, old)
-            or live != old:
+            or live != old):
         raise RecipeError(
             f"{op_type}: precondition failed: live value {live!r} "
             f"is not the bound old {old!r}")
