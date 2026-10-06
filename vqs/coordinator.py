@@ -1032,7 +1032,7 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
         return blocked_envelope(
             TOOL_ID, [f"cannot persist stage ledger: {exc}"],
             run_id=rid, run_dir=str(run_dir))
-    terminal_event = {"completed": "completed", "failed": "failed",
+    terminal_event = {"pass": "completed", "fail": "failed",
                       "blocked": "blocked"}[verdict]
     try:
         append_event(run_dir, {"kind": terminal_event, "verdict": verdict})
