@@ -35,15 +35,13 @@ def _record(entries: list) -> Any:
     return append
 
 
-def _params(port: _FakePort, questions: list) -> dict:
+def _params(questions: list) -> dict:
     return {"dax_questions": questions, "runtime": True,
-            "live_answers": True, "modeling": None,
-            "_fake_port": port}
+            "live_answers": True, "modeling": None}
 
 
 def _connect(port: _FakePort) -> Any:
     def fake(params: dict) -> tuple:
-        assert params["_fake_port"] is port
         return port, False, {"launcher": "fake-modeling"}
     return fake
 
@@ -102,7 +100,7 @@ def test_baseline_then_regression_identical_scope(
     run_dir = tmp_path / "runs"
     run_dir.mkdir()
     first = coord._answers_baseline(
-        _params(port, questions), _record(entries), {}, {}, run_dir)
+        _params(questions), _record(entries), {}, {}, run_dir)
     assert first["status"] == "pass"
     persisted = json.loads((run_dir / "answers-baseline.json").read_text(
         encoding="utf-8"))
@@ -126,7 +124,7 @@ def test_regression_fails_on_changed_rows(
     run_dir = tmp_path / "runs"
     run_dir.mkdir()
     coord._answers_baseline(
-        _params(port, [_question("revenue")]), _record(entries),
+        _params([_question("revenue")]), _record(entries),
         {}, {}, run_dir)
     port.rows = [{"total": 43}]
     failed = coord._answer_regression(
