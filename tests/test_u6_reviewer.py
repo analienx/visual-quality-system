@@ -177,7 +177,7 @@ def test_reviewer_crash_and_tampered_bundle_refuse(tmp_path: Path) -> None:
                       reviewer=_SyntheticReviewer(
                           error=RuntimeError("down")),
                       reviewer_id="synth-reviewer", fixer_id=FIXER)
-    (out / "P1.png").write_bytes(_png(2560, 1440))
+    (out / "P1.png").write_bytes(_png(1280, 720))
     with pytest.raises(ReviewError, match="bundle invalid"):
         review_bundle(bundle_dir=str(out),
                       reviewer=_SyntheticReviewer(),
@@ -196,10 +196,11 @@ def test_resolve_reviewer_contract(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(ReviewError):
         resolve_reviewer(42)
     module = types.ModuleType("u6_fake_mod")
-    module.Fake = _SyntheticReviewer  # type: ignore[attr-defined]
+    instance = _SyntheticReviewer()
+    module.Fake = instance  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "u6_fake_mod", module)
     found, identity = resolve_reviewer("u6_fake_mod:Fake")
-    assert found is _SyntheticReviewer and identity == "synth-reviewer"
+    assert found is instance and identity == "synth-reviewer"
 
 
 def _desktop_config() -> dict:
