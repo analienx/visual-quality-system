@@ -1,0 +1,26 @@
+name: Authoring real-CLI probe
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  probe:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install .
+      - run: python scripts/authoring_probe.py authoring-real-cli.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: authoring-real-cli-${{ matrix.os }}
+          path: authoring-real-cli.json

@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from .evidence import image_evidence, review_template
+from .install import package_version
 from .pbir import report_context
 
 
@@ -89,14 +90,32 @@ def _validate_plan(plan_path: Path, original: str, candidate_root: str,
                            approved_semantic_change=approved)
     verdict = "pass" if not issues else "fail"
     findings = [{"check": "plan", "status": verdict, "detail": {"issues": issues}}]
+    inputs = {"actual": plan,
+              "identities": {"original": original,
+                             "candidate_root": candidate_root,
+                             "approved": approved}}
     return _sealed_exit(seal_verdict(run_root, run_id, "vqs.validate-plan/1",
-                                     verdict, findings))
+                                     verdict, findings, inputs=inputs))
 
 
-def _adjudicate_bundle(bundle_path: Path, run_root: Path, run_id: str | None) -> int:
-    """Adjudicate a review bundle; static checks only, no pixel judgment."""
+def _adjudicate_bundle(bundle_path: Path, run_root: Path, run_id: str | None,
+                       transport: Path | None = None,
+                       report: Path | None = None) -> int:
+    """Adjudicate a review bundle; static checks only, no pixel judgment.
+
+    T09: with --transport-bundle, the transport dir is verified first
+    and its authoritative header inventory binds the form: a
+    caller-edited source_pages list cannot certify completeness.
+    R6-DEC-05/06: the whole verified authority object (render
+    bindings, calibration, fixer, bundle identity) is forwarded —
+    no field dropping — and --report offers a live inventory
+    authority instead. With both, the transport is also staleness-
+    bound to the live report. Without either, coverage is unbound
+    (blocked): the self-declared list is never trusted.
+    """
     from vqs.pipeline import seal_verdict
     from vqs.review.adjudicate import adjudicate_bundle
+    from vqs.review.bundle import verify
 
     try:
         bundle = json.loads(bundle_path.read_text(encoding="utf-8-sig"))
@@ -106,15 +125,40 @@ def _adjudicate_bundle(bundle_path: Path, run_root: Path, run_id: str | None) ->
     if not isinstance(bundle, dict):
         print(json.dumps({"status": "blocked", "reason": "Bundle document is not an object"}))
         return 2
-    decided = adjudicate_bundle(bundle)
+    authority = None
+    if transport is not None:
+        try:
+            checked = verify(str(transport),
+                             str(report) if report is not None else None)
+        except (OSError, ValueError, TypeError) as exc:
+            print(json.dumps({"status": "blocked",
+                              "reason": f"Transport invalid: {exc}"}))
+            return 2
+        authority = checked
+    elif report is not None:
+        from vqs.pbir import report_context, source_digest
+
+        try:
+            info = report_context(report)
+            digest = source_digest(report)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            print(json.dumps({"status": "blocked",
+                              "reason": f"Report unreadable: {exc}"}))
+            return 2
+        authority = {"authority": "live-report/1",
+                     "pages": [page["id"] for page in info["pages"]],
+                     "source_sha256": digest}
+    decided = adjudicate_bundle(bundle, authority)
     if decided["verdict"] == "pass":
         findings = [{"check": "bundle", "status": "pass", "detail": {}}]
     else:
         findings = [{"check": finding.get("rule", "?"),
-                     "status": "fail" if finding.get("status") == "fail" else "blocked",
+                     "status": "fail" if finding.get("verdict") == "fail" else "blocked",
                      "detail": finding} for finding in decided["findings"]]
+    inputs = {"actual": bundle, "identities": {}}
     return _sealed_exit(seal_verdict(run_root, run_id, "vqs.adjudicate-bundle/1",
-                                     decided["verdict"], findings))
+                                     decided["verdict"], findings,
+                                     inputs=inputs))
 
 
 def _measure(report: Path, model: Path | None, out: Path | None) -> int:
@@ -151,11 +195,11 @@ def _doctor() -> int:
 
 def _cycles(model: Path) -> int:
     """Run the static acyclicity gate; 0 acyclic, 1 cycles, 2 blocked."""
-    from vqs.powerbi.cycles import check_model
+    from vqs.powerbi.cycles import ModelingError, check_model
 
     try:
         report = check_model(str(model))
-    except OSError as exc:
+    except (OSError, ModelingError) as exc:
         print(json.dumps({"status": "blocked",
                           "reason": f"{type(exc).__name__}: {exc}"}))
         return 2
@@ -182,6 +226,237 @@ def _capture(report: Path, renders: Path, pid: int | None, scale: int,
     return 0
 
 
+def _verdict_exit(envelope: dict) -> int:
+    """Print a tool envelope; exit 0/1/2 for pass/fail/blocked."""
+    print(json.dumps(envelope, indent=2, ensure_ascii=False, default=str))
+    return {"pass": 0, "fail": 1, "blocked": 2}[envelope["verdict"]]
+
+
+def _tool_config(path: Path | None) -> tuple[dict, list[str]]:
+    from vqs.config import load_config
+
+    return load_config(path)
+
+
+def _inspect(report: Path, model: Path | None, config_path: Path | None,
+             out: Path | None) -> int:
+    """Measure facts for a report; same engine as vqs_inspect."""
+    from vqs.pipeline import blocked_envelope, inspect_report
+
+    config, issues = _tool_config(config_path)
+    if issues:
+        return _verdict_exit(blocked_envelope("vqs.inspect", issues))
+    envelope = inspect_report(str(report),
+                              str(model) if model is not None else None,
+                              config)
+    if out is not None:
+        try:
+            out.write_text(json.dumps(envelope, indent=2,
+                                      ensure_ascii=False) + chr(10),
+                           encoding="utf-8")
+        except OSError as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.inspect", [f"{type(exc).__name__}: {exc}"]))
+        return {"pass": 0, "fail": 1, "blocked": 2}[envelope["verdict"]]
+    return _verdict_exit(envelope)
+
+
+def _review(args) -> int:
+    """Review sources to a sealed verdict; same engine as vqs_review."""
+    from vqs.pipeline import blocked_envelope, render_report, review_report
+
+    config, issues = _tool_config(args.config)
+    if issues:
+        return _verdict_exit(blocked_envelope("vqs.review", issues))
+    facts = None
+    if args.facts is not None:
+        try:
+            facts = json.loads(args.facts.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.review", [f"{type(exc).__name__}: {exc}"]))
+    envelope = review_report(
+        report_dir=str(args.report) if args.report is not None else None,
+        model_dir=str(args.model) if args.model is not None else None,
+        facts=facts, scope=args.scope, state=args.state, config=config,
+        run_root=str(args.run_root), run_id=args.run_id,
+        resume_from=args.resume_from)
+    if args.report_out is not None:
+        try:
+            args.report_out.write_text(render_report(envelope),
+                                       encoding="utf-8")
+        except OSError as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.review", [f"{type(exc).__name__}: {exc}"]))
+    return _verdict_exit(envelope)
+
+
+def _propose(run_root: Path, run_id: str, facts_path: Path | None,
+             out: Path | None) -> int:
+    """Triage a sealed review run into plan-eligible work items.
+
+    Optional ``--facts`` supplies the measured-facts document the run
+    sealed; its digest must match or the run blocks as stale. Optional
+    ``--out`` writes the synthesized plan document (for ``vqs repair``);
+    with no synthesizable candidate the run refuses instead of writing
+    a plan-shaped file.
+    """
+    from vqs.pipeline import blocked_envelope, propose_candidates
+
+    facts = None
+    if facts_path is not None:
+        try:
+            facts = json.loads(facts_path.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.propose", [f"unreadable facts file: {exc}"]))
+        if not isinstance(facts, dict):
+            return _verdict_exit(blocked_envelope(
+                "vqs.propose", ["facts file is not an object"]))
+    envelope = propose_candidates(str(run_root), run_id, facts)
+    if envelope.get("verdict") != "pass":
+        return _verdict_exit(envelope)
+    if out is not None:
+        plan = envelope.get("plan")
+        if not isinstance(plan, dict):
+            return _verdict_exit(blocked_envelope(
+                "vqs.propose",
+                [("no synthesizable candidates; decisions are in the "
+                  "triage envelope, not a plan file")],
+                run_id=run_id,
+                run_dir=envelope.get("run_dir")))
+        try:
+            out.write_text(json.dumps(plan, indent=2,
+                                      ensure_ascii=False) + chr(10),
+                           encoding="utf-8")
+        except OSError as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.propose", [f"{type(exc).__name__}: {exc}"],
+                run_id=run_id,
+                run_dir=envelope.get("run_dir")))
+    return _verdict_exit(envelope)
+
+
+def _repair(args) -> int:
+    """Validate a plan, execute it, and seal the repair run."""
+    from vqs.pipeline import repair_candidate
+
+    return _verdict_exit(repair_candidate(
+        str(args.plan), args.original, args.candidate_root,
+        run_root=str(args.run_root), run_id=args.run_id,
+        authoring_backend=args.authoring_backend,
+        authoring_timeout=args.authoring_timeout,
+        authoring_allow_warnings=args.authoring_allow_warnings))
+
+
+def _verify(args) -> int:
+    """Verify a candidate against declared edits (same engine as MCP)."""
+    import json
+
+    from vqs.pipeline import blocked_envelope, verify_candidate
+
+    edits = None
+    if args.edits is not None:
+        try:
+            doc = json.loads(Path(args.edits).read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.verify", [f"unreadable edits file: {exc}"]))
+        edits = doc.get("edits") if isinstance(doc, dict) else doc
+    approvals = None
+    if args.approved_removals:
+        approvals = [p.strip() for p in args.approved_removals.split(",")]
+        approvals = [p for p in approvals if p]
+    return _verdict_exit(verify_candidate(
+        run_root=str(args.run_root) if args.run_root is not None else None,
+        run_id=args.run_id, original=args.original,
+        candidate=args.candidate, edits=edits,
+        approved_removals=approvals))
+
+
+def _verify_runtime(args) -> int:
+    """Verify a sealed candidate live in Desktop (tool vqs.verify-runtime)."""
+    from vqs.pipeline import verify_runtime
+
+    return _verdict_exit(verify_runtime(
+        run_root=str(args.run_root), run_id=args.run_id, pid=args.pid,
+        scale=args.scale, wait_seconds=args.wait_seconds,
+        reload_first=not args.no_reload,
+        runtime_run_id=args.runtime_run_id))
+
+
+def _promote(args) -> int:
+    """Promote a verified candidate with owner approval (tool vqs.promote)."""
+    from vqs.pipeline import promote_candidate
+
+    return _verdict_exit(promote_candidate(
+        run_root=str(args.run_root), run_id=args.run_id,
+        owner_approval=args.owner_approval,
+        runtime_run_id=args.runtime_run_id,
+        backup_dir=(str(args.backup_dir)
+                    if args.backup_dir is not None else None),
+        desktop_recheck=not args.no_desktop_recheck,
+        promote_run_id=args.promote_run_id,
+        scope=args.scope))
+
+
+def _run_status(run_root: Path, run_id: str) -> int:
+    """Report a sealed run; same engine as vqs_run_status."""
+    from vqs.pipeline import run_status_report
+
+    return _verdict_exit(run_status_report(str(run_root), run_id))
+
+
+def _run(args) -> int:
+    """Run the orchestrated Power BI workflow; same engine as vqs_run."""
+    from vqs.coordinator import run_workflow
+    from vqs.pipeline import blocked_envelope
+
+    config, issues = _tool_config(args.config)
+    if issues:
+        return _verdict_exit(blocked_envelope("vqs.run", issues))
+    facts = None
+    if args.facts is not None:
+        try:
+            facts = json.loads(args.facts.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.run", [f"unreadable facts file: {exc}"]))
+        if not isinstance(facts, dict):
+            return _verdict_exit(blocked_envelope(
+                "vqs.run", ["facts file is not an object"]))
+    envelope = run_workflow(
+        report_dir=str(args.report) if args.report is not None else None,
+        model_dir=str(args.model) if args.model is not None else None,
+        facts=facts, mode=args.mode, scope=args.scope, config=config,
+        run_root=str(args.run_root), run_id=args.run_id,
+        resume_from=args.resume_from,
+        candidate_root=(str(args.candidate_root)
+                        if args.candidate_root is not None else None),
+        renders_dir=(str(args.renders_dir)
+                     if args.renders_dir is not None else None),
+        plan_path=str(args.plan) if args.plan is not None else None,
+        fixer_id=args.fixer_id, pid=args.pid,
+        authoring_backend=args.authoring_backend,
+        live_answers=args.live_answers, reviewer=args.reviewer)
+    if args.report_out is not None:
+        try:
+            args.report_out.write_text(
+                json.dumps(envelope, indent=2, ensure_ascii=False,
+                           default=str) + chr(10), encoding="utf-8")
+        except OSError as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.run", [f"{type(exc).__name__}: {exc}"]))
+    return _verdict_exit(envelope)
+
+
+def _mcp() -> int:
+    """Launch the stdio MCP server on this process's stdio."""
+    from vqs.mcp.server import serve
+
+    return serve()
+
+
 def _bundle(action: str, args) -> int:
     """Pack, verify, or unpack a review bundle; exit 2 when invalid."""
     from vqs.review.bundle import pack, unpack, verify
@@ -203,6 +478,8 @@ def _bundle(action: str, args) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="vqs", description="Visual Quality System pre-alpha tools")
+    parser.add_argument("--version", action="version",
+                        version=f"vqs {package_version() or 'unknown'}")
     commands = parser.add_subparsers(dest="command", required=True)
     inventory = commands.add_parser("inventory", help="Read PBIR definition and bindings; not design approval")
     inventory.add_argument("report", type=Path, help="Enhanced-format *.Report folder")
@@ -257,8 +534,170 @@ def main(argv: list[str] | None = None) -> int:
     plan_cmd.add_argument("--run-id", default=None)
     bundle_cmd = commands.add_parser("adjudicate-bundle", help="Adjudicate a review bundle")
     bundle_cmd.add_argument("bundle", type=Path, help="JSON review-bundle document")
+    bundle_cmd.add_argument("--transport-bundle", type=Path, default=None,
+                            help="Verified transport bundle dir: its render "
+                                 "bindings, calibration, fixer, and inventory "
+                                 "bind the form (with --report, also "
+                                 "staleness-checked against it)")
+    bundle_cmd.add_argument("--report", type=Path, default=None,
+                            help="Live *.Report folder as the completeness "
+                                 "authority (without either authority, "
+                                 "coverage is unbound; with both, the "
+                                 "transport is also staleness-checked "
+                                 "against it)")
     bundle_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
     bundle_cmd.add_argument("--run-id", default=None)
+    inspect_cmd = commands.add_parser("inspect", help="Measure check-ready facts (tool vqs.inspect)")
+    inspect_cmd.add_argument("report", type=Path, help="Enhanced-format *.Report folder")
+    inspect_cmd.add_argument("--model", type=Path, default=None,
+                             help="Optional *.SemanticModel definition folder")
+    inspect_cmd.add_argument("--config", type=Path, default=None,
+                             help="vqs.json project config (else ./vqs.json or defaults)")
+    inspect_cmd.add_argument("--out", type=Path, default=None,
+                             help="Write the envelope JSON here instead of stdout")
+    review_cmd = commands.add_parser("review", help="Review sources to a sealed verdict (tool vqs.review)")
+    review_cmd.add_argument("report", type=Path, nargs="?",
+                            help="Enhanced-format *.Report folder (or --facts)")
+    review_cmd.add_argument("--facts", type=Path, default=None,
+                            help="JSON measured-facts document (or REPORT)")
+    review_cmd.add_argument("--model", type=Path, default=None,
+                            help="Optional *.SemanticModel definition folder")
+    review_cmd.add_argument("--scope", default="static",
+                            help="static, desktop, or release (engine validates)")
+    review_cmd.add_argument("--state", default="default",
+                            help="Saved state; must be in supported_states")
+    review_cmd.add_argument("--config", type=Path, default=None,
+                            help="vqs.json project config (else ./vqs.json or defaults)")
+    review_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
+    review_cmd.add_argument("--run-id", default=None)
+    review_cmd.add_argument("--resume-from", default=None,
+                            help="Resume after revalidating sealed provenance")
+    review_cmd.add_argument("--report-out", type=Path, default=None,
+                            help="Write a readable local report here")
+    propose_cmd = commands.add_parser("propose", help="Propose repairs for a run (tool vqs.propose)")
+    propose_cmd.add_argument("--run-root", type=Path, required=True)
+    propose_cmd.add_argument("--run-id", required=True)
+    propose_cmd.add_argument("--facts", type=Path, default=None,
+                             help="Measured-facts JSON the run sealed; "
+                                  "digest must match or the run blocks "
+                                  "as stale (enables candidate synthesis)")
+    propose_cmd.add_argument("--out", type=Path, default=None,
+                             help="Write the synthesized plan document "
+                                  "here for vqs repair; refused when no "
+                                  "candidate was synthesizable")
+    repair_cmd = commands.add_parser("repair", help="Validate then apply a repair plan (tool vqs.repair)")
+    repair_cmd.add_argument("plan", type=Path, help="JSON repair-plan document")
+    repair_cmd.add_argument("--original", required=True, help="Read-only original source path")
+    repair_cmd.add_argument("--candidate-root", required=True, help="Disposable write root")
+    repair_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
+    repair_cmd.add_argument("--run-id", default=None)
+    repair_cmd.add_argument("--authoring-backend",
+                            choices=("auto", "microsoft", "direct"),
+                            default="auto",
+                            help="Candidate validation route: Microsoft "
+                                 "powerbi-report-author CLI when probed "
+                                 "available (auto), always (microsoft), or "
+                                 "the explicit direct typed-writer fallback "
+                                 "(direct). Microsoft failures never fall "
+                                 "back silently.")
+    repair_cmd.add_argument("--authoring-timeout", type=int, default=300,
+                            help="Seconds for Microsoft validation (default 300)")
+    repair_cmd.add_argument("--authoring-allow-warnings", action="store_true",
+                            help="Pass despite Microsoft validation warnings "
+                                 "(recorded verbatim; default blocks)")
+    verify_cmd = commands.add_parser("verify", help="Verify a candidate (tool vqs.verify)")
+    verify_cmd.add_argument("--run-root", type=Path, default=None)
+    verify_cmd.add_argument("--run-id", default=None)
+    verify_cmd.add_argument("--original", default=None)
+    verify_cmd.add_argument("--candidate", default=None)
+    verify_cmd.add_argument("--edits", type=Path, default=None,
+                            help="JSON edits list (or a repair run's repairs.json)")
+    verify_cmd.add_argument("--approved-removals", default=None,
+                            help="Comma-separated owner-approved page/visual pairs")
+    runtime_cmd = commands.add_parser("verify-runtime", help="Verify a sealed candidate live in Desktop (tool vqs.verify-runtime)")
+    runtime_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
+    runtime_cmd.add_argument("--run-id", required=True,
+                             help="Sealed completed vqs.repair run id")
+    runtime_cmd.add_argument("--pid", type=int, default=None,
+                             help="Desktop PID holding the disposable candidate")
+    runtime_cmd.add_argument("--scale", type=int, default=2)
+    runtime_cmd.add_argument("--wait-seconds", type=int, default=60)
+    runtime_cmd.add_argument("--no-reload", action="store_true",
+                             help="Skip the candidate reload before capture")
+    runtime_cmd.add_argument("--runtime-run-id", default=None,
+                             help="Sealed id for the runtime run (else generated)")
+    promote_cmd = commands.add_parser("promote", help="Promote a verified candidate with owner approval (tool vqs.promote)")
+    promote_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
+    promote_cmd.add_argument("--run-id", required=True,
+                             help="Sealed completed vqs.repair run id")
+    promote_cmd.add_argument("--owner-approval", required=True,
+                             help="Owner consent string (identity and "
+                                  "reason); recorded as consent, not "
+                                  "identity proof; promotion never "
+                                  "overwrites silently")
+    promote_cmd.add_argument("--scope", default="static",
+                             choices=("static", "desktop", "release"),
+                             help="Promotion evidence scope: static "
+                                  "promotes on static verification only; "
+                                  "desktop needs bound runtime verification "
+                                  "plus a passing recheck; release stays "
+                                  "blocked without trusted reviewer "
+                                  "authority")
+    promote_cmd.add_argument("--runtime-run-id", default=None,
+                             help="Sealed completed vqs.verify-runtime run to bind")
+    promote_cmd.add_argument("--backup-dir", type=Path, default=None,
+                             help="Backup path for the preserved original "
+                                  "(else <original>.vqs-backup)")
+    promote_cmd.add_argument("--no-desktop-recheck", action="store_true",
+                             help="Skip the post-promotion Desktop reload/recheck")
+    promote_cmd.add_argument("--promote-run-id", default=None,
+                             help="Sealed id for the promotion run (else generated)")
+    run_status_cmd = commands.add_parser("run-status", help="Report a sealed run (tool vqs.run_status)")
+    run_status_cmd.add_argument("run_root", type=Path)
+    run_status_cmd.add_argument("run_id")
+    run_cmd = commands.add_parser("run", help="Orchestrated Power BI workflow (tool vqs.run)")
+    run_cmd.add_argument("report", type=Path, nargs="?",
+                         help="Enhanced-format *.Report folder (or --facts)")
+    run_cmd.add_argument("--facts", type=Path, default=None,
+                         help="JSON measured-facts document (or REPORT)")
+    run_cmd.add_argument("--model", type=Path, default=None,
+                         help="Optional *.SemanticModel definition folder")
+    run_cmd.add_argument("--mode", choices=("review", "propose", "repair"),
+                         default="review",
+                         help="How far the sequence goes")
+    run_cmd.add_argument("--scope", default="static",
+                         help="static, desktop, or release (runtime legs "
+                              "need Desktop + Bridge or block precisely)")
+    run_cmd.add_argument("--config", type=Path, default=None,
+                         help="vqs.json project config (else ./vqs.json or defaults)")
+    run_cmd.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
+    run_cmd.add_argument("--run-id", default=None)
+    run_cmd.add_argument("--resume-from", default=None,
+                         help="Resume a coordinator run after revalidating "
+                              "sealed provenance")
+    run_cmd.add_argument("--candidate-root", type=Path, default=None,
+                         help="Disposable repair target (else a run-owned dir)")
+    run_cmd.add_argument("--renders-dir", type=Path, default=None,
+                         help="Baseline renders dir (else a run-owned dir)")
+    run_cmd.add_argument("--plan", type=Path, default=None,
+                         help="Owner-authored plan (else the synthesized one)")
+    run_cmd.add_argument("--fixer-id", default="vqs-run",
+                         help="Fixer identity sealed into review handoffs")
+    run_cmd.add_argument("--pid", type=int, default=None,
+                         help="Target a specific PBIDesktop.exe process")
+    run_cmd.add_argument("--authoring-backend",
+                         choices=("auto", "microsoft", "direct"),
+                         default="auto")
+    run_cmd.add_argument("--live-answers", action="store_true",
+                         help="Opt into live DAX answer collection when a "
+                              "model is reachable")
+    run_cmd.add_argument("--reviewer", default=None,
+                         help="Reviewer provider dotted path for visual "
+                              "acceptance (runtime handoff blocks without "
+                              "one)")
+    run_cmd.add_argument("--report-out", type=Path, default=None,
+                         help="Write the run envelope JSON here")
+    commands.add_parser("mcp", help="Launch the stdio MCP server (tools vqs_*)")
     args = parser.parse_args(argv)
     if args.command == "measure":
         return _measure(args.report, args.model, args.out)
@@ -279,7 +718,28 @@ def main(argv: list[str] | None = None) -> int:
         return _validate_plan(args.plan, args.original, args.candidate_root,
                               args.approve_change, args.run_root, args.run_id)
     if args.command == "adjudicate-bundle":
-        return _adjudicate_bundle(args.bundle, args.run_root, args.run_id)
+        return _adjudicate_bundle(args.bundle, args.run_root, args.run_id,
+                                  args.transport_bundle, args.report)
+    if args.command == "inspect":
+        return _inspect(args.report, args.model, args.config, args.out)
+    if args.command == "review":
+        return _review(args)
+    if args.command == "propose":
+        return _propose(args.run_root, args.run_id, args.facts, args.out)
+    if args.command == "repair":
+        return _repair(args)
+    if args.command == "verify":
+        return _verify(args)
+    if args.command == "verify-runtime":
+        return _verify_runtime(args)
+    if args.command == "promote":
+        return _promote(args)
+    if args.command == "run-status":
+        return _run_status(args.run_root, args.run_id)
+    if args.command == "run":
+        return _run(args)
+    if args.command == "mcp":
+        return _mcp()
     try:
         info = report_context(args.report)
         if args.command == "inventory":
@@ -293,8 +753,9 @@ def main(argv: list[str] | None = None) -> int:
                     not name.endswith(".png") for name in mapping.values()) or
                 len(set(mapping.values())) != len(expected)):
             raise ValueError("Manifest requires a unique page_images entry for every PBIR page ID")
-        ordered_files = [mapping[page_id] for page_id in expected]
-        pages, issues = image_evidence(args.renders, info["source_sha256"], ordered_files)
+        canvases = {page["id"]: page.get("canvas") for page in info["pages"]}
+        pages, issues = image_evidence(args.renders, info["source_sha256"],
+                                       expected, canvases=canvases)
         if issues or len(pages) != len(expected):
             print(json.dumps({"status": "blocked", "findings": issues,
                               "reason": "Fresh complete source-bound page renders required"}, indent=2))
@@ -303,8 +764,12 @@ def main(argv: list[str] | None = None) -> int:
             page["id"] = page_id
             page["visual_inventory"] = [{"id": visual["visual_id"]} for visual in
                                         next(p for p in info["pages"] if p["id"] == page_id)["visuals"]]
-        print(json.dumps(review_template("report", info["source_sha256"], pages, args.fixer_id),
-                         indent=2, ensure_ascii=False))
+        template = review_template("report", info["source_sha256"], pages,
+                                     args.fixer_id,
+                                     calibration=manifest.get("calibration"),
+                                     data_readiness=manifest.get("data_readiness"),
+                                     source_pages=expected)
+        print(json.dumps(template, indent=2, ensure_ascii=False))
         return 0
     except (OSError, ValueError, KeyError, TypeError) as exc:
         print(json.dumps({"status": "blocked", "reason": f"{type(exc).__name__}: {exc}"}))

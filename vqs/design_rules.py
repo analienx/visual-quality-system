@@ -49,22 +49,84 @@ def _srgb_luminance(hex_color: str) -> float:
     return sum(a * b for a, b in zip(linear, (0.2126, 0.7152, 0.0722), strict=True))
 
 
-def text_contrast(foreground: str | None, background: str | None, *, large_text: bool = False) -> dict:
-    """Compare two fully resolved opaque colors to WCAG 2.2 SC 1.4.3 thresholds.
-
-    Passing this local calculation does not establish broader WCAG compliance.
-    """
-    rule = "typography.text_contrast"
-    if foreground is None or background is None:
-        return _finding(rule, "unknown", reason="Resolved colors are not both available")
+def _contrast_pair(foreground: str, background: str, threshold: float) -> dict | None:
+    """Evaluate one pair; None when the pair proves no luminance."""
     try:
         lighter, darker = sorted((_srgb_luminance(foreground), _srgb_luminance(background)), reverse=True)
     except ValueError:
-        return _finding(rule, "unknown", reason="Unresolved, invalid or translucent color")
+        return None
     ratio = (lighter + 0.05) / (darker + 0.05)
+    return {"ratio": round(ratio, 3), "passed": ratio >= threshold}
+
+
+def _unresolved_entry(item: dict, marker: str) -> dict:
+    """One honestly-unpaired reading for unknown contrast evidence."""
+    return {"foreground": item.get("foreground"),
+            "background": item.get("background"),
+            "page": item.get("page"), "role": item.get("role"),
+            "visual": item.get("visual"),
+            "paragraph": item.get("paragraph"),
+            "count": item.get("count"), "unresolved": marker}
+
+
+def text_contrast(foreground: str | None = None, background: str | None = None, *,
+                  large_text: bool = False, readings: list[dict] | None = None) -> dict:
+    """Compare resolved opaque colors to WCAG 2.2 SC 1.4.3 thresholds.
+
+    With ``readings`` (every honestly-paired foreground/background run),
+    majority and minority colors alike are evaluated: one failing pair
+    fails the rule. Without readings, the legacy single pair applies.
+    Passing this local calculation does not establish broader WCAG compliance.
+    """
+    rule = "typography.text_contrast"
     threshold = 3.0 if large_text else 4.5
-    return _finding(rule, "pass" if ratio >= threshold else "fail",
-                    ratio=round(ratio, 3), required_ratio=threshold,
+    if readings is not None:
+        if not isinstance(readings, list) or not readings:
+            return _finding(rule, "unknown", reason="Measured contrast readings required")
+        failures = []
+        unresolved = []
+        evaluated = 0
+        for item in readings:
+            if not isinstance(item, dict):
+                return _finding(rule, "unknown", reason="Invalid contrast observation")
+            # F14: emitter-flagged (image/alpha) and unparsable pairs
+            # are unknown evidence, never silent skips.
+            marker = item.get("unresolved")
+            if marker:
+                unresolved.append(_unresolved_entry(item, str(marker)))
+                continue
+            pair = _contrast_pair(str(item.get("foreground", "")),
+                                  str(item.get("background", "")), threshold)
+            if pair is None:
+                unresolved.append(
+                    _unresolved_entry(item, "unparsable-color"))
+                continue
+            evaluated += 1
+            if not pair["passed"]:
+                failures.append({"foreground": item.get("foreground"),
+                                 "background": item.get("background"),
+                                 "page": item.get("page"), "role": item.get("role"),
+                                 "visual": item.get("visual"),
+                                 "paragraph": item.get("paragraph"),
+                                 "count": item.get("count"), "ratio": pair["ratio"]})
+        if unresolved:
+            return _finding(rule, "unknown",
+                            reason="Unresolved contrast pairs",
+                            pairs=evaluated, failures=failures,
+                            unresolved=unresolved,
+                            required_ratio=threshold)
+        if not evaluated:
+            return _finding(rule, "unknown", reason="No resolvable contrast pairs")
+        return _finding(rule, "fail" if failures else "pass",
+                        pairs=evaluated, failures=failures,
+                        required_ratio=threshold)
+    if foreground is None or background is None:
+        return _finding(rule, "unknown", reason="Resolved colors are not both available")
+    pair = _contrast_pair(foreground, background, threshold)
+    if pair is None:
+        return _finding(rule, "unknown", reason="Unresolved, invalid or translucent color")
+    return _finding(rule, "pass" if pair["passed"] else "fail",
+                    ratio=pair["ratio"], required_ratio=threshold,
                     foreground=foreground, background=background, large_text=large_text)
 
 
@@ -120,16 +182,45 @@ def palette_semantic_consistency(
                     overrides=sorted(overrides))
 
 
+def _format_literal(value: object) -> bool:
+    """A JSON literal that can be honestly compared (finite, scalar)."""
+    if value is None or isinstance(value, (str, bool)):
+        return True
+    if isinstance(value, (int, float)):
+        return not isinstance(value, float) or math.isfinite(value)
+    return False
+
+
+_NEEDS_RENDER_EVIDENCE = (
+    "needs_render_evidence: mixed explicit/inherited declarations with "
+    "an unknown effective inherited value; resolve with render evidence, "
+    "never guesses")
+
+
 def format_declaration_consistency(readings: Sequence[dict] | None) -> dict:
-    """One cohort of visuals must declare one formatting value (DES-06).
+    """One cohort of visuals must render one formatting value (DES-06).
 
     Each reading needs ``cohort`` (visual type + property, e.g.
     ``"slicer/header.textSize"``), ``visual``, ``page``, and ``value`` —
     the declared literal, or null when the visual leaves the property
-    to the theme default. A cohort fails when declarations are mixed
-    (some visuals override while others inherit) or disagree; an
-    all-default cohort passes. Effective rendered values are NOT
-    inferred here — resolving the default needs a render adapter.
+    to the theme default. An explicit declaration proves its own
+    effective value; an inherited (null) reading may additionally carry
+    ``effective`` — a render-adapter-proved effective literal. Nothing
+    else proves an effective value here.
+
+    Verdicts per cohort:
+
+    - proved effective values different => fail (explicit declarations
+      that disagree already prove this);
+    - mixed explicit/inherited with an unknown effective value =>
+      unknown (``needs_render_evidence``), never a visual-quality fail;
+    - all-default => pass;
+    - every effective value proved and equal => pass, with an
+      optional declaration-hygiene notice kept separate from the
+      verdict (removing a redundant override is hygiene, not quality).
+
+    Hygiene notices never change the status; visual-quality correctness
+    and declaration hygiene stay separate evidence keys.
     """
     rule = "typography.format_declaration_consistency"
     if not readings:
@@ -147,23 +238,62 @@ def format_declaration_consistency(readings: Sequence[dict] | None) -> dict:
         if "value" not in item:
             return _finding(rule, "unknown", reason="reading needs a value key")
         value = item["value"]
-        if value is not None and not isinstance(value, (str, int, float, bool)):
+        if not _format_literal(value):
             return _finding(rule, "unknown", reason="value must be a literal or null")
-        slot = by_cohort.setdefault(cohort, {"declared": [], "visuals": []})
+        effective = item.get("effective")
+        if effective is not None and not _format_literal(effective):
+            return _finding(rule, "unknown",
+                             reason="effective must be a proven literal or omitted")
+        slot = by_cohort.setdefault(
+            cohort, {"declared": [], "forms": [], "visuals": [],
+                     "known": [], "unknown": []})
         slot["visuals"].append(f"{page}/{visual}")
         if value is not None:
             slot["declared"].append(str(value))
+            slot["forms"].append(repr(value))
+            slot["known"].append(str(value))
+        elif effective is not None:
+            slot["known"].append(str(effective))
+        else:
+            slot["unknown"].append(f"{page}/{visual}")
     conflicts = []
+    pending = []
+    hygiene = []
     for cohort, slot in by_cohort.items():
-        distinct = sorted(set(slot["declared"]))
-        if 0 < len(slot["declared"]) < len(slot["visuals"]):
-            conflicts.append({"cohort": cohort, "kind": "mixed_declaration",
-                              "declared": distinct, "visuals": slot["visuals"]})
-        elif len(distinct) > 1:
-            conflicts.append({"cohort": cohort, "kind": "divergent_values",
-                              "declared": distinct, "visuals": slot["visuals"]})
-    return _finding(rule, "fail" if conflicts else "pass",
-                    cohorts=len(by_cohort), conflicts=conflicts)
+        distinct = sorted(set(slot["known"]))
+        declared = sorted(set(slot["declared"]))
+        if len(distinct) > 1:
+            kind = ("divergent_values" if len(declared) > 1
+                    else "divergent_effective_values")
+            conflicts.append({"cohort": cohort, "kind": kind,
+                              "declared": declared,
+                              "effective": distinct,
+                              "visuals": slot["visuals"]})
+        elif slot["unknown"]:
+            if slot["declared"]:
+                pending.append(
+                    {"cohort": cohort, "kind": "mixed_declaration",
+                     "declared": declared, "visuals": slot["visuals"],
+                     "reason": _NEEDS_RENDER_EVIDENCE})
+        elif (slot["declared"] and
+              (len(slot["declared"]) != len(slot["visuals"])
+               or len(set(slot["forms"])) > 1)):
+            hygiene.append(
+                {"cohort": cohort, "declared": declared,
+                 "effective": distinct, "visuals": slot["visuals"],
+                 "note": ("declarations share one proved effective value; "
+                          "removing a redundant override "
+                          "(format.unset_override) is optional declaration "
+                          "hygiene, not a visual-quality failure")})
+    evidence: dict[str, object] = {"cohorts": len(by_cohort),
+                                   "conflicts": conflicts,
+                                   "pending": pending, "hygiene": hygiene}
+    if conflicts:
+        return _finding(rule, "fail", **evidence)
+    if pending:
+        return _finding(rule, "unknown",
+                         reason=_NEEDS_RENDER_EVIDENCE, **evidence)
+    return _finding(rule, "pass", **evidence)
 
 
 def cross_page_metric_units(readings: Sequence[dict] | None) -> dict:
@@ -457,18 +587,26 @@ def insight_no_cross_page_duplicate_grain(
                     skipped_filtered_pairs=skipped_filtered)
 
 
-def _geometry(item: dict) -> tuple[str, str, float, float, float, float]:
-    """Validate a positioned visual; raise ValueError(reason) if unusable."""
+def _geometry(item: dict) -> tuple[str, str, float, float, float, float, float, bool]:
+    """Validate a positioned visual; raise ValueError(reason) if unusable.
+
+    Returns (page, visual, x, y, width, height, z, bound). NaN/Infinity
+    prove no geometry. ``z`` defaults to 0 and ``bound`` to True so
+    readings without layer/binding facts keep the strict behavior.
+    """
     page, visual = item.get("page"), item.get("visual")
     rect = [item.get(key) for key in ("x", "y", "width", "height")]
     if not all(isinstance(v, str) and v for v in (page, visual)):
         raise ValueError("page and visual must be nonempty strings")
     if (not all(isinstance(v, (int, float)) and not isinstance(v, bool)
-                for v in rect) or rect[2] < 0 or rect[3] < 0):
-        raise ValueError("x, y, width, height must be numbers with "
+                and math.isfinite(v) for v in rect) or rect[2] < 0 or rect[3] < 0):
+        raise ValueError("x, y, width, height must be finite numbers with "
                          "non-negative size")
     x, y, width, height = (float(v) for v in rect)
-    return page, visual, x, y, width, height
+    raw_z = item.get("z", 0)
+    z = float(raw_z) if isinstance(raw_z, (int, float)) and not isinstance(raw_z, bool) else 0.0
+    bound = item.get("bound", True)
+    return page, visual, x, y, width, height, z, bound is not False
 
 
 def layout_no_visual_overlap(visuals: Sequence[dict] | None) -> dict:
@@ -477,7 +615,10 @@ def layout_no_visual_overlap(visuals: Sequence[dict] | None) -> dict:
     Each visual needs ``page``, ``visual``, and numeric ``x``/``y``/
     ``width``/``height`` from PBIR positions. A pair fails when their
     rectangles intersect with positive area; edge-touching (zero area)
-    passes.
+    passes. Intentional background layering is exempt: when the behind
+    visual sits at a lower ``z``, fully contains the front visual, and
+    binds no data (``bound`` false), the pair is skipped as background,
+    never failed.
     """
     rule = "layout.no_visual_overlap"
     if not visuals:
@@ -494,6 +635,7 @@ def layout_no_visual_overlap(visuals: Sequence[dict] | None) -> dict:
             return _finding(rule, "unknown", reason=str(exc))
     conflicts = []
     compared = 0
+    skipped_background = 0
     for index, first in enumerate(rows):
         for second in rows[index + 1:]:
             if first[0] != second[0]:
@@ -504,6 +646,13 @@ def layout_no_visual_overlap(visuals: Sequence[dict] | None) -> dict:
             right = min(first[2] + first[4], second[2] + second[4])
             bottom = min(first[3] + first[5], second[3] + second[5])
             if right > left and bottom > top:
+                behind, front = (first, second) if first[6] < second[6] else (second, first)
+                if (behind[6] != front[6] and not behind[7]
+                        and behind[2] <= front[2] and behind[3] <= front[3]
+                        and behind[2] + behind[4] >= front[2] + front[4]
+                        and behind[3] + behind[5] >= front[3] + front[5]):
+                    skipped_background += 1
+                    continue
                 conflicts.append({"page": first[0],
                                   "visuals": sorted([first[1], second[1]]),
                                   "overlap": {"x": left, "y": top,
@@ -511,7 +660,8 @@ def layout_no_visual_overlap(visuals: Sequence[dict] | None) -> dict:
                                               "height": bottom - top}})
     return _finding(rule, "fail" if conflicts else "pass",
                     visuals=len(rows), pairs_compared=compared,
-                    conflicts=conflicts)
+                    conflicts=conflicts,
+                    skipped_background_pairs=skipped_background)
 
 
 def layout_visuals_within_page(pages: Sequence[dict] | None) -> dict:
@@ -543,6 +693,7 @@ def layout_visuals_within_page(pages: Sequence[dict] | None) -> dict:
         if (not isinstance(width, (int, float))
                 or not isinstance(height, (int, float))
                 or isinstance(width, bool) or isinstance(height, bool)
+                or not math.isfinite(width) or not math.isfinite(height)
                 or width <= 0 or height <= 0):
             unverified.append(name)
             continue
@@ -551,7 +702,7 @@ def layout_visuals_within_page(pages: Sequence[dict] | None) -> dict:
                 return _finding(rule, "unknown",
                                  reason="Invalid geometry observation")
             try:
-                _, visual, x, y, w, h = _geometry(
+                _, visual, x, y, w, h, _, _ = _geometry(
                     {"page": name, **member})
             except ValueError as exc:
                 return _finding(rule, "unknown", reason=str(exc))

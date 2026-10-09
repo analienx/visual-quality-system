@@ -10,11 +10,17 @@
 
 ```bash
 pip install -e ".[test]"
-vqs doctor                        # what external tools are present (never installs)
-vqs cycles tests/powerbi/fixtures/clean_model
-vqs measure tests/powerbi/fixtures/mini_report --model tests/powerbi/fixtures/mini_model/definition
-python -m pytest                  # 212 tests, plus ruff clean
+vqs --version
+vqs doctor                        # capabilities + install identity (never installs)
+vqs run tests/powerbi/fixtures/mini_report --mode review --run-root runs --run-id demo
+python -m pytest                  # full suite green plus ruff clean
 ```
+
+The demo review blocks (exit 2), honestly: the fixture mixes
+slicer textSize declarations with an unknown effective value, so
+the run reports `needs_render_evidence` instead of failing. The
+low-level tool sequence (`measure`, `check`, `repair`, …) is the
+expert/debug interface — see `docs/QUICKSTART.md`.
 
 Real output (`vqs cycles`, exit 0):
 
@@ -51,23 +57,27 @@ Static facts come from parsing sources; rendered facts come from Desktop Bridge 
 
 | Command | Does | Status |
 | --- | --- | --- |
-| `vqs measure` | PBIR/TMDL facts: contrast, cohorts, units, bindings, page insights, duplication + chart-practice + layout checks | ✅ shipped (WP-19) |
-| `vqs cycles` | Static DAX/M/`let` acyclicity gate | ✅ shipped |
-| `vqs check` | Facts → sealed verdict under `.vqs-runs/` | ✅ shipped |
-| `vqs capture` | Bridge screenshots + capture manifest | ✅ shipped |
-| `vqs request-review` | Source-bound review template from renders | ✅ shipped |
-| `vqs bundle` | Portable fixer→reviewer evidence bundles | ✅ shipped |
-| `vqs adjudicate-bundle` | Independent static adjudication | ✅ shipped |
-| `vqs doctor` | Capability report (pbir, Bridge, MCP, Desktop) | ✅ shipped |
-| `vqs inventory` / `status` | PBIR inventory / ledger snapshot | ✅ shipped |
-| Typed PBIR repairs | Allowlisted edits in disposable candidates | 🔶 planned ([WP-09](https://github.com/analienx/visual-quality-system/issues/14)) |
+| `vqs run` | One-command workflow: inspect → review → propose → repair → verify → remeasure | Implemented on this branch |
+| `vqs measure` | PBIR/TMDL facts: contrast, cohorts, units, scoped bindings, page insights, duplication + chart-practice + layout checks | Implemented on this branch |
+| `vqs cycles` | Static DAX/M/`let` acyclicity gate | Implemented on this branch |
+| `vqs check` | Facts → sealed verdict under run roots (G0 observation) | Implemented on this branch |
+| `vqs capture` | Bridge screenshots + capture manifest | Implemented on this branch; needs Desktop + Bridge |
+| `vqs request-review` | Source-bound review template from renders | Implemented on this branch |
+| `vqs bundle` | Portable fixer→reviewer evidence bundles | Implemented on this branch |
+| `vqs adjudicate-bundle` | Independent static adjudication (never passes statically) | Implemented on this branch |
+| `vqs doctor` | Capability + install-identity report (never installs or gates) | Implemented on this branch |
+| `vqs inventory` / `status` | PBIR inventory / ledger snapshot | Implemented on this branch |
+| Typed candidate repair | Allowlisted edits in disposable candidates + explicit authoring backends | Review candidate ([PR #31](https://github.com/analienx/visual-quality-system/pull/31), draft unmerged; [WP-09](https://github.com/analienx/visual-quality-system/issues/14)) |
 | Word/DOCX backend | Paginated all-page verification | 🔶 planned ([WP-08](https://github.com/analienx/visual-quality-system/issues/13)) |
 | Fabric Apps | React/TS adapter | ⏸ deferred ([WP-13](https://github.com/analienx/visual-quality-system/issues/18)) |
+
+Implemented means the command works on this branch with hosted CI; nothing here is independently accepted — the ledger reports zero verified work packages. The trust boundaries are recorded in [ADR 0001](docs/adr/0001-r6-trust-boundaries.md).
 
 Machine-readable status: [roadmap/STATUS.md](roadmap/STATUS.md) and [roadmap/work_packages.json](roadmap/work_packages.json). Program tracking: [issue #4](https://github.com/analienx/visual-quality-system/issues/4).
 
 ## Docs
 
+- [Developer journey](docs/JOURNEY.md) — the supported installed-command walk, oracle-tested
 - [User guide](docs/USER_GUIDE.md) — end-to-end workflows with copy-paste commands
 - [Command reference](docs/CLI.md) — every `vqs` command
 - [Architecture](docs/ARCHITECTURE.md) — system design + Power BI tool interfaces
@@ -78,7 +88,7 @@ Machine-readable status: [roadmap/STATUS.md](roadmap/STATUS.md) and [roadmap/wor
 
 ## Ecosystem: VQS owns the quality decision
 
-VQS parses facts itself and uses first-party tools at arm's length: [pbir-cli](https://github.com/maxanatsko/pbir.tools) (optional, report-side only — [Custom Non-Commercial license](https://github.com/maxanatsko/pbir.tools/blob/main/LICENSE), VQS works without it), [Microsoft Power BI Modeling MCP](https://github.com/microsoft/powerbi-modeling-mcp) (live semantic models), [Desktop Bridge](https://www.npmjs.com/package/@microsoft/powerbi-desktop-bridge-cli) (captures). VQS has no ADOMD dependency. Details: [tool interfaces](docs/ARCHITECTURE.md#power-bi-tool-interfaces-decided-2026-09-26).
+VQS parses facts itself and uses first-party tools at arm's length: the Microsoft-guided `powerbi-report-author` executable (documented distribution channel `@microsoft/powerbi-report-authoring-cli`; optional, report-side validation only — VQS records an explicit direct fallback without it), [Microsoft Power BI Modeling MCP](https://github.com/microsoft/powerbi-modeling-mcp) (live semantic models), [Desktop Bridge](https://www.npmjs.com/package/@microsoft/powerbi-desktop-bridge-cli) (captures). VQS has no ADOMD dependency. Details: [tool interfaces](docs/ARCHITECTURE.md#power-bi-tool-interfaces-decided-2026-09-26).
 
 ## Security
 

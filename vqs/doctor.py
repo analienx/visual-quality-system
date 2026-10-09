@@ -67,37 +67,37 @@ def _desktop_process() -> dict[str, Any]:
             "count": len(rows)}
 
 
-def _adomd() -> dict[str, Any]:
-    """Report ADOMD discoverability; informational only, never required.
 
-    VQS itself has no ADOMD dependency. Only ``pbir model`` and
-    ``pbir validate --fields`` need the client library, and pbir
-    discovers it from DAX Studio / Tabular Editor installs or the
-    ``PBIR_ADOMD_DIR`` override.
+def _report_author() -> dict[str, Any]:
+    """Probe Microsoft report-author CLI; presence only, never gates.
+
+    R6-E07: delegates to the authoring port (presence plus a
+    zero-exit documented ``--help``). Schema validation runs
+    through ``validate`` at repair time, never here.
     """
-    override = os.environ.get("PBIR_ADOMD_DIR")
-    bases = [os.environ.get("ProgramFiles", ""),
-             os.environ.get("ProgramFiles(x86)", "")]
-    candidates = ["DAX Studio", "Tabular Editor 3",
-                  os.path.join("Microsoft Power BI Desktop", "bin")]
-    found = [os.path.join(base, leaf) for base in bases for leaf in candidates
-             if base and os.path.isfile(
-                 os.path.join(base, leaf,
-                              "Microsoft.AnalysisServices.AdomdClient.dll"))]
-    return {"status": "informational", "required_by_vqs": False,
-            "pbir_adomd_dir": override,
-            "known_installs": [path for path in found]}
+    from .powerbi.author.mscli import PACKAGE_NAME, TOOL_NAME, probe
+
+    found = probe()
+    return {"name": TOOL_NAME,
+            "package": PACKAGE_NAME,
+            "status": "present" if found["available"] else "missing",
+            "path": found["path"],
+            "version": found["version"] if found["available"] else None,
+            "note": ("Presence only via documented --help; validation "
+                     "runs through `validate` at repair time.")}
 
 
 def report() -> dict[str, Any]:
     """Collect every capability check into one JSON-serializable report."""
-    pbir = _tool("pbir", "--version")
+    from .install import installation_report
+
+    report_author = _report_author()
     bridge = _tool("powerbi-desktop", "--version")
     mcp = _tool("powerbi-modeling-mcp")
     mcp["note"] = ("Presence only: live model connectivity is proven "
                    "per run via connection_operations ListLocalInstances.")
     return {"status": "ok",
-            "checks": {"pbir": pbir, "desktop_bridge": bridge,
-                       "modeling_mcp": mcp,
+            "checks": {"report_author": report_author,
+                       "desktop_bridge": bridge, "modeling_mcp": mcp,
                        "desktop_process": _desktop_process(),
-                       "adomd": _adomd()}}
+                       "installation": installation_report()}}

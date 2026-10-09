@@ -7,16 +7,48 @@ that ``vqs request-review`` consumes. Anything unproven blocks with
 the exact missing piece: no binary, no instance, wrong report,
 unsaved changes, several instances without ``--pid``, missing or
 corrupt page PNGs.
+
+Manifest v2 additionally binds a canvas-size fit and scoped data
+readiness (modeling-port row evidence queried twice). U3 measured
+calibration: the PNG-to-canvas relation is MEASURED per page from
+decoded pixels and cross-checked against uniform Bridge viewport
+evidence (device pixels equal decoded pixels, measured scale equals
+Bridge DPR) — never assumed from the requested ``--scale``. Genuine
+host-DPI captures with a non-integer measured scale pass only with
+that Bridge proof, recorded as ``effective_scale`` with the device
+pixels, DPR, source image hashes, and tool versions. Malformed or
+mixed viewports, non-uniform per-axis scales, and unproven upscales
+block with a precise calibration reason. Size fit is still not
+content proof — a same-size viewport slice passes the size gate;
+content coverage remains unproven by geometry alone. When NO page
+carries a viewport (the actual Bridge 1.0.0 contract exposes no
+viewport/DPR metadata), capture records render identity instead of
+failing the whole capture: the Bridge-attested page PNG stays bound
+by exact PID/path/page/source (enough for whole-page perceptual
+review) while ``geometry_calibration`` is ``blocked`` with the
+reason — no coordinate transform is claimed, inferred, or
+special-cased. Capture refuses to manifest
+blank captures, below-minimum pixels, unproven
+data, pre/post drift (source, target, or readiness), stale staging,
+unsupported interactions, non-default
+saved states, and mixed-size page sets. An exclusive per-PID lease
+serializes captures on one host. Set VQS_MODELING_AUTO=1 to attempt
+a live modeling connection; otherwise pass a modeling port explicitly
+or accept a manifest without data readiness (downstream blocks it).
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
 import shutil
 import subprocess
+import tempfile
+from fractions import Fraction
 from pathlib import Path
+from typing import Any
+
+MIN_REVIEWABLE_PIXELS = 450
 
 
 def _bridge(args: list[str], timeout: int) -> tuple[int, str]:
@@ -31,12 +63,15 @@ def _bridge(args: list[str], timeout: int) -> tuple[int, str]:
                 timeout=timeout, check=False)
         except OSError as exc:
             # Fallback for .bat/.cmd shims un-runnable without a shell.
-            # list2cmdline quotes whitespace, not metachars: refuse the
-            # shell when hostile output could have smuggled one in.
-            command = subprocess.list2cmdline([binary, *args])
-            if re.search(r'[&|^<>%!`$;\r\n]', command):
+            # Inspect argv, not the rendered command line: list2cmdline
+            # legitimately emits quotes around paths with spaces, so a
+            # quote in the rendering is not hostile - but a metachar in
+            # an argument means hostile output smuggled one in.
+            if any(re.search(r'[&|^<>%!`$;()"\x00-\x1f]', arg)
+                   for arg in args):
                 raise OSError("Refusing shell fallback on metacharacters: "
                               f"{' '.join(args)}") from exc
+            command = subprocess.list2cmdline([binary, *args])
             completed = subprocess.run(
                 command, capture_output=True, text=True,
                 timeout=timeout, check=False, shell=True)
@@ -51,19 +86,39 @@ def _same_path(left: str, right: str) -> bool:
 
 
 def select_instance(report_dir: str, pid: int | None,
-                    wait_seconds: int) -> dict:
-    """Pick the instance showing this report; raise blocked errors."""
-    try:
-        code, output = _bridge(
-            ["status"], timeout=max(wait_seconds, 30) + 30)
-    except FileNotFoundError as exc:
-        raise LookupError(str(exc)) from exc
-    if code != 0:
-        raise LookupError(f"Bridge status failed: {output[:300]}")
-    try:
-        payload = json.loads(output)
-    except ValueError as exc:
-        raise LookupError(f"Bridge status is not JSON: {exc}") from exc
+                    wait_seconds: int, *,
+                    status_payload: dict | None = None,
+                    owned_candidate: bool = False) -> dict:
+    """Pick the instance showing this report; raise blocked errors.
+
+    ``status_payload`` injects an already-fetched Bridge status object
+    (the runtime port path); None fetches live via the Bridge binary.
+    The binding rule is identical either way.
+
+    Save-state policy: Desktop builds can report hasUnsavedChanges
+    for a freshly opened untouched report, so the flag alone proves
+    nothing. User-owned instances keep the absolute refusal (a true
+    flag blocks); ``owned_candidate`` may only pass True for a
+    run-owned disposable candidate the run itself opened and bound
+    (fresh PID + exact path + source digest + run lease), where the
+    true flag is recorded, not treated as proof of user edits. A
+    missing flag always refuses: unreported staleness is unprovable
+    for anyone.
+    """
+    if status_payload is None:
+        try:
+            code, output = _bridge(
+                ["status"], timeout=max(wait_seconds, 30) + 30)
+        except FileNotFoundError as exc:
+            raise LookupError(str(exc)) from exc
+        if code != 0:
+            raise LookupError(f"Bridge status failed: {output[:300]}")
+        try:
+            payload = json.loads(output)
+        except ValueError as exc:
+            raise LookupError(f"Bridge status is not JSON: {exc}") from exc
+    else:
+        payload = status_payload
     if not isinstance(payload, dict):
         raise TypeError("Bridge status is not a JSON object")
     instances = payload.get("instances", [])
@@ -86,6 +141,10 @@ def select_instance(report_dir: str, pid: int | None,
             raise LookupError("Several Desktop instances open; pass --pid. "
                               f"Open: {open_files}")
         instance = instances[0]
+    if (not isinstance(instance.get("pid"), int)
+            or isinstance(instance.get("pid"), bool)):
+        raise TypeError("Bridge did not report a numeric PID; "
+                        "refusing to capture")
     if not _same_path(str(instance.get("reportDir", "")), report_dir):
         raise LookupError(
             f"Desktop PID {instance.get('pid')} has "
@@ -93,18 +152,128 @@ def select_instance(report_dir: str, pid: int | None,
     if "hasUnsavedChanges" not in instance:
         raise LookupError("Bridge did not report a save state; refusing "
                           "to capture against unknown staleness")
-    if instance.get("hasUnsavedChanges"):
+    if instance.get("hasUnsavedChanges") and not owned_candidate:
         raise LookupError("Desktop has unsaved changes; save or revert, "
                           "then capture again")
     return instance
 
 
 def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """Bounded file hash; the shared evidence digest caps before reading."""
+    from .evidence import digest
+
+    return digest(path)
 
 
-def _screenshot_map(output: str) -> dict[str, str]:
-    """Map pageId to PNG path from screenshot-all JSON output."""
+def _require_bridge() -> list[int]:
+    """Gate on a proven Bridge version; LookupError names the gap."""
+    from .powerbi.desktop import gate_bridge_version
+
+    try:
+        code, output = _bridge(["--version"], timeout=30)
+    except FileNotFoundError as exc:
+        raise LookupError(str(exc)) from exc
+    if code != 0:
+        raise LookupError(f"Bridge --version failed: {output[:300]}")
+    gate = gate_bridge_version(output)
+    if gate["verdict"] != "pass":
+        raise LookupError(gate["reason"])
+    return gate["version"]
+
+
+def _require_fresh_staging(renders_path: Path) -> None:
+    """Refuse a staging dir with stale files that could mix into evidence."""
+    if not renders_path.exists():
+        return
+    stale = sorted(p.name for p in renders_path.iterdir())
+    if stale:
+        raise OSError("Staging is not fresh; refusing to mix evidence: "
+                      + ", ".join(stale[:8]))
+
+
+def _safe_page_id(page_id: str) -> str:
+    """Reject page ids that escape the renders dir as filenames.
+
+    Aligned with evidence.safe_render_name (leading dots, slashes,
+    backslashes, drive colons rejected) so a manifest accepted here is
+    never rejected downstream.
+    """
+    if (not isinstance(page_id, str) or not page_id or page_id != page_id.strip()
+            or page_id.startswith(".") or "/" in page_id or "\\" in page_id
+            or ":" in page_id):
+        raise OSError(f"Unsafe page id for evidence filename: {page_id!r}")
+    return page_id
+
+
+def _png_pixels(path: Path) -> tuple[int, int, bool]:
+    """Decode PNG pixels; (width, height, uniform). Raise when unverifiable.
+
+    T08: decoding consolidates on the shared bounded evidence decoder
+    (capped file, IHDR-gated allocation, incremental inflation), so
+    production capture enforces the same bounds as review evidence.
+    Supports 8-bit gray/RGB/RGBA, non-interlaced — the screenshot
+    shape. Anything else (or truncated data) raises: unverifiable
+    pixels never pass as proven captures.
+    """
+    from .evidence import _decode_png
+
+    # Shared bounded decode raises ValueError carrying "Unsupported"
+    # for non-screenshot pixel types, which the caller maps to an
+    # Unsupported (vs Corrupt) capture exactly as before.
+    width, height, channels, inflated = _decode_png(path)
+    stride = width * channels
+    first_pixel: bytes | None = None
+    uniform = True
+    previous = bytearray(stride)
+    offset = 0
+    for _ in range(height):
+        kind = inflated[offset]
+        offset += 1
+        if kind > 4:
+            raise ValueError("unknown PNG filter type")
+        row = bytearray(inflated[offset:offset + stride])
+        offset += stride
+        for index in range(stride):
+            left = row[index - channels] if index >= channels else 0
+            up = previous[index]
+            upper_left = previous[index - channels] if index >= channels else 0
+            if kind == 1:
+                row[index] = (row[index] + left) & 0xFF
+            elif kind == 2:
+                row[index] = (row[index] + up) & 0xFF
+            elif kind == 3:
+                row[index] = (row[index] + ((left + up) >> 1)) & 0xFF
+            elif kind == 4:
+                pick = left + up - upper_left
+                dist_left = abs(pick - left)
+                dist_up = abs(pick - up)
+                dist_corner = abs(pick - upper_left)
+                if dist_left <= dist_up and dist_left <= dist_corner:
+                    row[index] = (row[index] + left) & 0xFF
+                elif dist_up <= dist_corner:
+                    row[index] = (row[index] + up) & 0xFF
+                else:
+                    row[index] = (row[index] + upper_left) & 0xFF
+        for start in range(0, stride, channels):
+            pixel = bytes(row[start:start + channels])
+            if first_pixel is None:
+                first_pixel = pixel
+            elif pixel != first_pixel:
+                uniform = False
+                break
+        if not uniform:
+            break
+        previous = row
+    return width, height, uniform
+
+
+def _screenshot_map(output: str) -> dict[str, dict[str, str]]:
+    """Map pageId to its screenshot record from screenshot-all JSON output.
+
+    R17: each record carries the Bridge-reported ``outputPath`` plus
+    its ``viewport`` when the Bridge states one; viewports are
+    measured evidence, never invented downstream.
+    """
     try:
         start = output.index('{')
         payload, _ = json.JSONDecoder().raw_decode(output[start:])
@@ -118,69 +287,411 @@ def _screenshot_map(output: str) -> dict[str, str]:
     mapping = {}
     for shot in shots:
         if isinstance(shot, dict) and shot.get("pageId"):
-            mapping[str(shot["pageId"])] = str(shot.get("outputPath", ""))
+            record = {"outputPath": str(shot.get("outputPath", ""))}
+            viewport = shot.get("viewport")
+            if isinstance(viewport, str) and viewport:
+                record["viewport"] = viewport
+            mapping[str(shot["pageId"])] = record
     return mapping
 
+_VIEWPORT_RE = re.compile(r"^(\d+)x(\d+)@(\d+(?:\.\d+)?)x$")
+
+
+def _parse_viewport(viewport: object) -> tuple[int, int, Fraction] | None:
+    """Parse a Bridge viewport ``WxH@Dx`` into device pixels + DPR.
+
+    Returns None for anything that is not a well-formed positive
+    measurement — an unparseable viewport proves no transform and the
+    caller blocks instead of guessing.
+    """
+    if not isinstance(viewport, str):
+        return None
+    match = _VIEWPORT_RE.match(viewport.strip())
+    if match is None:
+        return None
+    width, height = int(match.group(1)), int(match.group(2))
+    try:
+        dpr = Fraction(match.group(3))
+    except (ValueError, ZeroDivisionError):
+        return None
+    if width <= 0 or height <= 0 or dpr <= 0:
+        return None
+    return width, height, dpr
+
+
+def _measured_calibration(*, canvas_width: int, canvas_height: int,
+                          scale: int, ordered_pages: list[str],
+                          pixels_by_page: dict[str, list[int]],
+                          viewports_by_page: dict[str, object]) -> dict[str, Any]:
+    """Derive measured full-canvas calibration or raise a precise OSError.
+
+    U3: the PNG-to-canvas relation is MEASURED per page from decoded
+    pixels and cross-checked against uniform Bridge viewport evidence —
+    never assumed from the requested scale:
+
+    - every page's measured per-axis scale must agree exactly (one
+      uniform full-canvas transform), else
+      ``calibration_nonuniform_scale`` (wrong aspect/content mapping);
+    - when the Bridge reports a viewport for every page it must be
+      well-formed and uniform; decoded PNG pixels must equal the
+      Bridge-reported device pixels
+      (``calibration_viewport_pixels_mismatch``) and the measured scale
+      must equal the Bridge DPR (``calibration_dpr_mismatch``) — this
+      measured path is what admits genuine host-DPI captures whose
+      non-integer scale the requested ``--scale`` cannot describe;
+    - a malformed viewport or mixed presence/shape across pages blocks
+      (``calibration_viewport_unparseable`` /
+      ``calibration_viewport_inconsistent``): an unproven transform
+      never degrades silently into the strict path;
+    - when NO page carries a viewport (the actual Bridge 1.0.0
+      contract exposes no viewport/DPR metadata), capture records
+      render identity, not geometry: the Bridge-attested page PNG is
+      bound by exact PID/path/page/source (sufficient for
+      whole-page perceptual review) while ``geometry_calibration``
+      stays ``blocked`` with the precise reason. No pixel-to-PBIR
+      coordinate transform is claimed, inferred from dimensions, or
+      special-cased — coordinate-dependent evidence stays blocked
+      downstream.
+    """
+    parsed: dict[str, tuple[int, int, Fraction]] = {}
+    for page_id in ordered_pages:
+        raw = viewports_by_page.get(page_id)
+        if raw is None:
+            continue
+        footprint = _parse_viewport(raw)
+        if footprint is None:
+            raise OSError(
+                f"calibration_viewport_unparseable for {page_id}: "
+                f"Bridge viewport {raw!r} proves no transform")
+        parsed[page_id] = footprint
+    if parsed and len(parsed) != len(ordered_pages):
+        raise OSError(
+            "calibration_viewport_inconsistent: Bridge viewport present "
+            "for some pages and absent for others; unproven transform")
+    if parsed:
+        if len(set(parsed.values())) != 1:
+            raise OSError(
+                "calibration_viewport_inconsistent: Bridge viewports "
+                "differ across pages; unproven transform")
+        device_w, device_h, dpr = next(iter(parsed.values()))
+        measured: Fraction | None = None
+        for page_id in ordered_pages:
+            width, height = pixels_by_page[page_id]
+            scale_w, scale_h = (Fraction(width, canvas_width),
+                                Fraction(height, canvas_height))
+            if scale_w != scale_h or (measured is not None
+                                      and scale_w != measured):
+                raise OSError(
+                    f"calibration_nonuniform_scale for {page_id}: "
+                    f"measured {width}x{height} against canvas "
+                    f"{canvas_width}x{canvas_height} is not one uniform "
+                    "scale; full canvas unproven")
+            measured = scale_w
+        assert measured is not None
+        first_w, first_h = pixels_by_page[ordered_pages[0]]
+        if (first_w, first_h) != (device_w, device_h):
+            raise OSError(
+                f"calibration_viewport_pixels_mismatch for "
+                f"{ordered_pages[0]}: Bridge reports device "
+                f"{device_w}x{device_h} but decoded "
+                f"{first_w}x{first_h}")
+        if measured != dpr:
+            raise OSError(
+                f"calibration_dpr_mismatch: measured scale {measured} "
+                f"!= Bridge DPR {dpr} (requested scale {scale}); "
+                "host-DPI transform unproven")
+        first_raw = viewports_by_page[ordered_pages[0]]
+        return {"canvas_width": canvas_width,
+                "canvas_height": canvas_height,
+                "scale": scale,
+                "png_pixels": f"{first_w}x{first_h}",
+                "method": "bridge-viewport-measured",
+                "geometry_calibration": "proven",
+                "viewport": first_raw,
+                "viewport_device_pixels": [device_w, device_h],
+                "viewport_dpr": str(dpr),
+                "effective_scale": str(measured)}
+    first = pixels_by_page[ordered_pages[0]] if ordered_pages else [0, 0]
+    return {"canvas_width": canvas_width, "canvas_height": canvas_height,
+            "scale": scale, "png_pixels": f"{first[0]}x{first[1]}",
+            "method": "bridge-page-identity",
+            "geometry_calibration": "blocked",
+            "geometry_reason": ("no-bridge-viewport: the Bridge exposes "
+                                "no viewport/DPR metadata, so no "
+                                "pixel-to-PBIR coordinate transform is "
+                                "proven; this record binds render identity "
+                                "(exact PID/path/page/source PNG) for "
+                                "whole-page perceptual review only")}
+
+
+def _resolve_modeling(modeling: Any) -> tuple[Any, bool]:
+    """Resolve the modeling port: explicit, auto (env opt-in), or skipped.
+
+    Returns (port_or_None, owned). Owned ports are closed by capture;
+    injected ones belong to the caller.
+    """
+    if modeling is not None:
+        return modeling, False
+    if os.environ.get("VQS_MODELING_AUTO") != "1":
+        return None, False
+    from .powerbi.modeling import StdioModelingClient
+
+    return StdioModelingClient(), True
+
+
+def _capture_manifest(*, source_sha256: str, page_images: dict[str, str],
+                      files: dict[str, str], pixels: dict[str, list[int]],
+                      canvas: tuple[int, int], scale: int,
+                      bridge_version: list[int], desktop: dict[str, Any],
+                      viewport: str | None = None) -> dict[str, Any]:
+    """Assemble a capture manifest from measured inputs (pure, unit-testable).
+
+    R17: the calibration viewport comes ONLY from Bridge
+    screenshot-all output. An absent viewport stays absent —
+    downstream calibration checks then block honestly — instead of
+    being invented here.
+    """
+    calibration: dict[str, Any] = {"canvas_width": canvas[0],
+                                  "canvas_height": canvas[1],
+                                  "scale": scale}
+    if viewport is not None:
+        calibration["viewport"] = viewport
+    return {"source_sha256": source_sha256,
+            "page_images": dict(page_images),
+            "files": dict(files),
+            "pixels": {page: list(size) for page, size in pixels.items()},
+            "canvas": [canvas[0], canvas[1]],
+            "scale": scale,
+            "bridge_version": list(bridge_version),
+            "desktop": dict(desktop),
+            "calibration": calibration}
+
+
 def capture(report: str, renders: str, pid: int | None = None,
-            scale: int = 2, wait_seconds: int = 60) -> dict:
-    """Capture every page and write the manifest; raise on any gap."""
+            scale: int = 2, wait_seconds: int = 60,
+            state: str = "default",
+            interactions: list[str] | None = None,
+            expected_scope: dict[str, Any] | None = None,
+            modeling: Any = None,
+            lease_dir: str | None = None,
+            owned_candidate: bool = False) -> dict:
+    """Capture every page and write the manifest; raise on any gap.
+
+    New gates (all default-safe for existing callers): proven Bridge
+    version, default saved state only, no requested interactions, fresh
+    staging, per-PID exclusive lease, pre/post readiness with
+    expected-scope verification and drift refusal, post-capture target
+    recheck, exact canvas x scale pixels per page, minimum reviewable
+    size, and blank-capture refusal. The manifest carries measured
+    ``calibration`` always and ``data_readiness`` when a modeling port
+    proves it.
+    """
     from .evidence import png_size
     from .pbir import report_context, source_digest
+    from .powerbi.modeling import ModelingScope, compare_scope
 
+    if state != "default":
+        raise OSError(f"Saved-state {state!r} verification is unsupported; "
+                      "capture the default state")
+    if interactions:
+        raise OSError("Unsupported interactions for static capture: "
+                      + ", ".join(sorted(str(i) for i in interactions)))
     report_path = Path(report)
     try:
         info = report_context(report_path)
         expected = [page["id"] for page in info["pages"]]
+        sizes = {page["id"]: ((page.get("canvas") or [None, None])[0],
+                              (page.get("canvas") or [None, None])[1])
+                 for page in info["pages"]}
         source_before = source_digest(report_path)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise OSError(f"Cannot read report: {exc}") from exc
-    instance = select_instance(str(report_path), pid, wait_seconds)
-    renders_path = Path(renders)
-    renders_path.mkdir(parents=True, exist_ok=True)
-    code, output = _bridge(
-        ["screenshot-all", "--pid", str(instance["pid"]),
-         "--output-dir", str(renders_path), "--scale", str(scale),
-         "--wait-seconds", str(wait_seconds)],
-        timeout=wait_seconds + 300)
-    if code != 0:
-        raise OSError(f"screenshot-all failed: {output[:500]}")
-    mapping = _screenshot_map(output)
-    page_images = {}
-    files = {}
-    missing = []
     for page_id in expected:
-        raw = mapping.get(page_id, "")
-        target = renders_path / f"{page_id}.png"
-        if not raw or not Path(raw).is_file():
-            missing.append(page_id)
-            continue
-        source = Path(raw)
-        if source.resolve() != target.resolve():
-            os.replace(source, target)
-        try:
-            png_size(target)
-        except (ValueError, OSError) as exc:
-            raise OSError(f"Corrupt capture for {page_id}: {exc}") from exc
-        page_images[page_id] = target.name
-        files[target.name] = _sha256(target)
-    if missing:
-        raise OSError("Bridge did not capture pages: "
-                      + ", ".join(sorted(missing)))
+        _safe_page_id(page_id)
+    canvas = set(sizes.values())
+    if len(canvas) != 1:
+        raise OSError("Pages have differing canvas sizes; single "
+                      "calibration cannot hold")
+    canvas_width, canvas_height = canvas.pop()
+    if (not isinstance(canvas_width, int) or not isinstance(canvas_height, int)
+            or canvas_width <= 0 or canvas_height <= 0):
+        raise OSError("Page canvas size is not a positive integer pair")
+    if scale not in (1, 2):
+        raise OSError(f"Capture scale must be 1 or 2, not {scale!r}")
+    # S01: the source preflight above runs before any external port —
+    # a report the preflight blocks never reaches the Bridge binary.
+    bridge_version = _require_bridge()
+    instance = select_instance(str(report_path), pid, wait_seconds,
+                               owned_candidate=owned_candidate)
+    renders_path = Path(renders)
+    _require_fresh_staging(renders_path)
+    renders_path.mkdir(parents=True, exist_ok=True)
+    from .run_store import claim_artifact, release_artifact
+
+    locks = Path(lease_dir) if lease_dir else (
+        Path(tempfile.gettempdir()) / "vqs-desktop-leases")
+    lease_id = f"desktop-pid-{instance['pid']}"
+    owner = f"vqs-capture-pid-{os.getpid()}"
+    if not claim_artifact(locks, lease_id, owner):
+        raise OSError(f"Exclusive lease held for Desktop PID "
+                      f"{instance['pid']}; another capture holds it")
+    port, owned = _resolve_modeling(modeling)
+    scope = ModelingScope(source_sha256=source_before)
+    readiness_before: dict[str, Any] | None = None
     try:
-        source_after = source_digest(report_path)
-    except (OSError, ValueError, KeyError, TypeError) as exc:
-        raise OSError(f"Cannot re-read report: {exc}") from exc
-    # Digest comparison cannot see A->B->A flaps or post-digest edits;
-    # no manifest is written here, so unmanifested renders can never
-    # pass evidence binding later.
-    if source_after != source_before:
-        raise OSError("Report changed during capture; no manifest written")
-    manifest = {"source_sha256": source_after,
-                "page_images": page_images,
-                "files": files,
-                "desktop": {"pid": instance["pid"],
-                            "report": instance.get("currentFilePath"),
-                            "scale": scale}}
-    (renders_path / "capture-manifest.json").write_text(
-        json.dumps(manifest, indent=2), encoding="utf-8")
-    return manifest
+        if port is not None:
+            readiness_before = port.readiness(scope)
+            if not readiness_before.get("populated"):
+                raise OSError("Data not populated: "
+                              f"{readiness_before.get('detail', 'no rows')}")
+            if expected_scope is not None:
+                wanted = ModelingScope(
+                    model=expected_scope.get("model"),
+                    roles=tuple(expected_scope.get("roles", []) or []),
+                    filters=expected_scope.get("filters"),
+                    period=expected_scope.get("period"))
+                # Source binding is enforced by the pre/post source_digest
+                # equality check, not by compare_scope (see its docstring).
+                mismatched = compare_scope(
+                    wanted, readiness_before.get("scope_echo", {}))
+                if mismatched:
+                    raise OSError("Live scope differs from expected: "
+                                  + ", ".join(mismatched))
+        code, output = _bridge(
+            ["screenshot-all", "--pid", str(instance["pid"]),
+             "--output-dir", str(renders_path), "--scale", str(scale),
+             "--wait-seconds", str(wait_seconds)],
+            timeout=wait_seconds + 300)
+        if code != 0:
+            raise OSError(f"screenshot-all failed: {output[:500]}")
+        mapping = _screenshot_map(output)
+        if port is not None:
+            readiness_after = port.readiness(scope)
+            if not readiness_after.get("populated"):
+                raise OSError("Data not populated after capture: "
+                              f"{readiness_after.get('detail', 'no rows')}")
+            if readiness_before is None:
+                raise OSError("Readiness evidence missing; no manifest written")
+            for key in ("rowcount", "query_hash"):
+                if key not in readiness_after or key not in readiness_before:
+                    raise OSError("Readiness evidence incomplete; "
+                                  "no manifest written")
+            if (readiness_after["rowcount"] != readiness_before["rowcount"]
+                    or readiness_after["query_hash"]
+                    != readiness_before["query_hash"]):
+                raise OSError("Data changed during capture; no manifest written")
+        recheck = select_instance(str(report_path), instance["pid"],
+                                  wait_seconds,
+                                  owned_candidate=owned_candidate)
+        if str(recheck.get("pid")) != str(instance["pid"]):
+            raise OSError("Capture target PID changed during capture; "
+                          "no manifest written")
+        page_images = {}
+        files = {}
+        pixels: dict[str, list[int]] = {}
+        missing = []
+        for page_id in expected:
+            shot = mapping.get(page_id)
+            raw = shot.get("outputPath", "") if isinstance(shot, dict) else ""
+            target = renders_path / f"{page_id}.png"
+            if not raw or not Path(raw).is_file():
+                missing.append(page_id)
+                continue
+            source = Path(raw)
+            renders_norm = os.path.normcase(renders_path.resolve())
+            inside = [os.path.normcase(parent)
+                      for parent in source.resolve().parents]
+            if renders_norm not in inside:
+                raise OSError("Bridge screenshot outside output dir: "
+                              f"{raw[:200]}")
+            if source.resolve() != target.resolve():
+                os.replace(source, target)
+            try:
+                png_size(target)
+            except (ValueError, OSError) as exc:
+                raise OSError(f"Corrupt capture for {page_id}: {exc}") from exc
+            try:
+                width, height, uniform = _png_pixels(target)
+            except (ValueError, OSError) as exc:
+                # _png_pixels messages carry no paths, so this sniff
+                # cannot misfire on directory names.
+                kind = ("Unsupported capture"
+                        if "unsupported" in str(exc).lower()
+                        else "Corrupt capture")
+                raise OSError(f"{kind} for {page_id}: {exc}") from exc
+            if min(width, height) < MIN_REVIEWABLE_PIXELS:
+                raise OSError(f"Capture for {page_id} below reviewable "
+                              f"minimum {MIN_REVIEWABLE_PIXELS}px")
+            if uniform:
+                raise OSError(f"Blank capture for {page_id}: uniform pixels")
+            page_images[page_id] = target.name
+            files[target.name] = _sha256(target)
+            pixels[page_id] = [width, height]
+        if missing:
+            raise OSError("Bridge did not capture pages: "
+                          + ", ".join(sorted(missing)))
+        try:
+            source_after = source_digest(report_path)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            raise OSError(f"Cannot re-read report: {exc}") from exc
+        # Digest comparison cannot see A->B->A flaps or post-digest edits;
+        # no manifest is written here, so unmanifested renders can never
+        # pass evidence binding later.
+        if source_after != source_before:
+            raise OSError("Report changed during capture; no manifest written")
+        shot_viewports: dict[str, object] = {}
+        for page_id in expected:
+            shot = mapping.get(page_id)
+            shot_viewports[page_id] = (
+                shot.get("viewport") if isinstance(shot, dict) else None)
+        calibration = _measured_calibration(
+            canvas_width=canvas_width, canvas_height=canvas_height,
+            scale=scale, ordered_pages=expected,
+            pixels_by_page=pixels, viewports_by_page=shot_viewports)
+        manifest: dict[str, Any] = {
+            "source_sha256": source_after,
+            "page_images": page_images,
+            "files": files,
+            "desktop": {"pid": instance["pid"],
+                        "report": instance.get("currentFilePath"),
+                        "scale": scale,
+                        "bridge_version": bridge_version,
+                        "desktop_version": instance.get("desktopVersion"),
+                        "save_state": {
+                            "reported_unsaved": bool(instance.get(
+                                "hasUnsavedChanges")),
+                            "policy": ("run-owned-candidate"
+                                       if owned_candidate
+                                       else "user-clean-required")}},
+            "state": state,
+            "interactions_applied": [],
+            "calibration": calibration,
+        }
+        if port is not None:
+            if readiness_before is None:
+                raise OSError("Readiness evidence missing; no manifest written")
+            manifest["data_readiness"] = {
+                "populated": bool(readiness_before.get("populated")),
+                "method": readiness_before.get(
+                    "method", "modeling-mcp:repeat-query"),
+                "scope": readiness_before.get("scope_echo", {}),
+                "rowcount": readiness_before.get("rowcount"),
+                "query_hash": readiness_before.get("query_hash"),
+                "probe_table": readiness_before.get("probe_table"),
+                "data_rows": readiness_before.get("data_rows")}
+            manifest["modeling"] = {"status": "ready"}
+        else:
+            manifest["modeling"] = {
+                "status": "skipped",
+                "reason": "no modeling port supplied (pass one or set "
+                          "VQS_MODELING_AUTO=1)"}
+        (renders_path / "capture-manifest.json").write_text(
+            json.dumps(manifest, indent=2), encoding="utf-8")
+        return manifest
+    finally:
+        if owned and port is not None:
+            try:
+                port.close()
+            except OSError:
+                pass
+        release_artifact(locks, lease_id, owner)

@@ -1,0 +1,625 @@
+"""Modeling MCP port: primary read-only model/readiness/scoped DAX interface.
+
+No new ADOMD requirement: all live-model access goes through the
+Microsoft powerbi-modeling-mcp stdio server (optional dependency —
+absent launcher blocks live paths, never offline ones). Every query
+binds its scope (model identity, roles, filters, period, source) into
+the returned context so later lanes can prove — or fail to prove —
+that two answers share a scope. Scope *equality* alone never proves
+answer preservation (GOAL 14, repair lane): answers compare by content.
+
+Readiness separates steady refresh from first-open/loading instability
+by querying twice: identical row evidence means repeatable; drift or
+empty means unpopulated. Roles inject via MCP impersonation (real);
+filters/period bind as recorded scope (compared, not injected).
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import shutil
+import subprocess
+import threading
+import time
+from dataclasses import asdict, dataclass
+from importlib import metadata as _metadata
+from typing import Any, Protocol
+
+
+class ModelingError(OSError):
+    """Live-model access failed; capture maps this to blocked uniformly."""
+
+
+@dataclass(frozen=True)
+class ModelingScope:
+    """Bound scope for a readiness probe or scoped query (all optional)."""
+
+    model: str | None = None
+    roles: tuple[str, ...] = ()
+    filters: Any = None
+    period: str | None = None
+    source_sha256: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        doc = asdict(self)
+        doc["roles"] = list(self.roles)
+        return doc
+
+
+class ModelingPort(Protocol):
+    """Injectable live-model surface; fakes implement this in tests."""
+
+    def connect(self) -> dict[str, Any]:
+        """Bind one local model; raise ModelingError when ambiguous/absent."""
+        ...  # pragma: no cover - protocol
+
+    def readiness(self, scope: ModelingScope) -> dict[str, Any]:
+        """Prove the bound scope is populated and repeatable."""
+        ...  # pragma: no cover - protocol
+
+    def query_scoped(self, dax: str, scope: ModelingScope,
+                     max_rows: int = 100) -> dict[str, Any]:
+        """Run DAX with bound scope; answers carry their context echo."""
+        ...  # pragma: no cover - protocol
+
+    def close(self) -> None:
+        """Release the server process, if any."""
+        ...  # pragma: no cover - protocol
+
+
+_request_id_lock = threading.Lock()
+
+
+def _request_id() -> str:
+    with _request_id_lock:
+        _request_id.counter += 1
+        return f"vqs-{_request_id.counter}"
+
+
+_request_id.counter = 0
+
+
+class StdioModelingClient:
+    """JSON-RPC stdio client for powerbi-modeling-mcp (lazy spawn)."""
+
+    def __init__(self, command: tuple[str, ...] | list[str] | None = None,
+                 timeout: int = 60) -> None:
+        # F05: the documented launch mode passes --start; a bare binary
+        # spawn is unsupported. An explicit command overrides wholesale.
+        self._command = (list(command) if command
+                         else ["powerbi-modeling-mcp", "--start"])
+        self._timeout = timeout
+        self._process: subprocess.Popen[str] | None = None
+        self._lock = threading.Lock()
+        self._model: str | None = None
+
+    def _ensure_process(self) -> subprocess.Popen[str]:
+        if self._process is not None and self._process.poll() is None:
+            return self._process
+        binary = self._command[0]
+        if "/" not in binary and "\\" not in binary and shutil.which(binary) is None:
+            raise ModelingError(f"modeling launcher not on PATH: {binary}")
+        try:
+            self._process = subprocess.Popen(
+                self._command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL, text=True, bufsize=1)
+        except OSError as exc:
+            raise ModelingError(f"cannot start modeling server: {exc}") from exc
+        assert self._process.stdin is not None
+        assert self._process.stdout is not None
+        self._handshake(self._process)
+        return self._process
+
+    def _handshake(self, process: subprocess.Popen[str]) -> None:
+        """MCP initialize/initialized; the tools capability is required."""
+        assert process.stdin is not None and process.stdout is not None
+        try:
+            client_version = _metadata.version(
+                "visual-quality-system")
+        except _metadata.PackageNotFoundError:
+            client_version = "0.0.0"
+        rid = _request_id()
+        hello = json.dumps({"jsonrpc": "2.0", "id": rid,
+                            "method": "initialize",
+                            "params": {
+                                "protocolVersion": "2024-11-05",
+                                "capabilities": {},
+                                "clientInfo": {
+                                    "name": "vqs",
+                                    "version": client_version}}})
+        deadline = time.monotonic() + self._timeout
+        try:
+            self._write_line(process, hello, deadline)
+        except (OSError, ValueError) as exc:
+            self._kill()
+            raise ModelingError(
+                f"modeling handshake write failed: {exc}") from exc
+        response = self._read_response(process, rid, deadline)
+        if "error" in response:
+            self._kill()
+            raise ModelingError(
+                f"modeling initialize error: {response['error']}")
+        result = response.get("result")
+        if not isinstance(result, dict):
+            self._kill()
+            raise ModelingError(
+                "modeling handshake returned no result object")
+        negotiated = result.get("protocolVersion")
+        if negotiated != "2024-11-05":
+            self._kill()
+            raise ModelingError(
+                "modeling server negotiated unsupported protocolVersion "
+                f"{negotiated!r} (this client speaks 2024-11-05)")
+        capabilities = result.get("capabilities")
+        if not isinstance(capabilities, dict):
+            self._kill()
+            raise ModelingError(
+                "modeling server returned malformed capabilities: "
+                f"{capabilities!r}")
+        if not isinstance(capabilities.get("tools"), dict):
+            self._kill()
+            raise ModelingError(
+                "modeling server lacks required tools capability: "
+                f"{capabilities!r}")
+        try:
+            process.stdin.write(json.dumps(
+                {"jsonrpc": "2.0",
+                 "method": "notifications/initialized"}) + "\n")
+            process.stdin.flush()
+        except (OSError, ValueError) as exc:
+            self._kill()
+            raise ModelingError(
+                f"modeling initialized notify failed: {exc}") from exc
+
+    def _call(self, tool: str, request: dict[str, Any]) -> Any:
+        """One tools/call round-trip; parsed result payload or ModelingError.
+
+        T14: one deadline bounds the whole round-trip including the
+        write, so a server that stops reading cannot wedge the
+        client past the pipe buffer.
+        """
+        with self._lock:
+            process = self._ensure_process()
+            assert process.stdin is not None and process.stdout is not None
+            rid = _request_id()
+            message = json.dumps({"jsonrpc": "2.0", "id": rid,
+                                  "method": "tools/call",
+                                  "params": {"name": tool,
+                                             "arguments": {"request": request}}})
+            deadline = time.monotonic() + self._timeout
+            try:
+                self._write_line(process, message, deadline)
+            except (OSError, ValueError) as exc:
+                raise ModelingError(f"modeling server write failed: {exc}") from exc
+            response = self._read_response(process, rid, deadline)
+            if "error" in response:
+                detail = response["error"]
+                raise ModelingError(f"modeling {tool} error: {detail}")
+            return self._payload(response.get("result"), tool)
+
+    def _write_line(self, process: subprocess.Popen[str], text: str,
+                    deadline: float) -> None:
+        """Write one line under the round-trip deadline (T14).
+
+        The write runs on a worker thread: when the server stops
+        reading and the pipe fills, the deadline still fires instead
+        of blocking forever. Timeout kills the transport and reaps
+        the worker.
+        """
+        assert process.stdin is not None
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            self._kill()
+            raise ModelingError("modeling server write timed out")
+        box: dict[str, Any] = {}
+        worker = threading.Thread(target=self._write_target,
+                                  args=(process.stdin, text + "\n", box),
+                                  daemon=True)
+        worker.start()
+        worker.join(remaining)
+        if worker.is_alive():
+            self._kill()
+            worker.join(5)
+            raise ModelingError("modeling server write timed out")
+        if "error" in box:
+            raise ModelingError(
+                f"modeling server write failed: {box['error']}") from None
+
+    @staticmethod
+    def _write_target(stream: Any, text: str, box: dict[str, Any]) -> None:
+        try:
+            stream.write(text)
+            stream.flush()
+        except (OSError, ValueError) as exc:
+            box["error"] = exc
+
+    def _read_response(self, process: subprocess.Popen[str],
+                       rid: str, deadline: float) -> dict[str, Any]:
+        """Read until the response bearing rid; skip interleaved frames.
+
+        S18: legal logging/progress notifications (and any other
+        id-less or foreign-id frame) preceding the matching response
+        are consumed, never mistaken for the answer. One overall
+        deadline bounds the whole wait, so an endless notification
+        stream still times out instead of hanging.
+        T13: a matching id alone proves nothing — the frame must be
+        a well-formed JSON-RPC 2.0 response (version tag, no method,
+        exactly one of result/error) or the transport fails closed.
+        """
+        while True:
+            line = self._read_line(process, deadline)
+            if not line.strip():
+                continue
+            try:
+                message = json.loads(line)
+            except ValueError:
+                self._kill()
+                raise ModelingError(
+                    "modeling server is not JSON: "
+                    f"{line[:200]}")
+            if not isinstance(message, dict):
+                self._kill()
+                raise ModelingError(
+                    "modeling server sent a malformed frame")
+            if message.get("id") != rid:
+                # Foreign or id-less frame (notification, stale
+                # response, unexpected request): consumed explicitly,
+                # never trusted as this call's answer.
+                continue
+            if (message.get("jsonrpc") != "2.0" or "method" in message
+                    or ("result" in message) == ("error" in message)):
+                self._kill()
+                raise ModelingError(
+                    "modeling server sent a malformed response frame")
+            return message
+
+    def _read_line(self, process: subprocess.Popen[str],
+                   deadline: float) -> str:
+        assert process.stdout is not None
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            self._kill()
+            raise ModelingError("modeling server timed out or closed")
+        box: dict[str, Any] = {}
+        worker = threading.Thread(target=self._read_target,
+                                  args=(process.stdout, box), daemon=True)
+        worker.start()
+        worker.join(remaining)
+        if worker.is_alive() or "error" in box:
+            self._kill()
+            raise ModelingError("modeling server timed out or closed")
+        line = box.get("line", "")
+        if not line:
+            self._kill()
+            raise ModelingError("modeling server closed the stream")
+        return line
+
+    @staticmethod
+    def _read_target(stream: Any, box: dict[str, Any]) -> None:
+        try:
+            box["line"] = stream.readline()
+        except (OSError, ValueError) as exc:
+            box["error"] = exc
+
+    def _payload(self, result: Any, tool: str) -> Any:
+        if not isinstance(result, dict):
+            raise ModelingError(f"modeling {tool} returned no result object")
+        if result.get("isError"):
+            detail = result.get("content", result)
+            raise ModelingError(
+                f"modeling {tool} tool error (isError=true): {detail!r}")
+        content = result.get("content", [])
+        if not isinstance(content, list) or not content:
+            raise ModelingError(f"modeling {tool} returned no content")
+        first = content[0] if isinstance(content[0], dict) else {}
+        text = first.get("text", "")
+        if not isinstance(text, str) or not text:
+            raise ModelingError(f"modeling {tool} returned empty content")
+        try:
+            return json.loads(text)
+        except ValueError as exc:
+            raise ModelingError(
+                f"modeling {tool} returned non-JSON content: {text[:200]}"
+            ) from exc
+
+    def _kill(self) -> None:
+        # Order matters: kill and reap first (this EOFs the pipes and
+        # releases any thread blocked in readline), close handles after.
+        # Closing a pipe with a pending blocking read hangs on Windows.
+        process, self._process = self._process, None
+        if process is None:
+            return
+        if process.poll() is None:
+            try:
+                process.kill()
+            except OSError:
+                pass
+        try:
+            process.wait(timeout=5)
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            pass
+        for stream in (process.stdin, process.stdout):
+            try:
+                if stream is not None:
+                    stream.close()
+            except (OSError, ValueError):
+                pass
+
+    def close(self) -> None:
+        with self._lock:
+            process, self._process = self._process, None
+        if process is not None:
+            try:
+                if process.stdin is not None:
+                    process.stdin.close()
+                process.wait(timeout=5)
+            except (OSError, ValueError, subprocess.TimeoutExpired):
+                try:
+                    process.kill()
+                except OSError:
+                    pass
+
+    def connect(self) -> dict[str, Any]:
+        """Bind exactly one local model; ambiguous/absent raises."""
+        payload = self._call("connection_operations",
+                             {"operation": "ListLocalInstances"})
+        if isinstance(payload, list):
+            instances = payload
+        elif isinstance(payload, dict):
+            instances = payload.get("instances", [])
+        else:
+            raise ModelingError("ListLocalInstances returned no list")
+        if not isinstance(instances, list):
+            raise ModelingError("ListLocalInstances returned no list")
+        if not instances:
+            raise ModelingError("no local Desktop model instances found")
+        if len(instances) > 1:
+            names = ", ".join(str(i.get("server", i)) for i in instances
+                              if isinstance(i, dict))
+            raise ModelingError("several local instances; disambiguate. "
+                                f"Found: {names}")
+        instance = instances[0] if isinstance(instances[0], dict) else {}
+        data_source = str(_first_key(instance, "server", "dataSource",
+                                     "instance", "name"))
+        catalog = str(_first_key(instance, "database", "initialCatalog",
+                                 "catalog", "databaseName"))
+        if not data_source or not catalog:
+            raise ModelingError(
+                "local instance lacks server/database identity")
+        connected = self._call("connection_operations",
+                               {"operation": "Connect",
+                                "dataSource": data_source,
+                                "initialCatalog": catalog})
+        if isinstance(connected, dict) and connected.get("isError"):
+            raise ModelingError(f"Connect failed: {connected}")
+        self._model = f"{data_source}/{catalog}"
+        return {"model": self._model, "server": data_source,
+                "database": catalog}
+
+    def _stats(self) -> dict[str, Any]:
+        payload = self._call("model_operations", {"operation": "GetStats"})
+        if not isinstance(payload, dict):
+            raise ModelingError("GetStats returned no object")
+        return payload
+
+    def _execute(self, dax: str, scope: ModelingScope,
+                 max_rows: int) -> dict[str, Any]:
+        request: dict[str, Any] = {"operation": "Execute", "query": dax,
+                                   "resultMode": "Inline", "maxRows": max_rows}
+        if scope.roles:
+            request["impersonation"] = {"roles": list(scope.roles)}
+        payload = self._call("dax_query_operations", request)
+        if not isinstance(payload, dict):
+            raise ModelingError("Execute returned no object")
+        return payload
+
+    @staticmethod
+    def _rows_of(payload: dict[str, Any]) -> list[Any]:
+        rows = payload.get("rows", payload.get("data", []))
+        return rows if isinstance(rows, list) else []
+
+    def _check_scope(self, scope: ModelingScope) -> None:
+        """Reject scopes the query path cannot honestly bind (F07)."""
+        if not isinstance(scope, ModelingScope):
+            raise ModelingError(
+                f"scope must be a ModelingScope, not {type(scope).__name__}")
+        roles = scope.roles
+        if (isinstance(roles, str) or not isinstance(roles, (list, tuple))
+                or any(not isinstance(role, str) or not role for role in roles)):
+            raise ModelingError(f"roles must be a list of nonempty strings: {roles!r}")
+        if scope.filters is not None and scope.filters != {}:
+            raise ModelingError(
+                f"filters are not supported by the modeling query path: {scope.filters!r}")
+        if scope.period is not None:
+            raise ModelingError(
+                f"period is not supported by the modeling query path: {scope.period!r}")
+        if scope.model is not None and scope.model != self._model:
+            raise ModelingError(
+                f"requested model {scope.model!r} differs from connected model {self._model!r}")
+
+    def readiness(self, scope: ModelingScope) -> dict[str, Any]:
+        """Prove populated + repeatable: stats plus a twice-run probe query.
+
+        When GetStats names tables, the probe COUNTROWS the first table
+        twice: equal counts above zero prove data, not just a live engine.
+        Count-only stats can never prove populated data, so they return
+        unpopulated without probing (F06); rowcount is probe rows,
+        data_rows the counted data rows or None.
+        """
+        if self._model is None:
+            self.connect()
+        self._check_scope(scope)
+        stats = self._stats()
+        count, names, shape = _table_inventory(stats)
+        base: dict[str, Any] = {"method": "modeling-mcp:repeat-query",
+                                "scope_echo": scope.as_dict(),
+                                "probe_table": names[0] if names else None,
+                                "tables_shape": shape}
+        if count <= 0:
+            return {"populated": False, **base,
+                    "detail": "model reports no tables"}
+        probe_table = names[0] if names else None
+        if probe_table is None:
+            return {"populated": False, **base,
+                    "detail": "count-only stats cannot prove populated data; named tables required",
+                    "data_rows": None}
+        quoted = probe_table.replace("'", "''")
+        probe = f"EVALUATE ROW(\"n\", COUNTROWS('{quoted}'))"
+        first = self._rows_of(self._execute(probe, scope, 10))
+        second = self._rows_of(self._execute(probe, scope, 10))
+        if first != second:
+            return {"populated": False, **base,
+                    "detail": "probe answers unstable across repeats"}
+        data_rows = _count_of(first)
+        if data_rows is None:
+            return {"populated": False, **base,
+                    "detail": f"COUNTROWS probe on '{probe_table}' "
+                              "returned no number"}
+        if data_rows <= 0:
+            return {"populated": False, **base,
+                    "detail": f"table '{probe_table}' has no rows"}
+        row_text = json.dumps(first, sort_keys=True, ensure_ascii=False,
+                              default=str)
+        echo = scope.as_dict()
+        echo["model"] = echo.get("model") or self._model
+        return {"populated": True, **base, "scope_echo": echo,
+                "rowcount": len(first), "data_rows": data_rows,
+                "query_hash": hashlib.sha256(row_text.encode("utf-8")
+                                             ).hexdigest()}
+
+    def query_scoped(self, dax: str, scope: ModelingScope,
+                     max_rows: int = 100) -> dict[str, Any]:
+        """Run DAX under bound scope; the answer echoes its full context."""
+        if not isinstance(dax, str) or not dax.strip():
+            raise ModelingError("DAX text must be a nonempty string")
+        if self._model is None:
+            self.connect()
+        self._check_scope(scope)
+        payload = self._execute(dax, scope, max_rows)
+        rows = self._rows_of(payload)
+        context = scope.as_dict()
+        context["model"] = context.get("model") or self._model
+        context["query_sha256"] = hashlib.sha256(
+            dax.encode("utf-8")).hexdigest()
+        return {"rows": rows, "rowcount": len(rows), "context": context}
+
+
+def _table_inventory(stats: dict[str, Any]) -> tuple[int, list[str], str]:
+    """(table count, table names, observed shape) across GetStats shapes."""
+    raw = stats.get("tables", stats.get("tableCount", 0))
+    shape = type(raw).__name__
+    names: list[str] = []
+    if isinstance(raw, bool):
+        count = 0
+    elif isinstance(raw, int):
+        count = max(raw, 0)
+    elif isinstance(raw, list):
+        count = len(raw)
+        for entry in raw:
+            if isinstance(entry, str) and entry:
+                names.append(entry)
+            elif (isinstance(entry, dict)
+                    and isinstance(entry.get("name"), str)
+                    and entry["name"]):
+                names.append(entry["name"])
+    elif (isinstance(raw, dict) and isinstance(raw.get("count"), int)
+            and not isinstance(raw.get("count"), bool)):
+        count = max(raw["count"], 0)
+    else:
+        count = 0
+    if not names:
+        declared = stats.get("tableNames", [])
+        if isinstance(declared, list):
+            names = [n for n in declared if isinstance(n, str) and n]
+    return count, names, shape
+
+
+def _count_of(rows: list[Any]) -> int | None:
+    """The single number of a COUNTROWS probe answer, else None."""
+    if len(rows) != 1 or not isinstance(rows[0], dict) or len(rows[0]) != 1:
+        return None
+    value = next(iter(rows[0].values()))
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return int(value)
+
+
+def _first_key(mapping: dict[str, Any], *names: str) -> Any:
+    """First present non-empty value across plausible response keys."""
+    for name in names:
+        value = mapping.get(name)
+        if value:
+            return value
+    return ""
+
+
+def scope_from_dict(data: Any) -> ModelingScope:
+    """Build a scope from untrusted input; malformed presence raises.
+
+    R21/D14: absent (None) means unconstrained, but a present field
+    with the wrong shape raises instead of silently narrowing — a
+    malformed scope must never broaden into an unscoped query.
+    """
+    if data is None:
+        return ModelingScope()
+    if not isinstance(data, dict):
+        raise TypeError(
+            f"scope must be a mapping, not {type(data).__name__}")
+    if "model" in data and data["model"] is not None \
+            and not isinstance(data["model"], str):
+        raise TypeError(
+            f"scope model must be a string, not {data['model']!r}")
+    roles: tuple[str, ...] = ()
+    if "roles" in data and data["roles"] is not None:
+        raw_roles = data["roles"]
+        if isinstance(raw_roles, str) \
+                or not isinstance(raw_roles, (list, tuple)):
+            raise TypeError(
+                "scope roles must be a list of nonempty strings, "
+                f"not {raw_roles!r}")
+        for role in raw_roles:
+            if not isinstance(role, str) or not role:
+                raise ValueError(
+                    "scope roles must be a list of nonempty strings, "
+                    f"not {raw_roles!r}")
+        roles = tuple(raw_roles)
+    if "filters" in data and data["filters"] is not None \
+            and not isinstance(data["filters"], dict):
+        raise TypeError(
+            f"scope filters must be a mapping, not {data['filters']!r}")
+    if "period" in data and data["period"] is not None \
+            and not isinstance(data["period"], str):
+        raise TypeError(
+            f"scope period must be a string, not {data['period']!r}")
+    if "source_sha256" in data and data["source_sha256"] is not None \
+            and not isinstance(data["source_sha256"], str):
+        raise TypeError(
+            "scope source_sha256 must be a string, "
+            f"not {data['source_sha256']!r}")
+    return ModelingScope(
+        model=data.get("model"),
+        roles=roles,
+        filters=data.get("filters"),
+        period=data.get("period"),
+        source_sha256=data.get("source_sha256"))
+
+
+def compare_scope(expected: ModelingScope,
+                  actual: dict[str, Any]) -> list[str]:
+    """Names of bound scope fields that differ (model/roles/filters/period).
+
+    source_sha256 is deliberately NOT compared here: source binding is
+    enforced by capture's pre/post source_digest equality check, while
+    this compares live-model scope only.
+    """
+    mismatches = []
+    if expected.model is not None and actual.get("model") != expected.model:
+        mismatches.append("model")
+    if expected.roles and list(expected.roles) != list(
+            actual.get("roles", []) or []):
+        mismatches.append("roles")
+    if expected.filters is not None and actual.get("filters") != expected.filters:
+        mismatches.append("filters")
+    if expected.period is not None and actual.get("period") != expected.period:
+        mismatches.append("period")
+    return mismatches

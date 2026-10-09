@@ -25,6 +25,20 @@ def test_contrast_is_measured_not_inferred() -> None:
     assert text_contrast("#777777", "#FFFFFF", large_text=True)["status"] == "pass"
 
 
+def test_f14_unresolvable_pairs_are_explicit() -> None:
+    finding = text_contrast(readings=[
+        {"foreground": "#000000", "background": "#FFFFFF",
+         "page": "P1", "role": "title", "count": 1},
+        {"foreground": "RED", "background": "#FFFFFF",
+         "page": "P1", "role": "title", "count": 1}])
+    assert finding["status"] == "unknown"
+    unresolved = finding["evidence"]["unresolved"]
+    assert len(unresolved) == 1
+    assert unresolved[0]["page"] == "P1"
+    assert unresolved[0]["role"] == "title"
+    assert "RED" in unresolved[0].get("foreground", "")
+
+
 def test_label_density_uses_actual_dimensions() -> None:
     assert category_axis_space([70, 70, 70], 300)["status"] == "pass"
     assert category_axis_space([70, 70, 70], 150)["status"] == "fail"
@@ -60,14 +74,22 @@ def test_changed_units_fail_and_stable_units_pass() -> None:
         {"measure": "Revenue", "unit": "USD", "page": "B"},
     ])["status"] == "pass"
     assert cross_page_metric_units(None)["status"] == "unknown"
-def test_mixed_or_divergent_declarations_fail() -> None:
+
+
+def test_mixed_without_proof_is_unknown_not_fail() -> None:
+    """U7: mixed explicit/inherited with unknown effective needs render evidence."""
     mixed = [
         {"cohort": "slicer/header.textSize", "visual": "a", "page": "P1", "value": None},
         {"cohort": "slicer/header.textSize", "visual": "b", "page": "P2", "value": 11},
     ]
-    failed = format_declaration_consistency(mixed)
-    assert failed["status"] == "fail"
-    assert failed["evidence"]["conflicts"][0]["kind"] == "mixed_declaration"
+    result = format_declaration_consistency(mixed)
+    assert result["status"] == "unknown"
+    assert "needs_render_evidence" in result["evidence"]["reason"]
+    assert result["evidence"]["pending"][0]["kind"] == "mixed_declaration"
+    assert result["evidence"]["conflicts"] == []
+
+
+def test_divergent_declarations_fail() -> None:
     divergent = [
         {"cohort": "card/label.fontSize", "visual": "a", "page": "P1", "value": 10},
         {"cohort": "card/label.fontSize", "visual": "b", "page": "P1", "value": 12},

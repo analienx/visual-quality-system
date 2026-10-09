@@ -1,0 +1,25 @@
+name: R6 oracle evidence
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  oracles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install ".[test]"
+      - run: python -m pytest tests/test_r6_e01_bindings.py -q
+      - run: python -m pytest tests/test_r6_e02_capability.py -q
+      - run: python -m pytest tests/test_r6_e03_suite.py -q
+      - run: python -m pytest tests/test_r6_e04_reviewer.py -q
+      - run: python -m pytest tests/test_r6_e05_transport.py -q
+      - run: python -m pytest tests/test_r6_e06_binding.py -q
+      - run: python -m pytest tests/test_r6_e07_authoring.py -q
+      - run: python -m pytest tests/test_r6_e08_journey.py -q
