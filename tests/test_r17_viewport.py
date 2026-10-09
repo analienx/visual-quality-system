@@ -103,15 +103,16 @@ def test_capture_records_bridge_viewport(tmp_path: Path,
     assert manifest["calibration"].get("viewport") == VIEWPORT
 
 
-def test_capture_without_viewport_blocks_downstream(
+def test_capture_without_viewport_binds_identity_downstream(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Control: viewport-absent producer output blocks honestly."""
+    """Control: viewport-absent output binds identity, blocks geometry."""
     manifest, renders = _run_capture(tmp_path, monkeypatch, None)
     assert "viewport" not in manifest["calibration"]
+    assert manifest["calibration"]["geometry_calibration"] == "blocked"
     _, issues = image_evidence(renders, manifest["source_sha256"],
                                ["P1"], {"P1": (1280, 720)})
-    assert any(row.get("rule") == "calibration_invalid"
-               for row in issues)
+    assert not [row for row in issues
+                if row.get("rule").startswith("calibration")]
 
 
 def test_screenshot_map_preserves_viewport() -> None:

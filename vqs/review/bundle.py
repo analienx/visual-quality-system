@@ -241,9 +241,19 @@ def verify(bundle: str, report: str | None = None) -> dict:
                 problems.append(f"unreadable render dimensions: {name}")
                 continue
             render_pixels[page_id] = list(pixels)
-            expected = calibration_expected_pixels(calibration)
-            if expected is None or list(pixels) != expected:
-                problems.append(f"render pixels differ from scaled source canvas: {page_id}")
+            if (isinstance(calibration, dict)
+                    and calibration.get("geometry_calibration")
+                    == "blocked"):
+                # Render identity without a proven pixel transform:
+                # observed pixels are recorded as identity evidence;
+                # no equality against a transform is claimed.
+                pass
+            else:
+                expected = calibration_expected_pixels(calibration)
+                if expected is None or list(pixels) != expected:
+                    problems.append(
+                        f"render pixels differ from scaled source "
+                        f"canvas: {page_id}")
     if report is not None:
         try:
             live = source_digest(Path(report))

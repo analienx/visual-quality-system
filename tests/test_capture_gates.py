@@ -244,8 +244,11 @@ def test_blank_partial_corrupt_and_tiny_block(
     with pytest.raises(OSError, match="Blank capture"):
         capture_mod.capture(str(report), str(tmp_path / "r1"))
     _stub(monkeypatch, report, actions={"p1": "wrong-size"})
-    with pytest.raises(OSError, match=r"Canvas size mismatch.*2560x1440.*500x500"):
-        capture_mod.capture(str(report), str(tmp_path / "r2"))
+    manifest = capture_mod.capture(str(report), str(tmp_path / "r2"))
+    calibration = manifest["calibration"]
+    assert calibration["method"] == "bridge-page-identity"
+    assert calibration["geometry_calibration"] == "blocked"
+    assert calibration["png_pixels"] == "500x500"
     _stub(monkeypatch, report, actions={"p1": "corrupt"})
     with pytest.raises(OSError, match="Corrupt capture"):
         capture_mod.capture(str(report), str(tmp_path / "r3"))
@@ -384,12 +387,18 @@ def test_multipage_success_manifest_shape(
     assert manifest["desktop"]["pid"] == 111
     assert manifest["desktop"]["scale"] == 2
     assert manifest["desktop"]["bridge_version"] == [1, 0, 0]
+    assert manifest["desktop"]["save_state"] == {
+        "reported_unsaved": False, "policy": "user-clean-required"}
     assert manifest["state"] == "default"
     assert manifest["interactions_applied"] == []
-    assert manifest["calibration"] == {
-        "canvas_width": 1280, "canvas_height": 720, "scale": 2,
-        "png_pixels": "2560x1440",
-        "method": "pbir-canvas-png-size-crosscheck"}
+    assert manifest["calibration"]["canvas_width"] == 1280
+    assert manifest["calibration"]["canvas_height"] == 720
+    assert manifest["calibration"]["scale"] == 2
+    assert manifest["calibration"]["png_pixels"] == "2560x1440"
+    assert manifest["calibration"]["method"] == "bridge-page-identity"
+    assert manifest["calibration"]["geometry_calibration"] == "blocked"
+    assert manifest["calibration"]["geometry_reason"].startswith(
+        "no-bridge-viewport")
     assert manifest["data_readiness"] == {
         "populated": True, "method": "modeling-mcp:repeat-query",
         "scope": {"model": "fake/model"}, "rowcount": 5, "query_hash": "h",

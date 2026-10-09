@@ -92,7 +92,11 @@ TOOL_SPECS: tuple[dict[str, Any], ...] = (
          "required": ["run_root", "run_id"],
          "additionalProperties": False}},
     {"name": "vqs_promote", "tool": "vqs.promote",
-     "description": "Promote a verified candidate onto the original with owner approval.",
+     "description": ("Promote a verified candidate onto the original with an owner "
+                     "consent string (recorded consent, not identity proof). The scope "
+                     "gates the evidence: static is static-only; desktop needs bound "
+                     "runtime verification plus a passing recheck; release stays "
+                     "blocked without trusted reviewer authority."),
      "inputSchema": {
          "type": "object",
          "properties": {
@@ -102,7 +106,9 @@ TOOL_SPECS: tuple[dict[str, Any], ...] = (
              "runtime_run_id": {"type": ["string", "null"]},
              "backup_dir": {"type": ["string", "null"]},
              "desktop_recheck": {"type": "boolean"},
-             "promote_run_id": {"type": ["string", "null"]}},
+             "promote_run_id": {"type": ["string", "null"]},
+             "scope": {"type": ["string", "null"],
+                       "enum": ["static", "desktop", "release"]}},
          "required": ["run_root", "run_id", "owner_approval"],
          "additionalProperties": False}},
     {"name": "vqs_run", "tool": "vqs.run",

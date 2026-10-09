@@ -5,8 +5,12 @@ PNG bytes (stdlib struct+zlib; the only faked layer is the Bridge
 transport, per R17 precedent) and cross-checked against Bridge
 viewport evidence through production capture(), check_calibration(),
 and image_evidence(). Genuine full-canvas captures keep passing;
-host-DPI dimensions pass only with Bridge proof; everything unproven
-blocks with a precise calibration reason.
+host-DPI dimensions pass only with Bridge proof. The actual Bridge
+1.0.0 contract exposes no viewport/DPR metadata, so viewport-less
+captures record render identity (exact PID/path/page/source PNG,
+enough for whole-page perceptual review) with geometry calibration
+honestly blocked — never a refused capture, never an invented
+transform.
 """
 import hashlib
 import json
@@ -149,16 +153,22 @@ def test_measured_integer_capture_passes_with_bridge_proof(
     assert _calibration_issues(manifest, renders, {"P1": (320, 240)}) == []
 
 
-def test_strict_fallback_shape_unchanged_without_viewport(
+def test_identity_record_without_viewport(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Older Bridge contract: exact capture keeps the legacy record verbatim."""
+    """No Bridge viewport: render identity binds, geometry stays blocked."""
     pages = {"P1": (320, 240)}
-    manifest, _ = _run_capture(
+    manifest, renders = _run_capture(
         tmp_path, monkeypatch, pages, {"P1": (_png_split(640, 480), None)})
-    assert manifest["calibration"] == {
-        "canvas_width": 320, "canvas_height": 240, "scale": 2,
-        "png_pixels": "640x480",
-        "method": "pbir-canvas-png-size-crosscheck"}
+    calibration = manifest["calibration"]
+    assert calibration["method"] == "bridge-page-identity"
+    assert calibration["geometry_calibration"] == "blocked"
+    assert calibration["geometry_reason"].startswith("no-bridge-viewport")
+    assert calibration["png_pixels"] == "640x480"
+    assert manifest["files"] == {
+        "P1.png": hashlib.sha256(_png_split(640, 480)).hexdigest()}
+    assert manifest["page_images"] == {"P1": "P1.png"}
+    assert check_calibration(calibration, [640, 480]) == []
+    assert _calibration_issues(manifest, renders, {"P1": (320, 240)}) == []
 
 
 def test_viewport_device_pixels_mismatch_blocks(
@@ -237,19 +247,63 @@ def test_mixed_viewport_presence_and_shape_block(
                                lease_dir=str(tmp_path / "leases"))
 
 
-def test_unproven_host_dpi_upscale_blocks_precisely(
+def test_unproven_host_dpi_upscale_binds_identity_not_geometry(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Host-DPI dimensions without any Bridge proof: exact strict reason."""
-    report = _report(tmp_path, {"P1": (320, 240)})
-    monkeypatch.setattr(
-        capture_module, "_bridge",
-        _fake_bridge(report, {"P1": (_png_split(800, 600), None)}))
-    with pytest.raises(
-            OSError,
-            match=r"Canvas size mismatch.*640x480.*800x600"):
-        capture_module.capture(str(report), str(tmp_path / "renders"),
-                               pid=4242, scale=2, wait_seconds=5,
-                               lease_dir=str(tmp_path / "leases"))
+    """Host-DPI dimensions without Bridge proof: identity binds, no transform."""
+    pages = {"P1": (320, 240)}
+    manifest, renders = _run_capture(
+        tmp_path, monkeypatch, pages, {"P1": (_png_split(800, 600), None)})
+    calibration = manifest["calibration"]
+    assert calibration["geometry_calibration"] == "blocked"
+    assert calibration["png_pixels"] == "800x600"
+    assert manifest["page_images"] == {"P1": "P1.png"}
+    assert check_calibration(calibration, [800, 600]) == []
+    assert _calibration_issues(manifest, renders, {"P1": (320, 240)}) == []
+
+
+def test_real_like_contoso_identity_without_viewport(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Real-like 1280x720 -> 3915x2394 with no viewport: identity, blocked geometry.
+
+    Mirrors the actual Bridge 1.0.0 host (screenshot JSON carries no
+    viewport/DPR; the PNG decodes 3915x2394 against a 1280x720 canvas).
+    The capture must succeed as page render identity bound by exact
+    PID/path/page/source — geometry stays blocked, nothing is
+    special-cased, and no coordinate transform is inferred.
+    """
+    from vqs.evidence import calibration_expected_pixels
+    from vqs.pbir import source_digest
+    from vqs.review.bundle import pack, verify
+
+    png = _png_split(3915, 2394)
+    probe = tmp_path / "probe.png"
+    probe.write_bytes(png)
+    assert png_size(probe) == (3915, 2394)
+    pages = {"P1": (1280, 720)}
+    manifest, renders = _run_capture(
+        tmp_path, monkeypatch, pages, {"P1": (png, None)})
+    calibration = manifest["calibration"]
+    assert calibration["method"] == "bridge-page-identity"
+    assert calibration["geometry_calibration"] == "blocked"
+    assert calibration["png_pixels"] == "3915x2394"
+    assert manifest["files"]["P1.png"] == hashlib.sha256(png).hexdigest()
+    # Coordinate-dependent evidence stays unproven: no pixel expectation
+    # exists, so nothing equates these pixels to canvas coordinates.
+    assert calibration_expected_pixels(calibration) is None
+    assert _calibration_issues(manifest, renders, {"P1": (1280, 720)}) == []
+    manifest["data_readiness"] = {"populated": True,
+                                  "method": "u3-test-double"}
+    (renders / "capture-manifest.json").write_text(
+        json.dumps(manifest), encoding="utf-8")
+    report = tmp_path / "U3.Report"
+    pack(str(report), str(renders), str(tmp_path / "b3915"), "fixer-1")
+    authority = verify(str(tmp_path / "b3915"), str(report))
+    assert authority["status"] == "valid"
+    assert authority["renders"]["P1"]["pixels"] == [3915, 2394]
+    assert authority["renders"]["P1"]["sha256"] == hashlib.sha256(
+        png).hexdigest()
+    assert authority["calibration"]["geometry_calibration"] == "blocked"
+    assert source_digest(report) == manifest["source_sha256"]
 
 
 def test_real_like_contoso_dimensions_refused_precisely(

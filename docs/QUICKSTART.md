@@ -91,16 +91,26 @@ vqs verify --run-root runs --run-id rep-1
 vqs verify --original path/to/Example.Report --candidate cand-1 --edits runs/rep-1/repairs.json
 ```
 
-`verify-runtime` binds a Desktop PID to the sealed candidate (never the
-original), reloads it, captures it, and seals the runtime evidence
-separately. `promote` then requires explicit `--owner-approval`,
-recomputed digests, a preserved backup, and seals the promotion
-separately; without approval, with drift, or with unresolved runtime
-regressions it refuses and touches nothing.
+`verify-runtime` binds a Desktop instance to the sealed candidate
+(never the original): pass `--pid` for a user-owned instance, or omit
+it and VQS opens the disposable candidate itself through the Bridge
+`open` contract and binds the freshly observed PID. Either way it
+reloads, captures, and seals the runtime evidence separately.
+`promote` then requires an explicit `--owner-approval` consent string
+(recorded consent, not identity proof), recomputed digests, a
+preserved backup, and seals the promotion separately; without
+approval, with drift, or with unresolved runtime regressions it
+refuses and touches nothing. `--scope` gates the evidence: `static`
+(default) promotes on static verification only and says so;
+`desktop` needs the bound runtime verification plus a passing
+post-promotion recheck; `release` stays blocked without a trusted
+reviewer authority.
 
 ```console
 vqs verify-runtime --run-root runs --run-id rep-1 --pid 4242
+vqs verify-runtime --run-root runs --run-id rep-1
 vqs promote --run-root runs --run-id rep-1 --owner-approval "owner: accept static repair" --runtime-run-id rt-1
+vqs promote --run-root runs --run-id rep-1 --owner-approval "owner: accept desktop repair" --runtime-run-id rt-1 --scope desktop
 ```
 
 Minimal plan shape (adapt selectors/values to the real visual; the new

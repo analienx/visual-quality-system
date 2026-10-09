@@ -396,7 +396,8 @@ def _promote(args) -> int:
         backup_dir=(str(args.backup_dir)
                     if args.backup_dir is not None else None),
         desktop_recheck=not args.no_desktop_recheck,
-        promote_run_id=args.promote_run_id))
+        promote_run_id=args.promote_run_id,
+        scope=args.scope))
 
 
 def _run_status(run_root: Path, run_id: str) -> int:
@@ -630,8 +631,18 @@ def main(argv: list[str] | None = None) -> int:
     promote_cmd.add_argument("--run-id", required=True,
                              help="Sealed completed vqs.repair run id")
     promote_cmd.add_argument("--owner-approval", required=True,
-                             help="Owner identity and reason; promotion never "
+                             help="Owner consent string (identity and "
+                                  "reason); recorded as consent, not "
+                                  "identity proof; promotion never "
                                   "overwrites silently")
+    promote_cmd.add_argument("--scope", default="static",
+                             choices=("static", "desktop", "release"),
+                             help="Promotion evidence scope: static "
+                                  "promotes on static verification only; "
+                                  "desktop needs bound runtime verification "
+                                  "plus a passing recheck; release stays "
+                                  "blocked without trusted reviewer "
+                                  "authority")
     promote_cmd.add_argument("--runtime-run-id", default=None,
                              help="Sealed completed vqs.verify-runtime run to bind")
     promote_cmd.add_argument("--backup-dir", type=Path, default=None,

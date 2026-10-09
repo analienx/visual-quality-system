@@ -109,10 +109,19 @@ def _png(width: int, height: int) -> bytes:
 
 
 class _FakePort:
-    """Recording Bridge port; serves scripted instances, optional reload refusal."""
+    """Recording Bridge port; serves scripted instances, optional reload refusal.
+
+    With ``openable=True`` the port additionally implements the 1.0.0
+    ``open`` contract: pre-open status serves only the foreign
+    instance, and each open call materializes a fresh candidate
+    instance with a new PID (fresh builds lie about hasUnsavedChanges
+    here, which the run-owned policy tolerates while recording it).
+    """
 
     def __init__(self, candidate: Path, current_file: Path | None = None,
-                 fail_reload: bool = False, fail_status: bool = False) -> None:
+                 fail_reload: bool = False, fail_status: bool = False,
+                 openable: bool = False, fresh_pid: int = 4300,
+                 unsaved: bool = False, collide: bool = False) -> None:
         self.candidate = os.path.realpath(candidate)
         if current_file is None:
             self.current_file = self.candidate
@@ -120,17 +129,48 @@ class _FakePort:
             self.current_file = os.path.realpath(current_file)
         self.fail_reload = fail_reload
         self.fail_status = fail_status
+        self.openable = openable
+        self.fresh_pid = fresh_pid
+        self.unsaved = unsaved
+        self.collide = collide
         self.status_calls = 0
         self.reloaded: list[int] = []
+        self.opened: list[str] = []
+        self.foreign = os.path.realpath(
+            Path(candidate).parent / "foreign.Report")
 
     def status(self) -> dict:
         self.status_calls += 1
         if self.fail_status:
             raise OSError("Bridge down")
+        if self.openable and not self.opened:
+            return {"instances": [{
+                "pid": self.fresh_pid if self.collide else 1111,
+                "currentFilePath": str(self.foreign),
+                "reportDir": str(self.foreign),
+                "hasUnsavedChanges": False,
+                "desktopVersion": "2.0-test"}]}
+        if self.openable:
+            return {"instances": [
+                {"pid": 1111, "currentFilePath": str(self.foreign),
+                 "reportDir": str(self.foreign),
+                 "hasUnsavedChanges": False,
+                 "desktopVersion": "2.0-test"},
+                {"pid": self.fresh_pid,
+                 "currentFilePath": str(self.current_file),
+                 "reportDir": str(self.candidate),
+                 "hasUnsavedChanges": True,
+                 "desktopVersion": "2.0-test"}]}
         return {"instances": [{
             "pid": PID, "currentFilePath": str(self.current_file),
-            "reportDir": str(self.candidate), "hasUnsavedChanges": False,
+            "reportDir": str(self.candidate),
+            "hasUnsavedChanges": self.unsaved,
             "desktopVersion": "2.0-test"}]}
+
+    def open(self, report: str, timeout: int = 60) -> None:
+        if not self.openable:
+            raise OSError("open unsupported by this port")
+        self.opened.append(report)
 
     def reload(self, pid: int) -> None:
         self.reloaded.append(pid)
@@ -140,7 +180,8 @@ class _FakePort:
 
 def _fake_capture(monkeypatch: pytest.MonkeyPatch, candidate: Path,
                   png: bytes | None = None,
-                  viewport: str | None = "2560x1440@2x") -> None:
+                  viewport: str | None = "2560x1440@2x",
+                  unsaved: bool = False, pid: int = PID) -> None:
     """Bridge transport double for capture.capture (version/status/shots)."""
     shot = png if png is not None else _png(2560, 1440)
     held = os.path.realpath(candidate)
@@ -150,8 +191,8 @@ def _fake_capture(monkeypatch: pytest.MonkeyPatch, candidate: Path,
             return 0, "powerbi-desktop 1.0.0"
         if args == ["status"]:
             return 0, json.dumps({"instances": [{
-                "pid": PID, "currentFilePath": held,
-                "reportDir": held, "hasUnsavedChanges": False,
+                "pid": pid, "currentFilePath": held,
+                "reportDir": held, "hasUnsavedChanges": unsaved,
                 "desktopVersion": "2.0-test"}]})
         assert args[0] == "screenshot-all"
         outdir = Path(args[args.index("--output-dir") + 1])
@@ -265,9 +306,14 @@ def test_runtime_reload_refusal_blocks_and_seals(
 
 def test_runtime_capture_failure_blocks_without_fail(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """An unverifiable capture (wrong-size PNG) blocks, never fails."""
+    """An unverifiable capture (corrupt PNG bytes) blocks, never fails.
+
+    (A merely unproven size now binds render identity with blocked
+    geometry instead of refusing; corruption still has no evidence.)
+    """
     _envelope, _report, cand = _sealed_repair(tmp_path, "proj", "rep1")
-    _fake_capture(monkeypatch, cand, png=_png(500, 500), viewport=None)
+    _fake_capture(monkeypatch, cand, png=b"definitely-not-png-bytes",
+                  viewport=None)
     port = _FakePort(cand)
     result = verify_runtime(run_root=str(tmp_path / "runs"), run_id="rep1",
                             pid=PID, bridge=port,
@@ -520,6 +566,116 @@ def test_promote_desktop_recheck_pass_records_pid(tmp_path: Path) -> None:
                                                 "pid": PID}
 
 
+def test_promote_scope_validation(tmp_path: Path) -> None:
+    """Unknown promotion scopes block before touching seals or trees."""
+    _sealed_repair(tmp_path, "proj", "rep1")
+    result = promote_candidate(run_root=str(tmp_path / "runs"),
+                               run_id="rep1",
+                               owner_approval="owner: bad scope",
+                               scope="planetary")
+    assert result["verdict"] == "blocked"
+    assert "scope must be one of" in result["blocked_reasons"][0]
+
+
+def test_promote_desktop_scope_needs_bound_runtime(tmp_path: Path) -> None:
+    """Desktop scope without a bound runtime verification blocks pre-swap."""
+    _envelope, report, _cand = _sealed_repair(tmp_path, "proj", "rep1")
+    before = tree_digest(str(report))
+    result = promote_candidate(run_root=str(tmp_path / "runs"),
+                               run_id="rep1",
+                               owner_approval="owner: desktop, no runtime",
+                               scope="desktop",
+                               promote_run_id="promdesknort")
+    assert result["verdict"] == "blocked"
+    assert "needs a completed sealed runtime verification" in (
+        result["blocked_reasons"][0])
+    assert tree_digest(str(report)) == before
+
+
+def test_promote_desktop_scope_needs_recheck(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Desktop scope with runtime but no recheck blocks before the swap."""
+    _envelope, report, cand, _rt = _passing_runtime(monkeypatch, tmp_path)
+    before = tree_digest(str(report))
+    result = promote_candidate(run_root=str(tmp_path / "runs"),
+                               run_id="rep1",
+                               owner_approval="owner: desktop, no recheck",
+                               runtime_run_id="rt1",
+                               desktop_recheck=False,
+                               scope="desktop",
+                               promote_run_id="promdesknorec")
+    assert result["verdict"] == "blocked"
+    assert "needs the post-promotion Desktop" in (
+        result["blocked_reasons"][0])
+    assert tree_digest(str(report)) == before
+    assert tree_digest(str(cand)) != before
+
+
+def test_promote_desktop_scope_passes_with_runtime_and_recheck(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Desktop scope seals pass only with runtime + passing recheck."""
+    _envelope, report, cand, _rt = _passing_runtime(monkeypatch, tmp_path)
+    candidate_digest = tree_digest(str(cand))
+    result = promote_candidate(run_root=str(tmp_path / "runs"),
+                               run_id="rep1",
+                               owner_approval="owner: desktop full",
+                               runtime_run_id="rt1",
+                               bridge=_RecheckPort(report),
+                               scope="desktop",
+                               promote_run_id="promdesk")
+    assert result["verdict"] == "pass", result
+    assert tree_digest(str(report)) == candidate_digest
+    promotion_doc = json.loads(
+        (tmp_path / "runs" / "promdesk" / "promotion.json").read_text(
+            encoding="utf-8"))
+    assert promotion_doc["scope"] == "desktop"
+    assert promotion_doc["runtime"]["status"] == "pass"
+    assert promotion_doc["desktop_recheck"] == {"status": "pass",
+                                                "pid": PID}
+
+
+def test_promote_desktop_scope_skipped_recheck_fails(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A skipped recheck at desktop scope fails; static would pass."""
+    _envelope, report, cand, _rt = _passing_runtime(monkeypatch, tmp_path)
+    candidate_digest = tree_digest(str(cand))
+    result = promote_candidate(run_root=str(tmp_path / "runs"),
+                               run_id="rep1",
+                               owner_approval="owner: desktop, no holder",
+                               runtime_run_id="rt1",
+                               bridge=_FakePort(cand),
+                               scope="desktop",
+                               promote_run_id="promdeskskip")
+    assert result["verdict"] == "fail", result
+    assert tree_digest(str(report)) == candidate_digest
+    promotion_doc = json.loads(
+        (tmp_path / "runs" / "promdeskskip" / "promotion.json").read_text(
+            encoding="utf-8"))
+    assert promotion_doc["desktop_recheck"]["status"] == "skipped"
+
+
+def test_promote_release_scope_stays_blocked(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Release scope blocks without trusted reviewer authority.
+
+    Even a runtime-verified candidate with a live Desktop cannot
+    promote for release: no trusted release reviewer mechanism is
+    registered, and clean runtime evidence is not release authority.
+    """
+    _envelope, report, _cand, _rt = _passing_runtime(monkeypatch, tmp_path)
+    before = tree_digest(str(report))
+    result = promote_candidate(run_root=str(tmp_path / "runs"),
+                               run_id="rep1",
+                               owner_approval="owner: release attempt",
+                               runtime_run_id="rt1",
+                               bridge=_RecheckPort(report),
+                               scope="release",
+                               promote_run_id="promrel")
+    assert result["verdict"] == "blocked"
+    assert "reviewer authority" in result["blocked_reasons"][0]
+    assert tree_digest(str(report)) == before
+
+
 def test_promote_recheck_failure_fails_with_rollback(
         tmp_path: Path) -> None:
     """Failed recheck seals failed; rollback restores the precondition."""
@@ -638,6 +794,89 @@ def test_runtime_status_failure_blocks(
     assert result["verdict"] == "blocked"
     assert "candidate binding failed" in result["blocked_reasons"][0]
     assert port.reloaded == []
+
+
+def test_runtime_open_first_binds_fresh_owned_instance(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """No PID + open-capable port: VQS opens the wrapper, binds fresh PID.
+
+    The port opens the generated wrapper (never the original), the new
+    instance binds by exact candidate path, and the run records
+    ownership — the fresh instance's lying unsaved flag is recorded in
+    the manifest, not treated as user edits.
+    """
+    _envelope, report, cand = _sealed_repair(tmp_path, "proj", "rep1")
+    before = tree_digest(str(report))
+    _fake_capture(monkeypatch, cand, unsaved=True, pid=4300)
+    port = _FakePort(cand, openable=True)
+    result = verify_runtime(run_root=str(tmp_path / "runs"), run_id="rep1",
+                            pid=None, bridge=port,
+                            runtime_run_id="rtopen")
+    assert result["verdict"] == "pass", result
+    wrapper = tmp_path / "proj" / "cand-rep1.pbip"
+    assert wrapper.is_file()
+    assert port.opened == [os.path.realpath(wrapper)]
+    assert port.reloaded == [4300]
+    runtime = json.loads((tmp_path / "runs" / "rtopen" / "runtime.json")
+                         .read_text(encoding="utf-8"))
+    assert runtime["pid"] == 4300
+    assert runtime["owned_by_run"] is True
+    manifest = json.loads((tmp_path / "runs" / "rtopen" / "renders"
+                           / "capture-manifest.json").read_text(
+                               encoding="utf-8"))
+    assert manifest["desktop"]["save_state"] == {
+        "reported_unsaved": True, "policy": "run-owned-candidate"}
+    assert tree_digest(str(report)) == before
+
+
+def test_runtime_open_without_capability_names_the_gap(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """No PID + port that cannot open: the exact missing piece, no run."""
+    _sealed_repair(tmp_path, "proj", "rep1")
+
+    class _NoOpenPort(_FakePort):
+        def __getattribute__(self, name: str):
+            if name == "open":
+                raise AttributeError("no open contract")
+            return super().__getattribute__(name)
+
+    port = _NoOpenPort(tmp_path / "proj" / "cand-rep1")
+    result = verify_runtime(run_root=str(tmp_path / "runs"), run_id="rep1",
+                            pid=None, bridge=port,
+                            runtime_run_id="rtnoop")
+    assert result["verdict"] == "blocked"
+    assert "cannot open the disposable candidate" in (
+        result["blocked_reasons"][0])
+    assert sorted(p.name for p in (tmp_path / "runs").iterdir()) == [
+        "rep1", "rtnoop"]
+
+
+def test_runtime_open_refuses_preexisting_instance(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An open that binds a pre-existing PID proves no ownership: refuse."""
+    _sealed_repair(tmp_path, "proj", "rep1")
+    _fake_capture(monkeypatch, tmp_path / "proj" / "cand-rep1")
+    port = _FakePort(tmp_path / "proj" / "cand-rep1", openable=True,
+                     collide=True)
+    result = verify_runtime(run_root=str(tmp_path / "runs"), run_id="rep1",
+                            pid=None, bridge=port,
+                            runtime_run_id="rtpre")
+    assert result["verdict"] == "blocked"
+    assert "instead of a freshly opened candidate" in (
+        result["blocked_reasons"][0])
+
+
+def test_runtime_user_owned_unsaved_still_refuses(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A user-owned instance with unsaved changes keeps the absolute refusal."""
+    _sealed_repair(tmp_path, "proj", "rep1")
+    _fake_capture(monkeypatch, tmp_path / "proj" / "cand-rep1")
+    port = _FakePort(tmp_path / "proj" / "cand-rep1", unsaved=True)
+    result = verify_runtime(run_root=str(tmp_path / "runs"), run_id="rep1",
+                            pid=PID, bridge=port,
+                            runtime_run_id="rtunsaved")
+    assert result["verdict"] == "blocked"
+    assert "unsaved changes" in result["blocked_reasons"][0]
 
 
 def test_argument_validation_tables(tmp_path: Path) -> None:

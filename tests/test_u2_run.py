@@ -74,15 +74,37 @@ def test_review_mode_facts_only_static(tmp_path: Path) -> None:
         review_finding["evidence_basis"].get("reason"))
 
 
+def test_release_scope_reviewer_authority_stays_blocked(
+        tmp_path: Path) -> None:
+    """Release scope never accepts on local observations alone.
+
+    Release acceptance requires a trusted reviewer authority that
+    does not exist yet, so the summary records reviewer_authority
+    blocked and acceptance stays False whatever the local verdict.
+    """
+    envelope = run_workflow(facts=_overlap_facts(), mode="review",
+                            scope="release", run_root=str(tmp_path),
+                            run_id="u2-release")
+    authority = envelope["summary"]["reviewer_authority"]
+    assert authority["status"] == "blocked"
+    assert authority["authority"] == "none"
+    assert "no trusted release reviewer" in authority["reason"]
+    assert envelope["summary"]["acceptance"] is False
+
+
 def test_propose_mode_synthesizes_plan(tmp_path: Path) -> None:
-    """Propose mode stops after the safe proposal with a plan."""
+    """Propose mode stops after the safe proposal with a plan.
+
+    Generating fixes is workflow success, not report acceptance: the
+    still-failing report reports proposal_ready instead of accepted.
+    """
     envelope = run_workflow(facts=_overlap_facts(), mode="propose",
                             scope="static", run_root=str(tmp_path),
                             run_id="u2-propose")
     assert envelope["verdict"] == "pass"
     stages = _stages(envelope)
     assert stages["propose"]["status"] == "pass"
-    assert envelope["summary"]["outcome"] == "accepted"
+    assert envelope["summary"]["outcome"] == "proposal_ready"
     plan = envelope["plan"]
     assert plan is not None
     assert validate_plan(plan, "orig", "cand") == []

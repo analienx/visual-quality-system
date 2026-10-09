@@ -107,6 +107,17 @@ class ReviewIdentity:
     role: str = "independent_visual_reviewer"
 
 
+def normalize_identity(value: object) -> str:
+    """Canonical identity for comparison: stripped and case-folded.
+
+    Quoted " Alice " and "alice" name the same human, so exact-string
+    inequality is a minimum sanity check, never proof of independence.
+    Sealed records keep the verbatim claimed id; every gate compares
+    the normalized form.
+    """
+    return value.strip().casefold() if isinstance(value, str) else ""
+
+
 @dataclass(frozen=True)
 class RunManifest:
     """Top-level run record binding artifact, findings, oracles, and identities."""

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import uuid
 from pathlib import Path
@@ -466,15 +467,23 @@ def run_workflow(*, report_dir: str | None = None,
 
 
 def _capture_stage(name: str, report: str, renders: str, pid: int | None,
-                   record: Any, adopted: dict, ctx: dict) -> dict:
-    """Attempt a real Bridge capture; BLOCKED with the exact refusal."""
+                   record: Any, adopted: dict, ctx: dict,
+                   owned_candidate: bool = False) -> dict:
+    """Attempt a real Bridge capture; BLOCKED with the exact refusal.
+
+    ``owned_candidate`` is True only for a run-opened disposable
+    candidate (fresh PID + exact path + sealed source + run lease);
+    capturing the original or a user-owned instance always keeps
+    the strict save-state refusal.
+    """
     from vqs.capture import capture
 
     prior = adopted.get(name)
     if prior is not None and _adoptable(name, prior, ctx):
         return record(prior)
     try:
-        manifest = capture(report, renders, pid=pid)
+        manifest = capture(report, renders, pid=pid,
+                           owned_candidate=owned_candidate)
     except (OSError, LookupError, ValueError, TypeError) as exc:
         return record(_stage(name, "blocked",
                              f"{type(exc).__name__}: {exc}"))
@@ -716,7 +725,16 @@ def _runtime_sequence(run_dir: Any, rid: str, stages: list,
             return _finish(run_dir, rid, stages, state, mode,
                            params["scope"], run_root)
         state["plan"] = plan
-        candidate = params["candidate_root"] or str(run_dir / "candidate")
+        if params["candidate_root"] is not None:
+            candidate = params["candidate_root"]
+        else:
+            stem = os.path.basename(os.path.abspath(report_dir or ""))
+            for suffix in (".Report", ".report"):
+                if stem.endswith(suffix):
+                    stem = stem[: -len(suffix)]
+                    break
+            candidate = str(run_dir / "candidate-project"
+                            / f"{stem}.Report")
         repaired = repair_candidate(
             str(plan_file), report_dir, candidate, run_root=run_root,
             run_id=_child_id(rid, "repair"),
@@ -741,6 +759,15 @@ def _runtime_sequence(run_dir: Any, rid: str, stages: list,
             return _finish(run_dir, rid, stages, state, mode,
                            params["scope"], run_root)
         state["candidate"] = candidate
+        repaired_evidence = repaired.get("evidence")
+        repaired_evidence = (repaired_evidence
+                             if isinstance(repaired_evidence, list)
+                             else [])
+        state["candidate_source"] = (
+            (repaired_evidence[0] if repaired_evidence else {}).get(
+                "source_sha256")
+            if isinstance(repaired_evidence[0] if repaired_evidence
+                           else {}, dict) else None)
         record(_stage("repair", "pass",
                       run_id=repaired.get("run_id"),
                       run_dir=repaired.get("run_dir"),
@@ -812,19 +839,52 @@ def _verify_sequence(run_dir: Any, rid: str, stages: list,
         record(_stage("candidate_reload", "not_run",
                       reason="candidate did not verify"))
     else:
-        from vqs.capture import select_instance
+        from vqs.repair.runtime import (BridgeUnavailable,
+                                        LocalBridgePort,
+                                        bind_and_reload,
+                                        open_candidate_instance,
+                                        reload_instance)
 
+        candidate = state["candidate"]
+        original = params["report_dir"]
+        state["candidate_owned"] = False
         try:
-            instance = select_instance(state["candidate"],
-                                       params["pid"], 10)
-        except (OSError, LookupError, ValueError, TypeError) as exc:
+            port = LocalBridgePort()
+        except BridgeUnavailable as exc:
             record(_stage("candidate_reload", "blocked",
-                          reason=f"{type(exc).__name__}: {exc}. Open the "
-                                 "disposable candidate in Desktop (or wire "
-                                 "an open adapter) and resume."))
+                          reason=f"{exc}. Open the disposable candidate "
+                                 "in Desktop and pass its exact --pid, "
+                                 "then resume."))
         else:
-            record(_stage("candidate_reload", "pass", evidence={
-                "pid": instance.get("pid")}))
+            try:
+                if params["pid"] is not None:
+                    instance = bind_and_reload(
+                        port, original, candidate,
+                        params["pid"], 10)
+                    owned: bool = False
+                else:
+                    source = _candidate_source_sha256(state)
+                    if not isinstance(source, str) or not source:
+                        raise BridgeUnavailable(
+                            "sealed candidate source digest unavailable; "
+                            "open the disposable candidate in Desktop "
+                            "and pass its exact --pid")
+                    proof = open_candidate_instance(
+                        port, original, candidate,
+                        source_digest=source, run_lease=rid)
+                    instance = reload_instance(port,
+                                               proof["instance"])
+                    owned = True
+            except BridgeUnavailable as exc:
+                record(_stage("candidate_reload", "blocked",
+                              reason=f"{exc}. Open the disposable "
+                                     "candidate in Desktop and pass its "
+                                     "exact --pid, then resume."))
+            else:
+                state["candidate_owned"] = owned
+                record(_stage("candidate_reload", "pass", evidence={
+                    "pid": instance.get("pid"),
+                    "owned_by_run": owned}))
     # -- answer regression (repair mode, needs a baseline) --------------
     if mode != "repair":
         record(_stage("answer_regression", "not_run",
@@ -851,7 +911,9 @@ def _verify_sequence(run_dir: Any, rid: str, stages: list,
         renders = str(run_dir / "renders-candidate")
         state["candidate_renders"] = renders
         _capture_stage("recapture", state["candidate"], renders,
-                       params["pid"], record, adopted, ctx)
+                       params["pid"], record, adopted, ctx,
+                       owned_candidate=bool(
+                           state.get("candidate_owned", False)))
     # -- visual review handoff -------------------------------------------
     if not runtime:
         record(_stage("handoff", "not_run",
@@ -981,6 +1043,8 @@ def _handoff_stage(params: dict, state: dict, renders: str,
         "reviewer_evidence": "reviewer.json",
         "reviewer_sha256": reviewer_sha,
         "observations": record_doc["observations"],
+        "geometry_calibration": record_doc.get("geometry_calibration",
+                                               "unknown"),
         "visual_acceptance": record_doc["visual"]})
 
 
@@ -1130,13 +1194,64 @@ def _candidate_status(stages: list) -> dict[str, Any]:
             "candidate": evidence.get("candidate")}
 
 
-OUTCOMES = ("accepted", "improved_not_accepted", "not_accepted",
-            "regressed", "no_safe_fix", "blocked", "failed")
+OUTCOMES = ("accepted", "proposal_ready", "improved_not_accepted",
+            "not_accepted", "regressed", "no_safe_fix", "blocked",
+            "failed")
+
+
+def _candidate_source_sha256(state: dict) -> str | None:
+    """Sealed candidate source digest for the open precondition."""
+    direct = state.get("candidate_source")
+    if isinstance(direct, str) and direct:
+        return direct
+    repair_dir = state.get("repair_dir")
+    if isinstance(repair_dir, str) and repair_dir:
+        try:
+            doc = json.loads(Path(repair_dir, "repairs.json").read_text(
+                encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        digest = doc.get("source_sha256")
+        return digest if isinstance(digest, str) and digest else None
+    return None
+
+
+def _reviewer_authority(scope: str, handoff_evidence: dict,
+                        visual_acceptance: dict) -> dict[str, Any]:
+    """Reviewer authority for the requested scope (pure).
+
+    A local reviewer port seals perceptual evidence for whole-page
+    review, which desktop scope accepts as local policy. Release
+    scope needs a trusted reviewer authority bound to the exact
+    run — and no trusted release reviewer mechanism exists yet —
+    so release authority stays blocked even when local
+    observations are clean. Static scope has no visual evidence.
+    """
+    if scope == "release":
+        return {"status": "blocked",
+                "authority": "none",
+                "reason": ("no trusted release reviewer configured; "
+                           "local perceptual observations are sealed "
+                           "evidence, not release authority"),
+                "reviewer": handoff_evidence.get("reviewer")}
+    if scope == "desktop":
+        return {"status": visual_acceptance.get("status"),
+                "authority": "local-visual-only",
+                "reason": ("local reviewer observations accepted as "
+                           "desktop-scope policy; not release "
+                           "authority"),
+                "reviewer": handoff_evidence.get("reviewer")}
+    return {"status": "not_run",
+            "authority": "none",
+            "reason": "static scope requests no visual evidence",
+            "reviewer": None}
 
 
 def _acceptance(mode: str, *, review_verdict: Any, quality_after: Any,
                 candidates: int, regression_failed: bool,
-                visual: str = "not_run", runtime: bool = False) -> bool:
+                visual: str = "not_run", runtime: bool = False,
+                scope: str = "static",
+                authority: str = "not_run") -> bool:
     """The requested acceptance scope actually passed (pure, P0-U5/U6).
 
     review asks "is the report good"; propose asks "produce safe fixes"
@@ -1144,7 +1259,12 @@ def _acceptance(mode: str, *, review_verdict: Any, quality_after: Any,
     remeasured candidate meets the bar with no same-task regression).
     Runtime scopes additionally require visual acceptance from the
     reviewer port; a static run has no visual evidence to accept.
+    Release scope additionally requires a trusted reviewer authority:
+    without one, release acceptance is impossible however clean the
+    local observations look.
     """
+    if scope == "release" and authority != "pass":
+        return False
     visual_ok = visual in ("pass", "not_run")
     if mode == "review":
         return review_verdict == "pass" and visual_ok
@@ -1157,13 +1277,22 @@ def _acceptance(mode: str, *, review_verdict: Any, quality_after: Any,
 
 def _decide_outcome(*, mode: str, execution: str, acceptance: bool,
                     resolved: list, new: list,
-                    candidates: int) -> str:
-    """Outcome name from execution, acceptance, and quality delta."""
+                    candidates: int,
+                    review_verdict: Any = None) -> str:
+    """Outcome name from execution, acceptance, and quality delta.
+
+    A propose run that produced safe fixes for a still-failing report
+    is workflow success, not report acceptance: it reports
+    proposal_ready instead of accepted.
+    """
     if execution == "blocked":
         return "blocked"
     if execution == "fail":
         return "failed"
     if acceptance:
+        if (mode == "propose" and candidates > 0
+                and review_verdict != "pass"):
+            return "proposal_ready"
         return "accepted"
     if new:
         return "regressed"
@@ -1263,12 +1392,15 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
         reviewer_fails = []
     reconcile["remaining"] = sorted(set(reconcile["remaining"])
                                     | set(reviewer_fails))
+    reviewer_authority = _reviewer_authority(
+        scope, handoff_evidence, visual_acceptance)
     acceptance = _acceptance(
         mode, review_verdict=state.get("review_verdict"),
         quality_after=state.get("quality_after"),
         candidates=candidate_count, regression_failed=regression_failed,
         visual=visual_acceptance["status"],
-        runtime=scope in RUNTIME_SCOPES)
+        runtime=scope in RUNTIME_SCOPES, scope=scope,
+        authority=str(reviewer_authority.get("status")))
     summary = {
         "mode": mode, "scope": scope,
         "review_verdict": state.get("review_verdict"),
@@ -1286,6 +1418,7 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
                        "owner-explicit via vqs.promote after independent "
                        "acceptance")},
         "visual_acceptance": visual_acceptance,
+        "reviewer_authority": reviewer_authority,
         "blocked_stages": [entry["stage"] for entry in stages
                            if entry["status"] == "blocked"],
         "failed_stages": [entry["stage"] for entry in stages
@@ -1312,7 +1445,8 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
     outcome = _decide_outcome(
         mode=mode, execution=execution, acceptance=acceptance,
         resolved=reconcile["resolved"], new=reconcile["new"],
-        candidates=candidate_count)
+        candidates=candidate_count,
+        review_verdict=state.get("review_verdict"))
     summary["outcome"] = outcome
     verdict = "pass" if (execution == "pass" and acceptance) else execution
     if execution == "pass" and not acceptance:

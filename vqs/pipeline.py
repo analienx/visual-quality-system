@@ -1210,7 +1210,8 @@ def _execute_repair(plan: dict[str, Any], original: str,
                    "before": result.get("before"),
                    "after": result.get("after"),
                    "source_sha256": result.get("source_sha256"),
-                   "model": result.get("model", {"kind": "absent"})}
+                   "model": result.get("model", {"kind": "absent"}),
+                   "workspace": result.get("workspace", {})}
     try:
         repairs_bytes = json.dumps(repairs_doc, sort_keys=True,
                                    ensure_ascii=False, default=str).encode("utf-8")
@@ -1638,7 +1639,7 @@ def verify_runtime(*, run_root: str, run_id: str,
     ``vqs.verify-runtime/1`` separately from technical repair evidence.
     """
     from .repair.execute import RepairError, tree_digest
-    from .repair.runtime import BridgeUnavailable, LocalBridgePort, bind_candidate_instance, capture_candidate
+    from .repair.runtime import BridgeUnavailable, LocalBridgePort, bind_and_reload, capture_candidate, open_candidate_instance, reload_instance
 
     tool = "vqs.verify-runtime"
     if not isinstance(run_root, str) or not run_root:
@@ -1692,39 +1693,86 @@ def verify_runtime(*, run_root: str, run_id: str,
         "config_sha256": None}
     append_event(sealed_run_dir, {"kind": "started", "repair_run": run_id})
     provenance = {"repair_run": run_id, "candidate": candidate}
-    try:
-        instance = bind_candidate_instance(port, original, candidate, pid,
-                                           wait_seconds)
-    except BridgeUnavailable as exc:
-        _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
-        return blocked_envelope(
-            tool, [f"candidate binding failed: {exc}"],
-            run_id=rid, run_dir=str(sealed_run_dir),
-            next_actions=[("open the disposable candidate in Desktop and "
-                            "pass its exact --pid")],
-            provenance=provenance)
-    if reload_first:
-        try:
-            port.reload(int(instance["pid"]))
-        except (BridgeUnavailable, OSError) as exc:
+    owned = False
+    if pid is None:
+        if not callable(getattr(port, "open", None)):
             _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
             return blocked_envelope(
-                tool, [f"candidate reload refused: {exc}"],
-                run_id=rid, run_dir=str(sealed_run_dir), provenance=provenance)
+                tool, [("no Desktop PID given and the port cannot open the "
+                        "disposable candidate; open the candidate in "
+                        "Desktop and pass its exact --pid (the original "
+                        "is never driven)")],
+                run_id=rid, run_dir=str(sealed_run_dir),
+                next_actions=[("open the disposable candidate in Desktop and "
+                               "pass its exact --pid")],
+                provenance=provenance)
         try:
-            instance = bind_candidate_instance(port, original, candidate,
-                                               int(instance["pid"]),
-                                               wait_seconds)
+            proof = open_candidate_instance(
+                port, original, candidate,
+                source_digest=evidence["source_sha256"],
+                run_lease=rid, wait_seconds=wait_seconds)
         except BridgeUnavailable as exc:
             _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
             return blocked_envelope(
-                tool, [f"candidate binding failed after reload: {exc}"],
+                tool, [f"candidate open failed: {exc}"],
                 run_id=rid, run_dir=str(sealed_run_dir), provenance=provenance)
+        instance = proof["instance"]
+        owned = True
+        provenance = {**provenance, "opened_pid": proof["opened_pid"],
+                      "owned_by_run": True}
+        if reload_first:
+            try:
+                instance = reload_instance(port, instance)
+            except BridgeUnavailable as exc:
+                _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
+                return blocked_envelope(
+                    tool, [str(exc)],
+                    run_id=rid, run_dir=str(sealed_run_dir),
+                    provenance=provenance)
+    else:
+        if reload_first:
+            try:
+                instance = bind_and_reload(port, original, candidate, pid,
+                                           wait_seconds)
+            except BridgeUnavailable as exc:
+                _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
+                text = str(exc)
+                if not (text.startswith("candidate reload refused")
+                        or text.startswith("candidate binding failed")):
+                    text = f"candidate binding failed: {text}"
+                return blocked_envelope(
+                    tool, [text],
+                    run_id=rid, run_dir=str(sealed_run_dir),
+                    provenance=provenance)
+        else:
+            try:
+                instance = bind_candidate_instance(port, original, candidate,
+                                                   pid, wait_seconds)
+            except BridgeUnavailable as exc:
+                _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
+                return blocked_envelope(
+                    tool, [f"candidate binding failed: {exc}"],
+                    run_id=rid, run_dir=str(sealed_run_dir),
+                    next_actions=[("open the disposable candidate in Desktop and "
+                                    "pass its exact --pid")],
+                    provenance=provenance)
+        if reload_first:
+            try:
+                from .repair.runtime import bind_candidate_instance as rebind
+
+                instance = rebind(port, original, candidate,
+                                  int(instance["pid"]), wait_seconds)
+            except BridgeUnavailable as exc:
+                _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
+                return blocked_envelope(
+                    tool, [f"candidate binding failed after reload: {exc}"],
+                    run_id=rid, run_dir=str(sealed_run_dir),
+                    provenance=provenance)
     renders = sealed_run_dir / "renders"
     try:
         manifest = capture_candidate(
             candidate, str(renders), int(instance["pid"]), scale=scale,
-            wait_seconds=wait_seconds)
+            wait_seconds=wait_seconds, owned=owned)
     except (OSError, LookupError) as exc:
         _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
         return blocked_envelope(
@@ -1751,6 +1799,7 @@ def verify_runtime(*, run_root: str, run_id: str,
         "candidate_digest": current,
         "source_sha256": manifest.get("source_sha256"),
         "pid": int(instance["pid"]),
+        "owned_by_run": owned,
         "instance": {"report": instance.get("currentFilePath"),
                      "desktop_version": instance.get("desktopVersion")},
         "capture": {"renders": "renders",
@@ -1803,8 +1852,17 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
                       runtime_run_id: str | None = None,
                       backup_dir: str | None = None,
                       desktop_recheck: bool = True, bridge: Any = None,
-                      promote_run_id: str | None = None) -> dict[str, Any]:
+                      promote_run_id: str | None = None,
+                      scope: str = "static") -> dict[str, Any]:
     """Promote a verified candidate onto the original; never silently.
+
+    The requested promotion scope gates the evidence: static scope
+    promotes on static verification only and says so; desktop scope
+    needs a completed sealed runtime verification for the exact
+    candidate plus a passing post-promotion Desktop recheck; release
+    scope additionally needs a trusted reviewer authority bound to
+    the exact candidate, and no such mechanism exists yet, so
+    release promotion stays blocked however clean the runtime looks.
 
     Gates in order: explicit owner approval; completed sealed repair;
     original and candidate digests recomputed against the seal (any
@@ -1830,8 +1888,13 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
     if (not isinstance(owner_approval, str) or not owner_approval.strip()):
         return blocked_envelope(
             tool, [("owner approval required: promotion never overwrites "
-                    "silently; pass --owner-approval with the owner identity "
-                    "and reason")])
+                    "silently; pass --owner-approval with an owner consent "
+                    "string (identity plus reason). The string is recorded "
+                    "consent, not an authenticated identity proof")])
+    if scope not in REVIEW_SCOPES:
+        return blocked_envelope(
+            tool, [f"scope must be one of {sorted(REVIEW_SCOPES)}, "
+                    f"got {scope!r}"])
     if runtime_run_id is not None and (
             not isinstance(runtime_run_id, str) or not runtime_run_id):
         return blocked_envelope(
@@ -1947,6 +2010,36 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
                            "candidate_digest": runtime_doc.get(
                                "candidate_digest"),
                            "pid": runtime_doc.get("pid")}
+    if scope in ("desktop", "release") and (
+            runtime_run_id is None or runtime_summary.get("status") != "pass"):
+        return blocked_envelope(
+            tool, [(f"{scope} scope needs a completed sealed runtime "
+                    "verification bound to the exact candidate; pass "
+                    "--runtime-run-id (static promotion records the "
+                    "gap explicitly instead)")],
+            provenance=provenance)
+    if scope == "release":
+        return blocked_envelope(
+            tool, [("release scope needs reviewer authority bound to "
+                    "the exact candidate; no trusted release reviewer "
+                    "mechanism is registered, so release promotion "
+                    "stays blocked even with clean runtime evidence")],
+            provenance=provenance)
+    if scope == "desktop":
+        if not desktop_recheck:
+            return blocked_envelope(
+                tool, [("desktop scope needs the post-promotion Desktop "
+                        "reload/recheck; do not pass --no-desktop-recheck")],
+                provenance=provenance)
+        if bridge is None:
+            try:
+                LocalBridgePort()
+            except BridgeUnavailable as exc:
+                return blocked_envelope(
+                    tool, [(f"desktop scope needs a live Desktop for the "
+                            f"post-promotion recheck: {exc}")],
+                    provenance=provenance)
+    provenance = {**provenance, "scope": scope}
     rid = promote_run_id or f"promote-{uuid.uuid4().hex[:12]}"
     try:
         sealed_run_dir = create_run(
@@ -1962,7 +2055,7 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
     bindings = {"input_sha256": _canonical_sha256(
         {"repair_run": run_id, "candidate_digest": evidence["after"],
          "precondition_digest": evidence["before"],
-         "approval": owner_approval}),
+         "approval": owner_approval, "scope": scope}),
         "policy_version": POLICY_VERSION, "tool": "vqs.promote/1",
         "config_sha256": None}
     append_event(sealed_run_dir, {"kind": "started", "repair_run": run_id})
@@ -2055,6 +2148,7 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
                                                  "after reload"}
     promotion_doc = {
         "repair_run": run_id,
+        "scope": scope,
         "runtime": runtime_summary,
         "owner_approval": owner_approval,
         "original": os.path.realpath(original),
@@ -2094,11 +2188,14 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
                                     "path": "promotion.json"}}
     evidence_rows = [{"kind": "sealed_promotion", "run_id": rid,
                       "original": swap["final"], "backup": swap["backup"],
+                      "scope": scope,
                       "final_digest": swap["final_digest"],
                       "final_source_sha256": final_source,
                       "desktop_recheck": recheck.get("status"),
                       "runtime": runtime_summary.get("status")}]
-    if not model_ok or recheck.get("status") == "failed":
+    if (not model_ok or recheck.get("status") == "failed"
+            or (scope == "desktop"
+                and recheck.get("status") != "pass")):
         _seal_terminal(sealed_run_dir, "failed", artifacts, bindings)
         return _envelope(
             tool, "fail", run_id=rid, run_dir=str(sealed_run_dir),

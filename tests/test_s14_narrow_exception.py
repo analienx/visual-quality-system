@@ -140,3 +140,27 @@ def test_stranger_narrow_note_rejects() -> None:
     issues = validate_manifest(_manifest(
         _finding(nested, cross_artifact_contract=note)))
     assert "component_source_mismatch" in _rules(issues)
+
+
+def test_reviewer_alias_note_still_waives() -> None:
+    """A case/padding alias of the declared reviewer names that reviewer."""
+    nested = {"surface": "docx", "contract_revision": "1.0.0",
+              "source_sha256": FOREIGN}
+    note = _note(reviewed_by=" Reviewer-1 ",
+                 approved_source_sha256=FOREIGN,
+                 approved_surface="docx",
+                 approved_contract_revision="1.0.0")
+    assert validate_manifest(_manifest(
+        _finding(nested, cross_artifact_contract=note))) == []
+
+
+def test_fixer_alias_note_carries_no_weight() -> None:
+    """A note from a case/padding alias of the fixer waives nothing."""
+    nested = dict(ARTIFACT, source_sha256=FOREIGN)
+    note = _note(reviewed_by=" Executor-1 ",
+                 approved_source_sha256=FOREIGN,
+                 approved_surface="powerbi",
+                 approved_contract_revision="1.0.0")
+    issues = validate_manifest(_manifest(
+        _finding(nested, cross_artifact_contract=note)))
+    assert "component_source_mismatch" in _rules(issues)

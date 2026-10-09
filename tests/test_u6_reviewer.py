@@ -138,6 +138,42 @@ def test_reviewer_fixer_separation_refuses(tmp_path: Path) -> None:
                       reviewer_id=FIXER, fixer_id=FIXER)
 
 
+@pytest.mark.parametrize("alias", [" Fixer-U6 ", "FIXER-U6", "fixer-u6 "])
+def test_reviewer_fixer_alias_separation_refuses(tmp_path: Path,
+                                                alias: str) -> None:
+    """Case/padding aliases of the fixer are the fixer: refuse."""
+    _report, _renders, out = _bundle(tmp_path)
+    with pytest.raises(ReviewError, match="separation violated"):
+        review_bundle(bundle_dir=str(out),
+                      reviewer=_SyntheticReviewer(reviewer_id=alias),
+                      reviewer_id=alias, fixer_id=FIXER)
+
+
+def test_reviewer_claimed_identity_mismatch_refuses(tmp_path: Path) -> None:
+    """A port cannot review under a claimed id it does not report.
+
+    The seal must bind the reviewer that actually ran: a fixer port
+    passing another reviewer's claimed id refuses before observing.
+    """
+    _report, _renders, out = _bundle(tmp_path)
+    with pytest.raises(ReviewError, match="identity mismatch"):
+        review_bundle(bundle_dir=str(out),
+                      reviewer=_SyntheticReviewer(reviewer_id=FIXER),
+                      reviewer_id="reviewer-bob", fixer_id=FIXER)
+    with pytest.raises(ReviewError, match="identity mismatch"):
+        review_bundle(bundle_dir=str(out),
+                      reviewer=_SyntheticReviewer(),
+                      reviewer_id="reviewer-bob", fixer_id=FIXER)
+
+
+def test_resolve_reviewer_returns_stripped_identity() -> None:
+    """Resolved ids seal canonical: surrounding padding is stripped."""
+    port = _SyntheticReviewer(reviewer_id="  synth-reviewer  ")
+    found, identity = resolve_reviewer(port)
+    assert found is port
+    assert identity == "synth-reviewer"
+
+
 @pytest.mark.parametrize("observations", [
     [{"page_id": "P1", "check": "x", "verdict": "maybe"}],
     [{"page_id": "P9", "check": "x", "verdict": "pass"}],

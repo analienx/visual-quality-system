@@ -275,8 +275,263 @@ def check_relocation_model(original: str, candidate_root: str, *,
     return pin
 
 
-def materialize_candidate(original: str, candidate_root: str) -> dict:
-    """Copy the original report into a fresh candidate root (links refuse)."""
+def _project_dir_for(candidate_root: str) -> Path:
+    """Disposable project workspace holding the candidate report."""
+    return Path(os.path.abspath(candidate_root)).parent
+
+
+def _within_dir(parent: Path, path: Path) -> bool:
+    """True when realpath ``path`` sits strictly inside ``parent``."""
+    try:
+        path.relative_to(parent)
+    except ValueError:
+        return False
+    return os.path.realpath(path) != os.path.realpath(parent)
+
+
+def _model_identity_root(model_dir: Path) -> Path:
+    """Identity root for digesting: definition/ when present, else root."""
+    definition = model_dir / "definition"
+    return definition if definition.is_dir() else model_dir
+
+
+def _copy_model_tree(source: Path, dest: Path) -> int:
+    """Copy a SemanticModel project root, minus ephemeral local state.
+
+    Copies every regular file except the ephemeral ``.pbi`` local
+    cache/settings tree (stale user/runtime state is never imported);
+    required source/project metadata (.platform, definition.pbism,
+    diagramLayout.json, definition/**) travels byte-identically.
+    Links, junctions, loops, and escapes refuse; the count of copied
+    files is returned for the workspace provenance record.
+    """
+    from vqs.repair.allowlist import within_root
+
+    source_real = os.path.normcase(os.path.realpath(source))
+    failures: list[OSError] = []
+
+    def _on_error(exc: OSError) -> None:
+        failures.append(exc)
+
+    seen: set[str] = {source_real}
+    count = 0
+    walker = os.walk(source, followlinks=False, onerror=_on_error)
+    for current, dirs, files in walker:
+        for name in list(dirs):
+            full = os.path.join(current, name)
+            if name == ".pbi":
+                dirs.remove(name)
+                continue
+            marker = os.path.normcase(os.path.realpath(full))
+            if marker in seen:
+                raise RepairError("model contains a directory loop: "
+                                  f"{full}")
+            seen.add(marker)
+            if (os.path.islink(full)
+                    or (getattr(os.path, "isjunction", None)
+                        is not None
+                        and os.path.isjunction(full))  # type: ignore[attr-defined]
+                    or not within_root(source_real, full)):
+                raise RepairError("model contains an unsafe entry: "
+                                  f"{full}")
+        for name in files:
+            if ".pbi" in Path(current).relative_to(source).parts:
+                continue
+            full = os.path.join(current, name)
+            if (os.path.islink(full)
+                    or not within_root(source_real, full)):
+                raise RepairError("model contains an unsafe entry: "
+                                  f"{full}")
+            rel = os.path.relpath(full, source)
+            target = os.path.join(str(dest), rel)
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            shutil.copyfile(full, target)
+            count += 1
+    if failures:
+        raise RepairError(f"model unreadable: {failures[0]}")
+    return count
+
+
+def stage_candidate_workspace(original: str,
+                              candidate_root: str) -> dict[str, Any]:
+    """Stage the disposable candidate PROJECT around the report candidate.
+
+    Stages a valid SemanticModel project root at the candidate byPath
+    target: the exact project directory named by
+    datasetReference.byPath is copied (required source/project
+    metadata preserved byte-identically, ephemeral ``.pbi`` local
+    cache excluded), or a pre-existing identical project root is
+    adopted. The candidate then resolves through the normal
+    ``_resolve_model_dir`` path with a digest equal to the original —
+    a valid project for Desktop, not a flattened TMDL pile. Remote
+    (byConnection) and absent references stage nothing. The semantic
+    model stays read-only in this report-repair path: only the copy
+    is ever read, never a repair target.
+
+    Unsafe layouts refuse before any write: an unresolvable or
+    non-directory source, a source outside the original project, a
+    destination escaping the disposable project, collision with the
+    candidate root or the original tree, and occupied targets holding
+    a different model. Returns the workspace provenance record; the
+    caller rolls it back on any later failure.
+    """
+    from vqs.pbir import _hash_model_dir, _resolve_model_dir
+
+    project = _project_dir_for(candidate_root)
+    project_real = Path(os.path.realpath(project))
+    original_path = Path(original)
+    original_real = Path(os.path.realpath(original))
+    target, connection = bypath_claim(original_path)
+    if connection is not None:
+        return {"kind": "remote", "project": str(project),
+                "model_copy": None, "model_digest": None,
+                "adopted": False, "wrapper": None,
+                "connection": connection}
+    if target is None:
+        return {"kind": "absent", "project": str(project),
+                "model_copy": None, "model_digest": None,
+                "adopted": False, "wrapper": None}
+    source_root = (original_path / target).resolve()
+    if not source_root.is_dir():
+        raise RepairError(
+            f"original model unresolvable (not a directory): {target!r} "
+            f"resolves to {source_root}")
+    home = original_path.resolve().parent
+    estate = home.parent
+    if not _within_dir(estate, source_root) and source_root != estate:
+        raise RepairError(
+            f"original model project outside the original project: "
+            f"{target!r} resolves to {source_root}; refusing a source "
+            "that cannot be represented safely")
+    identity = _model_identity_root(source_root)
+    original_digest = _hash_model_dir(identity)
+    if original_digest is None:
+        raise RepairError(
+            f"original model has no readable TMDL: {source_root}")
+    dest = (Path(os.path.abspath(candidate_root)) / target).resolve()
+    dest_real = Path(os.path.realpath(dest))
+    candidate_real_resolved = Path(os.path.realpath(candidate_root))
+    if not _within_dir(project_real, dest_real):
+        raise RepairError(
+            f"candidate model target escapes the disposable project: "
+            f"{target!r} resolves to {dest}; refusing traversal")
+    if (dest_real == candidate_real_resolved
+            or _within_dir(candidate_real_resolved, dest_real)
+            or _within_dir(dest_real, candidate_real_resolved)):
+        raise RepairError(
+            "candidate model target collides with the candidate report "
+            f"root: {dest}; refusing a layout that would corrupt the "
+            "report evidence digests")
+    if (_within_dir(original_real, dest_real)
+            or dest_real == original_real
+            or _within_dir(dest_real, original_real)):
+        raise RepairError(
+            f"candidate model target overlaps the original tree: {dest}; "
+            "the disposable workspace must not touch the original")
+    if os.path.lexists(dest):
+        if dest.is_dir():
+            staged_digest = _hash_model_dir(_model_identity_root(dest))
+            if staged_digest == original_digest:
+                return {"kind": "byPath", "project": str(project),
+                        "model_copy": os.path.realpath(dest),
+                        "model_digest": original_digest, "adopted": True,
+                        "wrapper": None}
+        raise RepairError(
+            f"candidate model target occupied by different content: {dest}; "
+            "refusing to overwrite it")
+    created_project = not project.is_dir()
+    try:
+        project.mkdir(parents=True, exist_ok=True)
+        copied = _copy_model_tree(source_root, dest)
+    except (OSError, RepairError) as exc:
+        shutil.rmtree(dest, ignore_errors=True)
+        if created_project:
+            try:
+                project.rmdir()
+            except OSError:
+                pass
+        if isinstance(exc, RepairError):
+            raise
+        raise RepairError(
+            f"cannot stage candidate model copy: {exc}") from exc
+    staged_digest = _hash_model_dir(_model_identity_root(dest))
+    if staged_digest != original_digest:
+        shutil.rmtree(dest, ignore_errors=True)
+        raise RepairError(
+            "staged candidate model differs from the original model "
+            "after copy; refusing a switched model")
+    return {"kind": "byPath", "project": str(project),
+            "model_copy": os.path.realpath(dest),
+            "model_digest": staged_digest, "adopted": False,
+            "files": copied, "wrapper": None,
+            "created_project": created_project}
+
+
+def write_candidate_wrapper(candidate_root: str) -> dict[str, str]:
+    """Write the deterministic PBIP wrapper beside the candidate report.
+
+    The wrapper mirrors the first-party shape (version + report path
+    artifact); it is execution scaffolding for Bridge ``open``, never
+    a report semantic change, and carries its own digest in the
+    workspace provenance. An occupied wrapper path refuses instead of
+    overwriting.
+    """
+    project = _project_dir_for(candidate_root)
+    base = os.path.basename(os.path.abspath(candidate_root))
+    stem = base
+    for suffix in (".Report", ".report"):
+        if base.endswith(suffix):
+            stem = base[: -len(suffix)]
+            break
+    wrapper = project / f"{stem}.pbip"
+    if os.path.lexists(wrapper):
+        raise RepairError(
+            f"candidate wrapper path occupied; refusing to overwrite: "
+            f"{wrapper}")
+    doc = {"version": "1.0", "artifacts": [{"report": {"path": base}}],
+           "settings": {"enableAutoRecovery": True}}
+    try:
+        wrapper.write_text(json.dumps(doc, indent=2) + "\n",
+                           encoding="utf-8")
+    except OSError as exc:
+        raise RepairError(
+            f"cannot write candidate wrapper: {exc}") from exc
+    digest = hashlib.sha256(
+        wrapper.read_bytes()).hexdigest() if wrapper.is_file() else ""
+    if not digest:
+        raise RepairError("candidate wrapper unreadable after write")
+    return {"path": os.path.realpath(wrapper), "digest": digest}
+
+
+def _rollback_workspace(workspace: dict[str, Any] | None) -> None:
+    """Remove staged workspace artifacts; adopted content is never touched."""
+    if not isinstance(workspace, dict):
+        return
+    if not workspace.get("adopted"):
+        model_copy = workspace.get("model_copy")
+        if isinstance(model_copy, str) and model_copy:
+            shutil.rmtree(model_copy, ignore_errors=True)
+    wrapper = workspace.get("wrapper")
+    if isinstance(wrapper, str) and wrapper:
+        try:
+            os.remove(wrapper)
+        except OSError:
+            pass
+    if workspace.get("created_project"):
+        try:
+            Path(str(workspace.get("project", ""))).rmdir()
+        except OSError:
+            pass
+
+
+def materialize_candidate(original: str, candidate_root: str,
+                          workspace: dict[str, Any] | None = None) -> dict:
+    """Copy the original report into a fresh candidate root (links refuse).
+
+    ``workspace`` is the staged candidate-project record: a copy
+    failure also rolls back staged model/wrapper artifacts, since the
+    workspace only exists to serve this candidate.
+    """
     if not os.path.isdir(original):
         raise RepairError(f"original report is not a directory: {original}")
     if os.path.lexists(candidate_root):
@@ -300,6 +555,7 @@ def materialize_candidate(original: str, candidate_root: str) -> dict:
         final = tree_digest(candidate_root)
     except Exception:
         shutil.rmtree(candidate_root, ignore_errors=True)
+        _rollback_workspace(workspace)
         raise
     return {"original": os.path.realpath(original),
             "candidate": os.path.realpath(candidate_root), "files": count,
@@ -396,34 +652,48 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
         return {"verdict": "blocked", "stage": "validate",
                 "issues": plan_issues}
     try:
+        workspace = stage_candidate_workspace(original, candidate_root)
+    except RepairError as exc:
+        return {"verdict": "blocked", "stage": "workspace",
+                "reason": str(exc)}
+
+    def _drop_candidate() -> None:
+        shutil.rmtree(candidate_root, ignore_errors=True)
+        _rollback_workspace(workspace)
+
+    try:
         model_pin = check_relocation_model(
             original, candidate_root,
             allow_missing=allow_missing_relocated_model)
     except RepairError as exc:
+        _drop_candidate()
         return {"verdict": "blocked", "stage": "relocation",
                 "reason": str(exc)}
     try:
         pinned = _snapshot_original(original)
     except RepairError as exc:
+        _drop_candidate()
         return {"verdict": "blocked", "stage": "materialize",
                 "reason": str(exc)}
     before_digest = _digest_map(pinned)
     try:
-        materialize_candidate(original, candidate_root)
+        materialize_candidate(original, candidate_root, workspace)
     except RepairError as exc:
-        # F01: a refused candidate was never owned by this attempt, so
-        # it is preserved byte-for-byte. materialize_candidate removes
-        # only roots it created itself (owned partial copies).
+        # F01: a refused candidate root was never owned by this
+        # attempt, so it is preserved byte-for-byte
+        # (materialize_candidate removes only roots it created
+        # itself). Staged workspace artifacts are still ours to drop.
+        _rollback_workspace(workspace)
         return {"verdict": "blocked", "stage": "materialize",
                 "reason": str(exc)}
     try:
         copied_digest = tree_digest(candidate_root)
     except RepairError as exc:
-        shutil.rmtree(candidate_root, ignore_errors=True)
+        _drop_candidate()
         return {"verdict": "blocked", "stage": "materialize",
                 "reason": f"cannot re-read candidate copy: {exc}"}
     if copied_digest != before_digest:
-        shutil.rmtree(candidate_root, ignore_errors=True)
+        _drop_candidate()
         return {"verdict": "blocked", "stage": "materialize",
                 "reason": "original changed during copy; retry with a "
                           "fresh candidate root"}
@@ -431,7 +701,7 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
         _assert_original_pinned(original, before_digest, "during copy")
         _assert_model_pinned(original, model_pin, "during copy")
     except RepairError as exc:
-        shutil.rmtree(candidate_root, ignore_errors=True)
+        _drop_candidate()
         return {"verdict": "blocked", "stage": "materialize",
                 "reason": str(exc)}
     candidate = Path(candidate_root)
@@ -441,7 +711,7 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
     pages: list[str] = []
     rescan = validate_materialized_roots(original, candidate_root)
     if rescan:
-        shutil.rmtree(candidate_root, ignore_errors=True)
+        _drop_candidate()
         return {"verdict": "blocked", "stage": "materialize",
                 "reason": f"roots rejected after copy: {rescan[0]}"}
     try:
@@ -451,7 +721,7 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
             allow_unresolved_model=allow_missing_relocated_model)
         all_pages = [page["id"] for page in info["pages"]]
     except Exception as exc:  # noqa: BLE001 - any unreadable shape blocks
-        shutil.rmtree(candidate_root, ignore_errors=True)
+        _drop_candidate()
         return {"verdict": "blocked", "stage": "materialize",
                 "reason": f"candidate report unreadable: {exc}"}
     covered = set()
@@ -467,11 +737,11 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
                                    allow_unresolved_model=(
                                        allow_missing_relocated_model)))
         except (RecipeError, TemplateError, RepairError) as exc:
-            shutil.rmtree(candidate_root, ignore_errors=True)
+            _drop_candidate()
             return {"verdict": "blocked", "stage": "apply", "index": index,
                     "reason": f"{type(exc).__name__}: {exc}"}
         except Exception as exc:  # noqa: BLE001 - structural crash blocks
-            shutil.rmtree(candidate_root, ignore_errors=True)
+            _drop_candidate()
             return {"verdict": "blocked", "stage": "apply", "index": index,
                     "reason": f"operation crashed: {type(exc).__name__}: {exc}"}
     for edit in edits:
@@ -485,7 +755,7 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
                                 "during application")
         _assert_model_pinned(original, model_pin, "during application")
     except RepairError as exc:
-        shutil.rmtree(candidate_root, ignore_errors=True)
+        _drop_candidate()
         return {"verdict": "blocked", "stage": "apply",
                 "reason": str(exc)}
     try:
@@ -494,19 +764,34 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
         if before_digest == after_digest:
             raise RepairError("candidate digest unchanged; no edit landed")
     except RepairError as exc:
-        shutil.rmtree(candidate_root, ignore_errors=True)
+        _drop_candidate()
         return {"verdict": "blocked", "stage": "digest",
                 "reason": str(exc)}
     except (OSError, ValueError, KeyError, TypeError) as exc:
-        shutil.rmtree(candidate_root, ignore_errors=True)
+        _drop_candidate()
         return {"verdict": "blocked", "stage": "digest",
                 "reason": f"cannot re-read reports: {exc}"}
+    try:
+        wrapper = write_candidate_wrapper(candidate_root)
+    except RepairError as exc:
+        _drop_candidate()
+        return {"verdict": "blocked", "stage": "workspace",
+                "reason": str(exc)}
+    workspace["wrapper"] = wrapper["path"]
+    workspace_record = {
+        "project": workspace["project"],
+        "model": {"kind": workspace["kind"],
+                  "copy": workspace["model_copy"],
+                  "digest": workspace["model_digest"],
+                  "adopted": workspace["adopted"]},
+        "wrapper": wrapper}
     patch = {rel: _unified_patch(rel, before,
                                  (candidate / rel).read_bytes())
              for rel, before in snapshot.items()}
     return {"verdict": "applied", "candidate": str(candidate),
             "before": before_digest, "after": after_digest,
             "source_sha256": source_sha, "model": model_pin,
+            "workspace": workspace_record,
             "edits": edits, "patch": patch, "affected_pages": pages}
 
 

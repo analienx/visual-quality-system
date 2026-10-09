@@ -4,8 +4,10 @@
 The primary UX is a ReviewPort: it consumes an exact source-bound
 bundle (verified renders, never bare pixels) and returns typed
 observations. The coordinator calls the port when configured and seals
-the reviewer evidence; fixer/reviewer separation is enforced
-(reviewer id must differ from the fixer id). A missing reviewer
+the reviewer evidence; fixer/reviewer separation is enforced on the
+normalized identity (case/padding aliases of the fixer refuse), and
+the port's own reviewer_id must match the claimed id, so a fixer
+port cannot review under another identity. A missing reviewer
 capability blocks visual acceptance; a port failure or malformed
 observation blocks the handoff loudly. Tests use explicit fakes with
 synthetic labels — never a faked vision result.
@@ -15,6 +17,8 @@ from __future__ import annotations
 import importlib
 import json
 from typing import Any
+
+from ..contracts.types import normalize_identity
 
 REVIEWER_VERSION = "vqs.reviewer/1"
 OBSERVATION_VERDICTS = ("pass", "fail", "blocked")
@@ -78,7 +82,7 @@ def resolve_reviewer(spec: Any) -> tuple[Any | None, str | None]:
             or not callable(review)):
         raise ReviewError("reviewer must expose a non-empty reviewer_id "
                           "and a callable review(bundle_dir)")
-    return port, reviewer_id
+    return port, reviewer_id.strip()
 
 
 def _check_observations(payload: Any, pages: list[str]) -> list[dict]:
@@ -132,9 +136,18 @@ def review_bundle(*, bundle_dir: str, reviewer: Any, reviewer_id: str,
 
     if not isinstance(fixer_id, str) or not fixer_id.strip():
         raise ReviewError("review needs a non-empty fixer id")
-    if reviewer_id == fixer_id:
+    if not isinstance(reviewer_id, str) or not reviewer_id.strip():
+        raise ReviewError("review needs a non-empty reviewer id")
+    if normalize_identity(reviewer_id) == normalize_identity(fixer_id):
         raise ReviewError("fixer/reviewer separation violated: reviewer "
                           f"{reviewer_id!r} is the fixer")
+    actual_id = getattr(reviewer, "reviewer_id", None)
+    if (not isinstance(actual_id, str) or not actual_id.strip()
+            or normalize_identity(actual_id)
+            != normalize_identity(reviewer_id)):
+        raise ReviewError("reviewer identity mismatch: the port reports "
+                          f"{actual_id!r}, not the claimed {reviewer_id!r}; "
+                          "a fixer port cannot review under another id")
     try:
         authority = verify_bundle(bundle_dir)
     except (ValueError, OSError, TypeError) as exc:
@@ -161,7 +174,12 @@ def review_bundle(*, bundle_dir: str, reviewer: Any, reviewer_id: str,
     renders = {binding.get("image"): binding.get("sha256")
                for binding in verified.values()
                if isinstance(binding, dict)}
+    geometry = (authority.get("calibration")
+                if isinstance(authority.get("calibration"), dict)
+                else {})
     return {"reviewer": reviewer_id, "fixer": fixer_id,
+            "geometry_calibration": geometry.get("geometry_calibration",
+                                                "unknown"),
             "source_sha256": authority.get("source_sha256"),
             "bundle_sha256": authority.get("bundle_sha256"),
             "renders": renders, "pages": pages,

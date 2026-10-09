@@ -64,6 +64,15 @@ def test_f20_nonstring_fixer_blocks_adjudication() -> None:
     assert _identity_rules(result["findings"]) != []
 
 
+def test_f20_fixer_alias_fails_adjudication() -> None:
+    """A case/padding alias of the fixer is the fixer: own review fails."""
+    result = adjudicate_bundle(_bundle(
+        reviewer={"id": " Executor-1 ", "role": "independent_visual_reviewer"}))
+    assert result["verdict"] == "fail"
+    assert "own_review_forbidden" in {
+        row.get("rule") for row in result["findings"]}
+
+
 def test_f20_missing_editor_blocks_acceptance() -> None:
     """RED: a review claim without a bound editor run must flag identity."""
     result = run_acceptance({"review": {"reviewer_run_id": "reviewer-1",

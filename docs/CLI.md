@@ -68,9 +68,16 @@ vqs cycles path/to/Example.SemanticModel/definition
 Capture every report page through the Desktop Bridge and write
 `capture-manifest.json` (source hash, page images, file hashes) for
 `vqs request-review`. Selects the Desktop instance by exact PID +
-report path; unsaved changes, a wrong report, or several instances
-without `--pid` block with the reason. Needs Windows, Desktop, and
+report path; a wrong report, several instances without `--pid`, or an
+unreported save state block with the reason. A reported unsaved flag
+blocks user-owned instances absolutely; a run-owned disposable
+candidate (opened by the run itself with a fresh PID, exact path,
+sealed source, and run lease) records the flag instead of treating it
+as proof of user edits. Needs Windows, Desktop, and
 the report open — otherwise use `vqs doctor` to see what is missing.
+Viewport-less captures (the actual Bridge 1.0.0 contract) bind render
+identity for whole-page review with geometry calibration honestly
+blocked — no pixel-to-PBIR coordinate transform is claimed.
 
 ```console
 vqs capture path/to/Example.Report path/to/renders

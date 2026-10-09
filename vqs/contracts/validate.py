@@ -48,14 +48,22 @@ def _reviewer_bound_exception(contract: object, reviewer_id: object,
     suppresses nested identity checks; only a note from the manifest's
     declared reviewer (independent of the fixer) carries that weight,
     so a stranger's "looks fine" cannot waive a source mismatch.
+    Identity compares on the normalized form: a case/padding alias of
+    the fixer is the fixer, and the note must name the declared
+    reviewer exactly up to the same normalization.
     """
-    return (isinstance(contract, dict)
+    from .types import normalize_identity
+
+    if not (isinstance(contract, dict)
             and isinstance(contract.get("reviewed_by"), str)
-            and bool(contract["reviewed_by"])
-            and contract["reviewed_by"] == reviewer_id
-            and isinstance(reviewer_id, str) and bool(reviewer_id)
-            and isinstance(fixer_id, str) and bool(fixer_id)
-            and reviewer_id != fixer_id)
+            and bool(contract["reviewed_by"].strip())
+            and isinstance(reviewer_id, str) and bool(reviewer_id.strip())
+            and isinstance(fixer_id, str) and bool(fixer_id.strip())):
+        return False
+    return (normalize_identity(contract["reviewed_by"])
+            == normalize_identity(reviewer_id)
+            and (normalize_identity(reviewer_id)
+                 != normalize_identity(fixer_id)))
 
 
 def _note_approves_nested(contract: dict, nested: object) -> bool:

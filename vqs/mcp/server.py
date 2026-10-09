@@ -71,7 +71,7 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         params = {k: v for k, v in arguments.items()
                   if k in ("run_root", "run_id", "owner_approval",
                            "runtime_run_id", "backup_dir", "desktop_recheck",
-                           "promote_run_id")
+                           "promote_run_id", "scope")
                   and v is not None}
         return pipeline.promote_candidate(**params)
     if name == "vqs_run":

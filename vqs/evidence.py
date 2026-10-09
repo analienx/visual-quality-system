@@ -407,7 +407,11 @@ def calibration_expected_pixels(calibration: dict[str, Any]) -> list[int] | None
     Otherwise the requested ``scale`` governs exactly as before. Returns
     None when the calibration shape is invalid or the measured product
     is non-integral — unproven, never rounded into a pass.
+    Geometry-blocked records (render identity without a proven
+    pixel transform) carry no expectation: always None.
     """
+    if calibration.get("geometry_calibration") == "blocked":
+        return None
     width = calibration.get("canvas_width")
     height = calibration.get("canvas_height")
     if not _is_positive_int(width) or not _is_positive_int(height):
@@ -425,7 +429,14 @@ def calibration_expected_pixels(calibration: dict[str, Any]) -> list[int] | None
 def check_calibration(calibration: object,
                       pixels: tuple[int, int] | list[int] | None = None
                       ) -> list[dict[str, Any]]:
-    """Validate full-canvas calibration evidence, optionally against pixels."""
+    """Validate full-canvas calibration evidence, optionally against pixels.
+
+    Two evidence levels: a ``geometry_calibration == "blocked"`` record
+    binds render identity (exact PID/path/page/source PNG for whole-page
+    perceptual review) with no pixel transform to check, so observed
+    pixels never mismatch — coordinate-dependent claims stay unproven
+    by construction. Anything else must prove the transform.
+    """
     if not isinstance(calibration, dict):
         return [{"rule": "calibration_missing", "verdict": "blocked"}]
     width = calibration.get("canvas_width")
@@ -435,8 +446,14 @@ def check_calibration(calibration: object,
     method = calibration.get("method")
     if (not _is_positive_int(width) or not _is_positive_int(height)
             or isinstance(scale, bool) or scale not in (1, 2)
-            or not isinstance(viewport, str) or not viewport.strip()
             or not isinstance(method, str) or not method.strip()):
+        return [{"rule": "calibration_invalid", "verdict": "blocked"}]
+    if calibration.get("geometry_calibration") == "blocked":
+        reason = calibration.get("geometry_reason")
+        if not isinstance(reason, str) or not reason.strip():
+            return [{"rule": "calibration_invalid", "verdict": "blocked"}]
+        return []
+    if (not isinstance(viewport, str) or not viewport.strip()):
         return [{"rule": "calibration_invalid", "verdict": "blocked"}]
     if "effective_scale" in calibration and calibration_expected_pixels(calibration) is None:
         return [{"rule": "calibration_invalid", "verdict": "blocked"}]
@@ -477,7 +494,13 @@ def check_policy_binding(doc: object, kind: str, source_sha: str) -> list[dict[s
 
 
 def check_reviewer(reviewer: object, fixer_id: str) -> list[dict[str, Any]]:
-    """Canonical reviewer check: independent identity, never the fixer."""
+    """Canonical reviewer check: independent identity, never the fixer.
+
+    Identity compares on the normalized form (case/padding aliases of
+    the fixer fail); the sealed record keeps the verbatim claimed id.
+    """
+    from .contracts.types import normalize_identity
+
     if not isinstance(reviewer, dict):
         return [{"rule": "independent_reviewer_required", "verdict": "blocked"}]
     reviewer_id = reviewer.get("id", "")
@@ -485,7 +508,7 @@ def check_reviewer(reviewer: object, fixer_id: str) -> list[dict[str, Any]]:
         return [{"rule": "independent_reviewer_required", "verdict": "blocked"}]
     if not isinstance(fixer_id, str) or not fixer_id.strip():
         return [{"rule": "fixer_identity_required", "verdict": "blocked"}]
-    if reviewer_id == fixer_id:
+    if normalize_identity(reviewer_id) == normalize_identity(fixer_id):
         return [{"rule": "own_review_forbidden", "verdict": "fail"}]
     if reviewer.get("role") != REVIEWER_ROLE:
         return [{"rule": "independent_reviewer_required", "verdict": "blocked"}]

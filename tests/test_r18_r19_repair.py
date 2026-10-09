@@ -1,10 +1,11 @@
 """R18/R19 RED: pinned model identity and sealed repair verification.
 
-Relocated candidates must refuse before mutation when the byPath
-model is missing or different; sealed verify must fail on
-post-repair drift (declared-value tamper, dual-tree drift,
-model-only drift, dangling model, changed answers) while a
-mtime-only save still passes and the pre-copy pin defeats a
+Relocated candidates stage the exact byPath model byte-identically
+into the disposable project (or refuse before mutation when the
+model is unresolvable, different, or unsafe to represent); sealed
+verify must fail on post-repair drift (declared-value tamper,
+dual-tree drift, model-only drift, dangling model, changed answers)
+while a mtime-only save still passes and the pre-copy pin defeats a
 concurrent save during copy. Red pre-R3, green after.
 """
 import json
@@ -98,7 +99,8 @@ def _set_value(report: Path, value: str) -> None:
 def _sealed(proj: Path, report: Path, root: Path,
             run_id: str) -> dict:
     # T10: same-parent candidate so the byPath model resolves on both
-    # sides; relocated-missing candidates now block (see s16 tests).
+    # sides (missing models stage byte-identical copies; unresolvable
+    # ones still block, see s16 tests).
     cand = proj / f"cand-{run_id}"
     envelope = repair_candidate(str(proj / "plan.json"), str(report),
                                 str(cand), run_root=str(root / "runs"),
@@ -146,17 +148,100 @@ def test_relocation_guard_intact_model(tmp_path: Path) -> None:
     _guard(report, tmp_path / "proj" / "cand")
 
 
-def test_missing_model_refused_before_mutation(tmp_path: Path) -> None:
-    """Layered R18: other-parent candidate with no model must not mutate.
+def test_missing_model_staged_before_mutation(tmp_path: Path) -> None:
+    """Layered R18: other-parent candidate stages the exact model, then applies.
 
-    (Passes vacuously until the report:3 schema block is fixed, then
-    exercises the guard end to end.)
+    A resolvable byPath model is snapshotted byte-identically into the
+    disposable project (never switched, never the original tree), so the
+    candidate stays resolvable; the original is untouched.
     """
+    from vqs.pbir import resolved_model_digest
+
+    from vqs.repair.execute import tree_digest
+
     proj, report = _project(tmp_path, "table T\n")
+    before = tree_digest(str(report))
     cand = tmp_path / "elsewhere" / "cand"
     result = apply_plan(_plan(proj), str(report), str(cand))
-    assert result["verdict"] == "blocked"
+    assert result["verdict"] == "applied", result
+    workspace = result["workspace"]
+    assert workspace["model"]["adopted"] is False
+    staged = Path(workspace["model"]["copy"])
+    assert staged.is_dir() and staged.parent == tmp_path / "elsewhere"
+    original_digest, _, _ = resolved_model_digest(report)
+    staged_digest, _, _ = resolved_model_digest(cand)
+    assert original_digest and staged_digest == original_digest
+    assert workspace["wrapper"]["path"].endswith("cand.pbip")
+    assert json.loads(Path(workspace["wrapper"]["path"]).read_text(
+        encoding="utf-8"))["artifacts"] == [{"report": {"path": "cand"}}]
+    assert tree_digest(str(report)) == before
+    assert cand.is_dir()
+
+
+def test_materialize_refusal_rolls_back_staged_workspace(
+        tmp_path: Path) -> None:
+    """Regression: a materialize failure must drop staged model/wrapper state.
+
+    Staging runs before the copy; when the copy then refuses (the
+    candidate root already exists and was never owned by this
+    attempt), the staged model copy is removed while the pre-existing
+    root is preserved byte-for-byte (F01).
+    """
+    proj, report = _project(tmp_path, "table T\n")
+    elsewhere = tmp_path / "elsewhere"
+    cand = elsewhere / "cand"
+    cand.mkdir(parents=True)
+    sentinel = cand / "sentinel.txt"
+    sentinel.write_text("foreign", encoding="utf-8")
+    result = apply_plan(_plan(proj), str(report), str(cand))
+    assert result["verdict"] == "blocked", result
+    assert result["stage"] == "materialize"
+    assert sentinel.read_text(encoding="utf-8") == "foreign"
+    assert not (elsewhere / "Model.SemanticModel").exists()
+    assert list(elsewhere.iterdir()) == [cand]
+
+
+def test_escaping_model_target_refused_before_any_write(
+        tmp_path: Path) -> None:
+    """A byPath target escaping the disposable project refuses with no writes.
+
+    The original model resolves fine, but the candidate-relative target
+    lands outside the project workspace: staging must refuse the
+    traversal and leave neither the escape path nor the candidate root.
+    """
+    deep = tmp_path / "proj" / "deep"
+    report = deep / "original.Report"
+    visual_dir = report / "definition" / "pages" / "P1" / "visuals" / "v1"
+    visual_dir.mkdir(parents=True)
+    (report / "definition.pbir").write_text(json.dumps(
+        {"datasetReference": {"byPath":
+                              {"path": "../../Model.SemanticModel"}}}),
+        encoding="utf-8")
+    (report / "definition" / "pages" / "P1" / "page.json").write_text(
+        json.dumps({"displayName": "P1", "width": 1280, "height": 720}),
+        encoding="utf-8")
+    (visual_dir / "visual.json").write_text(
+        json.dumps(_visual("2")), encoding="utf-8")
+    tables = tmp_path / "proj" / "Model.SemanticModel" / "tables"
+    tables.mkdir(parents=True)
+    (tables / "T.tmdl").write_text("table T\n", encoding="utf-8")
+    proj = tmp_path / "proj"
+    (proj / "plan.json").write_text(json.dumps({
+        "operations": [{
+            "type": "axis.tick_format",
+            "selector": {"page": "P1", "visual": "v1"},
+            "target": "visual", "path": list(LEAF), "value": "3",
+            "writes": [VISUAL_REL]}],
+        "rollback": "re-materialize from original",
+        "write_targets": [VISUAL_REL]}), encoding="utf-8")
+    cand = tmp_path / "other" / "cand"
+    result = apply_plan(json.loads((proj / "plan.json").read_text(
+        encoding="utf-8")), str(report), str(cand))
+    assert result["verdict"] == "blocked", result
+    assert result["stage"] == "workspace"
+    assert "escapes the disposable project" in result["reason"]
     assert not cand.exists()
+    assert not (tmp_path / "Model.SemanticModel").exists()
 
 
 def test_switched_model_refused_before_mutation(tmp_path: Path) -> None:

@@ -21,13 +21,14 @@ mixed viewports, non-uniform per-axis scales, and unproven upscales
 block with a precise calibration reason. Size fit is still not
 content proof — a same-size viewport slice passes the size gate;
 content coverage remains unproven by geometry alone. When NO page
-carries a viewport (older Bridge contract), capture keeps the strict
-requested-scale equality as the strongest supported alternative;
-downstream review still requires viewport honesty. Environmental
-limitation: without Bridge viewport/DPR metadata VQS cannot prove a
-host-DPI full-canvas transform, so such captures block instead of
-passing on assumed geometry. Capture refuses to manifest
-blank captures, canvas size mismatch, below-minimum pixels, unproven
+carries a viewport (the actual Bridge 1.0.0 contract exposes no
+viewport/DPR metadata), capture records render identity instead of
+failing the whole capture: the Bridge-attested page PNG stays bound
+by exact PID/path/page/source (enough for whole-page perceptual
+review) while ``geometry_calibration`` is ``blocked`` with the
+reason — no coordinate transform is claimed, inferred, or
+special-cased. Capture refuses to manifest
+blank captures, below-minimum pixels, unproven
 data, pre/post drift (source, target, or readiness), stale staging,
 unsupported interactions, non-default
 saved states, and mixed-size page sets. An exclusive per-PID lease
@@ -86,12 +87,23 @@ def _same_path(left: str, right: str) -> bool:
 
 def select_instance(report_dir: str, pid: int | None,
                     wait_seconds: int, *,
-                    status_payload: dict | None = None) -> dict:
+                    status_payload: dict | None = None,
+                    owned_candidate: bool = False) -> dict:
     """Pick the instance showing this report; raise blocked errors.
 
     ``status_payload`` injects an already-fetched Bridge status object
     (the runtime port path); None fetches live via the Bridge binary.
     The binding rule is identical either way.
+
+    Save-state policy: Desktop builds can report hasUnsavedChanges
+    for a freshly opened untouched report, so the flag alone proves
+    nothing. User-owned instances keep the absolute refusal (a true
+    flag blocks); ``owned_candidate`` may only pass True for a
+    run-owned disposable candidate the run itself opened and bound
+    (fresh PID + exact path + source digest + run lease), where the
+    true flag is recorded, not treated as proof of user edits. A
+    missing flag always refuses: unreported staleness is unprovable
+    for anyone.
     """
     if status_payload is None:
         try:
@@ -140,7 +152,7 @@ def select_instance(report_dir: str, pid: int | None,
     if "hasUnsavedChanges" not in instance:
         raise LookupError("Bridge did not report a save state; refusing "
                           "to capture against unknown staleness")
-    if instance.get("hasUnsavedChanges"):
+    if instance.get("hasUnsavedChanges") and not owned_candidate:
         raise LookupError("Desktop has unsaved changes; save or revert, "
                           "then capture again")
     return instance
@@ -331,12 +343,15 @@ def _measured_calibration(*, canvas_width: int, canvas_height: int,
       (``calibration_viewport_unparseable`` /
       ``calibration_viewport_inconsistent``): an unproven transform
       never degrades silently into the strict path;
-    - when NO page carries a viewport (older Bridge contract), the
-      strongest supported alternative is exact requested-scale
-      equality per page (``Canvas size mismatch``), recorded with the
-      legacy strict method. Downstream review still requires viewport
-      honesty, so this path documents the environmental limitation
-      instead of inventing geometry.
+    - when NO page carries a viewport (the actual Bridge 1.0.0
+      contract exposes no viewport/DPR metadata), capture records
+      render identity, not geometry: the Bridge-attested page PNG is
+      bound by exact PID/path/page/source (sufficient for
+      whole-page perceptual review) while ``geometry_calibration``
+      stays ``blocked`` with the precise reason. No pixel-to-PBIR
+      coordinate transform is claimed, inferred from dimensions, or
+      special-cased — coordinate-dependent evidence stays blocked
+      downstream.
     """
     parsed: dict[str, tuple[int, int, Fraction]] = {}
     for page_id in ordered_pages:
@@ -391,21 +406,22 @@ def _measured_calibration(*, canvas_width: int, canvas_height: int,
                 "scale": scale,
                 "png_pixels": f"{first_w}x{first_h}",
                 "method": "bridge-viewport-measured",
+                "geometry_calibration": "proven",
                 "viewport": first_raw,
                 "viewport_device_pixels": [device_w, device_h],
                 "viewport_dpr": str(dpr),
                 "effective_scale": str(measured)}
-    for page_id in ordered_pages:
-        width, height = pixels_by_page[page_id]
-        if (width, height) != (canvas_width * scale, canvas_height * scale):
-            raise OSError(
-                f"Canvas size mismatch for {page_id}: expected "
-                f"{canvas_width * scale}x{canvas_height * scale}, "
-                f"got {width}x{height}")
     first = pixels_by_page[ordered_pages[0]] if ordered_pages else [0, 0]
     return {"canvas_width": canvas_width, "canvas_height": canvas_height,
             "scale": scale, "png_pixels": f"{first[0]}x{first[1]}",
-            "method": "pbir-canvas-png-size-crosscheck"}
+            "method": "bridge-page-identity",
+            "geometry_calibration": "blocked",
+            "geometry_reason": ("no-bridge-viewport: the Bridge exposes "
+                                "no viewport/DPR metadata, so no "
+                                "pixel-to-PBIR coordinate transform is "
+                                "proven; this record binds render identity "
+                                "(exact PID/path/page/source PNG) for "
+                                "whole-page perceptual review only")}
 
 
 def _resolve_modeling(modeling: Any) -> tuple[Any, bool]:
@@ -457,7 +473,8 @@ def capture(report: str, renders: str, pid: int | None = None,
             interactions: list[str] | None = None,
             expected_scope: dict[str, Any] | None = None,
             modeling: Any = None,
-            lease_dir: str | None = None) -> dict:
+            lease_dir: str | None = None,
+            owned_candidate: bool = False) -> dict:
     """Capture every page and write the manifest; raise on any gap.
 
     New gates (all default-safe for existing callers): proven Bridge
@@ -504,7 +521,8 @@ def capture(report: str, renders: str, pid: int | None = None,
     # S01: the source preflight above runs before any external port —
     # a report the preflight blocks never reaches the Bridge binary.
     bridge_version = _require_bridge()
-    instance = select_instance(str(report_path), pid, wait_seconds)
+    instance = select_instance(str(report_path), pid, wait_seconds,
+                               owned_candidate=owned_candidate)
     renders_path = Path(renders)
     _require_fresh_staging(renders_path)
     renders_path.mkdir(parents=True, exist_ok=True)
@@ -563,7 +581,8 @@ def capture(report: str, renders: str, pid: int | None = None,
                     != readiness_before["query_hash"]):
                 raise OSError("Data changed during capture; no manifest written")
         recheck = select_instance(str(report_path), instance["pid"],
-                                  wait_seconds)
+                                  wait_seconds,
+                                  owned_candidate=owned_candidate)
         if str(recheck.get("pid")) != str(instance["pid"]):
             raise OSError("Capture target PID changed during capture; "
                           "no manifest written")
@@ -637,7 +656,13 @@ def capture(report: str, renders: str, pid: int | None = None,
                         "report": instance.get("currentFilePath"),
                         "scale": scale,
                         "bridge_version": bridge_version,
-                        "desktop_version": instance.get("desktopVersion")},
+                        "desktop_version": instance.get("desktopVersion"),
+                        "save_state": {
+                            "reported_unsaved": bool(instance.get(
+                                "hasUnsavedChanges")),
+                            "policy": ("run-owned-candidate"
+                                       if owned_candidate
+                                       else "user-clean-required")}},
             "state": state,
             "interactions_applied": [],
             "calibration": calibration,

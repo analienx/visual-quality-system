@@ -59,9 +59,14 @@ vqs request-review path/to/Example.Report path/to/renders --fixer-id you > templ
 ```
 
 `vqs capture` refuses to guess: several Desktop instances without
-`--pid`, a wrong report, unsaved changes, or a missing page PNG all
-block with the reason. Renders land next to
+`--pid`, a wrong report, an unreported save state, or a missing page
+PNG all block with the reason. A reported unsaved flag blocks
+user-owned instances; a run-owned disposable candidate records it
+instead. Renders land next to
 `capture-manifest.json` (source hash, page images, file hashes).
+Without Bridge viewport metadata, captures bind render identity for
+whole-page review with geometry calibration blocked — no coordinate
+transform is claimed.
 `request-review` re-verifies the binding and emits an **unapproved**
 observation template — it never approves anything itself.
 
