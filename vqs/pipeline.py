@@ -1639,7 +1639,15 @@ def verify_runtime(*, run_root: str, run_id: str,
     ``vqs.verify-runtime/1`` separately from technical repair evidence.
     """
     from .repair.execute import RepairError, tree_digest
-    from .repair.runtime import BridgeUnavailable, LocalBridgePort, bind_and_reload, capture_candidate, open_candidate_instance, reload_instance
+    from .repair.runtime import (
+        BridgeUnavailable,
+        LocalBridgePort,
+        bind_and_reload,
+        bind_candidate_instance,
+        capture_candidate,
+        open_candidate_instance,
+        reload_instance,
+    )
 
     tool = "vqs.verify-runtime"
     if not isinstance(run_root, str) or not run_root:
@@ -1737,8 +1745,9 @@ def verify_runtime(*, run_root: str, run_id: str,
             except BridgeUnavailable as exc:
                 _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
                 text = str(exc)
-                if not (text.startswith("candidate reload refused")
-                        or text.startswith("candidate binding failed")):
+                if not text.startswith((
+                        "candidate reload refused",
+                        "candidate binding failed")):
                     text = f"candidate binding failed: {text}"
                 return blocked_envelope(
                     tool, [text],
@@ -1893,8 +1902,7 @@ def promote_candidate(*, run_root: str, run_id: str, owner_approval: str,
                     "consent, not an authenticated identity proof")])
     if scope not in REVIEW_SCOPES:
         return blocked_envelope(
-            tool, [f"scope must be one of {sorted(REVIEW_SCOPES)}, "
-                    f"got {scope!r}"])
+            tool, [f"scope must be one of {sorted(REVIEW_SCOPES)}, got {scope!r}"])
     if runtime_run_id is not None and (
             not isinstance(runtime_run_id, str) or not runtime_run_id):
         return blocked_envelope(

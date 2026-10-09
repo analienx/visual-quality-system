@@ -839,11 +839,13 @@ def _verify_sequence(run_dir: Any, rid: str, stages: list,
         record(_stage("candidate_reload", "not_run",
                       reason="candidate did not verify"))
     else:
-        from vqs.repair.runtime import (BridgeUnavailable,
-                                        LocalBridgePort,
-                                        bind_and_reload,
-                                        open_candidate_instance,
-                                        reload_instance)
+        from vqs.repair.runtime import (
+            BridgeUnavailable,
+            LocalBridgePort,
+            bind_and_reload,
+            open_candidate_instance,
+            reload_instance,
+        )
 
         candidate = state["candidate"]
         original = params["report_dir"]

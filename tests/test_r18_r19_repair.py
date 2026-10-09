@@ -156,7 +156,6 @@ def test_missing_model_staged_before_mutation(tmp_path: Path) -> None:
     candidate stays resolvable; the original is untouched.
     """
     from vqs.pbir import resolved_model_digest
-
     from vqs.repair.execute import tree_digest
 
     proj, report = _project(tmp_path, "table T\n")

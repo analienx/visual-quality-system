@@ -375,7 +375,7 @@ def stage_candidate_workspace(original: str,
     a different model. Returns the workspace provenance record; the
     caller rolls it back on any later failure.
     """
-    from vqs.pbir import _hash_model_dir, _resolve_model_dir
+    from vqs.pbir import _hash_model_dir
 
     project = _project_dir_for(candidate_root)
     project_real = Path(os.path.realpath(project))
