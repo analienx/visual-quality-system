@@ -13,14 +13,21 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - run: python -m pip install --upgrade pip
       - run: python -m pip install .
+      # Tested public-preview CLI; no implicit @latest.
+      - run: npm install -g @microsoft/powerbi-report-authoring-cli@0.5.0
+      - run: python scripts/report_skill.py --check-cli
       - run: python scripts/authoring_probe.py authoring-real-cli.json
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: authoring-real-cli-${{ matrix.os }}
           path: authoring-real-cli.json

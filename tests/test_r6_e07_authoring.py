@@ -298,7 +298,10 @@ def test_mscli_validate_argv_pinned(tmp_path: Path) -> None:
     """The real port execs [tool, validate, path] verbatim."""
     witness = tmp_path / "argv.txt"
     stub = tmp_path / "powerbi-report-author"
-    stub.write_text(f'#!/bin/sh\necho "$@" > "{witness}"\nexit 0\n',
+    stub.write_text(
+        f'#!/bin/sh\necho "$@" > "{witness}"\n'
+        'echo \'{"data":{"result":"succeeded","errorCount":0,"warningCount":0}}\'\n'
+        'exit 0\n',
                     encoding="utf-8")
     stub.chmod(0o755)
     decided = mscli.validate(str(tmp_path), tool=str(stub))

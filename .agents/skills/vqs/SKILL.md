@@ -1,63 +1,50 @@
 ---
 name: vqs
-description: Review Power BI reports with the Visual Quality System: source-measured facts, sealed verdicts, source-bound screenshots, and independent adjudication. Use for any report-quality, model-acyclicity, or review-handoff task.
+description: Deterministic Power BI quality review, source/model/render evidence, safe repair proposals, candidate-only mutation, independent adjudication and explicit promotion.
 ---
 
-# VQS agent skill
+# VQS — orchestrated quality gate (not a competing report-authoring skill)
 
-VQS-first routing. Measure from sources, never invent theme literals,
-measures, or data values. Unknown provenance blocks; it never passes.
+**One public workflow:** use vqs run --mode review|propose|repair --scope static|desktop|release for end-to-end VQS work. The CLI/MCP routes invoke the same coordinator. vqs doctor checks the environment without installing anything. Details: docs/CLI.md, docs/JOURNEY.md, docs/ACCEPTANCE_MATRIX.md.
 
-## Capability map
+## Mandatory Microsoft report skill before editing report content
 
-| Need | Command | Needs |
-| --- | --- | --- |
-| Report facts (contrast, cohorts, units, bindings, page insights, duplication + chart practice + layout) | `vqs measure REPORT --model MODELDIR` | sources only |
-| DAX/M acyclicity gate | `vqs cycles MODELDIR` (0 acyclic, 1 cycle, 2 blocked) | sources only |
-| Facts → sealed verdict | `vqs check facts.json --run-id ID` | sources only |
-| Screenshot evidence + manifest | `vqs capture REPORT RENDERS [--pid P]` | Windows + Desktop + Bridge |
-| Review template from renders | `vqs request-review REPORT RENDERS --fixer-id YOU` | renders + manifest |
-| Portable evidence handoff | `vqs bundle pack/verify/unpack` | - |
-| Static adjudication | `vqs adjudicate-bundle BUNDLE` | completed template |
-| Environment report | `vqs doctor` (always exit 0, installs nothing) | - |
+The official powerbi-report-cli skill is vendored at ../powerbi-report-cli/SKILL.md, pinned by ../powerbi-report-cli-upstream.json. First run python scripts/report_skill.py --check-cli in this repo. Any blocked version, missing skill, tampered snapshot or missing CLI **blocks Microsoft-dependent authoring**; reading/measurement can still proceed. Never silently execute new upstream code or install @latest during an active repair.
 
-Full reference: `docs/CLI.md`. Workflows: `docs/USER_GUIDE.md`.
+Read the official skill root *and relevant mode references*:
+- planning for new report requirements (approval barrier before implementation);
+- design for design contracts and recommendations;
+- authoring for existing PBIR/PBIP edits, validated visual schemas, formatting, themes, filters and preview;
+- management only for separately approved Fabric report lifecycle changes.
 
-## External tools (arm's length, VQS owns the decision)
+Use powerbi-report-author catalog, formatting, expr, theme and validate rather than guessing report JSON property names. For authored content, validation must lead to loaded-current-source preview, affected-page screenshots, and review—not just a green schema exit.
 
-- **Modeling MCP** (Microsoft): live Desktop models — tables, measures,
-  DAX Execute/Validate, edits, transactions. Cannot touch report pages.
-  Connect via `connection_operations` (`ListLocalInstances`/`Connect`).
-- **Desktop Bridge** (`powerbi-desktop`): instance control and captures.
-  `vqs capture` wraps it; call it directly only for `open`/`reload`.
-- **pbir-cli** (optional, Custom Non-Commercial): report-side
-  `validate`/`fields`/`bpa`/`add`/`set` only. Only `model -d/-q` and
-  `validate --fields` need AdomdClient — prefer the MCP instead.
-  VQS must work with pbir absent.
+## Division of responsibility
 
-## Rules
+| Layer | Authoritative owner |
+| --- | --- |
+| Design advice and PBIR metadata | Official Microsoft powerbi-report-cli skill / authoring CLI |
+| Semantic model inspection, live DAX, same-question regression | Microsoft Modeling MCP |
+| Facts, deterministic quality rules, independent review, acceptance | VQS |
+| Safe candidate planning and bounded repair | VQS typed preconditioned candidate-only engine |
+| Candidate Desktop identity, data/render binding, sealing | VQS coordinator; ONE Desktop lifecycle |
+| Promotion and rollback | VQS owner-controlled promotion, never implicit |
 
-- Name exact commands and require validator output in every result; a
-  claim without validator output is not done.
-- Static facts before pixels: run `measure`/`cycles`/`check` before
-  any screenshot loop. Repeated open-observe-edit cycles are banned
-  when a validator answers the question.
-- No-cycles handover gate for semantic models: (1) `vqs cycles`
-  over TMDL (DAX graph + M graph + `let` bindings), zero cycles;
-  (2) live engine via MCP batched `measure_operations Get` — every
-  measure `Ready` with empty `errorMessage`. `Validate` checks
-  syntax only and does not prove acyclicity.
-- Screenshots: `vqs capture` (exact PID + report path); unsaved
-  changes, wrong report, or missing pages block. Never capture a
-  report the user has open with unsaved work without asking.
-- Multi-agent review: fixer packs with `vqs bundle pack`, the
-  reviewer verifies with `vqs bundle verify --report` on their own
-  machine. Reviewer ≠ fixer (CORE-06); a bare template can never
-  pass adjudication — fill observations with ≥32-char reasons,
-  located failures, `image_capability`, and `calibration`.
-- Privacy: renders, bundles, `.abf`, credentials, `.vqs-runs/` stay
-  out of git and public issues. Quote hashes and finding IDs, never
-  pixels or business data.
-- One Desktop instance at a time for captures; confirm before
-  killing Desktop processes. If the user must interact, the window
-  must be visible (restore + foreground + title check).
+Microsoft skill guidance is an authoring reference, not proof of VQS acceptance. Structural validation does not certify data answers, rendered appearance, reviewer independence, or an approvable release.
+
+For **standalone** report authoring outside an active VQS run, follow the official authoring reference and its powerbi-report-author preview path. For **VQS-owned** disposable candidate runs, do NOT independently open/reload/capture through a second preview controller: VQS currently owns the isolated Bridge open → PID/path/source lease → reload → screenshot lifecycle. The unified preview-port replacement is tracked in issue #32; until independently verified, preserve the safe single-host route rather than claiming the two tools are interchangeable.
+
+## Safety and acceptance
+
+- Source facts before pixel loops: vqs measure / vqs cycles / vqs check as appropriate. One-command vqs run is preferred for composition.
+- Default to review/read-only, proposal/no source write, or isolated candidate repair. Never write the original or a model in a report-only repair; never use pbir.tools or arbitrary TMDL fallback.
+- Preserve page filters, interactions, units, roles and meaningful design unless an authorized plan explicitly changes them. Exact source preconditions, typed operations, sealed diffs and model SHA must hold.
+- Model facts/answers use Modeling MCP. Unsupported non-empty filter/period/RLS scopes stay **BLOCKED** until implemented.
+- Before/after screenshots must belong to the exact candidate report, Desktop PID, source digest, page and data context. Render identity does not establish pixel-to-PBIR coordinate calibration.
+- User-owned Desktop instances with unsaved work are never driven. A VQS-owned disposable instance has a separately evidenced ownership/save-state policy.
+- After structural validation, independently review each affected page and neighboring visuals, answer regression if configured, and record fixed/remaining/new findings. The fixer cannot self-approve.
+- No silent publish, release, merged PR or owner promotion; no report acceptance from a successful repair stage. Missing trusted reviewer authority keeps release BLOCKED.
+- Keep renders, raw evidence, model caches, customer files, tokens and temporary run data out of public Git commits.
+
+Compatibility/skill freshness issue: https://github.com/analienx/visual-quality-system/issues/32
+Core live usability acceptance: https://github.com/analienx/visual-quality-system/issues/22
