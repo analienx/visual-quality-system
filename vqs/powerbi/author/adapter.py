@@ -68,7 +68,8 @@ def _microsoft_record(probe_result: dict[str, Any], policy: str,
 def run_backend(candidate: str | Path, *, policy: str = "auto",
                 timeout: int = 300, allow_warnings: bool = False,
                 prober: Prober | None = None,
-                runner: Runner | None = None) -> dict[str, Any]:
+                runner: Runner | None = None,
+                attestation: dict[str, Any] | None = None) -> dict[str, Any]:
     """Select the backend and validate the candidate; never raises.
 
     Returns backend/policy/verdict/reason/record. Microsoft verdicts:
@@ -81,12 +82,24 @@ def run_backend(candidate: str | Path, *, policy: str = "auto",
     """
     active_prober = probe if prober is None else prober
     active_runner = validate if runner is None else runner
-    try:
-        probe_result = active_prober()
-    except Exception as exc:  # noqa: BLE001 - probe crash blocks
-        probe_result = {"tool": TOOL_NAME, "package": PACKAGE_NAME,
-                        "available": False, "path": None, "version": None,
-                        "note": f"probe raised: {exc}"}
+    if attestation is not None:
+        if (attestation.get("status") != "pass"
+                or attestation.get("policy") != policy
+                or attestation.get("mutation_engine") != "vqs_typed"
+                or attestation.get("validation_provider") not in ("microsoft", "direct")
+                or not isinstance(attestation.get("probe"), dict)):
+            return {"backend": "unverified", "policy": policy,
+                    "verdict": "blocked", "reason": "invalid preflight attestation",
+                    "record": {"backend": "unverified", "policy": policy,
+                               "validation": None, "limits": LIMITS}}
+        probe_result = attestation["probe"]
+    else:
+        try:
+            probe_result = active_prober()
+        except Exception as exc:  # noqa: BLE001 - probe crash blocks
+            probe_result = {"tool": TOOL_NAME, "package": PACKAGE_NAME,
+                            "available": False, "path": None, "version": None,
+                            "note": f"probe raised: {exc}"}
     try:
         selection = select(policy, probe_result)
     except ValueError as exc:
@@ -95,13 +108,36 @@ def run_backend(candidate: str | Path, *, policy: str = "auto",
         return {"backend": "direct", "policy": policy,
                 "verdict": "blocked", "reason": str(exc),
                 "record": record}
+    if attestation is not None and selection["backend"] != attestation["validation_provider"]:
+        return {"backend": selection["backend"], "policy": policy,
+                "verdict": "blocked", "reason": "validator differs from preflight",
+                "record": {"backend": selection["backend"], "policy": policy,
+                           "validation": None, "limits": LIMITS}}
     if selection["backend"] == "direct":
         record = direct_record(policy, probe_result)
         return {"backend": "direct", "policy": policy,
                 "verdict": "pass", "reason": record["reason"],
                 "record": record}
+    pinned_tool: str | None = None
+    if attestation is not None:
+        cli = attestation.get("cli")
+        if (not isinstance(cli, dict)
+                or not isinstance(cli.get("path"), str)
+                or not cli["path"]
+                or cli.get("version") != probe_result.get("version")
+                or cli["path"] != probe_result.get("path")):
+            return {"backend": "microsoft", "policy": policy,
+                    "verdict": "blocked",
+                    "reason": "approved Microsoft CLI path/version unavailable",
+                    "record": _microsoft_record(probe_result, policy,
+                                                {"status": "missing", "errors": [],
+                                                 "warnings": [], "command": []})}
+        pinned_tool = cli["path"]
     try:
-        validation = active_runner(candidate, timeout=timeout)
+        if pinned_tool is not None:
+            validation = active_runner(candidate, timeout=timeout, tool=pinned_tool)
+        else:
+            validation = active_runner(candidate, timeout=timeout)
     except Exception as exc:  # noqa: BLE001 - runner crash blocks
         validation = {"tool": TOOL_NAME, "package": PACKAGE_NAME,
                       "command": [TOOL_NAME],
