@@ -19,7 +19,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.report_skill import PINNED_CLI_VERSION, check, cli_check
-from vqs.powerbi.author import mscli
+from vqs.powerbi.author import metadata, mscli, preflight
 
 
 def _scaffold(target: Path, tool: str) -> dict[str, Any]:
@@ -62,6 +62,42 @@ def main(argv: list[str]) -> int:
             raise RuntimeError("reviewed skill or pinned CLI unavailable")
         if report["cli"]["version"] != PINNED_CLI_VERSION:
             raise RuntimeError("unexpected Microsoft CLI version")
+        toolchain = preflight.check("microsoft")
+        if toolchain["status"] != "pass":
+            raise RuntimeError("Microsoft skill/CLI preflight failed for metadata")
+        report["metadata"] = {
+            "catalog": metadata.query(toolchain, "catalog.describe", "barChart"),
+            "property": metadata.query(toolchain, "formatting.describe_property",
+                                       "barChart", "categoryAxis", "labelPrecision"),
+            "object": metadata.query(toolchain, "formatting.describe_object",
+                                     "barChart", "categoryAxis"),
+            "effective": metadata.query(toolchain, "formatting.effective_properties",
+                                        "barChart"),
+            "unsupported": metadata.query(
+                toolchain, "formatting.describe_property",
+                "barChart", "categoryAxis", "vqsNotARealProperty"),
+        }
+        catalog = report["metadata"]["catalog"]
+        prop = report["metadata"]["property"]
+        refused = report["metadata"]["unsupported"]
+        obj = report["metadata"]["object"]
+        effective = report["metadata"]["effective"]
+        if (catalog["status"] != "pass"
+                or not {"Category", "Y"}.issubset(
+                    set(catalog["data"].get("requiredRoles", [])))):
+            raise RuntimeError("real Microsoft visual role catalog failed")
+        if (prop["status"] != "pass"
+                or prop["data"]["property"]["type"] != "integer"):
+            raise RuntimeError("real Microsoft formatting-property metadata failed")
+        if (obj["status"] != "pass"
+                or obj["data"].get("labelPrecision", {}).get("type") != "integer"):
+            raise RuntimeError("real Microsoft describe-object metadata failed")
+        if (effective["status"] != "pass"
+                or "categoryAxis" not in effective["data"]["visualObjects"]
+                or "title" not in effective["data"]["visualContainerObjects"]):
+            raise RuntimeError("real Microsoft effective-properties metadata failed")
+        if refused["status"] != "blocked":
+            raise RuntimeError("unknown formatting property was accepted")
         with tempfile.TemporaryDirectory(prefix="vqs-microsoft-valid-") as directory:
             root = Path(directory)
             scaffold = _scaffold(root / "project", report["cli"]["path"])
