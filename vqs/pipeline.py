@@ -1143,8 +1143,16 @@ def repair_candidate(plan_path: str, original: str,
         return blocked_envelope("vqs.repair",
                                 [toolchain.get("reason", "authoring preflight blocked")],
                                 extra={"authoring_preflight": toolchain})
+    from .powerbi.author import compile as metadata_compiler
+
+    gate = metadata_compiler.evaluate(plan, original, toolchain)
+    if gate["status"] == "blocked":
+        return blocked_envelope(
+            "vqs.repair", [f"Microsoft metadata gate: {gate['reason']}"],
+            extra={"metadata_gate": gate})
     return _execute_repair(plan, original, candidate_root, run_root, run_id,
                            authoring_preflight=toolchain,
+                           metadata_gate=gate,
                            authoring_backend=authoring_backend,
                            authoring_timeout=authoring_timeout,
                            authoring_allow_warnings=authoring_allow_warnings)
@@ -1154,6 +1162,7 @@ def _execute_repair(plan: dict[str, Any], original: str,
                     candidate_root: str, run_root: str,
                     run_id: str | None, *,
                     authoring_preflight: dict[str, Any],
+                    metadata_gate: dict[str, Any],
                     authoring_backend: str = "auto",
                     authoring_timeout: int = 300,
                     authoring_allow_warnings: bool = False) -> dict[str, Any]:
@@ -1167,6 +1176,16 @@ def _execute_repair(plan: dict[str, Any], original: str,
     if run_id is not None and (not isinstance(run_id, str) or not run_id):
         return blocked_envelope("vqs.repair",
                         ["run_id must be a nonempty string"])
+    pinned_source = metadata_gate.get("source_tree_sha256")
+    if pinned_source is not None:
+        from .repair.execute import RepairError, tree_digest
+
+        try:
+            if tree_digest(original) != pinned_source:
+                return blocked_envelope("vqs.repair",
+                                        ["source changed since Microsoft metadata gate"])
+        except RepairError as exc:
+            return blocked_envelope("vqs.repair", [f"source unavailable: {exc}"])
     rid = run_id or f"repair-{uuid.uuid4().hex[:12]}"
     plan_sha = _canonical_sha256(plan)
     try:
@@ -1176,7 +1195,8 @@ def _execute_repair(plan: dict[str, Any], original: str,
              "repair": {"original": os.path.realpath(original),
                         "candidate": os.path.realpath(candidate_root),
                         "plan_sha256": plan_sha},
-             "authoring_preflight": authoring_preflight})
+             "authoring_preflight": authoring_preflight,
+             "metadata_gate": metadata_gate})
     except FileExistsError:
         return blocked_envelope("vqs.repair",
                         [f"Run already exists: {rid}"])
@@ -1191,7 +1211,8 @@ def _execute_repair(plan: dict[str, Any], original: str,
         # or blocks before mutation; unresolved identity is not
         # equivalence.
         result = apply_plan(plan, original, candidate_root,
-                            allow_missing_relocated_model=False)
+                            allow_missing_relocated_model=False,
+                            expected_original_sha=metadata_gate.get("source_tree_sha256"))
     except Exception as exc:  # noqa: BLE001 - engine crash seals blocked
         append_event(sealed_run_dir, {"kind": "blocked", "verdict": "blocked"})
         seal_run(sealed_run_dir, "blocked",
@@ -1247,6 +1268,7 @@ def _execute_repair(plan: dict[str, Any], original: str,
         allow_warnings=authoring_allow_warnings,
         attestation=authoring_preflight)
     authoring["record"]["preflight"] = authoring_preflight
+    authoring["record"]["metadata_gate"] = metadata_gate
     if authoring["backend"] != authoring_preflight["validation_provider"]:
         authoring["verdict"] = "blocked"
         authoring["reason"] = "validation provider changed after preflight"
