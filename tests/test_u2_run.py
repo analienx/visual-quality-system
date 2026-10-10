@@ -161,9 +161,15 @@ def test_repair_mode_static_end_to_end(tmp_path: Path) -> None:
 # Runtime gating and resume -----------------------------------------------
 
 
-def test_desktop_scope_without_runtime_blocks_readiness(tmp_path: Path
-                                                       ) -> None:
-    """Requested-but-missing live runtime is a precise BLOCKED stage."""
+def test_desktop_scope_without_runtime_blocks_readiness(
+        tmp_path: Path, monkeypatch) -> None:
+    """Explicitly remove the Bridge in the fixture, regardless of host PATH."""
+    from vqs.adapters.ports import Capability
+
+    monkeypatch.setattr(
+        "vqs.powerbi.desktop.probe_executable",
+        lambda component, *names: Capability(
+            component, "unavailable", "intentional missing-Bridge test fixture"))
     envelope = run_workflow(facts=_overlap_facts(), mode="review",
                             scope="desktop", config=_desktop_config(),
                             run_root=str(tmp_path), run_id="u2-ready")

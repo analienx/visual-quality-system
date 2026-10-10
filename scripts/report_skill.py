@@ -22,8 +22,13 @@ CLI_PACKAGE = "@microsoft/powerbi-report-authoring-cli"
 PINNED_CLI_VERSION = "0.5.0"
 
 
-def snapshot(folder: Path) -> dict[str, str]:
-    """Deterministic digest of all regular files; unsafe entries refuse."""
+def snapshot(folder: Path) -> dict[str, str | int]:
+    """Canonical LF digest of regular vendor files across Git checkout policies.
+
+    Git stores official markdown as LF, but Windows autocrlf checks it out as
+    CRLF unless text eol=lf is explicitly enforced. Hash the canonical Git
+    content bytes, never an operating-system-dependent worktree encoding.
+    """
     if not folder.is_dir():
         raise ValueError(f"skill directory missing: {folder}")
     files = sorted(folder.rglob("*"), key=lambda p: p.relative_to(folder).as_posix())
@@ -39,7 +44,11 @@ def snapshot(folder: Path) -> dict[str, str]:
         rel = path.relative_to(folder).as_posix()
         if path.suffix not in {".md", ".json", ".yml", ".yaml"}:
             raise ValueError(f"unapproved skill content: {rel}")
-        blob = hashlib.sha256(path.read_bytes()).hexdigest()
+        raw = path.read_bytes()
+        canonical = raw.replace(b"\r\n", b"\n")
+        if b"\r" in canonical:
+            raise ValueError(f"noncanonical carriage return in vendor file: {rel}")
+        blob = hashlib.sha256(canonical).hexdigest()
         digest.update(f"{rel}\0{blob}\n".encode())
         count += 1
     if not count or not (folder / "SKILL.md").is_file():
@@ -64,6 +73,7 @@ def check(skill: Path = SKILL, lock_file: Path = LOCK) -> dict:
             or lock.get("version") != actual["version"]
             or lock.get("file_count") != actual["file_count"]
             or lock.get("upstream") != UPSTREAM
+            or lock.get("hash_algorithm") != "sha256-lf-v1"
             or lock.get("cli_package") != CLI_PACKAGE
             or lock.get("cli_version") != PINNED_CLI_VERSION
             or not re.fullmatch(r"[0-9a-f]{40}", str(lock.get("commit", "")))):
@@ -89,10 +99,48 @@ def cli_check(expected: str = PINNED_CLI_VERSION) -> dict:
     return {"status": "pass", "version": version, "path": exe}
 
 
+def _verify_upstream_git_provenance(skill_path: Path, commit: str) -> None:
+    """Require a clean, exact Git commit/tree, not an asserted SHA string."""
+    command = ["git", "-C", str(skill_path)]
+    try:
+        cp = subprocess.run([*command, "rev-parse", "--show-toplevel"],
+                            capture_output=True, text=True, check=True, timeout=20)
+        root = Path(cp.stdout.strip()).resolve()
+        repo_cmd = ["git", "-C", str(root)]
+        rel = skill_path.resolve().relative_to(root).as_posix()
+        if rel != "skills/powerbi-report-cli":
+            raise ValueError(f"wrong upstream subtree: {rel}")
+        got = subprocess.run([*repo_cmd, "rev-parse", "HEAD"],
+                             capture_output=True, text=True, check=True,
+                             timeout=20).stdout.strip()
+        if got != commit:
+            raise ValueError(f"upstream commit mismatch: expected {commit}, found {got}")
+        tracked = subprocess.run(
+            [*repo_cmd, "ls-tree", "-r", "--name-only", "HEAD", rel],
+            capture_output=True, text=True, check=True, timeout=20
+        ).stdout.splitlines()
+        actual = sorted(p.relative_to(skill_path).as_posix()
+                        for p in skill_path.rglob("*") if p.is_file())
+        expected = sorted(name[len(rel) + 1:] for name in tracked)
+        if actual != expected:
+            raise ValueError("upstream working tree has missing or extra files")
+        for relative in expected:
+            blob = subprocess.run(
+                [*repo_cmd, "show", f"{commit}:{rel}/{relative}"],
+                capture_output=True, check=True, timeout=20
+            ).stdout
+            worktree = (skill_path / relative).read_bytes()
+            if blob.replace(b"\r\n", b"\n") != worktree.replace(b"\r\n", b"\n"):
+                raise ValueError(f"uncommitted upstream content change: {relative}")
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise ValueError("cannot attest upstream git origin/tree") from exc
+
+
 def sync_from(upstream_skill: Path, commit: str) -> dict:
     """Explicit vendor refresh only; never run during an active report edit."""
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         raise ValueError("upstream SHA must be a full 40-hex commit")
+    _verify_upstream_git_provenance(upstream_skill, commit)
     observed = snapshot(upstream_skill)
     # Refuse self-copy and unrelated artifact paths.
     if upstream_skill.resolve() == SKILL.resolve():
@@ -120,6 +168,7 @@ def sync_from(upstream_skill: Path, commit: str) -> dict:
             lock = {"upstream": UPSTREAM, "path": "skills/powerbi-report-cli",
                     "commit": commit, "version": observed["version"],
                     "sha256": observed["sha256"], "file_count": observed["file_count"],
+                    "hash_algorithm": "sha256-lf-v1",
                     "cli_package": CLI_PACKAGE, "cli_version": PINNED_CLI_VERSION}
             LOCK.write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n",
                             encoding="utf-8")

@@ -115,3 +115,78 @@ def test_skill_lock_checks_cli_package_identity(tmp_path: Path):
     actual["cli_version"] = "999.999.999"
     lock.write_text(json.dumps(actual), encoding="utf-8")
     assert report_skill.check(lock_file=lock)["status"] == "blocked"
+
+
+def test_cross_platform_snapshot_lf_and_crlf_are_identical(tmp_path: Path):
+    """The upstream Git blob and Windows checkout must hash identically."""
+    root = tmp_path / "original"
+    root.mkdir()
+    (root / "SKILL.md").write_bytes(b"---\nversion: 1.0.5\n---\n")
+    (root / "ref.md").write_bytes(b"alpha\nbeta\n")
+    expected = report_skill.snapshot(root)
+    (root / "SKILL.md").write_bytes(b"---\r\nversion: 1.0.5\r\n---\r\n")
+    (root / "ref.md").write_bytes(b"alpha\r\nbeta\r\n")
+    assert report_skill.snapshot(root) == expected
+
+
+def test_cross_platform_snapshot_detects_payload_modification(tmp_path: Path):
+    root = tmp_path / "vendor"
+    root.mkdir()
+    (root / "SKILL.md").write_text("---\nversion: 1.0.5\n---\n", encoding="utf-8")
+    file = root / "ref.md"
+    file.write_bytes(b"queryState\n")
+    before = report_skill.snapshot(root)
+    file.write_bytes(b"queryState_modified\r\n")
+    assert report_skill.snapshot(root)["sha256"] != before["sha256"]
+    file.write_bytes(b"queryState\rX")
+    with pytest.raises(ValueError, match="noncanonical carriage return"):
+        report_skill.snapshot(root)
+
+
+def test_vendor_snapshot_matches_committed_git_blob_identity():
+    """Security: canonical working-tree bytes match the Git index's bytes."""
+    import hashlib
+    import subprocess
+
+    root = report_skill.ROOT
+    paths = sorted(
+        path.relative_to(root / ".agents" / "skills" / "powerbi-report-cli").as_posix()
+        for path in report_skill.SKILL.rglob("*") if path.is_file()
+    )
+    digest = hashlib.sha256()
+    for rel in paths:
+        path = f".agents/skills/powerbi-report-cli/{rel}"
+        raw = subprocess.check_output(["git", "-C", str(root), "show", f"HEAD:{path}"])
+        raw = raw.replace(b"\r\n", b"\n")
+        assert b"\r" not in raw
+        file_digest = hashlib.sha256(raw).hexdigest()
+        digest.update(f"{rel}\0{file_digest}\n".encode())
+    assert digest.hexdigest() == report_skill.snapshot(report_skill.SKILL)["sha256"]
+
+
+def test_unverified_source_cannot_claim_upstream_commit(tmp_path: Path):
+    folder = tmp_path / "skills" / "powerbi-report-cli"
+    folder.mkdir(parents=True)
+    (folder / "SKILL.md").write_text("---\nversion: 1.0.5\n---\n",
+                                     encoding="utf-8")
+    with pytest.raises(ValueError, match="cannot attest upstream git"):
+        report_skill._verify_upstream_git_provenance(folder, "a" * 40)
+
+
+def test_reviewed_upstream_commit_rejects_forged_sha(tmp_path: Path):
+    import subprocess
+
+    repo = tmp_path / "upstream"
+    skill = repo / "skills" / "powerbi-report-cli"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("---\nversion: 1.0.5\n---\n",
+                                   encoding="utf-8")
+    subprocess.run(["git", "init", str(repo)], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(repo), "add", "skills/powerbi-report-cli"],
+                   check=True, capture_output=True)
+    subprocess.run([
+        "git", "-C", str(repo), "-c", "user.name=Fixture",
+        "-c", "user.email=fixture@example.test", "commit", "-m", "official"
+    ], check=True, capture_output=True)
+    with pytest.raises(ValueError, match="commit mismatch"):
+        report_skill._verify_upstream_git_provenance(skill, "a" * 40)

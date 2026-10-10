@@ -3,8 +3,9 @@
   "cli_version": "0.5.0",
   "commit": "bc42aaf734771bf752c1d7082dd91e5a6ca72b9f",
   "file_count": 88,
+  "hash_algorithm": "sha256-lf-v1",
   "path": "skills/powerbi-report-cli",
-  "sha256": "5cd68b3f6246d6948034d6348a858536adcdd756170dc952abdd27394f6a885c",
+  "sha256": "82a19935d88def4600522430fa61cbdcee689f9d3e76db2a57b1eea0983b1eda",
   "upstream": "https://github.com/microsoft/skills-for-fabric",
   "version": "1.0.5"
 }

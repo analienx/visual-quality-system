@@ -104,6 +104,11 @@ def _size_plan(page: str, visual: str, value: str) -> dict:
 
 
 def _vqs(*argv: str, cwd: Path) -> tuple[int, dict]:
+    # Synthetic fixtures intentionally omit mandatory Microsoft PBIR details.
+    # Make direct/static fixture validation explicit for *subprocess* tests;
+    # ambient global CLI installation must never alter their oracle.
+    if argv and argv[0] == "repair" and "--authoring-backend" not in argv:
+        argv = (*argv, "--authoring-backend", "direct")
     proc = subprocess.run([VQS_BIN, *argv], cwd=cwd, capture_output=True,
                           text=True, timeout=300, check=False)
     try:

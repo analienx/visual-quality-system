@@ -26,7 +26,7 @@ Explicit upstream refresh: a weekly GitHub Actions workflow clones only Microsof
     python scripts/report_skill.py --sync-from PATH-TO-OFFICIAL-SKILL --commit 40_HEX_SHA
     python scripts/report_skill.py --check-cli
 
-Do not pass an arbitrary downloaded/unverified directory to the sync command. It checks file types, symlinks and the snapshot, but author trust requires a verified GitHub commit and human review.
+Do not pass an arbitrary downloaded/unverified directory to the sync command. The synchronizer now requires a real Git checkout at the exact asserted SHA and verifies every upstream subtree file against its committed blob; uncommitted upstream changes, unexpected files, or a mismatched checkout are rejected. A human still reviews the proposed update before adoption.
 
 ## Single workflow: VQS coordinates; Microsoft informs
 
@@ -45,10 +45,11 @@ For **standalone** authoring not inside VQS, follow Microsoft's validated author
 
 ## Evidence requirements and known limitations
 
-- Pin actual skill tree SHA, commit and CLI executable/version in records; library version numbers alone do not prove the running skill bytes.
+- Pin actual skill tree SHA, commit and CLI executable/version in records; library version numbers alone do not prove the running skill bytes. The vendor-tree digest is `sha256-lf-v1`: Git source text is normalized only for CRLF vs LF checkout differences, while content changes remain detectable. The subtree has `text eol=lf` in `.gitattributes` to prevent platform drift.
 - The authoring CLI emits a documented JSON envelope: data.result = succeeded / succeededWithWarnings / failed, with errorCount, warningCount, diagnostic groups; an error envelope is not a validated candidate. VQS must parse the JSON and cross-check exit code; do not grep text for the word warning.
 - Preview/source identity and PBIR↔PNG calibration are distinct; renderer identity alone never certifies geometric measurements.
-- Runtime use of catalog/formatting helper operations and a unified preview port are follow-on tasks under issue #32; vendoring the skill and passing an offline CLI test **do not** prove full VQS usability.
+- Portable synthetic Python/subprocess tests select the direct/static validator explicitly, independent of a globally installed CLI. The separate real Microsoft CI lane uses `scaffold --offline` to create a genuine schema-valid PBIP, verifies success with zero warnings, corrupts the isolated `definition.pbir`, and requires structured failure diagnostics. Neither test lane proves live Desktop usability.
+- Runtime use of catalog/formatting helper operations and a unified preview port are follow-on tasks under issue #32; vendoring the skill and passing a genuine offline CLI test **do not** prove full VQS usability.
 - The original Contoso project is read-only during integration. A 2026-10-10 read-only Microsoft CLI validation of the existing original produced 3 errors and 3 warnings (missing schemas, theme-name mismatch, subtitle height warnings and legacy map). Use it as a real-world **negative** regression, never silently patch the original.
 - Manual invocation of the official skill is instruction routing. Enforcing it programmatically in every existing repair subcommand remains a tracked integration task until covered by public workflow tests.
 
