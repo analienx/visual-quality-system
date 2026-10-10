@@ -92,6 +92,8 @@ def _check_observations(payload: Any, pages: list[str]) -> list[dict]:
     observations = payload.get("observations")
     if not isinstance(observations, list):
         raise ReviewError("reviewer observations must be a list")
+    if not observations:
+        raise ReviewError("reviewer returned zero observations; visual review incomplete")
     seen: set[tuple[str, str]] = set()
     clean: list[dict] = []
     for position, item in enumerate(observations):
@@ -115,6 +117,10 @@ def _check_observations(payload: Any, pages: list[str]) -> list[dict]:
         clean.append({"page_id": page_id, "check": check,
                       "verdict": verdict,
                       "detail": item.get("detail")})
+    unreviewed_pages = set(pages) - {item["page_id"] for item in clean}
+    if unreviewed_pages:
+        raise ReviewError("reviewer omitted required page observations: "
+                          + ", ".join(sorted(unreviewed_pages)))
     try:
         json.dumps(clean, sort_keys=True, ensure_ascii=False)
     except (TypeError, ValueError) as exc:

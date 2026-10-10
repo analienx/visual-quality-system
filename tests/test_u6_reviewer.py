@@ -313,7 +313,9 @@ def _stages(envelope: dict) -> dict:
 def test_coordinator_handoff_calls_configured_reviewer(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Runtime handoff packs, calls the port, and seals reviewer evidence."""
-    reviewer = _SyntheticReviewer()
+    reviewer = _SyntheticReviewer(observations=[
+        {"page_id": "P1", "check": "synthetic-layout-reviewed",
+         "verdict": "pass"}])
     envelope = _run_review(tmp_path, monkeypatch, reviewer, "u6-ok")
     stages = _stages(envelope)
     assert stages["readiness"]["status"] == "pass"
@@ -382,3 +384,36 @@ def test_coordinator_reviewer_separation_blocks(
     stages = _stages(envelope)
     assert stages["handoff"]["status"] == "blocked"
     assert "separation violated" in stages["handoff"]["reason"]
+
+
+def test_empty_reviewer_observations_block_visual_acceptance(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Zero observations are not evidence of any screenshot being reviewed."""
+    reviewer = _SyntheticReviewer()
+    envelope = _run_review(tmp_path, monkeypatch, reviewer, "u6-empty")
+    stages = _stages(envelope)
+    assert stages["handoff"]["status"] == "blocked"
+    assert "zero observations" in stages["handoff"]["reason"]
+    assert envelope["summary"]["visual_acceptance"]["status"] == "blocked"
+
+
+def test_partial_page_coverage_is_rejected() -> None:
+    """Passing one page can never certify a two-page verified bundle."""
+    from vqs.review.port import _check_observations
+
+    with pytest.raises(ReviewError, match="omitted required page"):
+        _check_observations({"observations": [
+            {"page_id": "P1", "check": "layout", "verdict": "pass"},
+        ]}, ["P1", "P2"])
+    complete = _check_observations({"observations": [
+        {"page_id": "P1", "check": "layout", "verdict": "pass"},
+        {"page_id": "P2", "check": "layout", "verdict": "pass"},
+    ]}, ["P1", "P2"])
+    assert len(complete) == 2
+
+
+def test_empty_direct_review_bundle_rejected(tmp_path: Path) -> None:
+    _report, _renders, out = _bundle(tmp_path)
+    with pytest.raises(ReviewError, match="zero observations"):
+        review_bundle(bundle_dir=str(out), reviewer=_SyntheticReviewer(),
+                      reviewer_id="synth-reviewer", fixer_id=FIXER)
