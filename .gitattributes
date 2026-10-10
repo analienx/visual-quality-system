@@ -1,0 +1,3 @@
+# Vendor snapshot is retained byte-for-byte to verify Microsoft's upstream hash.
+# Do not normalize incidental upstream trailing whitespace during sync.
+.agents/skills/powerbi-report-cli/** whitespace=-blank-at-eol

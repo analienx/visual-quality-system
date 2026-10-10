@@ -1,12 +1,10 @@
 """Hosted real-CLI lane for R6-E07 (oracle A07, real-tool leg).
 
-Probes the Microsoft-guided `powerbi-report-author` executable
-(documented `@microsoft/powerbi-report-authoring-cli`) on PATH and,
-when present, runs `validate` against a synthetic .Report project
-through the genuine vqs.powerbi.author port (no fakes). The record is
-written as JSON and the process always exits 0: a missing tool is a
-recorded blocked outcome, never a harness failure. No install is
-attempted.
+Exercises the pinned real Microsoft CLI on an intentionally invalid
+synthetic .Report, using its structured JSON error diagnostics. This
+negative control now REQUIRES the real CLI to be installed at the
+approved version: a missing tool or unexpected PASS fails hosted CI.
+No installation or Desktop access occurs in this script.
 
 
 """
@@ -64,14 +62,17 @@ def main(argv: list[str]) -> int:
               "probe": probed, "decision": decided,
               "reproduction": {
                   "probe_command": probed["probe_command"],
-                  "note": ("PATH probe only; no install attempted — the "
-                           "Microsoft reference names no distribution "
-                           "channel.")}}
+                  "note": ("Intentionally malformed synthetic PBIR: Microsoft "
+                           "validation must reject it with structured errors; "
+                           "availability alone is not acceptance.")}}
     out.write_text(json.dumps(record, indent=2, sort_keys=True),
                    encoding="utf-8")
     print(f"backend={decided['backend']} verdict={decided['verdict']} "
           f"reason={decided['reason']}")
-    return 0
+    return (0 if probed["available"] and probed["version"] == "0.5.0"
+            and decided["backend"] == "microsoft"
+            and decided["verdict"] == "fail"
+            and decided["record"]["validation"]["errors"] else 2)
 
 
 if __name__ == "__main__":

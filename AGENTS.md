@@ -2,6 +2,10 @@
 
 This repository's current work plan is [docs/IMPLEMENTATION_PROGRAM.md](docs/IMPLEMENTATION_PROGRAM.md), machine ledger [roadmap/work_packages.json](roadmap/work_packages.json), current snapshot [roadmap/STATUS.md](roadmap/STATUS.md), and [docs/LEDGER_AND_AGENT_PROTOCOL.md](docs/LEDGER_AND_AGENT_PROTOCOL.md). Follow the bounded GitHub WP issue, not a previous assistant's summary or a model's confidence in its own output. Power BI Desktop and Word are first release; [Fabric Apps #18](https://github.com/analienx/visual-quality-system/issues/18) is deferred.
 
+## Required Microsoft report skill and toolchain
+
+Before any Power BI report content change, run `python scripts/report_skill.py --check-cli`. Read `.agents/skills/powerbi-report-cli/SKILL.md` and the selected mode's complete reference (especially authoring, or design for a design brief). The pinned, reviewed Microsoft skill supplies PBIR design/metadata/validation expertise; VQS remains the single coordinated candidate-only repair, evidence, quality and approval system. Do not silently install upstream latest during an in-flight run or use an unchecked skill revision. Missing/mismatched versions block Microsoft-dependent editing, but never block read-only static analysis. A standalone authoring session follows Microsoft's preview route; a VQS-owned candidate uses exactly one VQS-controlled Bridge lifecycle until an independently verified unified preview port exists (issue #32). Every meaningful edit requires Microsoft's structural validation and source-bound affected-page render review. Neither schema success nor screenshots alone imply report acceptance.
+
 ## Before editing
 
 1. Read the targeted WP issue and required upstream contracts/evidence; verify base SHA, branch, CLI versions, source/data privacy and hard dependencies. Check `git status` for user changes and untracked evidence; never discard or overwrite them. Do not infer a local path or run proof from a prior conversation.
