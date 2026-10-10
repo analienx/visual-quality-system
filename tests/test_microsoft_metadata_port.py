@@ -112,3 +112,29 @@ def test_metadata_timeout_is_bounded():
     result = metadata.query(_attested(), "catalog.describe", "barChart",
                             timeout=601)
     assert result["status"] == "blocked"
+
+
+def test_object_metadata_is_a_raw_property_map_not_a_named_envelope():
+    result = metadata.query(
+        _attested(), "formatting.describe_object",
+        "barChart", "categoryAxis",
+        runner=lambda *a: {"returncode": 0, "stdout": json.dumps({
+            "data": {"labelPrecision": {"type": "integer"},
+                     "fontSize": {"type": "formatting"}}})})
+    assert result["status"] == "pass"
+    assert result["data"]["labelPrecision"]["type"] == "integer"
+
+
+def test_effective_properties_require_both_visual_and_container_objects():
+    result = metadata.query(
+        _attested(), "formatting.effective_properties", "barChart",
+        runner=lambda *a: {"returncode": 0, "stdout": json.dumps({
+            "data": {"visualType": "barChart",
+                     "visualObjects": {"categoryAxis": {}},
+                     "visualContainerObjects": {"title": {}}}})})
+    assert result["status"] == "pass"
+    refused = metadata.query(
+        _attested(), "formatting.effective_properties", "barChart",
+        runner=lambda *a: {"returncode": 0, "stdout": json.dumps({
+            "data": {"visualType": "barChart", "visualObjects": {}}})})
+    assert refused["status"] == "blocked"

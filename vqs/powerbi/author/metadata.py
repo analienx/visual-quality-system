@@ -88,7 +88,7 @@ def query(
         if not isinstance(envelope, dict) or not isinstance(envelope.get("data"), dict):
             return _blocked(capability, "CLI response missing structured data")
         data = envelope["data"]
-        if data.get("visualType") != names[0]:
+        if capability != "formatting.describe_object" and data.get("visualType") != names[0]:
             return _blocked(capability, "metadata visual type differs from request")
         if capability == "formatting.describe_property":
             prop = data.get("property")
@@ -102,10 +102,15 @@ def query(
                 or not isinstance(data.get("requiredRoles"), list)
                 or not isinstance(data.get("deprecated"), bool)):
             return _blocked(capability, "catalog lacks essential role/deprecation fields")
-        if capability in ("formatting.describe_object", "formatting.effective_properties") and (
-                not data or (capability == "formatting.describe_object"
-                             and data.get("objectName") != names[1])):
-            return _blocked(capability, "formatting metadata incomplete")
+        if capability == "formatting.describe_object" and (
+                not data or any(
+                    not isinstance(prop, dict) or not isinstance(prop.get("type"), str)
+                    for prop in data.values())):
+            return _blocked(capability, "formatting object properties incomplete")
+        if capability == "formatting.effective_properties" and (
+                not isinstance(data.get("visualObjects"), dict)
+                or not isinstance(data.get("visualContainerObjects"), dict)):
+            return _blocked(capability, "effective formatting property maps missing")
     except (OSError, ValueError, UnicodeError, TypeError) as exc:
         return _blocked(capability, f"metadata probe malformed: {type(exc).__name__}")
     record = {"capability": capability, "command": argv,

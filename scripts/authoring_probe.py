@@ -69,6 +69,10 @@ def main(argv: list[str]) -> int:
             "catalog": metadata.query(toolchain, "catalog.describe", "barChart"),
             "property": metadata.query(toolchain, "formatting.describe_property",
                                        "barChart", "categoryAxis", "labelPrecision"),
+            "object": metadata.query(toolchain, "formatting.describe_object",
+                                     "barChart", "categoryAxis"),
+            "effective": metadata.query(toolchain, "formatting.effective_properties",
+                                        "barChart"),
             "unsupported": metadata.query(
                 toolchain, "formatting.describe_property",
                 "barChart", "categoryAxis", "vqsNotARealProperty"),
@@ -76,6 +80,8 @@ def main(argv: list[str]) -> int:
         catalog = report["metadata"]["catalog"]
         prop = report["metadata"]["property"]
         refused = report["metadata"]["unsupported"]
+        obj = report["metadata"]["object"]
+        effective = report["metadata"]["effective"]
         if (catalog["status"] != "pass"
                 or not {"Category", "Y"}.issubset(
                     set(catalog["data"].get("requiredRoles", [])))):
@@ -83,6 +89,13 @@ def main(argv: list[str]) -> int:
         if (prop["status"] != "pass"
                 or prop["data"]["property"]["type"] != "integer"):
             raise RuntimeError("real Microsoft formatting-property metadata failed")
+        if (obj["status"] != "pass"
+                or obj["data"].get("labelPrecision", {}).get("type") != "integer"):
+            raise RuntimeError("real Microsoft describe-object metadata failed")
+        if (effective["status"] != "pass"
+                or "categoryAxis" not in effective["data"]["visualObjects"]
+                or "title" not in effective["data"]["visualContainerObjects"]):
+            raise RuntimeError("real Microsoft effective-properties metadata failed")
         if refused["status"] != "blocked":
             raise RuntimeError("unknown formatting property was accepted")
         with tempfile.TemporaryDirectory(prefix="vqs-microsoft-valid-") as directory:
