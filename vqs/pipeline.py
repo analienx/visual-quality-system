@@ -1136,7 +1136,15 @@ def repair_candidate(plan_path: str, original: str,
                                     "detail": {"issues": issues}}],
                          blocked_reasons=[],
                          next_actions=["fix the plan issues and retry"])
+    from .powerbi.author import preflight as author_preflight
+
+    toolchain = author_preflight.check(authoring_backend)
+    if toolchain["status"] != "pass":
+        return blocked_envelope("vqs.repair",
+                                [toolchain.get("reason", "authoring preflight blocked")],
+                                extra={"authoring_preflight": toolchain})
     return _execute_repair(plan, original, candidate_root, run_root, run_id,
+                           authoring_preflight=toolchain,
                            authoring_backend=authoring_backend,
                            authoring_timeout=authoring_timeout,
                            authoring_allow_warnings=authoring_allow_warnings)
@@ -1145,6 +1153,7 @@ def repair_candidate(plan_path: str, original: str,
 def _execute_repair(plan: dict[str, Any], original: str,
                     candidate_root: str, run_root: str,
                     run_id: str | None, *,
+                    authoring_preflight: dict[str, Any],
                     authoring_backend: str = "auto",
                     authoring_timeout: int = 300,
                     authoring_allow_warnings: bool = False) -> dict[str, Any]:
@@ -1166,7 +1175,8 @@ def _execute_repair(plan: dict[str, Any], original: str,
             {"pipeline": "vqs.repair/1",
              "repair": {"original": os.path.realpath(original),
                         "candidate": os.path.realpath(candidate_root),
-                        "plan_sha256": plan_sha}})
+                        "plan_sha256": plan_sha},
+             "authoring_preflight": authoring_preflight})
     except FileExistsError:
         return blocked_envelope("vqs.repair",
                         [f"Run already exists: {rid}"])
@@ -1235,6 +1245,17 @@ def _execute_repair(plan: dict[str, Any], original: str,
         result.get("candidate"), policy=authoring_backend,
         timeout=authoring_timeout,
         allow_warnings=authoring_allow_warnings)
+    authoring["record"]["preflight"] = authoring_preflight
+    if authoring["backend"] != authoring_preflight["validation_provider"]:
+        authoring["verdict"] = "blocked"
+        authoring["reason"] = "validation provider changed after preflight"
+    elif (authoring["backend"] == "microsoft"
+          and (authoring["record"].get("version")
+               != authoring_preflight.get("cli", {}).get("version")
+               or authoring["record"].get("probe", {}).get("path")
+               != authoring_preflight.get("probe", {}).get("path"))):
+        authoring["verdict"] = "blocked"
+        authoring["reason"] = "Microsoft CLI version/path drift after preflight"
     try:
         authoring_bytes = json.dumps(
             authoring["record"], sort_keys=True, ensure_ascii=False,

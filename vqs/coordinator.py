@@ -286,6 +286,24 @@ def run_workflow(*, report_dir: str | None = None,
     runtime = scope in RUNTIME_SCOPES
     config = config if isinstance(config, dict) else default_config()
 
+    authoring_attestation_sha: str | None = None
+    if mode == "repair":
+        from vqs.powerbi.author import preflight as author_preflight
+
+        authoring_receipt = author_preflight.check(authoring_backend)
+        if authoring_receipt["status"] != "pass":
+            return blocked_envelope(
+                TOOL_ID, [authoring_receipt.get("reason", "authoring preflight blocked")],
+                extra={"authoring_preflight": authoring_receipt})
+        if runtime and authoring_receipt["assurance"] != "microsoft_structural_only":
+            return blocked_envelope(
+                TOOL_ID, [("Desktop/release repair requires verified Microsoft authoring "
+                           "CLI and pinned official skill, not native/static fallback")],
+                extra={"authoring_preflight": authoring_receipt})
+        authoring_attestation_sha = hashlib.sha256(
+            json.dumps(authoring_receipt, sort_keys=True, ensure_ascii=False,
+                       allow_nan=False).encode("utf-8")).hexdigest()
+
     _provenance_map, digest = _provenance(report_dir, model_dir, facts,
                                          config)
     prior: dict | None = None
@@ -307,6 +325,7 @@ def run_workflow(*, report_dir: str | None = None,
                 "plan_path": plan_path,
                 "plan_sha256": _optional_file_sha(plan_path),
                 "authoring_backend": authoring_backend,
+                "authoring_attestation_sha256": authoring_attestation_sha,
                 "fixer_id": fixer_id}
         changed = sorted(name for name, value in live.items()
                          if sealed_params.get(name) != value)
@@ -330,6 +349,7 @@ def run_workflow(*, report_dir: str | None = None,
                            "plan_path": plan_path,
                            "plan_sha256": _optional_file_sha(plan_path),
                            "authoring_backend": authoring_backend,
+                           "authoring_attestation_sha256": authoring_attestation_sha,
                            "fixer_id": fixer_id},
                 "resumed_from": resume_from}
     run_dir, rid = _open_run(run_root, run_id, manifest)

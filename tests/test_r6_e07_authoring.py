@@ -201,9 +201,12 @@ def test_repair_records_direct_fallback_and_keeps_model_bytes(
     sealed = json.loads((run_dir / "authoring.json").read_text(
         encoding="utf-8"))
     assert sealed["backend"] == "direct"
+    assert sealed["preflight"]["assurance"] == "native_static_only"
+    assert sealed["preflight"]["mutation_engine"] == "vqs_typed"
     manifest = json.loads((run_dir / "manifest.json").read_text(
         encoding="utf-8"))
     assert manifest["artifacts"]["authoring"]["path"] == "authoring.json"
+    assert manifest["authoring_preflight"]["assurance"] == "native_static_only"
 
 
 def test_repair_microsoft_invalid_fails_and_preserves(
@@ -214,6 +217,11 @@ def test_repair_microsoft_invalid_fails_and_preserves(
     monkeypatch.setattr(
         "vqs.powerbi.author.adapter.validate",
         lambda *a, **k: _validation("invalid", errors=["bad node"]))
+    monkeypatch.setattr(
+        "vqs.powerbi.author.preflight.check",
+        lambda policy: {"status": "pass", "policy": policy,
+                        "validation_provider": "microsoft",
+                        "probe": _probe(True), "cli": {"version": "9.9"}})
     proj, report = _project(tmp_path)
     envelope = _repair(proj, report, tmp_path, "msfail",
                        authoring_backend="microsoft")
@@ -235,6 +243,11 @@ def test_repair_microsoft_warnings_block(tmp_path: Path,
     monkeypatch.setattr(
         "vqs.powerbi.author.adapter.validate",
         lambda *a, **k: _validation("valid", warnings=["suspicious"]))
+    monkeypatch.setattr(
+        "vqs.powerbi.author.preflight.check",
+        lambda policy: {"status": "pass", "policy": policy,
+                        "validation_provider": "microsoft",
+                        "probe": _probe(True), "cli": {"version": "9.9"}})
     proj, report = _project(tmp_path)
     envelope = _repair(proj, report, tmp_path, "mswarn",
                        authoring_backend="microsoft")
