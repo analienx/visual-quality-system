@@ -1244,7 +1244,8 @@ def _execute_repair(plan: dict[str, Any], original: str,
     authoring = author_adapter.run_backend(
         result.get("candidate"), policy=authoring_backend,
         timeout=authoring_timeout,
-        allow_warnings=authoring_allow_warnings)
+        allow_warnings=authoring_allow_warnings,
+        attestation=authoring_preflight)
     authoring["record"]["preflight"] = authoring_preflight
     if authoring["backend"] != authoring_preflight["validation_provider"]:
         authoring["verdict"] = "blocked"
@@ -1256,6 +1257,17 @@ def _execute_repair(plan: dict[str, Any], original: str,
                != authoring_preflight.get("probe", {}).get("path"))):
         authoring["verdict"] = "blocked"
         authoring["reason"] = "Microsoft CLI version/path drift after preflight"
+    from .powerbi.author.assurance import compose as compose_authoring_assurance
+
+    authoring_assurance = compose_authoring_assurance(authoring_preflight, authoring)
+    authoring["record"]["assurance"] = authoring_assurance
+    if (authoring["verdict"] == "pass"
+            and authoring_preflight["validation_provider"] == "microsoft"
+            and authoring_assurance["structural_validation"] != "pass"):
+        authoring["verdict"] = "blocked"
+        authoring["reason"] = "Microsoft structural assurance not established"
+        authoring["record"]["assurance"] = compose_authoring_assurance(
+            authoring_preflight, authoring)
     try:
         authoring_bytes = json.dumps(
             authoring["record"], sort_keys=True, ensure_ascii=False,

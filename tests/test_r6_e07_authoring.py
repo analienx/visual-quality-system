@@ -201,6 +201,9 @@ def test_repair_records_direct_fallback_and_keeps_model_bytes(
     sealed = json.loads((run_dir / "authoring.json").read_text(
         encoding="utf-8"))
     assert sealed["backend"] == "direct"
+    assert sealed["assurance"]["contract"] == "vqs.authoring-assurance/1"
+    assert sealed["assurance"]["structural_validation"] == "not_run"
+    assert sealed["assurance"]["rendered_desktop"] == "not_run"
     assert sealed["preflight"]["assurance"] == "native_static_only"
     assert sealed["preflight"]["mutation_engine"] == "vqs_typed"
     manifest = json.loads((run_dir / "manifest.json").read_text(
@@ -221,13 +224,17 @@ def test_repair_microsoft_invalid_fails_and_preserves(
         "vqs.powerbi.author.preflight.check",
         lambda policy: {"status": "pass", "policy": policy,
                         "validation_provider": "microsoft",
-                        "probe": _probe(True), "cli": {"version": "9.9"}})
+                        "mutation_engine": "vqs_typed",
+                        "probe": _probe(True),
+                        "cli": {"version": "9.9", "path": "C:/tool"}})
     proj, report = _project(tmp_path)
     envelope = _repair(proj, report, tmp_path, "msfail",
                        authoring_backend="microsoft")
     assert envelope["verdict"] == "fail"
     assert envelope["authoring"]["backend"] == "microsoft"
     assert envelope["authoring"]["validation"]["errors"] == ["bad node"]
+    assert envelope["authoring"]["assurance"]["structural_validation"] == "fail"
+    assert envelope["authoring"]["assurance"]["data_semantics"] == "not_run"
     candidate = Path(envelope["provenance"]["candidate"])
     assert (candidate / VISUAL_REL).is_file()
     manifest = json.loads((Path(envelope["run_dir"]) / "manifest.json"
@@ -247,7 +254,9 @@ def test_repair_microsoft_warnings_block(tmp_path: Path,
         "vqs.powerbi.author.preflight.check",
         lambda policy: {"status": "pass", "policy": policy,
                         "validation_provider": "microsoft",
-                        "probe": _probe(True), "cli": {"version": "9.9"}})
+                        "mutation_engine": "vqs_typed",
+                        "probe": _probe(True),
+                        "cli": {"version": "9.9", "path": "C:/tool"}})
     proj, report = _project(tmp_path)
     envelope = _repair(proj, report, tmp_path, "mswarn",
                        authoring_backend="microsoft")
