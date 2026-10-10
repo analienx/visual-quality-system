@@ -54,7 +54,9 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                   "original": arguments["original"],
                   "candidate_root": arguments["candidate_root"]}
         params.update({k: v for k, v in arguments.items()
-                       if k in ("run_root", "run_id") and v is not None})
+                       if k in ("run_root", "run_id", "authoring_backend",
+                                "authoring_timeout", "authoring_allow_warnings")
+                       and v is not None})
         return pipeline.repair_candidate(**params)
     if name == "vqs_verify":
         params = {k: v for k, v in arguments.items()
@@ -83,7 +85,9 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                            if k in ("report_dir", "model_dir", "facts",
                                     "mode", "scope", "run_id",
                                     "resume_from", "candidate_root",
-                                    "plan_path", "fixer_id", "reviewer")
+                                    "plan_path", "fixer_id", "reviewer",
+                                    "pid", "renders_dir", "authoring_backend",
+                                    "live_answers")
                            and v is not None})
         config, issues = load_config(arguments.get("config_path"))
         if issues:

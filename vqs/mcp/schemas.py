@@ -50,7 +50,11 @@ TOOL_SPECS: tuple[dict[str, Any], ...] = (
              "original": {"type": "string"},
              "candidate_root": {"type": "string"},
              "run_root": {"type": ["string", "null"]},
-             "run_id": {"type": ["string", "null"]}},
+             "run_id": {"type": ["string", "null"]},
+             "authoring_backend": {"type": "string",
+                                   "enum": ["auto", "microsoft", "direct"]},
+             "authoring_timeout": {"type": "integer"},
+             "authoring_allow_warnings": {"type": "boolean"}},
          "required": ["plan_path", "original", "candidate_root"],
          "additionalProperties": False}},
     {"name": "vqs_verify", "tool": "vqs.verify",
@@ -130,7 +134,12 @@ TOOL_SPECS: tuple[dict[str, Any], ...] = (
              "candidate_root": {"type": ["string", "null"]},
              "plan_path": {"type": ["string", "null"]},
              "fixer_id": {"type": ["string", "null"]},
-             "reviewer": {"type": ["string", "null"]}},
+             "reviewer": {"type": ["string", "null"]},
+             "pid": {"type": ["integer", "null"]},
+             "renders_dir": {"type": ["string", "null"]},
+             "authoring_backend": {"type": "string",
+                                   "enum": ["auto", "microsoft", "direct"]},
+             "live_answers": {"type": "boolean"}},
          "required": ["run_root"],
          "additionalProperties": False}},
 )
@@ -149,6 +158,10 @@ def _matches(value: Any, expected: Any) -> bool:
         return value is None
     if expected == "boolean":
         return isinstance(value, bool)
+    if expected == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
     if expected == "array":
         return isinstance(value, list)
     return True
