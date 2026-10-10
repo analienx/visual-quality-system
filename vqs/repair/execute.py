@@ -630,7 +630,8 @@ def _unified_patch(rel: str, before: bytes, after: bytes) -> str:
 
 def apply_plan(plan: dict, original: str, candidate_root: str,
                approved_semantic_change: str | None = None,
-               allow_missing_relocated_model: bool = False) -> dict:
+               allow_missing_relocated_model: bool = False,
+               expected_original_sha: str | None = None) -> dict:
     """Validate, materialize, and apply a plan; blocked restores, never half.
 
     R18: the relocation guard runs before anything is written — a
@@ -651,6 +652,14 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
     if plan_issues:
         return {"verdict": "blocked", "stage": "validate",
                 "issues": plan_issues}
+    if expected_original_sha is not None:
+        try:
+            if tree_digest(original) != expected_original_sha:
+                return {"verdict": "blocked", "stage": "source-binding",
+                        "reason": "source changed since Microsoft metadata gate"}
+        except RepairError as exc:
+            return {"verdict": "blocked", "stage": "source-binding",
+                    "reason": str(exc)}
     try:
         workspace = stage_candidate_workspace(original, candidate_root)
     except RepairError as exc:
@@ -676,6 +685,10 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
         return {"verdict": "blocked", "stage": "materialize",
                 "reason": str(exc)}
     before_digest = _digest_map(pinned)
+    if expected_original_sha is not None and before_digest != expected_original_sha:
+        _drop_candidate()
+        return {"verdict": "blocked", "stage": "source-binding",
+                "reason": "source changed between metadata and materialization"}
     try:
         materialize_candidate(original, candidate_root, workspace)
     except RepairError as exc:

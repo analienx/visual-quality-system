@@ -19,6 +19,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.report_skill import PINNED_CLI_VERSION, check, cli_check
+from vqs.powerbi.author import compile as metadata_compile
 from vqs.powerbi.author import metadata, mscli, preflight
 
 
@@ -101,6 +102,31 @@ def main(argv: list[str]) -> int:
         with tempfile.TemporaryDirectory(prefix="vqs-microsoft-valid-") as directory:
             root = Path(directory)
             scaffold = _scaffold(root / "project", report["cli"]["path"])
+            # Source+metadata binding on a separate disposable, synthetic
+            # visual. This is a metadata gate oracle, not a complete report.
+            sample = root / "metadata-fixture.Report"
+            target = sample / "definition/pages/P1/visuals/v1/visual.json"
+            target.parent.mkdir(parents=True)
+            target.write_text(json.dumps({
+                "name": "v1",
+                "visual": {"visualType": "barChart",
+                           "objects": {"categoryAxis": [{
+                               "properties": {"labelPrecision": {
+                                   "expr": {"Literal": {"Value": "2"}}}}}]}}
+            }), encoding="utf-8")
+            operation = {"type": "axis.tick_format",
+                         "target": "visual",
+                         "selector": {"page": "P1", "visual": "v1"},
+                         "path": ["visual", "objects", "categoryAxis", 0,
+                                  "properties", "labelPrecision", "expr",
+                                  "Literal", "Value"],
+                         "value": "3",
+                         "writes": ["definition/pages/P1/visuals/v1/visual.json"]}
+            plan = {"operations": [operation]}
+            receipt = metadata_compile.evaluate(plan, str(sample), toolchain)
+            report["source_metadata_gate"] = receipt
+            if receipt["status"] != "pass" or not receipt["operations"]:
+                raise RuntimeError("real Microsoft metadata-bound source gate refused")
             pbip = Path(scaffold["pbip"])
             genuine = mscli.validate(pbip)
             report["valid"] = genuine

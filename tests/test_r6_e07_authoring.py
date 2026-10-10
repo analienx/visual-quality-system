@@ -221,6 +221,13 @@ def test_repair_microsoft_invalid_fails_and_preserves(
         "vqs.powerbi.author.adapter.validate",
         lambda *a, **k: _validation("invalid", errors=["bad node"]))
     monkeypatch.setattr(
+        "vqs.powerbi.author.compile.metadata.query",
+        lambda attestation, capability, *names: (
+            {"status": "pass", "sha256": "a" * 64,
+             "data": {"deprecated": False}} if capability == "catalog.describe"
+            else {"status": "pass", "sha256": "b" * 64,
+                  "data": {"property": {"type": "integer"}}}))
+    monkeypatch.setattr(
         "vqs.powerbi.author.preflight.check",
         lambda policy: {"status": "pass", "policy": policy,
                         "validation_provider": "microsoft",
@@ -250,6 +257,13 @@ def test_repair_microsoft_warnings_block(tmp_path: Path,
     monkeypatch.setattr(
         "vqs.powerbi.author.adapter.validate",
         lambda *a, **k: _validation("valid", warnings=["suspicious"]))
+    monkeypatch.setattr(
+        "vqs.powerbi.author.compile.metadata.query",
+        lambda attestation, capability, *names: (
+            {"status": "pass", "sha256": "a" * 64,
+             "data": {"deprecated": False}} if capability == "catalog.describe"
+            else {"status": "pass", "sha256": "b" * 64,
+                  "data": {"property": {"type": "integer"}}}))
     monkeypatch.setattr(
         "vqs.powerbi.author.preflight.check",
         lambda policy: {"status": "pass", "policy": policy,
