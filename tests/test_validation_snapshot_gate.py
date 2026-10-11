@@ -79,7 +79,8 @@ def test_model_save_during_validation_invalidates_repair(
 def test_production_microsoft_result_must_bind_exact_target(tmp_path, monkeypatch):
     from test_metadata_compiler_gate import _attested, _metadata
 
-    from vqs.powerbi.author import adapter, compile as compiler, preflight
+    from vqs.powerbi.author import adapter, preflight
+    from vqs.powerbi.author import compile as compiler
 
     proj, original = _project(tmp_path)
     monkeypatch.setattr(preflight, "check", lambda policy: _attested())
