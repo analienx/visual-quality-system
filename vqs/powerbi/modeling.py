@@ -383,8 +383,19 @@ class StdioModelingClient:
                 return payload["data"]
         return payload
 
+    @staticmethod
+    def _desktop_owner_pid(instance: dict[str, Any]) -> int:
+        """OS-attested parent Desktop PID of Microsoft's msmdsrv process."""
+        from .processes import ProcessOwnershipError, desktop_owner_pid
+
+        engine = instance.get("processId")
+        try:
+            return desktop_owner_pid(engine)
+        except ProcessOwnershipError as exc:
+            raise ModelingError(f"cannot prove semantic engine owner: {exc}") from exc
+
     def connect(self) -> dict[str, Any]:
-        """Bind an exactly identified local Desktop model (by PID if given)."""
+        """Bind a model owned by the selected Desktop PID, never engine PID."""
         payload = self._vendor_data(
             self._call("connection_operations",
                        {"operation": "ListLocalInstances"}),
@@ -398,12 +409,20 @@ class StdioModelingClient:
         if not isinstance(instances, list):
             raise ModelingError("ListLocalInstances returned no list")
         if self._target_pid is not None:
-            instances = [item for item in instances if isinstance(item, dict)
-                         and str(item.get("processId", item.get("pid")))
-                         == str(self._target_pid)]
+            selected = []
+            for item in instances:
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    owner = self._desktop_owner_pid(item)
+                except ModelingError:
+                    continue
+                if owner == self._target_pid:
+                    selected.append(item)
+            instances = selected
             if not instances:
                 raise ModelingError(
-                    f"target Desktop PID {self._target_pid} has no local "
+                    f"target Desktop PID {self._target_pid} has no OS-bound "
                     "semantic model instance; refusing another model")
         if not instances:
             raise ModelingError("no local Desktop model instances found")
@@ -448,8 +467,14 @@ class StdioModelingClient:
         if not identity:
             raise ModelingError("Connect did not establish model identity")
         self._model = f"{server}/{identity}"
+        if (self._target_pid is not None
+                and self._desktop_owner_pid(instance) != self._target_pid):
+            self._model = None
+            raise ModelingError("semantic engine Desktop owner changed during connect")
         return {"model": self._model, "server": server,
                 "processId": instance.get("processId", instance.get("pid")),
+                "enginePid": instance.get("processId"),
+                "desktopPid": self._target_pid,
                 "database": identity}
 
     def _stats(self) -> dict[str, Any]:

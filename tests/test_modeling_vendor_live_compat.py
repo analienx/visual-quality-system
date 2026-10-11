@@ -42,13 +42,16 @@ def _client(target_pid=None, *, several=False):
         raise AssertionError(operation)
 
     client._call = vendor
+    client._desktop_owner_pid = lambda instance: (
+        555 if instance.get("processId") == 111 else 666)
     return client, calls
 
 
 def test_vendor_current_shape_connects_and_proves_populated_data():
-    client, calls = _client(target_pid=111, several=True)
+    client, calls = _client(target_pid=555, several=True)
     selected = client.connect()
-    assert selected["processId"] == 111
+    assert selected["enginePid"] == 111
+    assert selected["desktopPid"] == 555
     assert "62819" in selected["model"]
     ready = client.readiness(ModelingScope())
     assert ready["populated"] is True
@@ -62,7 +65,7 @@ def test_vendor_current_shape_connects_and_proves_populated_data():
 
 def test_target_pid_never_borrows_another_model():
     client, calls = _client(target_pid=999, several=True)
-    with pytest.raises(ModelingError, match="PID 999 has no local"):
+    with pytest.raises(ModelingError, match="PID 999 has no OS-bound"):
         client.connect()
     assert all(request["operation"] != "Connect" for _, request in calls)
 
@@ -75,7 +78,7 @@ def test_ambiguous_desktop_requires_exact_pid():
 
 
 def test_vendor_failed_response_cannot_be_treated_as_success():
-    client, _ = _client(target_pid=111)
+    client, _ = _client(target_pid=555)
     assert isinstance(client._vendor_data(
         {"operation": "GetStats", "data": {"TableCount": 1}}, "GetStats"), dict)
     with pytest.raises(ModelingError, match="Microsoft GetStats failed"):
@@ -97,7 +100,7 @@ def test_target_pid_needs_positive_integer(value):
 ])
 def test_local_instance_discovery_never_redirects_mcp_connection(
         connection, port):
-    client = StdioModelingClient(target_pid=111)
+    client = StdioModelingClient(target_pid=555)
     requests = []
 
     def vendor(_tool, req):
@@ -108,6 +111,7 @@ def test_local_instance_discovery_never_redirects_mcp_connection(
             "connectionString": connection}]}
 
     client._call = vendor
+    client._desktop_owner_pid = lambda _instance: 555
     with pytest.raises(ModelingError, match="unsafe connection host|port disagrees"):
         client.connect()
     assert requests == ["ListLocalInstances"]

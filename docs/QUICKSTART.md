@@ -87,9 +87,12 @@ The local Modeling MCP adapter resolves Windows npm .cmd launchers and
 understands Microsoft's data result envelopes for local-instance
 discovery, connection, model statistics and DAX rows. With
 VQS_MODELING_AUTO=1, vqs capture binds live model discovery to the
-exact selected Desktop PID, refusing another model even if that other
-instance has data. A clone without a discoverable semantic model stays
-blocked; it cannot inherit an unrelated Desktop model's readiness.
+exact selected Desktop PID through an OS-attested process-parent
+relationship: Microsoft reports the msmdsrv.exe engine PID, while
+the matching Desktop host is its live parent PBIDesktop.exe. VQS
+refuses another model even if it has data. A clone without a
+discoverable OS-bound semantic model stays blocked; it cannot inherit
+an unrelated Desktop model's readiness.
 A successful populated probe checks one named table twice and only
 covers the selected model/context, not arbitrary slicer states or RLS.
 
