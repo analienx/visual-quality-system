@@ -46,3 +46,30 @@ def test_validator_edit_after_apply_blocks_sealing(tmp_path, monkeypatch):
     sealed = json.loads((runs / "during" / "authoring.json").read_text())
     assert sealed["validation_snapshot"]["before"]["status"] == "pass"
     assert sealed["validation_snapshot"]["after"]["status"] == "blocked"
+
+
+def test_model_save_during_validation_invalidates_repair(
+        tmp_path, monkeypatch):
+    from test_u4_promotion import _project as project_with_model
+    from vqs.powerbi.author import adapter
+
+    proj, original = project_with_model(tmp_path, "model-project")
+
+    def model_save(candidate, **kwargs):
+        model = proj / "Model.SemanticModel" / "tables" / "T.tmdl"
+        model.write_bytes(model.read_bytes() + b"\n")
+        return {"backend": "direct", "verdict": "pass", "reason": "ok",
+                "record": {"backend": "direct", "validation": None,
+                           "probe": {}}}
+
+    monkeypatch.setattr(adapter, "run_backend", model_save)
+    runs = tmp_path / "runs"
+    result = repair_candidate(str(proj / "plan.json"), str(original),
+        str(proj / "candidate"), run_root=str(runs), run_id="model-changed",
+        authoring_backend="direct")
+    assert result["verdict"] == "blocked"
+    record = json.loads((runs / "model-changed" / "authoring.json").read_text())
+    assert record["validation_snapshot"]["before"]["status"] == "pass"
+    assert record["validation_snapshot"]["after"]["status"] == "blocked"
+    assert any("model" in problem for problem in
+               record["validation_snapshot"]["after"]["problems"])
