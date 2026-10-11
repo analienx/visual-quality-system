@@ -1293,6 +1293,7 @@ def _execute_repair(plan: dict[str, Any], original: str,
             candidate_path, policy=authoring_backend,
             timeout=authoring_timeout,
             allow_warnings=authoring_allow_warnings,
+            assurance=authoring_assurance,
             attestation=authoring_preflight)
     guard_after = validation_snapshot(
         original, candidate_path, result.get("before"),
