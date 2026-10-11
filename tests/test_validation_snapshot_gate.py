@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from test_r6_e07_authoring import VISUAL_REL, _project
+
 from vqs.pipeline import repair_candidate
 from vqs.powerbi.author.validation_guard import snapshot
 from vqs.repair.execute import tree_digest
