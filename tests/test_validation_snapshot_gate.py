@@ -51,6 +51,7 @@ def test_validator_edit_after_apply_blocks_sealing(tmp_path, monkeypatch):
 def test_model_save_during_validation_invalidates_repair(
         tmp_path, monkeypatch):
     from test_u4_promotion import _project as project_with_model
+
     from vqs.powerbi.author import adapter
 
     proj, original = project_with_model(tmp_path, "model-project")
@@ -77,6 +78,7 @@ def test_model_save_during_validation_invalidates_repair(
 
 def test_production_microsoft_result_must_bind_exact_target(tmp_path, monkeypatch):
     from test_metadata_compiler_gate import _attested, _metadata
+
     from vqs.powerbi.author import adapter, compile as compiler, preflight
 
     proj, original = _project(tmp_path)
