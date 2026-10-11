@@ -139,3 +139,33 @@ def test_pbip_escaping_project_is_refused(tmp_path: Path):
     assert result["status"] == "blocked"
     assert result["plan"] is None
     assert not (tmp_path / "no-runs").exists()
+
+
+def test_functional_triage_to_verified_repair_reduces_defects(tmp_path: Path):
+    from vqs.pipeline import repair_candidate, verify_candidate
+    from vqs.repair.execute import tree_digest
+
+    original = _fixture(tmp_path, moved=True)
+    original_sha = tree_digest(original)
+    before = analyze(str(original), run_root=str(tmp_path / "runs"),
+                     run_id="before")
+    assert before["summary"]["proven_issues"] == 1
+    assert before["plan"] is not None
+    plan_path = tmp_path / "safe-plan.json"
+    plan_path.write_text(json.dumps(before["plan"]), encoding="utf-8")
+    candidate = tmp_path / "candidate.Report"
+    repair = repair_candidate(
+        str(plan_path), str(original), str(candidate),
+        run_root=str(tmp_path / "runs"), run_id="fix",
+        authoring_backend="direct", authoring_assurance="portable")
+    assert repair["verdict"] == "pass", repair
+    verified = verify_candidate(run_root=str(tmp_path / "runs"), run_id="fix")
+    assert verified["verdict"] == "pass", verified
+    after = analyze(str(candidate), run_root=str(tmp_path / "runs"),
+                    run_id="after")
+    assert after["status"] == "diagnosed", after
+    assert after["summary"]["proven_issues"] == 0
+    assert after["summary"]["typed_candidates"] == 0
+    assert tree_digest(original) == original_sha
+    # No fake general visual approval: the unresolved render issue survives.
+    assert after["summary"]["needs_evidence"] >= 1
