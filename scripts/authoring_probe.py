@@ -19,8 +19,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.report_skill import PINNED_CLI_VERSION, check, cli_check
-from vqs.powerbi.author import adapter, compile as metadata_compile
-from vqs.powerbi.author import metadata, mscli, preflight
+from vqs.powerbi.author import adapter, metadata, mscli, preflight
+from vqs.powerbi.author import compile as metadata_compile
 
 
 def _scaffold(target: Path, tool: str) -> dict[str, Any]:
