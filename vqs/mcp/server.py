@@ -55,7 +55,8 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                   "candidate_root": arguments["candidate_root"]}
         params.update({k: v for k, v in arguments.items()
                        if k in ("run_root", "run_id", "authoring_backend",
-                                "authoring_timeout", "authoring_allow_warnings")
+                                "authoring_timeout", "authoring_allow_warnings",
+                                "authoring_assurance")
                        and v is not None})
         return pipeline.repair_candidate(**params)
     if name == "vqs_verify":
