@@ -758,7 +758,8 @@ def _runtime_sequence(run_dir: Any, rid: str, stages: list,
         repaired = repair_candidate(
             str(plan_file), report_dir, candidate, run_root=run_root,
             run_id=_child_id(rid, "repair"),
-            authoring_backend=params["authoring_backend"])
+            authoring_backend=params["authoring_backend"],
+            authoring_assurance=("production" if runtime else "portable"))
         state["repair_id"] = repaired.get("run_id")
         state["repair_dir"] = repaired.get("run_dir")
         if repaired["verdict"] == "blocked":

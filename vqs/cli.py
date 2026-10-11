@@ -345,6 +345,7 @@ def _repair(args) -> int:
         str(args.plan), args.original, args.candidate_root,
         run_root=str(args.run_root), run_id=args.run_id,
         authoring_backend=args.authoring_backend,
+        authoring_assurance=args.authoring_assurance,
         authoring_timeout=args.authoring_timeout,
         authoring_allow_warnings=args.authoring_allow_warnings))
 
@@ -600,6 +601,12 @@ def main(argv: list[str] | None = None) -> int:
                                  "the explicit direct typed-writer fallback "
                                  "(direct). Microsoft failures never fall "
                                  "back silently.")
+    repair_cmd.add_argument("--authoring-assurance",
+                            choices=("portable", "production"),
+                            default="portable",
+                            help=("portable preserves isolated fixture compatibility; "
+                                  "production requires approved Microsoft validation "
+                                  "and blocks blanket warning waivers"))
     repair_cmd.add_argument("--authoring-timeout", type=int, default=300,
                             help="Seconds for Microsoft validation (default 300)")
     repair_cmd.add_argument("--authoring-allow-warnings", action="store_true",

@@ -9,7 +9,9 @@ are recorded as blocked evidence.
 """
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -67,6 +69,7 @@ def _microsoft_record(probe_result: dict[str, Any], policy: str,
 
 def run_backend(candidate: str | Path, *, policy: str = "auto",
                 timeout: int = 300, allow_warnings: bool = False,
+                assurance: str = "portable",
                 prober: Prober | None = None,
                 runner: Runner | None = None,
                 attestation: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -80,6 +83,15 @@ def run_backend(candidate: str | Path, *, policy: str = "auto",
     resolve late (module attribute at call time) so the seam stays
     patchable; behavior is identical.
     """
+    if assurance not in ("portable", "production"):
+        return {"backend": "unverified", "policy": policy,
+                "verdict": "blocked", "reason": "unknown authoring assurance",
+                "record": {"validation": None}}
+    if assurance == "production" and allow_warnings:
+        return {"backend": "unverified", "policy": policy,
+                "verdict": "blocked",
+                "reason": "production forbids blanket warning waivers",
+                "record": {"validation": None}}
     active_prober = probe if prober is None else prober
     active_runner = validate if runner is None else runner
     if attestation is not None:
@@ -152,8 +164,29 @@ def run_backend(candidate: str | Path, *, policy: str = "auto",
                       "note": "runner returned malformed output"}
     record = _microsoft_record(probe_result, policy, validation)
     status = validation.get("status")
-    warnings = validation.get("warnings") or []
-    if status == "valid" and (not warnings or allow_warnings):
+    warnings = validation.get("warnings")
+    if (not isinstance(warnings, list)
+            or any(not isinstance(w, str) or not w for w in warnings)):
+        record["warning_policy"] = {
+            "contract": "vqs.warning-disposition/1",
+            "status": "blocked", "reason": "malformed diagnostic warnings",
+        }
+        return {"backend": "microsoft", "policy": policy,
+                "verdict": "blocked", "reason": "malformed diagnostic warnings",
+                "record": record}
+    record["warning_policy"] = {
+        "contract": "vqs.warning-disposition/1",
+        "assurance": assurance,
+        "count": len(warnings),
+        "messages_sha256": sha256(json.dumps(
+            warnings, ensure_ascii=False).encode("utf-8")).hexdigest(),
+        "status": ("no_warnings" if not warnings else
+                   "legacy_portable_waiver" if (allow_warnings
+                                                and assurance == "portable")
+                   else "blocked_pending_review"),
+    }
+    if status == "valid" and (
+            not warnings or (allow_warnings and assurance == "portable")):
         return {"backend": "microsoft", "policy": policy,
                 "verdict": "pass",
                 "reason": ("Microsoft validation passed"

@@ -1082,6 +1082,7 @@ def repair_candidate(plan_path: str, original: str,
                      run_root: str = ".vqs-runs",
                      run_id: str | None = None,
                      authoring_backend: str = "auto",
+                     authoring_assurance: str = "portable",
                      authoring_timeout: int = 300,
                      authoring_allow_warnings: bool = False) -> dict[str, Any]:
     """Validate a repair plan, execute it, and seal the repair run.
@@ -1144,7 +1145,13 @@ def repair_candidate(plan_path: str, original: str,
                                 [toolchain.get("reason", "authoring preflight blocked")],
                                 extra={"authoring_preflight": toolchain})
     from .powerbi.author import compile as metadata_compiler
+    from .powerbi.author.policy import authorize as authorize_writer
 
+    writer_policy = authorize_writer(authoring_assurance, toolchain,
+                                     allow_warnings=authoring_allow_warnings)
+    if writer_policy["status"] != "pass":
+        return blocked_envelope("vqs.repair", [writer_policy["reason"]],
+                                extra={"writer_policy": writer_policy})
     gate = metadata_compiler.evaluate(plan, original, toolchain)
     if gate["status"] == "blocked":
         return blocked_envelope(
@@ -1154,6 +1161,7 @@ def repair_candidate(plan_path: str, original: str,
                            authoring_preflight=toolchain,
                            metadata_gate=gate,
                            authoring_backend=authoring_backend,
+                           authoring_assurance=authoring_assurance,
                            authoring_timeout=authoring_timeout,
                            authoring_allow_warnings=authoring_allow_warnings)
 
@@ -1164,6 +1172,7 @@ def _execute_repair(plan: dict[str, Any], original: str,
                     authoring_preflight: dict[str, Any],
                     metadata_gate: dict[str, Any],
                     authoring_backend: str = "auto",
+                    authoring_assurance: str = "portable",
                     authoring_timeout: int = 300,
                     authoring_allow_warnings: bool = False) -> dict[str, Any]:
     """Run an already-validated plan and seal the outcome; never raises."""
@@ -1196,6 +1205,7 @@ def _execute_repair(plan: dict[str, Any], original: str,
                         "candidate": os.path.realpath(candidate_root),
                         "plan_sha256": plan_sha},
              "authoring_preflight": authoring_preflight,
+             "authoring_assurance": authoring_assurance,
              "metadata_gate": metadata_gate})
     except FileExistsError:
         return blocked_envelope("vqs.repair",
@@ -1262,11 +1272,64 @@ def _execute_repair(plan: dict[str, Any], original: str,
     # the selected backend. Microsoft failures fail/block without
     # silent fallback; the candidate is preserved for inspection
     # and the full record is sealed plus reported.
-    authoring = author_adapter.run_backend(
-        result.get("candidate"), policy=authoring_backend,
-        timeout=authoring_timeout,
-        allow_warnings=authoring_allow_warnings,
-        attestation=authoring_preflight)
+    from .powerbi.author.validation_guard import snapshot as validation_snapshot
+
+    candidate_path = str(result.get("candidate") or "")
+    guard_before = validation_snapshot(
+        original, candidate_path, result.get("before"),
+        result.get("after"), result.get("model"))
+    if guard_before["status"] != "pass":
+        authoring = {
+            "backend": authoring_preflight["validation_provider"],
+            "verdict": "blocked",
+            "reason": "candidate/source/model drift before validation",
+            "record": {
+                "backend": authoring_preflight["validation_provider"],
+                "policy": authoring_backend, "validation": None,
+            },
+        }
+    else:
+        authoring = author_adapter.run_backend(
+            candidate_path, policy=authoring_backend,
+            timeout=authoring_timeout,
+            allow_warnings=authoring_allow_warnings,
+            assurance=authoring_assurance,
+            attestation=authoring_preflight)
+    guard_after = validation_snapshot(
+        original, candidate_path, result.get("before"),
+        result.get("after"), result.get("model"))
+    validator_response = authoring["record"].get("validation")
+    approved_cli = authoring_preflight.get("cli", {}).get("path")
+    validator_touched_exact_candidate = (
+        isinstance(validator_response, dict)
+        and isinstance(approved_cli, str)
+        and validator_response.get("command") ==
+            [approved_cli, "validate", candidate_path]
+        and type(validator_response.get("returncode")) is int
+        and (
+            (validator_response.get("status") == "valid"
+             and validator_response.get("returncode") == 0)
+            or (validator_response.get("status") == "invalid"
+                and validator_response.get("returncode") != 0)))
+    authoring["record"]["validation_snapshot"] = {
+        "before": guard_before, "after": guard_after,
+        "validated_candidate": (
+            candidate_path if guard_before["status"] == "pass"
+            and guard_after["status"] == "pass"
+            and authoring["backend"] == "microsoft"
+            and validator_touched_exact_candidate
+            else None),
+    }
+    authoring["record"]["authoring_assurance"] = authoring_assurance
+    if guard_before["status"] != "pass" or guard_after["status"] != "pass":
+        authoring["verdict"] = "blocked"
+        authoring["reason"] = "candidate/source/model drift during validation"
+    if (authoring_assurance == "production"
+            and authoring.get("verdict") == "pass"
+            and not validator_touched_exact_candidate):
+        authoring["verdict"] = "blocked"
+        authoring["reason"] = (
+            "production Microsoft validation lacks exact candidate/command proof")
     authoring["record"]["preflight"] = authoring_preflight
     authoring["record"]["metadata_gate"] = metadata_gate
     if authoring["backend"] != authoring_preflight["validation_provider"]:
