@@ -41,6 +41,13 @@ Do not pass an arbitrary downloaded/unverified directory to the sync command. Th
 9. An independent reviewer adjudicates source-bound evidence. Surface separate repaired / remaining / regressed / blocked states, with no self-approval.
 10. Owner-only promotion uses VQS sealed diff, backup and rollback contract; neither schema success nor user text implies authenticated release authority.
 
+### W05 validation-scope pilot (PR #40)
+
+- Public `vqs repair --authoring-assurance production` and MCP `vqs_repair.authoring_assurance=production` require an approved Microsoft validator and block the legacy blanket `authoring_allow_warnings` flag **before staging**. `portable` is the backwards-compatible default for synthetic/offline scenarios; its success is not production, Desktop, semantic or release acceptance.
+- `vqs.validation-snapshot/1` hashes the original and candidate report trees and checks the byPath model pin immediately **before and after** the selected validator. Drift causes a **blocked** sealed repair even if an untrusted runner reports a PASS. The authoring record captures both snapshots and marks `validated_candidate` only when hashes stay stable and the Microsoft provider was selected.
+- `vqs.warning-disposition/1` records warning count and digest. A blanket portable waiver is labeled `legacy_portable_waiver`; production warnings block pending an **explicit, authenticated, per-diagnostic policy** (not implemented yet). Malformed warning arrays are blocked. Neither unsigned review text nor a static technical PASS can authorize release.
+- **Still open:** stricter defaults and unified RunRequest across CLI/MCP/coordinator; strong-scope promotion must consume assurance receipts; full CLI stdout/code/path review, executable binary hash, no-warning-disposition catalog, project/remote model snapshot concurrency and proven Desktop/visual/release acceptance. See issue #32. No original Contoso or model was modified by this pilot.
+
 For **standalone** authoring not inside VQS, follow Microsoft's validated authoring mode and its powerbi-report-author preview workflow, including page screenshots and review. Report-item transport/publishing is a separate management mode requiring explicit consent. Microsoft Modeling MCP owns semantic content; the report skill does not give permission to mutate TMDL or Fabric workspaces indirectly.
 
 ## Evidence requirements and known limitations
