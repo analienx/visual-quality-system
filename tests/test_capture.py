@@ -99,6 +99,10 @@ def _stub(monkeypatch, report, instances, png_pages=("p1",)):
         if args[0] == "status":
             return 0, json.dumps({"status": "ready",
                                   "instances": instances})
+        if args[0] == "screenshot":
+            # Missing-page test: retry is attempted but no PNG is produced.
+            return 1, json.dumps({"error": {"message": "image unavailable",
+                                            "retryable": False}})
         assert args[0] == "screenshot-all"
         scale_arg = int(args[args.index("--scale") + 1])
         out = Path(args[args.index("--output-dir") + 1])

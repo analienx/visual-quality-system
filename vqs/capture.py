@@ -44,6 +44,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from fractions import Fraction
 from pathlib import Path
 from typing import Any
@@ -293,6 +294,113 @@ def _screenshot_map(output: str) -> dict[str, dict[str, str]]:
                 record["viewport"] = viewport
             mapping[str(shot["pageId"])] = record
     return mapping
+
+
+def _bridge_payload(output: str) -> dict[str, Any]:
+    """Decode an actual Bridge JSON result, including partial results."""
+    try:
+        start = output.index("{")
+        payload, _ = json.JSONDecoder().raw_decode(output[start:])
+    except (ValueError, IndexError) as exc:
+        raise OSError("Bridge capture returned no parseable JSON") from exc
+    if not isinstance(payload, dict):
+        raise OSError("Bridge capture returned a non-object result")
+    return payload
+
+
+def _capture_failed_pages(*, expected: list[str], initial: str,
+                          initial_code: int, instance: dict[str, Any],
+                          renders_path: Path, scale: int, wait_seconds: int,
+                          verify_identity: Any) -> tuple[dict[str, dict[str, str]],
+                                                        dict[str, Any]]:
+    """Salvage successful all-page captures; retry ONLY failed pages.
+
+    No visual evidence is accepted from a failed single-page operation,
+    stale file, wrong explicit page identity, or a changed Desktop/source.
+    Bounded to two extra attempts per failed page.
+    """
+    payload = _bridge_payload(initial)
+    status = payload.get("status")
+    if status is None and initial_code == 0 and isinstance(
+            payload.get("screenshots"), list):
+        status = "ok"  # Bridge/preview versions without a status field.
+    if status not in ("ok", "success", "partial"):
+        raise OSError(f"Bridge screenshot-all rejected: {initial[:400]}")
+    if initial_code != 0 and status != "partial":
+        raise OSError("Bridge screenshot-all exited unsuccessfully: "
+                      + initial[:400])
+    mapping = _screenshot_map(initial)
+    failures = {str(item.get("pageId")): item.get("error", {})
+                for item in payload.get("failures", [])
+                if isinstance(item, dict) and item.get("pageId")}
+    details: dict[str, Any] = {}
+    recovery_deadline = time.monotonic() + 240
+    for page_id in expected:
+        shot = mapping.get(page_id, {})
+        raw = shot.get("outputPath", "")
+        if raw and Path(raw).is_file():
+            details[page_id] = {"status": "captured", "method": "screenshot-all",
+                                "attempts": 1}
+            continue
+        failure = failures.get(page_id, {})
+        details[page_id] = {"status": "failed", "method": "screenshot",
+                            "attempts": 1, "error": failure}
+        if isinstance(failure, dict) and failure.get("retryable") is False:
+            details[page_id]["reason"] = "non-retryable bridge error"
+            continue
+        for attempt in (1, 2):
+            if time.monotonic() >= recovery_deadline:
+                details[page_id]["reason"] = "recovery wall-clock budget exhausted"
+                break
+            verify_identity()
+            delay_ms = failure.get("retryAfterMs", 0) if isinstance(failure, dict) else 0
+            if delay_ms:
+                time.sleep(min(max(float(delay_ms) / 1000.0, 0), 4))
+            target = renders_path / f".{page_id}.attempt-{attempt}.png"
+            if target.exists():
+                raise OSError(f"Unexpected stale retry image for {page_id}")
+            started = time.monotonic()
+            try:
+                code, output = _bridge(
+                    ["screenshot", page_id, "--pid", str(instance["pid"]),
+                     "--output", str(target), "--scale", str(scale),
+                     "--wait-seconds", str(wait_seconds)],
+                    timeout=min(75, max(45, wait_seconds + 15)))
+            except OSError as exc:
+                code, output = 1, str(exc)
+            details[page_id]["attempts"] += 1
+            details[page_id]["last_duration_seconds"] = round(
+                time.monotonic() - started, 2)
+            verify_identity()
+            try:
+                result = _bridge_payload(output)
+            except OSError:
+                result = {}
+            explicit_id = result.get("pageId")
+            if not explicit_id and isinstance(result.get("screenshot"), dict):
+                explicit_id = result["screenshot"].get("pageId")
+            if code == 0 and target.is_file() and (
+                    explicit_id is None or explicit_id == page_id):
+                mapping[page_id] = {"outputPath": str(target)}
+                if isinstance(result.get("viewport"), str):
+                    mapping[page_id]["viewport"] = result["viewport"]
+                details[page_id].update(
+                    status="captured", method="screenshot-retry", error=None)
+                break
+            error = result.get("error", {})
+            if not isinstance(error, dict):
+                error = {"message": str(error)}
+            if not error:
+                error = {"message": output[-300:] or "no screenshot produced"}
+            if explicit_id is not None and explicit_id != page_id:
+                error = {"message": "page identity mismatch",
+                         "returned_page_id": explicit_id, "retryable": False}
+            details[page_id]["error"] = error
+            if error.get("retryable") is False:
+                break
+            failure = error
+    return mapping, {"initial_status": status,
+                     "initial_exit_code": initial_code, "pages": details}
 
 _VIEWPORT_RE = re.compile(r"^(\d+)x(\d+)@(\d+(?:\.\d+)?)x$")
 
@@ -562,9 +670,21 @@ def capture(report: str, renders: str, pid: int | None = None,
              "--output-dir", str(renders_path), "--scale", str(scale),
              "--wait-seconds", str(wait_seconds)],
             timeout=wait_seconds + 300)
-        if code != 0:
-            raise OSError(f"screenshot-all failed: {output[:500]}")
-        mapping = _screenshot_map(output)
+        def verify_identity() -> None:
+            if source_digest(report_path) != source_before:
+                raise OSError("Report changed during page retry; refusing evidence")
+            current = select_instance(str(report_path), instance["pid"],
+                                      wait_seconds, owned_candidate=owned_candidate)
+            if not _same_path(str(current.get("currentFilePath", "")),
+                              str(instance.get("currentFilePath", ""))):
+                raise OSError("Desktop target path changed during page retry")
+
+        mapping, attempts = _capture_failed_pages(
+            expected=expected, initial=output, initial_code=code,
+            instance=instance, renders_path=renders_path, scale=scale,
+            wait_seconds=wait_seconds, verify_identity=verify_identity)
+        (renders_path / "capture-attempts.json").write_text(
+            json.dumps(attempts, indent=2), encoding="utf-8")
         if port is not None:
             readiness_after = port.readiness(scope)
             if not readiness_after.get("populated"):
@@ -628,8 +748,9 @@ def capture(report: str, renders: str, pid: int | None = None,
             files[target.name] = _sha256(target)
             pixels[page_id] = [width, height]
         if missing:
-            raise OSError("Bridge did not capture pages: "
-                          + ", ".join(sorted(missing)))
+            raise OSError("Bridge did not capture pages after bounded retries: "
+                          + ", ".join(sorted(missing))
+                          + "; see capture-attempts.json for per-page errors")
         try:
             source_after = source_digest(report_path)
         except (OSError, ValueError, KeyError, TypeError) as exc:
