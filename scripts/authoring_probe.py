@@ -19,7 +19,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.report_skill import PINNED_CLI_VERSION, check, cli_check
-from vqs.powerbi.author import compile as metadata_compile
+from vqs.powerbi.author import adapter, compile as metadata_compile
 from vqs.powerbi.author import metadata, mscli, preflight
 
 
@@ -132,6 +132,16 @@ def main(argv: list[str]) -> int:
             report["valid"] = genuine
             if genuine["status"] != "valid" or genuine["warnings"]:
                 raise RuntimeError("positive control: official PBIP scaffold rejected")
+            production = adapter.run_backend(
+                pbip, policy="microsoft", assurance="production",
+                attestation=toolchain)
+            report["production_validation"] = production["record"]
+            if (production["verdict"] != "pass"
+                    or production["record"]["validation"]["command"] !=
+                    [toolchain["cli"]["path"], "validate", str(pbip)]
+                    or production["record"]["warning_policy"]["status"] !=
+                    "no_warnings"):
+                raise RuntimeError("production Microsoft validation adapter failed")
             # Corrupt the isolated project, not the original or the valid result.
             definition = Path(scaffold["report"]) / "definition.pbir"
             definition.write_text("{ invalid json", encoding="utf-8")
