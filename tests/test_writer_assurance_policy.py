@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from test_r6_e07_authoring import _project
+
 from vqs.pipeline import repair_candidate
 from vqs.powerbi.author.policy import authorize
 
