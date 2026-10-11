@@ -73,3 +73,23 @@ def test_model_save_during_validation_invalidates_repair(
     assert record["validation_snapshot"]["after"]["status"] == "blocked"
     assert any("model" in problem for problem in
                record["validation_snapshot"]["after"]["problems"])
+
+
+def test_production_microsoft_result_must_bind_exact_target(tmp_path, monkeypatch):
+    from test_metadata_compiler_gate import _attested, _metadata
+    from vqs.powerbi.author import adapter, compile as compiler, preflight
+
+    proj, original = _project(tmp_path)
+    monkeypatch.setattr(preflight, "check", lambda policy: _attested())
+    monkeypatch.setattr(compiler.metadata, "query", _metadata)
+    monkeypatch.setattr(adapter, "validate", lambda candidate, **kw: {
+        "status": "valid", "errors": [], "warnings": [], "returncode": 0,
+        "command": ["/approved/cli", "validate", "/different/report.Report"],
+    })
+    result = repair_candidate(str(proj / "plan.json"), str(original),
+        str(proj / "production-candidate"), run_root=str(tmp_path / "runs"),
+        run_id="wrong-target", authoring_backend="microsoft",
+        authoring_assurance="production")
+    assert result["verdict"] == "blocked"
+    assert "exact candidate/command proof" in result["blocked_reasons"][0]
+    assert result["authoring"]["validation_snapshot"]["validated_candidate"] is None
