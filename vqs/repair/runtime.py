@@ -236,8 +236,9 @@ def open_candidate_instance(port: BridgePort, original: str, candidate: str, *,
                     continue
                 if str(item.get("pid")) in before_pids:
                     raise BridgeUnavailable(
-                        "Bridge open bound a pre-existing candidate "
-                        f"PID {item.get('pid')}; refusing false ownership")
+                        "Bridge open bound a pre-existing instance instead "
+                        "of a freshly opened candidate "
+                        f"(PID {item.get('pid')}); refusing false ownership")
                 if item.get("bridgeStatus") == "error":
                     error = item.get("error")
                     if isinstance(error, dict) and error.get("retryable") is False:
