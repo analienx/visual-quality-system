@@ -244,13 +244,14 @@ def _cycles(model: Path) -> int:
 
 
 def _capture(report: Path, renders: Path, pid: int | None, scale: int,
-             wait_seconds: int) -> int:
+             wait_seconds: int, live_data: bool = False) -> int:
     """Capture every page via Bridge; exit 2 with reason when blocked."""
     from vqs.capture import capture
 
     try:
         manifest = capture(str(report), str(renders), pid=pid,
-                           scale=scale, wait_seconds=wait_seconds)
+                           scale=scale, wait_seconds=wait_seconds,
+                           live_data=live_data)
     except (OSError, LookupError, ValueError, TypeError) as exc:
         print(json.dumps({"status": "blocked",
                           "reason": f"{type(exc).__name__}: {exc}"}))
@@ -416,7 +417,7 @@ def _verify_runtime(args) -> int:
         run_root=str(args.run_root), run_id=args.run_id, pid=args.pid,
         scale=args.scale, wait_seconds=args.wait_seconds,
         reload_first=not args.no_reload,
-        runtime_run_id=args.runtime_run_id))
+        runtime_run_id=args.runtime_run_id, live_data=args.live_data))
 
 
 def _promote(args) -> int:
@@ -577,6 +578,10 @@ def main(argv: list[str] | None = None) -> int:
                              help="Target a specific PBIDesktop.exe process")
     capture_cmd.add_argument("--scale", type=int, default=2)
     capture_cmd.add_argument("--wait-seconds", type=int, default=60)
+    capture_cmd.add_argument("--live-data", action="store_true",
+                             help="Prove populated Microsoft Modeling MCP data "
+                                  "on exact Desktop PID (run-owned clones "
+                                  "get a transient warm-up render)")
     bundle_cmd = commands.add_parser("bundle", help="Portable review evidence bundles")
     bundle_actions = bundle_cmd.add_subparsers(dest="bundle_action", required=True)
     pack_cmd = bundle_actions.add_parser("pack", help="Assemble a verified bundle")
@@ -705,6 +710,9 @@ def main(argv: list[str] | None = None) -> int:
     runtime_cmd.add_argument("--pid", type=int, default=None,
                              help="Desktop PID holding the disposable candidate")
     runtime_cmd.add_argument("--scale", type=int, default=2)
+    runtime_cmd.add_argument("--live-data", action="store_true",
+                             help="Require model-bound populated data evidence "
+                                  "with a run-owned warm-up when appropriate")
     runtime_cmd.add_argument("--wait-seconds", type=int, default=60)
     runtime_cmd.add_argument("--no-reload", action="store_true",
                              help="Skip the candidate reload before capture")
@@ -793,7 +801,7 @@ def main(argv: list[str] | None = None) -> int:
         return _preview_candidate(args)
     if args.command == "capture":
         return _capture(args.report, args.renders, args.pid, args.scale,
-                        args.wait_seconds)
+                        args.wait_seconds, args.live_data)
     if args.command == "bundle":
         return _bundle(args.bundle_action, args)
     if args.command == "doctor":

@@ -102,6 +102,8 @@ VQS_MODELING_AUTO=1, vqs capture first renders a single page into a
 disposable temporary directory. Power BI Desktop may not start its
 msmdsrv.exe engine until that page is rendered. The
 warm-up screenshot is deleted and is never reviewer evidence.
+Use the explicit --live-data option on vqs capture or
+vqs verify-runtime instead of setting VQS_MODELING_AUTO=1 manually.
 After binding the engine to the original selected Desktop through
 its OS-attested parent PID, VQS probes live populated data BEFORE
 the authoritative screenshot-all and repeats the same readiness

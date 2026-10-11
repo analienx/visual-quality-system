@@ -42,7 +42,7 @@ def test_owned_auto_port_warms_then_proves_twice_then_captures(
 
     original.readiness = readiness
     monkeypatch.setattr(capture_mod, "_resolve_modeling",
-                        lambda _modeling, target_pid=None: (
+                        lambda _modeling, target_pid=None, live_data=False: (
                             original, True))
     manifest = capture_mod.capture(
         str(report), str(tmp_path / "renders"), wait_seconds=1,

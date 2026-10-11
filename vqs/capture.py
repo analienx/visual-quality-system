@@ -532,7 +532,8 @@ def _measured_calibration(*, canvas_width: int, canvas_height: int,
                                 "whole-page perceptual review only")}
 
 
-def _resolve_modeling(modeling: Any, target_pid: int | None = None) -> tuple[Any, bool]:
+def _resolve_modeling(modeling: Any, target_pid: int | None = None,
+                      live_data: bool = False) -> tuple[Any, bool]:
     """Resolve the modeling port: explicit, auto (env opt-in), or skipped.
 
     Returns (port_or_None, owned). Owned ports are closed by capture;
@@ -540,7 +541,7 @@ def _resolve_modeling(modeling: Any, target_pid: int | None = None) -> tuple[Any
     """
     if modeling is not None:
         return modeling, False
-    if os.environ.get("VQS_MODELING_AUTO") != "1":
+    if not live_data and os.environ.get("VQS_MODELING_AUTO") != "1":
         return None, False
     from .powerbi.modeling import StdioModelingClient
 
@@ -628,7 +629,8 @@ def capture(report: str, renders: str, pid: int | None = None,
             expected_scope: dict[str, Any] | None = None,
             modeling: Any = None,
             lease_dir: str | None = None,
-            owned_candidate: bool = False) -> dict:
+            owned_candidate: bool = False,
+            live_data: bool = False) -> dict:
     """Capture every page and write the manifest; raise on any gap.
 
     New gates (all default-safe for existing callers): proven Bridge
@@ -691,7 +693,8 @@ def capture(report: str, renders: str, pid: int | None = None,
     if not claim_artifact(locks, lease_id, owner):
         raise OSError(f"Exclusive lease held for Desktop PID "
                       f"{instance['pid']}; another capture holds it")
-    port, owned = _resolve_modeling(modeling, target_pid=int(instance["pid"]))
+    port, owned = _resolve_modeling(
+        modeling, target_pid=int(instance["pid"]), live_data=live_data)
     scope = ModelingScope(source_sha256=source_before)
     readiness_before: dict[str, Any] | None = None
     model_warmup: dict[str, Any] | None = None

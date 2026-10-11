@@ -314,7 +314,8 @@ def capture_candidate(candidate: str, renders: str, pid: int,
                       scale: int = 2, wait_seconds: int = 60,
                       modeling: Any = None,
                       lease_dir: str | None = None,
-                      owned: bool = False) -> dict[str, Any]:
+                      owned: bool = False,
+                      live_data: bool = False) -> dict[str, Any]:
     """Capture the bound candidate through the hardened capture path.
 
     ``owned`` may only pass True for a run-opened instance (see
@@ -325,4 +326,5 @@ def capture_candidate(candidate: str, renders: str, pid: int,
 
     return capture(candidate, renders, pid=pid, scale=scale,
                    wait_seconds=wait_seconds, modeling=modeling,
-                   lease_dir=lease_dir, owned_candidate=owned)
+                   lease_dir=lease_dir, owned_candidate=owned,
+                   live_data=live_data)
