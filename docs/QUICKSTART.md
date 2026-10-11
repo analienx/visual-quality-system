@@ -62,6 +62,37 @@ nonuniform scale, missing borders or mismatched page geometry stay
 an independent design review, data-readiness, answer, or RLS pass.
 Raw captures keep their independent source/PID binding and calibration.
 
+### Actual reviewer input (not Desktop chrome)
+
+When all page crops are measured, vqs bundle pack now includes BOTH
+the original Desktop-window screenshots and the exact lossless canvas-only
+images. vqs bundle verify independently remeasures every raw screenshot,
+checks the crop bytes/pixels row by row, and exposes
+review_images[page_id] (image, sha256, pixels, crop,
+effective_scale, source_image) with
+review_image_basis=verified_canvas. A reviewer provider should call
+vqs.review.bundle.verify(bundle_dir) and inspect those verified
+review_images; it must never trust unverified standalone image paths.
+When no crop is available the same API explicitly returns
+review_image_basis=raw_desktop_window, not a pretend clean image.
+The transport remains blocked without genuine data_readiness.
+
+A real image-capable external reviewer is still required to judge visual
+quality. Returning typed synthetic observations or verifying screenshot
+bytes proves neither an independent judgment nor semantic correctness.
+
+### Real Modeling MCP compatibility
+
+The local Modeling MCP adapter resolves Windows npm .cmd launchers and
+understands Microsoft's data result envelopes for local-instance
+discovery, connection, model statistics and DAX rows. With
+VQS_MODELING_AUTO=1, vqs capture binds live model discovery to the
+exact selected Desktop PID, refusing another model even if that other
+instance has data. A clone without a discoverable semantic model stays
+blocked; it cannot inherit an unrelated Desktop model's readiness.
+A successful populated probe checks one named table twice and only
+covers the selected model/context, not arbitrary slicer states or RLS.
+
 For actual data-populated candidate previews when the sealed VQS repair
 model is definition-only, `vqs prepare-preview` calls the same
 `vqs.repair.preview.materialize_populated_preview` engine. For example:

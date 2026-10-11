@@ -46,6 +46,12 @@ def pack(report: str, renders: str, out: str, fixer_id: str) -> dict:
     if issues or len(pages) != len(expected):
         detail = "; ".join(sorted({i.get("rule", "?") for i in issues}))
         raise ValueError(f"Renders incomplete or unbound: {detail}")
+    from ..visual.review import verified_review_canvases
+
+    capture_manifest = json.loads(
+        (Path(renders) / "capture-manifest.json").read_text(
+            encoding="utf-8-sig"))
+    clean = verified_review_canvases(Path(renders), capture_manifest, expected)
     out_path = Path(out)
     if out_path.exists():
         raise OSError(f"Refusing to overwrite: {out}")
@@ -53,6 +59,11 @@ def pack(report: str, renders: str, out: str, fixer_id: str) -> dict:
               "fixer_id": fixer_id, "source_sha256": info["source_sha256"],
               "policy_version": POLICY_VERSION, "pages": expected,
               "created_utc": _utcnow(), "files": {}}
+    if clean:
+        header["review_images"] = {
+            page: {"image": item["image"], "sha256": item["sha256"],
+                   "pixels": item["pixels"]}
+            for page, item in clean.items()}
     try:
         out_path.mkdir(parents=True)
         shutil.copy2(Path(renders) / "capture-manifest.json",
@@ -60,9 +71,18 @@ def pack(report: str, renders: str, out: str, fixer_id: str) -> dict:
         for page in pages:
             shutil.copy2(Path(renders) / page["image"],
                          out_path / page["image"])
+        if clean:
+            shutil.copy2(Path(renders) / "canvas-evidence.json",
+                         out_path / "canvas-evidence.json")
+            for item in clean.values():
+                shutil.copy2(Path(renders) / item["image"],
+                             out_path / item["image"])
         (out_path / "inventory.json").write_text(
             json.dumps(info, indent=2, ensure_ascii=False), encoding="utf-8")
         members = list(FIXED_MEMBERS) + [page["image"] for page in pages]
+        if clean:
+            members += ["canvas-evidence.json"]
+            members += [item["image"] for item in clean.values()]
         header["files"] = {name: digest(out_path / name) for name in members}
         (out_path / "bundle.json").write_text(json.dumps(header, indent=2),
                                               encoding="utf-8")
@@ -131,6 +151,22 @@ def verify(bundle: str, report: str | None = None) -> dict:
     if not isinstance(mapping, dict):
         raise TypeError("Bundle invalid: manifest page_images is not an object")
     allowed = {"bundle.json", *FIXED_MEMBERS}
+    claim = manifest.get("canvas_review")
+    claimed_clean = (isinstance(claim, dict)
+                     and claim.get("status") == "complete")
+    declared_clean = header.get("review_images")
+    if claimed_clean and not isinstance(declared_clean, dict):
+        problems.append("complete canvas images missing from bundle header")
+    if not claimed_clean and declared_clean is not None:
+        problems.append("unclaimed canvas images in bundle header")
+    if claimed_clean:
+        allowed.add("canvas-evidence.json")
+        if isinstance(declared_clean, dict):
+            for entry in declared_clean.values():
+                if isinstance(entry, dict):
+                    name = entry.get("image")
+                    if safe_render_name(name) is not None:
+                        allowed.add(name)
     for name in mapping.values():
         if safe_render_name(name) is not None:
             allowed.add(name)
@@ -149,6 +185,14 @@ def verify(bundle: str, report: str | None = None) -> dict:
         on_disk.add(entry.name)
     required_members = set(FIXED_MEMBERS) | {
         name for name in mapping.values() if safe_render_name(name) is not None}
+    if claimed_clean:
+        required_members.add("canvas-evidence.json")
+        if isinstance(declared_clean, dict):
+            for entry in declared_clean.values():
+                if isinstance(entry, dict):
+                    name = entry.get("image")
+                    if safe_render_name(name) is not None:
+                        required_members.add(name)
     for name in sorted(required_members):
         if name not in member_hashes:
             problems.append(f"member hash missing: {name}")
@@ -263,6 +307,22 @@ def verify(bundle: str, report: str | None = None) -> dict:
             problems.append("bundle source is stale against live report")
     if problems:
         raise ValueError("Bundle invalid: " + "; ".join(sorted(problems)))
+    clean_renders = {}
+    if claimed_clean:
+        from ..visual.canvas import CanvasUnproven
+        from ..visual.review import verified_review_canvases
+
+        try:
+            clean_renders = verified_review_canvases(
+                root, manifest, list(header["pages"]))
+        except (CanvasUnproven, OSError, ValueError, TypeError) as exc:
+            raise ValueError(f"Bundle invalid: unverified canvas images: {exc}") from exc
+        expected_clean = {
+            page: {"image": record["image"], "sha256": record["sha256"],
+                   "pixels": record["pixels"]}
+            for page, record in clean_renders.items()}
+        if declared_clean != expected_clean:
+            raise ValueError("Bundle invalid: clean-image header mismatch")
     # R6-DEC-06: verified render authority. Every binding below was
     # re-hashed or decoded from current bundle bytes; the identity
     # digest pins the exact verified content. Defensive guard: any
@@ -285,7 +345,11 @@ def verify(bundle: str, report: str | None = None) -> dict:
     return {"status": "valid", "authority": "vqs.bundle.verify/1",
             "source_sha256": header["source_sha256"],
             "pages": list(header["pages"]), "fixer_id": header["fixer_id"],
-            "renders": renders, "calibration": dict(calibration),
+            "renders": renders,
+            "review_images": (clean_renders or renders),
+            "review_image_basis": ("verified_canvas" if clean_renders
+                                   else "raw_desktop_window"),
+            "calibration": dict(calibration),
             "bundle_sha256": identity}
 
 

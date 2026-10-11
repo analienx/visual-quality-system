@@ -532,7 +532,7 @@ def _measured_calibration(*, canvas_width: int, canvas_height: int,
                                 "whole-page perceptual review only")}
 
 
-def _resolve_modeling(modeling: Any) -> tuple[Any, bool]:
+def _resolve_modeling(modeling: Any, target_pid: int | None = None) -> tuple[Any, bool]:
     """Resolve the modeling port: explicit, auto (env opt-in), or skipped.
 
     Returns (port_or_None, owned). Owned ports are closed by capture;
@@ -544,7 +544,7 @@ def _resolve_modeling(modeling: Any) -> tuple[Any, bool]:
         return None, False
     from .powerbi.modeling import StdioModelingClient
 
-    return StdioModelingClient(), True
+    return StdioModelingClient(target_pid=target_pid), True
 
 
 def _capture_manifest(*, source_sha256: str, page_images: dict[str, str],
@@ -643,7 +643,7 @@ def capture(report: str, renders: str, pid: int | None = None,
     if not claim_artifact(locks, lease_id, owner):
         raise OSError(f"Exclusive lease held for Desktop PID "
                       f"{instance['pid']}; another capture holds it")
-    port, owned = _resolve_modeling(modeling)
+    port, owned = _resolve_modeling(modeling, target_pid=int(instance["pid"]))
     scope = ModelingScope(source_sha256=source_before)
     readiness_before: dict[str, Any] | None = None
     try:

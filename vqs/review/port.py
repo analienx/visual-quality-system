@@ -183,7 +183,11 @@ def review_bundle(*, bundle_dir: str, reviewer: Any, reviewer_id: str,
     geometry = (authority.get("calibration")
                 if isinstance(authority.get("calibration"), dict)
                 else {})
+    review_images = authority.get("review_images", authority["renders"])
     return {"reviewer": reviewer_id, "fixer": fixer_id,
+            "review_images": review_images,
+            "review_image_basis": authority.get(
+                "review_image_basis", "raw_desktop_window"),
             "geometry_calibration": geometry.get("geometry_calibration",
                                                 "unknown"),
             "source_sha256": authority.get("source_sha256"),
