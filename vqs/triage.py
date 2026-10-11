@@ -118,9 +118,12 @@ def _locations(detail: Any) -> list[str]:
     if not isinstance(evidence, dict):
         return []
     found: set[str] = set()
-    for item in (evidence.get("conflicts", [])
-                 + evidence.get("failures", [])
-                 + evidence.get("pending", [])):
+    rows = []
+    for key in ("conflicts", "failures", "pending"):
+        group = evidence.get(key)
+        if isinstance(group, list):
+            rows.extend(group)
+    for item in rows:
         if not isinstance(item, dict):
             continue
         page = item.get("page")
@@ -229,6 +232,14 @@ def analyze(report: str, model: str | None = None, *,
         if not isinstance(basis, dict):
             basis = {}
         matched = [item for item in candidates if item.get("check") == check]
+        proposals = [{
+            "visual": friendly_names.get(
+                f"{item.get('page')}/{item.get('visual')}",
+                f"{item.get('page')}/{item.get('visual')}"),
+            "path": ".".join(str(part) for part in item.get("path", [])),
+            "old": item.get("old"), "new": item.get("new"),
+            "reason": item.get("rationale", ""),
+        } for item in matched]
         held = [item for item in decisions if item.get("check") == check]
         locations = _locations(basis)
         findings.append({
@@ -239,6 +250,7 @@ def analyze(report: str, model: str | None = None, *,
                               for location in locations],
             "recommendation": _summary_recommendation(check, status, basis),
             "candidate_count": len(matched),
+            "proposals": proposals,
             "decision_count": len(held),
             "next_step": ("review a typed candidate" if matched
                           else "capture missing render/semantic evidence"
@@ -321,6 +333,13 @@ def markdown(report: dict[str, Any]) -> str:
             (f"   - Next: {f['next_step']};"
             f" {f['candidate_count']} safe-plan proposal(s)"),
         ]
+        for proposed in f["proposals"][:3]:
+            lines.append(
+                f"   - Suggested edit: {proposed['visual']} "
+                f"{proposed['path']}: {proposed['old']} → {proposed['new']} "
+                "(candidate only; not applied)")
+        if len(f["proposals"]) > 3:
+            lines.append(f"   - +{len(f['proposals']) - 3} more candidate edits in JSON")
         if f["decision_reasons"]:
             lines.append(f"   - Blocker: {f['decision_reasons'][0]}")
     lines += ["", "## What this cannot prove"]

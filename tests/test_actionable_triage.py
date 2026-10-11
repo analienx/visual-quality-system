@@ -52,7 +52,10 @@ def test_typed_suggestion_for_real_visual_geometry(tmp_path: Path):
                  if item["check"] == "layout.visuals_within_page")
     assert issue["priority"] == "high"
     assert issue["candidate_count"] >= 1, result["decisions"]
+    assert issue["proposals"][0]["old"] == -20
+    assert issue["proposals"][0]["new"] == 0
     assert "titlebox" in json.dumps(issue)
+    assert "Suggested edit:" in markdown(result)
     assert result["plan"] is not None
     assert result["plan"]["operations"]
     assert any("titlebox" in op["writes"][0]
@@ -169,3 +172,11 @@ def test_functional_triage_to_verified_repair_reduces_defects(tmp_path: Path):
     assert tree_digest(original) == original_sha
     # No fake general visual approval: the unresolved render issue survives.
     assert after["summary"]["needs_evidence"] >= 1
+
+
+def test_malformed_optional_visual_locations_do_not_crash():
+    from vqs.triage import _locations
+
+    assert _locations({"evidence": {
+        "conflicts": None, "failures": "unknown", "pending": [],
+    }}) == []
