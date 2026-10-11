@@ -185,6 +185,39 @@ def _measure(report: Path, model: Path | None, out: Path | None) -> int:
     return 0
 
 
+def _triage(args) -> int:
+    """Show actionable source-backed findings with a single command."""
+    from vqs.triage import analyze, markdown
+
+    result = analyze(
+        str(args.report), str(args.model) if args.model else None,
+        run_root=str(args.run_root), run_id=args.run_id)
+    if args.plan_out is not None:
+        plan = result.get("plan")
+        if plan is None:
+            print("No safely synthesized typed repair plan.", file=sys.stderr)
+        else:
+            try:
+                args.plan_out.write_text(
+                    json.dumps(plan, indent=2, ensure_ascii=False) + "\n",
+                    encoding="utf-8")
+            except OSError as exc:
+                print(f"Cannot save plan: {exc}", file=sys.stderr)
+                return 2
+    data = (json.dumps(result, indent=2, ensure_ascii=False)
+            if args.format == "json" else markdown(result))
+    if args.out is None:
+        print(data)
+    else:
+        try:
+            args.out.write_text(data + ("" if data.endswith("\n") else "\n"),
+                                encoding="utf-8")
+        except OSError as exc:
+            print(f"Cannot save triage: {exc}", file=sys.stderr)
+            return 2
+    return 2 if result["status"] == "blocked" else 0
+
+
 def _doctor() -> int:
     """Print the capability report; always exit 0, never gate."""
     from vqs.doctor import report
@@ -484,6 +517,17 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     inventory = commands.add_parser("inventory", help="Read PBIR definition and bindings; not design approval")
     inventory.add_argument("report", type=Path, help="Enhanced-format *.Report folder")
+    triage = commands.add_parser(
+        "triage", help="One-command prioritized report diagnosis and repair suggestions")
+    triage.add_argument("report", type=Path, help="Enhanced-format *.Report folder")
+    triage.add_argument("--model", type=Path, default=None,
+                        help="Optional semantic model definition path")
+    triage.add_argument("--run-root", type=Path, default=Path(".vqs-runs"))
+    triage.add_argument("--run-id", default=None)
+    triage.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    triage.add_argument("--out", type=Path, default=None)
+    triage.add_argument("--plan-out", type=Path, default=None,
+                        help="Export source-bound typed repair plan if synthesizable")
     measure = commands.add_parser("measure", help="Emit check-ready facts for a PBIR report")
     measure.add_argument("report", type=Path, help="Enhanced-format *.Report folder")
     measure.add_argument("--model", type=Path, default=None,
@@ -706,6 +750,8 @@ def main(argv: list[str] | None = None) -> int:
                          help="Write the run envelope JSON here")
     commands.add_parser("mcp", help="Launch the stdio MCP server (tools vqs_*)")
     args = parser.parse_args(argv)
+    if args.command == "triage":
+        return _triage(args)
     if args.command == "measure":
         return _measure(args.report, args.model, args.out)
     if args.command == "cycles":

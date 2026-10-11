@@ -4,23 +4,26 @@
 [![License](https://img.shields.io/github/license/analienx/visual-quality-system)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 
-**Prove a Power BI report is good — from source, not vibes.** VQS measures check-ready facts straight from PBIR reports and TMDL models (contrast, format consistency, metric units, bindings, page insights, DAX/M cycles), seals them into pass/fail/blocked verdicts, and binds rendered screenshots to exact source revisions so an independent reviewer can verify what actually shipped. No invented theme literals, no approval of your own fix, no pixel-only hand-waving.
+**Find concrete Power BI report problems and fix them without guessing.** VQS identifies source-backed issues by page and visual, ranks them, and can produce a typed repair plan for a disposable candidate. Real quality acceptance still needs populated Desktop renders and semantic checks — schema-valid JSON is not a good report.
 
 ## 60 seconds
 
 ```bash
 pip install -e ".[test]"
 vqs --version
-vqs doctor                        # capabilities + install identity (never installs)
-vqs run tests/powerbi/fixtures/mini_report --mode review --run-root runs --run-id demo
+vqs triage tests/powerbi/fixtures/mini_report --out quality.md
+vqs triage path/to/Existing.pbip --plan-out candidate-plan.json
+vqs doctor                        # optional capability diagnostics
 python -m pytest                  # full suite green plus ruff clean
 ```
 
-The demo review blocks (exit 2), honestly: the fixture mixes
-slicer textSize declarations with an unknown effective value, so
-the run reports `needs_render_evidence` instead of failing. The
-low-level tool sequence (`measure`, `check`, `repair`, …) is the
-expert/debug interface — see `docs/QUICKSTART.md`.
+The first command produces a prioritized human-readable report (exit 0)
+and says that inherited slicer typography needs **render evidence**;
+it does not invent a design defect or auto-fix it. A safe plan is
+exported only when one can be synthesized. To apply it, use `vqs repair`
+on a disposable candidate and `vqs verify`; source-only triage is not
+visual approval. The low-level tools remain available for debugging —
+see `docs/QUICKSTART.md`.
 
 Real output (`vqs cycles`, exit 0):
 
@@ -57,6 +60,7 @@ Static facts come from parsing sources; rendered facts come from Desktop Bridge 
 
 | Command | Does | Status |
 | --- | --- | --- |
+| `vqs triage` | PBIP/Report → prioritized page/visual findings, missing evidence and optional typed repair plan | Implemented on this branch; static diagnosis, not visual approval |
 | `vqs run` | One-command workflow: inspect → review → propose → repair → verify → remeasure | Implemented on this branch |
 | `vqs measure` | PBIR/TMDL facts: contrast, cohorts, units, scoped bindings, page insights, duplication + chart-practice + layout checks | Implemented on this branch |
 | `vqs cycles` | Static DAX/M/`let` acyclicity gate | Implemented on this branch |
@@ -77,6 +81,7 @@ Machine-readable status: [roadmap/STATUS.md](roadmap/STATUS.md) and [roadmap/wor
 
 ## Docs
 
+- [Functionality-first priorities](docs/PRODUCT_VALUE_PRIORITIES_2026-10-11.md) — real visual, semantic and repair usability gaps
 - [Developer journey](docs/JOURNEY.md) — the supported installed-command walk, oracle-tested
 - [User guide](docs/USER_GUIDE.md) — end-to-end workflows with copy-paste commands
 - [Command reference](docs/CLI.md) — every `vqs` command

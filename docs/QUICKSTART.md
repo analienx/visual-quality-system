@@ -23,6 +23,31 @@ reported obvious, never auto-repaired. Exit codes: `0` pass,
 `1` demonstrated violation, `2` blocked (environment, capability,
 or input prevents a verdict).
 
+## Start with an actionable report diagnosis
+
+Give VQS a whole local `.pbip` project or `.Report` folder and it
+will produce a short prioritized worklist: measured visual failures,
+precise page and visual identities, evidence not yet available, and
+only the typed fixes it can prove. This command does **not** modify
+your report or authorize release.
+
+```console
+vqs triage path/to/Existing.pbip --out report-quality.md
+vqs triage path/to/Existing.pbip --format json --out report-quality.json --plan-out candidate-plan.json
+```
+
+The first command writes a human-readable report with friendly page
+and chart names. The second optionally exports a typed plan **only
+when** the synthesizer has a safe candidate; missing plan is not an
+error, and rendered checks remain explicitly unverified. Project
+`byPath` model references are resolved automatically when the local
+model definition exists; no Fabric service connection is inferred.
+
+To apply an approved typed plan, use a **disposable** report folder and
+run `vqs repair` followed by `vqs verify`. For actual Desktop/design
+acceptance, continue with the image and model checks below; source-only
+triage cannot judge whether an intentional overlay is visually right.
+
 ## 1. The one-command workflow (start here)
 
 `vqs run` owns the whole sequence — inspect, review, propose, repair,
