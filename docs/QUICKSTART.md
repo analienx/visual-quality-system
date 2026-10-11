@@ -96,6 +96,20 @@ an unrelated Desktop model's readiness.
 A successful populated probe checks one named table twice and only
 covers the selected model/context, not arbitrary slicer states or RLS.
 
+**First-open model initialization:** For a run-owned
+disposable candidate (owned_candidate=True) with
+VQS_MODELING_AUTO=1, vqs capture first renders a single page into a
+disposable temporary directory. Power BI Desktop may not start its
+msmdsrv.exe engine until that page is rendered. The
+warm-up screenshot is deleted and is never reviewer evidence.
+After binding the engine to the original selected Desktop through
+its OS-attested parent PID, VQS probes live populated data BEFORE
+the authoritative screenshot-all and repeats the same readiness
+AFTER capture; any drift, unpopulated response, different Desktop
+or source change blocks the manifest. Injected modeling ports and
+user-owned Desktop instances are never given a warm-up. This does
+not by itself prove all report measures, period, filters or RLS.
+
 For actual data-populated candidate previews when the sealed VQS repair
 model is definition-only, `vqs prepare-preview` calls the same
 `vqs.repair.preview.materialize_populated_preview` engine. For example:

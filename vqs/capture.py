@@ -575,6 +575,52 @@ def _capture_manifest(*, source_sha256: str, page_images: dict[str, str],
             "calibration": calibration}
 
 
+def _prime_owned_model(report_path: Path, instance: dict, page_id: str,
+                       scale: int, wait_seconds: int, source_before: str
+                       ) -> dict[str, Any]:
+    """Render one disposable candidate page before querying its lazy model.
+
+    Prime images are private transient files, NEVER output captures or
+    review evidence. Bound to the exact selected Desktop, page and report
+    source both before and after. A failed warmup always blocks. The
+    actual validated screenshot-all runs only after pre-readiness passes.
+    """
+    from .evidence import png_size
+    from .pbir import source_digest
+
+    started = time.monotonic()
+    with tempfile.TemporaryDirectory(prefix="vqs-model-warmup-") as directory:
+        target = Path(directory) / "warmup.png"
+        code, output = _bridge(
+            ["screenshot", page_id, "--pid", str(instance["pid"]),
+             "--output", str(target), "--scale", str(scale),
+             "--wait-seconds", str(wait_seconds)],
+            timeout=min(75, max(45, wait_seconds + 15)))
+        if code != 0 or not target.is_file():
+            raise OSError("Bound Desktop model warmup screenshot failed: "
+                          + output[:300])
+        result = _bridge_payload(output)
+        explicit = result.get("pageId")
+        if explicit is None and isinstance(result.get("screenshot"), dict):
+            explicit = result["screenshot"].get("pageId")
+        if explicit is not None and explicit != page_id:
+            raise OSError("Model warmup returned wrong page identity")
+        if min(png_size(target)) < MIN_REVIEWABLE_PIXELS:
+            raise OSError("Model warmup page was below reviewable size")
+        recheck = select_instance(
+            str(report_path), instance["pid"], wait_seconds,
+            owned_candidate=True)
+        if recheck["pid"] != instance["pid"]:
+            raise OSError("Model warmup changed Desktop PID")
+        if source_digest(report_path) != source_before:
+            raise OSError("Model warmup changed report source revision")
+        return {"method": "transient-bound-page-screenshot",
+                "page_id": page_id, "desktop_pid": instance["pid"],
+                "duration_seconds": round(time.monotonic() - started, 2),
+                "source_sha256": source_before,
+                "evidence": "discarded-before-authoritative-capture"}
+
+
 def capture(report: str, renders: str, pid: int | None = None,
             scale: int = 2, wait_seconds: int = 60,
             state: str = "default",
@@ -608,6 +654,8 @@ def capture(report: str, renders: str, pid: int | None = None,
     try:
         info = report_context(report_path)
         expected = [page["id"] for page in info["pages"]]
+        if not expected:
+            raise ValueError("Report has no pages to capture")
         sizes = {page["id"]: ((page.get("canvas") or [None, None])[0],
                               (page.get("canvas") or [None, None])[1])
                  for page in info["pages"]}
@@ -646,8 +694,17 @@ def capture(report: str, renders: str, pid: int | None = None,
     port, owned = _resolve_modeling(modeling, target_pid=int(instance["pid"]))
     scope = ModelingScope(source_sha256=source_before)
     readiness_before: dict[str, Any] | None = None
+    model_warmup: dict[str, Any] | None = None
     try:
         if port is not None:
+            # Freshly opened PBIPs can initialize msmdsrv only after their
+            # first render. This narrow opt-in warmup is restricted to a
+            # run-owned disposable candidate AND VQS's own live port.
+            # Never drive user-owned Desktop or injected fake ports.
+            if owned and owned_candidate:
+                model_warmup = _prime_owned_model(
+                    report_path, instance, expected[0], scale,
+                    wait_seconds, source_before)
             readiness_before = port.readiness(scope)
             if not readiness_before.get("populated"):
                 raise OSError("Data not populated: "
@@ -831,6 +888,8 @@ def capture(report: str, renders: str, pid: int | None = None,
                 "probe_table": readiness_before.get("probe_table"),
                 "data_rows": readiness_before.get("data_rows")}
             manifest["modeling"] = {"status": "ready"}
+            if model_warmup is not None:
+                manifest["model_warmup"] = model_warmup
         else:
             manifest["modeling"] = {
                 "status": "skipped",
