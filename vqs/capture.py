@@ -788,6 +788,36 @@ def capture(report: str, renders: str, pid: int | None = None,
             "interactions_applied": [],
             "calibration": calibration,
         }
+        # Optional measured canvas-only images. Raw evidence remains
+        # byte-identical and keeps its original calibration (blocked when
+        # Bridge provides no viewport). The derived images have their OWN
+        # hashes and per-page pixel-bound provenance; no clean-canvas PASS
+        # is implied when a single page cannot be independently located.
+        if calibration.get("geometry_calibration") == "blocked":
+            from .visual.canvas import extract_report_canvases
+
+            frame_proof = extract_report_canvases(
+                renders_path, expected, (canvas_width, canvas_height))
+            manifest["canvas_review"] = {
+                "status": frame_proof["status"],
+                "method": "desktop-dotted-page-boundary-v1",
+                "proof_file": "canvas-evidence.json",
+                "page_images": {
+                    page_id: frame["canvas_image"]
+                    for page_id, frame in frame_proof["pages"].items()
+                    if frame.get("status") == "measured"
+                },
+                "files": {
+                    frame["canvas_image"]: frame["canvas_sha256"]
+                    for frame in frame_proof["pages"].values()
+                    if frame.get("status") == "measured"
+                },
+                "pixels": {
+                    page_id: frame["canvas_pixels"]
+                    for page_id, frame in frame_proof["pages"].items()
+                    if frame.get("status") == "measured"
+                },
+            }
         if port is not None:
             if readiness_before is None:
                 raise OSError("Readiness evidence missing; no manifest written")

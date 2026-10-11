@@ -484,6 +484,28 @@ def _run(args) -> int:
     return _verdict_exit(envelope)
 
 
+def _preview_candidate(args) -> int:
+    """One action to prepare a private, populated full-project Desktop preview.
+
+    Produces a complete, run-owned candidate PBIP; does not open Desktop,
+    claim live data readiness, publish data, or approve the report.
+    """
+    from .repair.preview import (
+        PreviewMaterializationError,
+        materialize_populated_preview,
+    )
+
+    try:
+        result = materialize_populated_preview(
+            args.source_pbip, args.typed_candidate_report,
+            args.private_out, args.visual)
+    except (PreviewMaterializationError, OSError, ValueError) as exc:
+        print(json.dumps({"status": "blocked", "reason": str(exc)}))
+        return 2
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
 def _mcp() -> int:
     """Launch the stdio MCP server on this process's stdio."""
     from vqs.mcp.server import serve
@@ -537,6 +559,17 @@ def main(argv: list[str] | None = None) -> int:
     cycles = commands.add_parser("cycles", help="Static DAX/M acyclicity gate for a model")
     cycles.add_argument("model", type=Path,
                         help="*.SemanticModel definition folder")
+    preview_cmd = commands.add_parser(
+        "prepare-preview",
+        help="Private complete PBIP candidate with local model cache for Desktop review")
+    preview_cmd.add_argument("source_pbip", type=Path,
+                             help="Read-only complete source .pbip")
+    preview_cmd.add_argument("typed_candidate_report", type=Path,
+                             help="Disposable, typed-edited *.Report folder")
+    preview_cmd.add_argument("private_out", type=Path,
+                             help="New private output root OUTSIDE every Git checkout")
+    preview_cmd.add_argument("--visual", action="append", required=True,
+                             help="Exact changed relative PBIR visual.json path; repeat")
     capture_cmd = commands.add_parser("capture", help="Bridge screenshots plus capture manifest")
     capture_cmd.add_argument("report", type=Path, help="Enhanced-format *.Report folder")
     capture_cmd.add_argument("renders", type=Path, help="Output directory for PNGs and manifest")
@@ -756,6 +789,8 @@ def main(argv: list[str] | None = None) -> int:
         return _measure(args.report, args.model, args.out)
     if args.command == "cycles":
         return _cycles(args.model)
+    if args.command == "prepare-preview":
+        return _preview_candidate(args)
     if args.command == "capture":
         return _capture(args.report, args.renders, args.pid, args.scale,
                         args.wait_seconds)

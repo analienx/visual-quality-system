@@ -506,6 +506,44 @@ def bind_replace(op: dict) -> dict:
             "version": version}
 
 
+def bind_card_category_label_hide(op: dict, visual_doc: dict) -> dict:
+    """One native, metadata-proved cosmetic insert for a redundant card label.
+
+    The categorical label must be currently *undeclared*, the report must
+    already have a visible title, and only the literal false value can be
+    inserted. No query/field/metric or other styling is rewritten. This
+    deliberately cannot be an automatic generic fix without pixel review.
+    """
+    page, visual = _require_selector(op)
+    path = ["visual", "objects", "categoryLabels"]
+    if op.get("path") != path or op.get("value") is not False:
+        raise RecipeError(
+            "card.category_label.hide: only categoryLabels show=false "
+            "insertion is supported")
+    model = visual_doc.get("visual", {})
+    if not isinstance(model, dict) or model.get("visualType") != "card":
+        raise RecipeError("card.category_label.hide: a native card is required")
+    objects = model.get("objects")
+    if not isinstance(objects, dict) or "categoryLabels" in objects:
+        raise RecipeError(
+            "card.category_label.hide: categoryLabels must be undeclared")
+    vco = model.get("visualContainerObjects", {})
+    title = vco.get("title") if isinstance(vco, dict) else None
+    if (not isinstance(title, list) or not title
+            or not isinstance(title[0], dict)
+            or not isinstance(title[0].get("properties"), dict)
+            or title[0]["properties"].get("show", {}).get("expr", {})
+            .get("Literal", {}).get("Value") != "true"
+            or "text" not in title[0]["properties"]):
+        raise RecipeError(
+            "card.category_label.hide: existing displayed card title required")
+    return {
+        "page": page, "visual": visual, "path": path, "old": None,
+        "new": [{"properties": {
+            "show": {"expr": {"Literal": {"Value": "false"}}}}}],
+    }
+
+
 def bind_operation(op: dict, visual_doc: dict | None,
                    canvas: tuple[int, int] = (0, 0)) -> dict:
     """Bind any typed op; RecipeError names the exact violated rule."""
@@ -526,6 +564,10 @@ def bind_operation(op: dict, visual_doc: dict | None,
         if not isinstance(visual_doc, dict):
             raise RecipeError(f"{op_type}: visual document required")
         return {"op": op_type, **bind_geometry(op, visual_doc, canvas)}
+    if op_type == "card.category_label.hide":
+        if not isinstance(visual_doc, dict):
+            raise RecipeError("card.category_label.hide: visual document required")
+        return {"op": op_type, **bind_card_category_label_hide(op, visual_doc)}
     if op_type == "sort.set":
         if not isinstance(visual_doc, dict):
             raise RecipeError("sort.set: visual document required")

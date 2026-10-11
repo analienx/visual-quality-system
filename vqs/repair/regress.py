@@ -89,7 +89,9 @@ def _declared_values(original: Path, candidate: Path,
         if not isinstance(edit, dict):
             return [{"rule": "edits_unreadable",
                      "detail": f"edit {index} is not an object"}]
-        if edit.get("op") not in LEAF_OPS | GEOMETRY_OPS | {"sort.set"} | FORMAT_OPS:
+        if edit.get("op") not in (
+                LEAF_OPS | GEOMETRY_OPS | {"sort.set", "card.category_label.hide"}
+                | FORMAT_OPS):
             continue
         if edit.get("op") == "format.unset_override":
             problems.extend(_declared_unset(original, candidate, edit, index))
@@ -111,6 +113,10 @@ def _declared_values(original: Path, candidate: Path,
                 # inventory and diff loops above; stay silent here.
                 break
             actual = _node_at(doc, path)
+            if (edit.get("op") == "card.category_label.hide"
+                    and side == "original"
+                    and edit[key] is None and actual is _MISSING):
+                continue
             if actual != edit[key]:
                 problems.append({"rule": "declared_value_mismatch",
                                  "file": target, "path": list(path),
@@ -203,6 +209,10 @@ def _declared_for(edits: list[dict]) -> dict[str, dict[str, set]]:
                 except RecipeError as exc:
                     raise _Unreadable(f"edit {index} declares a path "
                         f"outside the {op} recipe: {exc}")
+            elif op == "card.category_label.hide" and path != [
+                    "visual", "objects", "categoryLabels"]:
+                raise _Unreadable(
+                    f"edit {index} declares a path outside card label recipe")
             slot["exact"].add(tuple(path))
     return declared
 

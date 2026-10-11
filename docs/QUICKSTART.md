@@ -48,6 +48,37 @@ run `vqs repair` followed by `vqs verify`. For actual Desktop/design
 acceptance, continue with the image and model checks below; source-only
 triage cannot judge whether an intentional overlay is visually right.
 
+### Live Desktop images: raw vs report-only
+
+`vqs capture <Report> <private-renders> --pid <candidate-desktop-pid>`
+keeps the original Bridge PNGs and, when the screenshot contains the
+**measurable three-row dotted page borders and a separate Desktop Filters
+pane divider**, also produces `canvas-<pageId>.png` images with
+`canvas-evidence.json` and `capture-manifest.json.canvas_review`
+hashes/crop coordinates. This is **conditional**: unfamiliar host chrome,
+nonuniform scale, missing borders or mismatched page geometry stay
+`canvas_review.status=blocked`, never an invented crop. Its
+`complete` status means only *all page frames located*; it is **not**
+an independent design review, data-readiness, answer, or RLS pass.
+Raw captures keep their independent source/PID binding and calibration.
+
+For actual data-populated candidate previews when the sealed VQS repair
+model is definition-only, `vqs prepare-preview` calls the same
+`vqs.repair.preview.materialize_populated_preview` engine. For example:
+
+```console
+vqs prepare-preview ./Original.pbip ./typed-candidate.Report ./private-preview --visual definition/pages/P1/visuals/V1/visual.json
+```
+
+It creates a **run-owned private complete PBIP copy**, retains the original
+local model cache, and overlays only explicitly declared visual edits
+without changing the original/model/query. The copied `.pbi` cache may
+contain data: it **cannot be placed inside a Git checkout and must never
+be committed, promoted, published or attached to a public issue**.
+Cache presence alone does not prove freshness, filter context or semantic
+answer equivalence. See its focused tests before integrating it into an
+automatic runtime route.
+
 ## 1. The one-command workflow (start here)
 
 `vqs run` owns the whole sequence — inspect, review, propose, repair,
