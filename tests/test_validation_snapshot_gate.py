@@ -96,3 +96,25 @@ def test_production_microsoft_result_must_bind_exact_target(tmp_path, monkeypatc
     assert result["verdict"] == "blocked"
     assert "exact candidate/command proof" in result["blocked_reasons"][0]
     assert result["authoring"]["validation_snapshot"]["validated_candidate"] is None
+
+
+def test_production_rejects_false_success_exit_code(tmp_path, monkeypatch):
+    from test_metadata_compiler_gate import _attested, _metadata
+
+    from vqs.powerbi.author import adapter, preflight
+    from vqs.powerbi.author import compile as compiler
+
+    proj, original = _project(tmp_path)
+    monkeypatch.setattr(preflight, "check", lambda policy: _attested())
+    monkeypatch.setattr(compiler.metadata, "query", _metadata)
+    monkeypatch.setattr(adapter, "validate", lambda candidate, **kw: {
+        "status": "valid", "errors": [], "warnings": [], "returncode": 1,
+        "command": ["/approved/cli", "validate", str(candidate)],
+    })
+    result = repair_candidate(str(proj / "plan.json"), str(original),
+        str(proj / "bad-exit-candidate"), run_root=str(tmp_path / "runs"),
+        run_id="bad-exit", authoring_backend="microsoft",
+        authoring_assurance="production")
+    assert result["verdict"] == "blocked"
+    assert "exact candidate/command proof" in result["blocked_reasons"][0]
+    assert result["authoring"]["validation_snapshot"]["validated_candidate"] is None

@@ -1305,8 +1305,12 @@ def _execute_repair(plan: dict[str, Any], original: str,
         and isinstance(approved_cli, str)
         and validator_response.get("command") ==
             [approved_cli, "validate", candidate_path]
-        and validator_response.get("status") in ("valid", "invalid")
-        and validator_response.get("returncode") in (0, 1))
+        and type(validator_response.get("returncode")) is int
+        and (
+            (validator_response.get("status") == "valid"
+             and validator_response.get("returncode") == 0)
+            or (validator_response.get("status") == "invalid"
+                and validator_response.get("returncode") != 0)))
     authoring["record"]["validation_snapshot"] = {
         "before": guard_before, "after": guard_after,
         "validated_candidate": (
