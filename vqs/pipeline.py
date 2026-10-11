@@ -1298,18 +1298,34 @@ def _execute_repair(plan: dict[str, Any], original: str,
     guard_after = validation_snapshot(
         original, candidate_path, result.get("before"),
         result.get("after"), result.get("model"))
+    validator_response = authoring["record"].get("validation")
+    approved_cli = authoring_preflight.get("cli", {}).get("path")
+    validator_touched_exact_candidate = (
+        isinstance(validator_response, dict)
+        and isinstance(approved_cli, str)
+        and validator_response.get("command") ==
+            [approved_cli, "validate", candidate_path]
+        and validator_response.get("status") in ("valid", "invalid")
+        and validator_response.get("returncode") in (0, 1))
     authoring["record"]["validation_snapshot"] = {
         "before": guard_before, "after": guard_after,
         "validated_candidate": (
             candidate_path if guard_before["status"] == "pass"
             and guard_after["status"] == "pass"
             and authoring["backend"] == "microsoft"
+            and validator_touched_exact_candidate
             else None),
     }
     authoring["record"]["authoring_assurance"] = authoring_assurance
     if guard_before["status"] != "pass" or guard_after["status"] != "pass":
         authoring["verdict"] = "blocked"
         authoring["reason"] = "candidate/source/model drift during validation"
+    if (authoring_assurance == "production"
+            and authoring.get("verdict") == "pass"
+            and not validator_touched_exact_candidate):
+        authoring["verdict"] = "blocked"
+        authoring["reason"] = (
+            "production Microsoft validation lacks exact candidate/command proof")
     authoring["record"]["preflight"] = authoring_preflight
     authoring["record"]["metadata_gate"] = metadata_gate
     if authoring["backend"] != authoring_preflight["validation_provider"]:
