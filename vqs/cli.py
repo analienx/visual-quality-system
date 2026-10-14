@@ -577,6 +577,81 @@ def _review_images(args) -> int:
     return {"pass": 0, "fail": 1, "blocked": 2}[result["visual"]]
 
 
+def _regions(args) -> int:
+    """Produce/read source-verified private visual crops; never judge defects."""
+    from vqs.visual.regions import RegionError, build_regions, verify_regions
+
+    try:
+        if args.region_action == "verify":
+            output = verify_regions(
+                str(args.bundle), str(args.output),
+                report=str(args.report) if args.report else None)
+        elif args.region_action == "plan":
+            from vqs.review.bundle import verify as verify_bundle
+            from vqs.visual.coverage import coverage_index
+            from vqs.visual.layout_graph import page_graph
+            from vqs.visual.regions import _inventory
+            from vqs.visual.risk import route_signals
+
+            if (args.output.exists() or args.output.is_symlink()
+                    or args.output.parent.is_symlink()):
+                raise RegionError("refusing existing or symlinked routing plan")
+            authority = verify_bundle(
+                str(args.bundle),
+                str(args.report) if args.report else None)
+            inv = _inventory(args.bundle.resolve())
+            if inv.get("source_sha256") != authority["source_sha256"]:
+                raise RegionError("routing inventory changed from bundle")
+            graphs = [page_graph(page) for page in inv["pages"]]
+            risks = [route_signals(graph) for graph in graphs]
+            coverage = coverage_index(graphs, risks)
+            output = {
+                "schema": "vqs.visual-routing-evidence/1",
+                "source_sha256": authority["source_sha256"],
+                "bundle_sha256": authority["bundle_sha256"],
+                "review_image_basis": authority["review_image_basis"],
+                "page_graphs": graphs,
+                "page_risks": risks,
+                "coverage": coverage,
+                "advisory": True,
+                "visual_verdict": "not_run",
+            }
+            # x mode is exclusive: never overwrite a file created
+            # between the path check and open.
+            with args.output.open("x", encoding="utf-8") as handle:
+                handle.write(json.dumps(output, indent=2,
+                                        ensure_ascii=False) + "\n")
+            output = {"status": "planned", "pages": len(graphs),
+                      "visuals": sum(len(g["nodes"]) for g in graphs),
+                      "risk_candidates": sum(len(r["signals"]) for r in risks),
+                      "routing_index": str(args.output)}
+        else:
+            selectors = None
+            if args.target:
+                selectors = []
+                for item in args.target:
+                    if item.count("/") != 1 or any(
+                            not fragment for fragment in item.split("/")):
+                        raise RegionError(
+                            "target must be exact PAGE_ID/VISUAL_ID")
+                    selectors.append(tuple(item.split("/", 1)))
+            output = build_regions(
+                str(args.bundle), str(args.output), selectors=selectors,
+                padding_px=args.padding_px,
+                report=str(args.report) if args.report else None)
+            output = {"status": "created",
+                      "regions": len(output["regions"]),
+                      "source_sha256": output["source_sha256"],
+                      "bundle_sha256": output["bundle_sha256"],
+                      "regions_index": str(args.output / "regions.json")}
+    except (RegionError, OSError, ValueError, KeyError, TypeError) as exc:
+        print(json.dumps({"status": "blocked",
+                          "reason": f"{type(exc).__name__}: {exc}"}))
+        return 2
+    print(json.dumps(output, indent=2))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="vqs", description="Visual Quality System pre-alpha tools")
     parser.add_argument("--version", action="version",
@@ -653,6 +728,19 @@ def main(argv: list[str] | None = None) -> int:
                             help="Optional exact source report for staleness check")
     images_cmd.add_argument("--out", type=Path, default=None,
                             help="Write private JSON findings; refuses overwrite")
+    regions_cmd = commands.add_parser(
+        "regions", help="Derive/verify pixel-exact PBIR-bound visual crop sidecars")
+    regions_cmd.add_argument("region_action", choices=("build", "verify", "plan"))
+    regions_cmd.add_argument("bundle", type=Path,
+                             help="Existing complete verified review bundle")
+    regions_cmd.add_argument("output", type=Path,
+                             help="Private derived region directory")
+    regions_cmd.add_argument("--report", type=Path, default=None,
+                             help="Optional source revision staleness check")
+    regions_cmd.add_argument("--target", action="append", default=None,
+                             help="Select exact PAGE_ID/VISUAL_ID (repeatable)")
+    regions_cmd.add_argument("--padding-px", type=int, default=16,
+                             help="Pixel context outside visual bounds, max 128")
     commands.add_parser("doctor", help="Report external tool capabilities; never installs")
     review = commands.add_parser("request-review", help="Require complete source-bound page images")
     review.add_argument("report", type=Path)
@@ -863,6 +951,8 @@ def main(argv: list[str] | None = None) -> int:
         return _bundle(args.bundle_action, args)
     if args.command == "review-images":
         return _review_images(args)
+    if args.command == "regions":
+        return _regions(args)
     if args.command == "doctor":
         return _doctor()
     if args.command == "status":
