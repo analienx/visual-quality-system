@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -533,6 +534,49 @@ def _bundle(action: str, args) -> int:
     return 0
 
 
+def _review_images(args) -> int:
+    """Run an external image reviewer, never mint release authority."""
+    from vqs.review.bundle import verify
+    from vqs.review.port import ReviewError, resolve_reviewer, review_bundle
+
+    if not args.allow_remote_images:
+        print(json.dumps({"status": "blocked",
+                          "reason": "external vision upload requires explicit "
+                                    "--allow-remote-images consent"}))
+        return 2
+    if args.out is not None and args.out.exists():
+        print(json.dumps({"status": "blocked",
+                          "reason": "refusing to overwrite existing reviewer output"}))
+        return 2
+    previous = os.environ.get("VQS_ALLOW_VISION_UPLOAD")
+    try:
+        authority = verify(str(args.bundle), str(args.report) if args.report else None)
+        reviewer, reviewer_id = resolve_reviewer(args.reviewer)
+        if reviewer is None or reviewer_id is None:
+            raise ReviewError("reviewer capability is required")
+        os.environ["VQS_ALLOW_VISION_UPLOAD"] = "1"
+        result = review_bundle(
+            bundle_dir=str(args.bundle),
+            reviewer=reviewer, reviewer_id=reviewer_id,
+            fixer_id=authority["fixer_id"])
+        output = {"status": "reviewed", "advisory": True,
+                  "release_authority": False, **result}
+        rendered = json.dumps(output, indent=2, ensure_ascii=False)
+        if args.out is not None:
+            args.out.write_text(rendered + "\n", encoding="utf-8")
+    except (OSError, ValueError, TypeError, ReviewError) as exc:
+        print(json.dumps({"status": "blocked",
+                          "reason": f"{type(exc).__name__}: {exc}"}))
+        return 2
+    finally:
+        if previous is None:
+            os.environ.pop("VQS_ALLOW_VISION_UPLOAD", None)
+        else:
+            os.environ["VQS_ALLOW_VISION_UPLOAD"] = previous
+    print(rendered)
+    return {"pass": 0, "fail": 1, "blocked": 2}[result["visual"]]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="vqs", description="Visual Quality System pre-alpha tools")
     parser.add_argument("--version", action="version",
@@ -596,6 +640,19 @@ def main(argv: list[str] | None = None) -> int:
     unpack_cmd = bundle_actions.add_parser("unpack", help="Copy a bundle and verify the copy")
     unpack_cmd.add_argument("bundle", help="Bundle directory")
     unpack_cmd.add_argument("dest", help="Destination directory (must not exist)")
+    images_cmd = commands.add_parser(
+        "review-images",
+        help="Advisory independent screenshot review; not release approval")
+    images_cmd.add_argument("bundle", type=Path,
+                            help="Verified private image bundle")
+    images_cmd.add_argument("--reviewer", default="vqs.review.muse:muse_reviewer",
+                            help="Independent reviewer provider module:object")
+    images_cmd.add_argument("--allow-remote-images", action="store_true",
+                            help="Explicitly allow image upload to external model provider")
+    images_cmd.add_argument("--report", type=Path, default=None,
+                            help="Optional exact source report for staleness check")
+    images_cmd.add_argument("--out", type=Path, default=None,
+                            help="Write private JSON findings; refuses overwrite")
     commands.add_parser("doctor", help="Report external tool capabilities; never installs")
     review = commands.add_parser("request-review", help="Require complete source-bound page images")
     review.add_argument("report", type=Path)
@@ -804,6 +861,8 @@ def main(argv: list[str] | None = None) -> int:
                         args.wait_seconds, args.live_data)
     if args.command == "bundle":
         return _bundle(args.bundle_action, args)
+    if args.command == "review-images":
+        return _review_images(args)
     if args.command == "doctor":
         return _doctor()
     if args.command == "status":

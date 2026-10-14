@@ -77,9 +77,32 @@ When no crop is available the same API explicitly returns
 review_image_basis=raw_desktop_window, not a pretend clean image.
 The transport remains blocked without genuine data_readiness.
 
-A real image-capable external reviewer is still required to judge visual
-quality. Returning typed synthetic observations or verifying screenshot
-bytes proves neither an independent judgment nor semantic correctness.
+### Opt-in independent Muse image reviewer
+
+Verified review bundles now have a real image-capable reviewer provider.
+Muse must be installed and authenticated locally. Report PNGs may contain
+customer data; they leave the machine ONLY with explicit
+--allow-remote-images consent:
+
+    vqs review-images ./private-bundle --report ./MyReport.Report --allow-remote-images --out ./private-review.json
+
+VQS launches a new Muse session for each verified report-only PNG, with
+workspace writes, shell and web tools disabled, and no session log.
+Each page must return six structured checks for clipping, overlap,
+legibility, spacing, chart content, and hierarchy, bound to that
+page's verified image SHA-256. Wrong hashes, missing or malformed
+answers, or provider failure block instead of inventing results.
+The output is **advisory**: it does NOT prove semantic correctness,
+RLS, slicer states, accessibility, or release readiness.
+
+The coordinator can use the same provider with
+--reviewer vqs.review.muse:muse_reviewer, if the operator explicitly
+sets VQS_ALLOW_VISION_UPLOAD=1 for that process. Missing consent
+blocks remote image upload. The manual request-review form remains.
+
+File hashes prove image provenance. Muse supplies a fallible independent
+visual judgment. The release-authority registry remains intentionally
+empty: a model response can never self-appoint release approval.
 
 ### Real Modeling MCP compatibility
 
