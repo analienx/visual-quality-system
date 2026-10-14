@@ -44,6 +44,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from fractions import Fraction
 from pathlib import Path
 from typing import Any
@@ -294,6 +295,113 @@ def _screenshot_map(output: str) -> dict[str, dict[str, str]]:
             mapping[str(shot["pageId"])] = record
     return mapping
 
+
+def _bridge_payload(output: str) -> dict[str, Any]:
+    """Decode an actual Bridge JSON result, including partial results."""
+    try:
+        start = output.index("{")
+        payload, _ = json.JSONDecoder().raw_decode(output[start:])
+    except (ValueError, IndexError) as exc:
+        raise OSError("Bridge capture returned no parseable JSON") from exc
+    if not isinstance(payload, dict):
+        raise OSError("Bridge capture returned a non-object result")
+    return payload
+
+
+def _capture_failed_pages(*, expected: list[str], initial: str,
+                          initial_code: int, instance: dict[str, Any],
+                          renders_path: Path, scale: int, wait_seconds: int,
+                          verify_identity: Any) -> tuple[dict[str, dict[str, str]],
+                                                        dict[str, Any]]:
+    """Salvage successful all-page captures; retry ONLY failed pages.
+
+    No visual evidence is accepted from a failed single-page operation,
+    stale file, wrong explicit page identity, or a changed Desktop/source.
+    Bounded to two extra attempts per failed page.
+    """
+    payload = _bridge_payload(initial)
+    status = payload.get("status")
+    if status is None and initial_code == 0 and isinstance(
+            payload.get("screenshots"), list):
+        status = "ok"  # Bridge/preview versions without a status field.
+    if status not in ("ok", "success", "partial"):
+        raise OSError(f"Bridge screenshot-all rejected: {initial[:400]}")
+    if initial_code != 0 and status != "partial":
+        raise OSError("Bridge screenshot-all exited unsuccessfully: "
+                      + initial[:400])
+    mapping = _screenshot_map(initial)
+    failures = {str(item.get("pageId")): item.get("error", {})
+                for item in payload.get("failures", [])
+                if isinstance(item, dict) and item.get("pageId")}
+    details: dict[str, Any] = {}
+    recovery_deadline = time.monotonic() + 240
+    for page_id in expected:
+        shot = mapping.get(page_id, {})
+        raw = shot.get("outputPath", "")
+        if raw and Path(raw).is_file():
+            details[page_id] = {"status": "captured", "method": "screenshot-all",
+                                "attempts": 1}
+            continue
+        failure = failures.get(page_id, {})
+        details[page_id] = {"status": "failed", "method": "screenshot",
+                            "attempts": 1, "error": failure}
+        if isinstance(failure, dict) and failure.get("retryable") is False:
+            details[page_id]["reason"] = "non-retryable bridge error"
+            continue
+        for attempt in (1, 2):
+            if time.monotonic() >= recovery_deadline:
+                details[page_id]["reason"] = "recovery wall-clock budget exhausted"
+                break
+            verify_identity()
+            delay_ms = failure.get("retryAfterMs", 0) if isinstance(failure, dict) else 0
+            if delay_ms:
+                time.sleep(min(max(float(delay_ms) / 1000.0, 0), 4))
+            target = renders_path / f".{page_id}.attempt-{attempt}.png"
+            if target.exists():
+                raise OSError(f"Unexpected stale retry image for {page_id}")
+            started = time.monotonic()
+            try:
+                code, output = _bridge(
+                    ["screenshot", page_id, "--pid", str(instance["pid"]),
+                     "--output", str(target), "--scale", str(scale),
+                     "--wait-seconds", str(wait_seconds)],
+                    timeout=min(75, max(45, wait_seconds + 15)))
+            except OSError as exc:
+                code, output = 1, str(exc)
+            details[page_id]["attempts"] += 1
+            details[page_id]["last_duration_seconds"] = round(
+                time.monotonic() - started, 2)
+            verify_identity()
+            try:
+                result = _bridge_payload(output)
+            except OSError:
+                result = {}
+            explicit_id = result.get("pageId")
+            if not explicit_id and isinstance(result.get("screenshot"), dict):
+                explicit_id = result["screenshot"].get("pageId")
+            if code == 0 and target.is_file() and (
+                    explicit_id is None or explicit_id == page_id):
+                mapping[page_id] = {"outputPath": str(target)}
+                if isinstance(result.get("viewport"), str):
+                    mapping[page_id]["viewport"] = result["viewport"]
+                details[page_id].update(
+                    status="captured", method="screenshot-retry", error=None)
+                break
+            error = result.get("error", {})
+            if not isinstance(error, dict):
+                error = {"message": str(error)}
+            if not error:
+                error = {"message": output[-300:] or "no screenshot produced"}
+            if explicit_id is not None and explicit_id != page_id:
+                error = {"message": "page identity mismatch",
+                         "returned_page_id": explicit_id, "retryable": False}
+            details[page_id]["error"] = error
+            if error.get("retryable") is False:
+                break
+            failure = error
+    return mapping, {"initial_status": status,
+                     "initial_exit_code": initial_code, "pages": details}
+
 _VIEWPORT_RE = re.compile(r"^(\d+)x(\d+)@(\d+(?:\.\d+)?)x$")
 
 
@@ -424,7 +532,8 @@ def _measured_calibration(*, canvas_width: int, canvas_height: int,
                                 "whole-page perceptual review only")}
 
 
-def _resolve_modeling(modeling: Any) -> tuple[Any, bool]:
+def _resolve_modeling(modeling: Any, target_pid: int | None = None,
+                      live_data: bool = False) -> tuple[Any, bool]:
     """Resolve the modeling port: explicit, auto (env opt-in), or skipped.
 
     Returns (port_or_None, owned). Owned ports are closed by capture;
@@ -432,11 +541,11 @@ def _resolve_modeling(modeling: Any) -> tuple[Any, bool]:
     """
     if modeling is not None:
         return modeling, False
-    if os.environ.get("VQS_MODELING_AUTO") != "1":
+    if not live_data and os.environ.get("VQS_MODELING_AUTO") != "1":
         return None, False
     from .powerbi.modeling import StdioModelingClient
 
-    return StdioModelingClient(), True
+    return StdioModelingClient(target_pid=target_pid), True
 
 
 def _capture_manifest(*, source_sha256: str, page_images: dict[str, str],
@@ -467,6 +576,52 @@ def _capture_manifest(*, source_sha256: str, page_images: dict[str, str],
             "calibration": calibration}
 
 
+def _prime_owned_model(report_path: Path, instance: dict, page_id: str,
+                       scale: int, wait_seconds: int, source_before: str
+                       ) -> dict[str, Any]:
+    """Render one disposable candidate page before querying its lazy model.
+
+    Prime images are private transient files, NEVER output captures or
+    review evidence. Bound to the exact selected Desktop, page and report
+    source both before and after. A failed warmup always blocks. The
+    actual validated screenshot-all runs only after pre-readiness passes.
+    """
+    from .evidence import png_size
+    from .pbir import source_digest
+
+    started = time.monotonic()
+    with tempfile.TemporaryDirectory(prefix="vqs-model-warmup-") as directory:
+        target = Path(directory) / "warmup.png"
+        code, output = _bridge(
+            ["screenshot", page_id, "--pid", str(instance["pid"]),
+             "--output", str(target), "--scale", str(scale),
+             "--wait-seconds", str(wait_seconds)],
+            timeout=min(75, max(45, wait_seconds + 15)))
+        if code != 0 or not target.is_file():
+            raise OSError("Bound Desktop model warmup screenshot failed: "
+                          + output[:300])
+        result = _bridge_payload(output)
+        explicit = result.get("pageId")
+        if explicit is None and isinstance(result.get("screenshot"), dict):
+            explicit = result["screenshot"].get("pageId")
+        if explicit is not None and explicit != page_id:
+            raise OSError("Model warmup returned wrong page identity")
+        if min(png_size(target)) < MIN_REVIEWABLE_PIXELS:
+            raise OSError("Model warmup page was below reviewable size")
+        recheck = select_instance(
+            str(report_path), instance["pid"], wait_seconds,
+            owned_candidate=True)
+        if recheck["pid"] != instance["pid"]:
+            raise OSError("Model warmup changed Desktop PID")
+        if source_digest(report_path) != source_before:
+            raise OSError("Model warmup changed report source revision")
+        return {"method": "transient-bound-page-screenshot",
+                "page_id": page_id, "desktop_pid": instance["pid"],
+                "duration_seconds": round(time.monotonic() - started, 2),
+                "source_sha256": source_before,
+                "evidence": "discarded-before-authoritative-capture"}
+
+
 def capture(report: str, renders: str, pid: int | None = None,
             scale: int = 2, wait_seconds: int = 60,
             state: str = "default",
@@ -474,7 +629,8 @@ def capture(report: str, renders: str, pid: int | None = None,
             expected_scope: dict[str, Any] | None = None,
             modeling: Any = None,
             lease_dir: str | None = None,
-            owned_candidate: bool = False) -> dict:
+            owned_candidate: bool = False,
+            live_data: bool = False) -> dict:
     """Capture every page and write the manifest; raise on any gap.
 
     New gates (all default-safe for existing callers): proven Bridge
@@ -500,6 +656,8 @@ def capture(report: str, renders: str, pid: int | None = None,
     try:
         info = report_context(report_path)
         expected = [page["id"] for page in info["pages"]]
+        if not expected:
+            raise ValueError("Report has no pages to capture")
         sizes = {page["id"]: ((page.get("canvas") or [None, None])[0],
                               (page.get("canvas") or [None, None])[1])
                  for page in info["pages"]}
@@ -535,11 +693,21 @@ def capture(report: str, renders: str, pid: int | None = None,
     if not claim_artifact(locks, lease_id, owner):
         raise OSError(f"Exclusive lease held for Desktop PID "
                       f"{instance['pid']}; another capture holds it")
-    port, owned = _resolve_modeling(modeling)
+    port, owned = _resolve_modeling(
+        modeling, target_pid=int(instance["pid"]), live_data=live_data)
     scope = ModelingScope(source_sha256=source_before)
     readiness_before: dict[str, Any] | None = None
+    model_warmup: dict[str, Any] | None = None
     try:
         if port is not None:
+            # Freshly opened PBIPs can initialize msmdsrv only after their
+            # first render. This narrow opt-in warmup is restricted to a
+            # run-owned disposable candidate AND VQS's own live port.
+            # Never drive user-owned Desktop or injected fake ports.
+            if owned and owned_candidate:
+                model_warmup = _prime_owned_model(
+                    report_path, instance, expected[0], scale,
+                    wait_seconds, source_before)
             readiness_before = port.readiness(scope)
             if not readiness_before.get("populated"):
                 raise OSError("Data not populated: "
@@ -562,9 +730,21 @@ def capture(report: str, renders: str, pid: int | None = None,
              "--output-dir", str(renders_path), "--scale", str(scale),
              "--wait-seconds", str(wait_seconds)],
             timeout=wait_seconds + 300)
-        if code != 0:
-            raise OSError(f"screenshot-all failed: {output[:500]}")
-        mapping = _screenshot_map(output)
+        def verify_identity() -> None:
+            if source_digest(report_path) != source_before:
+                raise OSError("Report changed during page retry; refusing evidence")
+            current = select_instance(str(report_path), instance["pid"],
+                                      wait_seconds, owned_candidate=owned_candidate)
+            if not _same_path(str(current.get("currentFilePath", "")),
+                              str(instance.get("currentFilePath", ""))):
+                raise OSError("Desktop target path changed during page retry")
+
+        mapping, attempts = _capture_failed_pages(
+            expected=expected, initial=output, initial_code=code,
+            instance=instance, renders_path=renders_path, scale=scale,
+            wait_seconds=wait_seconds, verify_identity=verify_identity)
+        (renders_path / "capture-attempts.json").write_text(
+            json.dumps(attempts, indent=2), encoding="utf-8")
         if port is not None:
             readiness_after = port.readiness(scope)
             if not readiness_after.get("populated"):
@@ -628,8 +808,9 @@ def capture(report: str, renders: str, pid: int | None = None,
             files[target.name] = _sha256(target)
             pixels[page_id] = [width, height]
         if missing:
-            raise OSError("Bridge did not capture pages: "
-                          + ", ".join(sorted(missing)))
+            raise OSError("Bridge did not capture pages after bounded retries: "
+                          + ", ".join(sorted(missing))
+                          + "; see capture-attempts.json for per-page errors")
         try:
             source_after = source_digest(report_path)
         except (OSError, ValueError, KeyError, TypeError) as exc:
@@ -667,6 +848,36 @@ def capture(report: str, renders: str, pid: int | None = None,
             "interactions_applied": [],
             "calibration": calibration,
         }
+        # Optional measured canvas-only images. Raw evidence remains
+        # byte-identical and keeps its original calibration (blocked when
+        # Bridge provides no viewport). The derived images have their OWN
+        # hashes and per-page pixel-bound provenance; no clean-canvas PASS
+        # is implied when a single page cannot be independently located.
+        if calibration.get("geometry_calibration") == "blocked":
+            from .visual.canvas import extract_report_canvases
+
+            frame_proof = extract_report_canvases(
+                renders_path, expected, (canvas_width, canvas_height))
+            manifest["canvas_review"] = {
+                "status": frame_proof["status"],
+                "method": "desktop-dotted-page-boundary-v1",
+                "proof_file": "canvas-evidence.json",
+                "page_images": {
+                    page_id: frame["canvas_image"]
+                    for page_id, frame in frame_proof["pages"].items()
+                    if frame.get("status") == "measured"
+                },
+                "files": {
+                    frame["canvas_image"]: frame["canvas_sha256"]
+                    for frame in frame_proof["pages"].values()
+                    if frame.get("status") == "measured"
+                },
+                "pixels": {
+                    page_id: frame["canvas_pixels"]
+                    for page_id, frame in frame_proof["pages"].items()
+                    if frame.get("status") == "measured"
+                },
+            }
         if port is not None:
             if readiness_before is None:
                 raise OSError("Readiness evidence missing; no manifest written")
@@ -680,6 +891,8 @@ def capture(report: str, renders: str, pid: int | None = None,
                 "probe_table": readiness_before.get("probe_table"),
                 "data_rows": readiness_before.get("data_rows")}
             manifest["modeling"] = {"status": "ready"}
+            if model_warmup is not None:
+                manifest["model_warmup"] = model_warmup
         else:
             manifest["modeling"] = {
                 "status": "skipped",

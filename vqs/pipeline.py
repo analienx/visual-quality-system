@@ -1744,7 +1744,8 @@ def verify_runtime(*, run_root: str, run_id: str,
                    pid: int | None = None, scale: int = 2,
                    wait_seconds: int = 60, reload_first: bool = True,
                    bridge: Any = None,
-                   runtime_run_id: str | None = None) -> dict[str, Any]:
+                   runtime_run_id: str | None = None,
+                   live_data: bool = False) -> dict[str, Any]:
     """Verify the disposable candidate live in Desktop; never the original.
 
     Binds the given Desktop PID to the sealed candidate path (exact
@@ -1781,6 +1782,8 @@ def verify_runtime(*, run_root: str, run_id: str,
         return blocked_envelope(tool, ["wait_seconds must be a positive int"])
     if not isinstance(reload_first, bool):
         return blocked_envelope(tool, ["reload_first must be a bool"])
+    if not isinstance(live_data, bool):
+        return blocked_envelope(tool, ["live_data must be a bool"])
     if runtime_run_id is not None and (
             not isinstance(runtime_run_id, str) or not runtime_run_id):
         return blocked_envelope(tool, ["runtime_run_id must be a nonempty string"])
@@ -1899,7 +1902,7 @@ def verify_runtime(*, run_root: str, run_id: str,
     try:
         manifest = capture_candidate(
             candidate, str(renders), int(instance["pid"]), scale=scale,
-            wait_seconds=wait_seconds, owned=owned)
+            wait_seconds=wait_seconds, owned=owned, live_data=live_data)
     except (OSError, LookupError) as exc:
         _seal_terminal(sealed_run_dir, "blocked", {}, bindings)
         return blocked_envelope(

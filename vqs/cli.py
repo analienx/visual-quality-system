@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -244,13 +245,14 @@ def _cycles(model: Path) -> int:
 
 
 def _capture(report: Path, renders: Path, pid: int | None, scale: int,
-             wait_seconds: int) -> int:
+             wait_seconds: int, live_data: bool = False) -> int:
     """Capture every page via Bridge; exit 2 with reason when blocked."""
     from vqs.capture import capture
 
     try:
         manifest = capture(str(report), str(renders), pid=pid,
-                           scale=scale, wait_seconds=wait_seconds)
+                           scale=scale, wait_seconds=wait_seconds,
+                           live_data=live_data)
     except (OSError, LookupError, ValueError, TypeError) as exc:
         print(json.dumps({"status": "blocked",
                           "reason": f"{type(exc).__name__}: {exc}"}))
@@ -416,7 +418,7 @@ def _verify_runtime(args) -> int:
         run_root=str(args.run_root), run_id=args.run_id, pid=args.pid,
         scale=args.scale, wait_seconds=args.wait_seconds,
         reload_first=not args.no_reload,
-        runtime_run_id=args.runtime_run_id))
+        runtime_run_id=args.runtime_run_id, live_data=args.live_data))
 
 
 def _promote(args) -> int:
@@ -484,6 +486,28 @@ def _run(args) -> int:
     return _verdict_exit(envelope)
 
 
+def _preview_candidate(args) -> int:
+    """One action to prepare a private, populated full-project Desktop preview.
+
+    Produces a complete, run-owned candidate PBIP; does not open Desktop,
+    claim live data readiness, publish data, or approve the report.
+    """
+    from .repair.preview import (
+        PreviewMaterializationError,
+        materialize_populated_preview,
+    )
+
+    try:
+        result = materialize_populated_preview(
+            args.source_pbip, args.typed_candidate_report,
+            args.private_out, args.visual)
+    except (PreviewMaterializationError, OSError, ValueError) as exc:
+        print(json.dumps({"status": "blocked", "reason": str(exc)}))
+        return 2
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
 def _mcp() -> int:
     """Launch the stdio MCP server on this process's stdio."""
     from vqs.mcp.server import serve
@@ -508,6 +532,49 @@ def _bundle(action: str, args) -> int:
         return 2
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0
+
+
+def _review_images(args) -> int:
+    """Run an external image reviewer, never mint release authority."""
+    from vqs.review.bundle import verify
+    from vqs.review.port import ReviewError, resolve_reviewer, review_bundle
+
+    if not args.allow_remote_images:
+        print(json.dumps({"status": "blocked",
+                          "reason": "external vision upload requires explicit "
+                                    "--allow-remote-images consent"}))
+        return 2
+    if args.out is not None and args.out.exists():
+        print(json.dumps({"status": "blocked",
+                          "reason": "refusing to overwrite existing reviewer output"}))
+        return 2
+    previous = os.environ.get("VQS_ALLOW_VISION_UPLOAD")
+    try:
+        authority = verify(str(args.bundle), str(args.report) if args.report else None)
+        reviewer, reviewer_id = resolve_reviewer(args.reviewer)
+        if reviewer is None or reviewer_id is None:
+            raise ReviewError("reviewer capability is required")
+        os.environ["VQS_ALLOW_VISION_UPLOAD"] = "1"
+        result = review_bundle(
+            bundle_dir=str(args.bundle),
+            reviewer=reviewer, reviewer_id=reviewer_id,
+            fixer_id=authority["fixer_id"])
+        output = {"status": "reviewed", "advisory": True,
+                  "release_authority": False, **result}
+        rendered = json.dumps(output, indent=2, ensure_ascii=False)
+        if args.out is not None:
+            args.out.write_text(rendered + "\n", encoding="utf-8")
+    except (OSError, ValueError, TypeError, ReviewError) as exc:
+        print(json.dumps({"status": "blocked",
+                          "reason": f"{type(exc).__name__}: {exc}"}))
+        return 2
+    finally:
+        if previous is None:
+            os.environ.pop("VQS_ALLOW_VISION_UPLOAD", None)
+        else:
+            os.environ["VQS_ALLOW_VISION_UPLOAD"] = previous
+    print(rendered)
+    return {"pass": 0, "fail": 1, "blocked": 2}[result["visual"]]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -537,6 +604,17 @@ def main(argv: list[str] | None = None) -> int:
     cycles = commands.add_parser("cycles", help="Static DAX/M acyclicity gate for a model")
     cycles.add_argument("model", type=Path,
                         help="*.SemanticModel definition folder")
+    preview_cmd = commands.add_parser(
+        "prepare-preview",
+        help="Private complete PBIP candidate with local model cache for Desktop review")
+    preview_cmd.add_argument("source_pbip", type=Path,
+                             help="Read-only complete source .pbip")
+    preview_cmd.add_argument("typed_candidate_report", type=Path,
+                             help="Disposable, typed-edited *.Report folder")
+    preview_cmd.add_argument("private_out", type=Path,
+                             help="New private output root OUTSIDE every Git checkout")
+    preview_cmd.add_argument("--visual", action="append", required=True,
+                             help="Exact changed relative PBIR visual.json path; repeat")
     capture_cmd = commands.add_parser("capture", help="Bridge screenshots plus capture manifest")
     capture_cmd.add_argument("report", type=Path, help="Enhanced-format *.Report folder")
     capture_cmd.add_argument("renders", type=Path, help="Output directory for PNGs and manifest")
@@ -544,6 +622,10 @@ def main(argv: list[str] | None = None) -> int:
                              help="Target a specific PBIDesktop.exe process")
     capture_cmd.add_argument("--scale", type=int, default=2)
     capture_cmd.add_argument("--wait-seconds", type=int, default=60)
+    capture_cmd.add_argument("--live-data", action="store_true",
+                             help="Prove populated Microsoft Modeling MCP data "
+                                  "on exact Desktop PID (run-owned clones "
+                                  "get a transient warm-up render)")
     bundle_cmd = commands.add_parser("bundle", help="Portable review evidence bundles")
     bundle_actions = bundle_cmd.add_subparsers(dest="bundle_action", required=True)
     pack_cmd = bundle_actions.add_parser("pack", help="Assemble a verified bundle")
@@ -558,6 +640,19 @@ def main(argv: list[str] | None = None) -> int:
     unpack_cmd = bundle_actions.add_parser("unpack", help="Copy a bundle and verify the copy")
     unpack_cmd.add_argument("bundle", help="Bundle directory")
     unpack_cmd.add_argument("dest", help="Destination directory (must not exist)")
+    images_cmd = commands.add_parser(
+        "review-images",
+        help="Advisory independent screenshot review; not release approval")
+    images_cmd.add_argument("bundle", type=Path,
+                            help="Verified private image bundle")
+    images_cmd.add_argument("--reviewer", default="vqs.review.muse:muse_reviewer",
+                            help="Independent reviewer provider module:object")
+    images_cmd.add_argument("--allow-remote-images", action="store_true",
+                            help="Explicitly allow image upload to external model provider")
+    images_cmd.add_argument("--report", type=Path, default=None,
+                            help="Optional exact source report for staleness check")
+    images_cmd.add_argument("--out", type=Path, default=None,
+                            help="Write private JSON findings; refuses overwrite")
     commands.add_parser("doctor", help="Report external tool capabilities; never installs")
     review = commands.add_parser("request-review", help="Require complete source-bound page images")
     review.add_argument("report", type=Path)
@@ -672,6 +767,9 @@ def main(argv: list[str] | None = None) -> int:
     runtime_cmd.add_argument("--pid", type=int, default=None,
                              help="Desktop PID holding the disposable candidate")
     runtime_cmd.add_argument("--scale", type=int, default=2)
+    runtime_cmd.add_argument("--live-data", action="store_true",
+                             help="Require model-bound populated data evidence "
+                                  "with a run-owned warm-up when appropriate")
     runtime_cmd.add_argument("--wait-seconds", type=int, default=60)
     runtime_cmd.add_argument("--no-reload", action="store_true",
                              help="Skip the candidate reload before capture")
@@ -756,11 +854,15 @@ def main(argv: list[str] | None = None) -> int:
         return _measure(args.report, args.model, args.out)
     if args.command == "cycles":
         return _cycles(args.model)
+    if args.command == "prepare-preview":
+        return _preview_candidate(args)
     if args.command == "capture":
         return _capture(args.report, args.renders, args.pid, args.scale,
-                        args.wait_seconds)
+                        args.wait_seconds, args.live_data)
     if args.command == "bundle":
         return _bundle(args.bundle_action, args)
+    if args.command == "review-images":
+        return _review_images(args)
     if args.command == "doctor":
         return _doctor()
     if args.command == "status":

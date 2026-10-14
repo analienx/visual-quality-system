@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import re
 import shutil
 import subprocess
 import threading
@@ -83,7 +85,7 @@ class StdioModelingClient:
     """JSON-RPC stdio client for powerbi-modeling-mcp (lazy spawn)."""
 
     def __init__(self, command: tuple[str, ...] | list[str] | None = None,
-                 timeout: int = 60) -> None:
+                 timeout: int = 60, target_pid: int | None = None) -> None:
         # F05: the documented launch mode passes --start; a bare binary
         # spawn is unsupported. An explicit command overrides wholesale.
         self._command = (list(command) if command
@@ -92,6 +94,10 @@ class StdioModelingClient:
         self._process: subprocess.Popen[str] | None = None
         self._lock = threading.Lock()
         self._model: str | None = None
+        if (target_pid is not None and
+                (type(target_pid) is not int or target_pid <= 0)):
+            raise ModelingError("target_pid must be a positive Desktop PID")
+        self._target_pid = target_pid
 
     def _ensure_process(self) -> subprocess.Popen[str]:
         if self._process is not None and self._process.poll() is None:
@@ -99,9 +105,16 @@ class StdioModelingClient:
         binary = self._command[0]
         if "/" not in binary and "\\" not in binary and shutil.which(binary) is None:
             raise ModelingError(f"modeling launcher not on PATH: {binary}")
+        command = list(self._command)
+        # Windows npm creates an extensionless shell shim and a runnable
+        # .cmd batch wrapper. CreateProcess cannot launch the former.
+        if os.name == "nt" and not os.path.splitext(binary)[1]:
+            batch = shutil.which(binary + ".cmd")
+            if batch:
+                command[0] = batch
         try:
             self._process = subprocess.Popen(
-                self._command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL, text=True, bufsize=1)
         except OSError as exc:
             raise ModelingError(f"cannot start modeling server: {exc}") from exc
@@ -359,10 +372,34 @@ class StdioModelingClient:
                 except OSError:
                     pass
 
+    @staticmethod
+    def _vendor_data(payload: Any, operation: str) -> Any:
+        """Extract Microsoft tool data envelopes; retain older fakes."""
+        if isinstance(payload, dict):
+            if payload.get("success") is False:
+                raise ModelingError(
+                    f"Microsoft {operation} failed: {str(payload.get('message', ''))[:180]}")
+            if "data" in payload and "operation" in payload:
+                return payload["data"]
+        return payload
+
+    @staticmethod
+    def _desktop_owner_pid(instance: dict[str, Any]) -> int:
+        """OS-attested parent Desktop PID of Microsoft's msmdsrv process."""
+        from .processes import ProcessOwnershipError, desktop_owner_pid
+
+        engine = instance.get("processId")
+        try:
+            return desktop_owner_pid(engine)
+        except ProcessOwnershipError as exc:
+            raise ModelingError(f"cannot prove semantic engine owner: {exc}") from exc
+
     def connect(self) -> dict[str, Any]:
-        """Bind exactly one local model; ambiguous/absent raises."""
-        payload = self._call("connection_operations",
-                             {"operation": "ListLocalInstances"})
+        """Bind a model owned by the selected Desktop PID, never engine PID."""
+        payload = self._vendor_data(
+            self._call("connection_operations",
+                       {"operation": "ListLocalInstances"}),
+            "ListLocalInstances")
         if isinstance(payload, list):
             instances = payload
         elif isinstance(payload, dict):
@@ -371,33 +408,79 @@ class StdioModelingClient:
             raise ModelingError("ListLocalInstances returned no list")
         if not isinstance(instances, list):
             raise ModelingError("ListLocalInstances returned no list")
+        if self._target_pid is not None:
+            selected = []
+            for item in instances:
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    owner = self._desktop_owner_pid(item)
+                except ModelingError:
+                    continue
+                if owner == self._target_pid:
+                    selected.append(item)
+            instances = selected
+            if not instances:
+                raise ModelingError(
+                    f"target Desktop PID {self._target_pid} has no OS-bound "
+                    "semantic model instance; refusing another model")
         if not instances:
             raise ModelingError("no local Desktop model instances found")
-        if len(instances) > 1:
-            names = ", ".join(str(i.get("server", i)) for i in instances
-                              if isinstance(i, dict))
-            raise ModelingError("several local instances; disambiguate. "
-                                f"Found: {names}")
-        instance = instances[0] if isinstance(instances[0], dict) else {}
-        data_source = str(_first_key(instance, "server", "dataSource",
-                                     "instance", "name"))
-        catalog = str(_first_key(instance, "database", "initialCatalog",
-                                 "catalog", "databaseName"))
-        if not data_source or not catalog:
+        if len(instances) != 1:
             raise ModelingError(
-                "local instance lacks server/database identity")
-        connected = self._call("connection_operations",
-                               {"operation": "Connect",
-                                "dataSource": data_source,
-                                "initialCatalog": catalog})
+                f"several local instances ({len(instances)}); "
+                "pass an exact Desktop PID")
+        instance = instances[0] if isinstance(instances[0], dict) else {}
+        connection = instance.get("connectionString")
+        if isinstance(connection, str) and connection.strip():
+            # ListLocalInstances is only a local discovery authority. Never
+            # allow a returned connectionString to redirect the MCP client
+            # or credentials to a nonlocal address.
+            match = re.search(
+                r"(?:^|;)\s*data\s+source\s*=\s*(localhost|127\.0\.0\.1):(\d{1,5})\s*(?:;|$)",
+                connection, re.IGNORECASE)
+            if not match or not 1 <= int(match.group(2)) <= 65535:
+                raise ModelingError("local MCP instance has unsafe connection host")
+            port = int(match.group(2))
+            if instance.get("port") is not None and instance["port"] != port:
+                raise ModelingError("local MCP instance port disagrees with connection")
+            request = {"operation": "Connect", "connectionString": connection}
+            server = f"{match.group(1).lower()}:{port}"
+        else:
+            server = str(_first_key(instance, "server", "dataSource",
+                                    "instance", "name"))
+            catalog = str(_first_key(instance, "database", "initialCatalog",
+                                     "catalog", "databaseName"))
+            if not server or not catalog:
+                raise ModelingError(
+                    "local instance lacks server/database or a connection string")
+            request = {"operation": "Connect", "dataSource": server,
+                       "initialCatalog": catalog}
+        connected = self._vendor_data(
+            self._call("connection_operations", request), "Connect")
         if isinstance(connected, dict) and connected.get("isError"):
             raise ModelingError(f"Connect failed: {connected}")
-        self._model = f"{data_source}/{catalog}"
-        return {"model": self._model, "server": data_source,
-                "database": catalog}
+        identity = (connected if isinstance(connected, str) and connected
+                    else str(_first_key(instance, "database",
+                                        "initialCatalog", "catalog",
+                                        "databaseName")))
+        if not identity:
+            raise ModelingError("Connect did not establish model identity")
+        self._model = f"{server}/{identity}"
+        if (self._target_pid is not None
+                and self._desktop_owner_pid(instance) != self._target_pid):
+            self._model = None
+            raise ModelingError("semantic engine Desktop owner changed during connect")
+        return {"model": self._model, "server": server,
+                "processId": instance.get("processId", instance.get("pid")),
+                "enginePid": instance.get("processId"),
+                "desktopPid": self._target_pid,
+                "database": identity}
 
     def _stats(self) -> dict[str, Any]:
-        payload = self._call("model_operations", {"operation": "GetStats"})
+        payload = self._vendor_data(
+            self._call("model_operations", {"operation": "GetStats"}),
+            "GetStats")
         if not isinstance(payload, dict):
             raise ModelingError("GetStats returned no object")
         return payload
@@ -408,7 +491,8 @@ class StdioModelingClient:
                                    "resultMode": "Inline", "maxRows": max_rows}
         if scope.roles:
             request["impersonation"] = {"roles": list(scope.roles)}
-        payload = self._call("dax_query_operations", request)
+        payload = self._vendor_data(
+            self._call("dax_query_operations", request), "Execute")
         if not isinstance(payload, dict):
             raise ModelingError("Execute returned no object")
         return payload
@@ -506,7 +590,8 @@ class StdioModelingClient:
 
 def _table_inventory(stats: dict[str, Any]) -> tuple[int, list[str], str]:
     """(table count, table names, observed shape) across GetStats shapes."""
-    raw = stats.get("tables", stats.get("tableCount", 0))
+    raw = stats.get("Tables", stats.get(
+        "tables", stats.get("TableCount", stats.get("tableCount", 0))))
     shape = type(raw).__name__
     names: list[str] = []
     if isinstance(raw, bool):
@@ -519,9 +604,9 @@ def _table_inventory(stats: dict[str, Any]) -> tuple[int, list[str], str]:
             if isinstance(entry, str) and entry:
                 names.append(entry)
             elif (isinstance(entry, dict)
-                    and isinstance(entry.get("name"), str)
-                    and entry["name"]):
-                names.append(entry["name"])
+                    and isinstance(entry.get("name", entry.get("Name")), str)
+                    and entry.get("name", entry.get("Name"))):
+                names.append(entry.get("name", entry.get("Name")))
     elif (isinstance(raw, dict) and isinstance(raw.get("count"), int)
             and not isinstance(raw.get("count"), bool)):
         count = max(raw["count"], 0)

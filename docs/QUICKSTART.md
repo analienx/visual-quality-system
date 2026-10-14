@@ -48,6 +48,110 @@ run `vqs repair` followed by `vqs verify`. For actual Desktop/design
 acceptance, continue with the image and model checks below; source-only
 triage cannot judge whether an intentional overlay is visually right.
 
+### Live Desktop images: raw vs report-only
+
+`vqs capture <Report> <private-renders> --pid <candidate-desktop-pid>`
+keeps the original Bridge PNGs and, when the screenshot contains the
+**measurable three-row dotted page borders and a separate Desktop Filters
+pane divider**, also produces `canvas-<pageId>.png` images with
+`canvas-evidence.json` and `capture-manifest.json.canvas_review`
+hashes/crop coordinates. This is **conditional**: unfamiliar host chrome,
+nonuniform scale, missing borders or mismatched page geometry stay
+`canvas_review.status=blocked`, never an invented crop. Its
+`complete` status means only *all page frames located*; it is **not**
+an independent design review, data-readiness, answer, or RLS pass.
+Raw captures keep their independent source/PID binding and calibration.
+
+### Actual reviewer input (not Desktop chrome)
+
+When all page crops are measured, vqs bundle pack now includes BOTH
+the original Desktop-window screenshots and the exact lossless canvas-only
+images. vqs bundle verify independently remeasures every raw screenshot,
+checks the crop bytes/pixels row by row, and exposes
+review_images[page_id] (image, sha256, pixels, crop,
+effective_scale, source_image) with
+review_image_basis=verified_canvas. A reviewer provider should call
+vqs.review.bundle.verify(bundle_dir) and inspect those verified
+review_images; it must never trust unverified standalone image paths.
+When no crop is available the same API explicitly returns
+review_image_basis=raw_desktop_window, not a pretend clean image.
+The transport remains blocked without genuine data_readiness.
+
+### Opt-in independent Muse image reviewer
+
+Verified review bundles now have a real image-capable reviewer provider.
+Muse must be installed and authenticated locally. Report PNGs may contain
+customer data; they leave the machine ONLY with explicit
+--allow-remote-images consent:
+
+    vqs review-images ./private-bundle --report ./MyReport.Report --allow-remote-images --out ./private-review.json
+
+VQS launches a new Muse session for each verified report-only PNG, with
+workspace writes, shell and web tools disabled, and no session log.
+Each page must return six structured checks for clipping, overlap,
+legibility, spacing, chart content, and hierarchy, bound to that
+page's verified image SHA-256. Wrong hashes, missing or malformed
+answers, or provider failure block instead of inventing results.
+The output is **advisory**: it does NOT prove semantic correctness,
+RLS, slicer states, accessibility, or release readiness.
+
+The coordinator can use the same provider with
+--reviewer vqs.review.muse:muse_reviewer, if the operator explicitly
+sets VQS_ALLOW_VISION_UPLOAD=1 for that process. Missing consent
+blocks remote image upload. The manual request-review form remains.
+
+File hashes prove image provenance. Muse supplies a fallible independent
+visual judgment. The release-authority registry remains intentionally
+empty: a model response can never self-appoint release approval.
+
+### Real Modeling MCP compatibility
+
+The local Modeling MCP adapter resolves Windows npm .cmd launchers and
+understands Microsoft's data result envelopes for local-instance
+discovery, connection, model statistics and DAX rows. With
+VQS_MODELING_AUTO=1, vqs capture binds live model discovery to the
+exact selected Desktop PID through an OS-attested process-parent
+relationship: Microsoft reports the msmdsrv.exe engine PID, while
+the matching Desktop host is its live parent PBIDesktop.exe. VQS
+refuses another model even if it has data. A clone without a
+discoverable OS-bound semantic model stays blocked; it cannot inherit
+an unrelated Desktop model's readiness.
+A successful populated probe checks one named table twice and only
+covers the selected model/context, not arbitrary slicer states or RLS.
+
+**First-open model initialization:** For a run-owned
+disposable candidate (owned_candidate=True) with
+VQS_MODELING_AUTO=1, vqs capture first renders a single page into a
+disposable temporary directory. Power BI Desktop may not start its
+msmdsrv.exe engine until that page is rendered. The
+warm-up screenshot is deleted and is never reviewer evidence.
+Use the explicit --live-data option on vqs capture or
+vqs verify-runtime instead of setting VQS_MODELING_AUTO=1 manually.
+After binding the engine to the original selected Desktop through
+its OS-attested parent PID, VQS probes live populated data BEFORE
+the authoritative screenshot-all and repeats the same readiness
+AFTER capture; any drift, unpopulated response, different Desktop
+or source change blocks the manifest. Injected modeling ports and
+user-owned Desktop instances are never given a warm-up. This does
+not by itself prove all report measures, period, filters or RLS.
+
+For actual data-populated candidate previews when the sealed VQS repair
+model is definition-only, `vqs prepare-preview` calls the same
+`vqs.repair.preview.materialize_populated_preview` engine. For example:
+
+```console
+vqs prepare-preview ./Original.pbip ./typed-candidate.Report ./private-preview --visual definition/pages/P1/visuals/V1/visual.json
+```
+
+It creates a **run-owned private complete PBIP copy**, retains the original
+local model cache, and overlays only explicitly declared visual edits
+without changing the original/model/query. The copied `.pbi` cache may
+contain data: it **cannot be placed inside a Git checkout and must never
+be committed, promoted, published or attached to a public issue**.
+Cache presence alone does not prove freshness, filter context or semantic
+answer equivalence. See its focused tests before integrating it into an
+automatic runtime route.
+
 ## 1. The one-command workflow (start here)
 
 `vqs run` owns the whole sequence — inspect, review, propose, repair,

@@ -29,6 +29,7 @@ import json
 import os
 import shutil
 import subprocess
+import time
 from typing import Any
 
 
@@ -215,37 +216,66 @@ def open_candidate_instance(port: BridgePort, original: str, candidate: str, *,
         opener(report_file, timeout=timeout)
     except (BridgeUnavailable, OSError, TypeError) as exc:
         raise BridgeUnavailable(f"Bridge open rejected: {exc}") from exc
-    try:
-        after = port.status()
-    except OSError as exc:
-        raise BridgeUnavailable(
-            f"Bridge status failed after open: {exc}") from exc
-    holder = None
-    for item in after.get("instances", []):
-        if (isinstance(item, dict) and _same_path(
-                str(item.get("reportDir", "")), candidate)):
-            holder = item
-            break
-    if holder is None:
-        raise BridgeUnavailable(
-            "opened candidate did not bind: no Desktop instance holds "
-            f"the candidate path {candidate} after open")
-    try:
-        instance = select_instance(candidate, holder.get("pid"),
-                                   wait_seconds, status_payload=after,
-                                   owned_candidate=True)
-    except (LookupError, TypeError, OSError) as exc:
-        raise BridgeUnavailable(
-            f"opened candidate did not bind: {exc}") from exc
+    # Bridge open may report success against another already-connected
+    # Desktop before the newly spawned candidate has registered. Wait for
+    # the candidate's own NEW PID/path and connected status, not just for
+    # any Desktop to become ready. The opening Python process stays alive
+    # throughout this bounded poll, retaining the run-owned child host.
+    deadline = time.monotonic() + max(1, min(timeout, 120))
+    last_state = "not yet registered"
+    instance = None
+    while True:
+        try:
+            after = port.status()
+        except OSError as exc:
+            last_state = f"Bridge status unavailable: {exc}"
+        else:
+            for item in after.get("instances", []):
+                if not isinstance(item, dict) or not _same_path(
+                        str(item.get("reportDir", "")), candidate):
+                    continue
+                if str(item.get("pid")) in before_pids:
+                    raise BridgeUnavailable(
+                        "Bridge open bound a pre-existing instance instead "
+                        "of a freshly opened candidate "
+                        f"(PID {item.get('pid')}); refusing false ownership")
+                if item.get("bridgeStatus") == "error":
+                    error = item.get("error")
+                    if isinstance(error, dict) and error.get("retryable") is False:
+                        raise BridgeUnavailable(
+                            f"candidate host permanently refused: {error}")
+                    last_state = f"candidate host still starting: {error}"
+                    continue
+                if item.get("bridgeStatus") not in (None, "connected"):
+                    last_state = "candidate Bridge not yet connected"
+                    continue
+                if not _same_path(str(item.get("currentFilePath", "")),
+                                  report_file):
+                    last_state = "candidate file identity not yet confirmed"
+                    continue
+                try:
+                    instance = select_instance(
+                        candidate, item.get("pid"), wait_seconds,
+                        status_payload=after, owned_candidate=True)
+                except (LookupError, TypeError, OSError) as exc:
+                    raise BridgeUnavailable(
+                        f"opened candidate did not bind: {exc}") from exc
+                break
+            if instance is not None:
+                break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise BridgeUnavailable(
+                "opened candidate did not bind before readiness deadline "
+                f"({timeout}s): {last_state}")
+        time.sleep(min(1.0, remaining))
     if _same_path(str(instance.get("currentFilePath", "")), original):
         raise BridgeUnavailable(
             f"refusing: Desktop PID {instance.get('pid')} holds the "
-            f"original report, not the disposable candidate")
-    if str(instance.get("pid")) in before_pids:
+            "original report, not the disposable candidate")
+    if _source_digest(candidate) != source_digest:
         raise BridgeUnavailable(
-            "Bridge open bound a pre-existing instance instead of a "
-            f"freshly opened candidate (PID {instance.get('pid')}); "
-            "refusing an ownership claim VQS cannot prove")
+            "candidate report changed while opening; refusing stale bind")
     return {"instance": instance, "owned": True,
             "opened_pid": instance.get("pid"), "candidate": candidate_real,
             "source_digest": source_digest, "run_lease": run_lease}
@@ -284,7 +314,8 @@ def capture_candidate(candidate: str, renders: str, pid: int,
                       scale: int = 2, wait_seconds: int = 60,
                       modeling: Any = None,
                       lease_dir: str | None = None,
-                      owned: bool = False) -> dict[str, Any]:
+                      owned: bool = False,
+                      live_data: bool = False) -> dict[str, Any]:
     """Capture the bound candidate through the hardened capture path.
 
     ``owned`` may only pass True for a run-opened instance (see
@@ -295,4 +326,5 @@ def capture_candidate(candidate: str, renders: str, pid: int,
 
     return capture(candidate, renders, pid=pid, scale=scale,
                    wait_seconds=wait_seconds, modeling=modeling,
-                   lease_dir=lease_dir, owned_candidate=owned)
+                   lease_dir=lease_dir, owned_candidate=owned,
+                   live_data=live_data)

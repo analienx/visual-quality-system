@@ -384,3 +384,62 @@ def test_promotion_promotes_only_the_report(tmp_path: Path, capsys) -> None:
     assert _hash_model_dir(proj / "Model.SemanticModel") == model_before
     assert not (original / "Model.SemanticModel").exists()
     assert not (original / "tables").exists()
+
+
+def test_candidate_open_waits_for_new_desktop_ready(
+        tmp_path: Path, capsys, monkeypatch) -> None:
+    """Bridge open must ignore a foreign connected host while candidate boots."""
+    from vqs.repair import runtime
+
+    original, cand, before, source_sha = _coordinator_layout_repair(
+        tmp_path, capsys, "s16m-delayed")
+    wrapper = tmp_path / "run" / "candidate.pbip"
+    port = _OpenPort(cand, original, wrapper)
+    old_status = port.status
+    calls = 0
+
+    def delayed_status():
+        nonlocal calls
+        calls += 1
+        payload = old_status()
+        if calls == 2:
+            payload["instances"] = payload["instances"][:1]
+        elif calls == 3:
+            candidate = payload["instances"][1]
+            candidate.pop("currentFilePath")
+            candidate["bridgeStatus"] = "error"
+            candidate["error"] = {"retryable": True, "code": "BRIDGE_ERROR"}
+        return payload
+
+    monkeypatch.setattr(port, "status", delayed_status)
+    monkeypatch.setattr(runtime.time, "sleep", lambda _seconds: None)
+    proof = runtime.open_candidate_instance(
+        port, str(original), str(cand), source_digest=source_sha,
+        run_lease="s16m-delayed", timeout=5)
+    assert proof["opened_pid"] == 4300
+    assert calls == 4
+    assert tree_digest(original) == before
+
+
+def test_candidate_open_refuses_permanent_bridge_error(
+        tmp_path: Path, capsys) -> None:
+    from vqs.repair.runtime import BridgeUnavailable, open_candidate_instance
+
+    original, cand, _, source_sha = _coordinator_layout_repair(
+        tmp_path, capsys, "s16m-permanent")
+    port = _OpenPort(cand, original, tmp_path / "run" / "candidate.pbip")
+    old_status = port.status
+
+    def bad_status():
+        payload = old_status()
+        if port.opened:
+            item = payload["instances"][-1]
+            item["bridgeStatus"] = "error"
+            item["error"] = {"retryable": False, "code": "UNSUPPORTED"}
+        return payload
+
+    port.status = bad_status
+    with pytest.raises(BridgeUnavailable, match="permanently refused"):
+        open_candidate_instance(
+            port, str(original), str(cand), source_digest=source_sha,
+            run_lease="s16m-permanent", timeout=5)

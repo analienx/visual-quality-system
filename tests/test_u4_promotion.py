@@ -157,7 +157,9 @@ class _FakePort:
                  "hasUnsavedChanges": False,
                  "desktopVersion": "2.0-test"},
                 {"pid": self.fresh_pid,
-                 "currentFilePath": str(self.current_file),
+                 "currentFilePath": (
+                     self.opened[-1] if self.current_file == self.candidate
+                     else str(self.current_file)),
                  "reportDir": str(self.candidate),
                  "hasUnsavedChanges": True,
                  "desktopVersion": "2.0-test"}]}

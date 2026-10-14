@@ -25,6 +25,7 @@ ALLOWED_OPS: frozenset[str] = frozenset({
     "axis.title", "axis.precision", "label.format", "chart.resize",
     "spacing.adjust", "sort.set", "chart.replace",
     "format.unset_override", "format.set_explicit",
+    "card.category_label.hide",
 })
 MODEL_TARGETS: frozenset[str] = frozenset({"model", "dax", "rls", "dataset", "measure"})
 SHELL_OPS: frozenset[str] = frozenset({"shell", "exec", "command", "run", "script"})
