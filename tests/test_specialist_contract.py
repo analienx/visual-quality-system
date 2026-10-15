@@ -10,7 +10,9 @@ from types import SimpleNamespace
 import pytest
 
 from vqs.review.contracts import (
-    SpecialistTask, answer_schema, validate_answer,
+    SpecialistTask,
+    answer_schema,
+    validate_answer,
 )
 from vqs.review.port import ReviewError
 from vqs.review.providers.muse import MuseHighSpecialist, _provider_output
