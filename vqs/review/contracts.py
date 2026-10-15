@@ -45,7 +45,7 @@ class SpecialistTask:
     @classmethod
     def from_verified(cls, *, authority: dict[str, Any], region: dict[str, Any],
                       specialist: str, checks: tuple[str, ...],
-                      prompt_version: str) -> "SpecialistTask":
+                      prompt_version: str) -> SpecialistTask:
         page = region["page_id"]
         page_binding = authority["review_images"].get(page)
         if (authority.get("review_image_basis") != "verified_canvas"
