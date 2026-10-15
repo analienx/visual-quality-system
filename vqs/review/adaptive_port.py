@@ -76,7 +76,24 @@ class AdaptiveVisualReviewPort:
                     or image.resolve().parent != original_root
                     or crop.resolve().parent != region_root):
                 raise ReviewError("specialist image path escapes sealed evidence")
-            delivered = self.provider.review_task(task, image, crop)
+            try:
+                delivered = self.provider.review_task(task, image, crop)
+            except ReviewError as exc:
+                # A failed isolated task must not erase earlier valid evidence.
+                observations.append({
+                    "page_id": task.page_id,
+                    "check": f"specialist.{task.specialist}.{task.visual_id}.execution",
+                    "verdict": "blocked",
+                    "detail": {"task_id": task.task_id, "status": "provider_blocked",
+                               "reason": str(exc)},
+                })
+                evidence.append({
+                    "task_id": task.task_id, "page_id": task.page_id,
+                    "visual_id": task.visual_id, "specialist": task.specialist,
+                    "status": "blocked_provider", "page_sha256": task.page_image_sha256,
+                    "crop_sha256": task.crop_image_sha256,
+                })
+                continue
             if not isinstance(delivered, dict) or set(delivered) != {"answer", "receipt"}:
                 raise ReviewError("specialist provider omitted answer or runtime receipt")
             answer = validate_answer(task, delivered["answer"])
@@ -132,6 +149,7 @@ class AdaptiveVisualReviewPort:
             "source_sha256": authority["source_sha256"],
             "bundle_sha256": proof["bundle_sha256"],
             "executed_tasks": len(evidence),
+            "blocked_tasks": sum(x.get("status") == "blocked_provider" for x in evidence),
             "skipped_by_budget": max(0, len(tasks) - self.max_tasks),
             "reviews": evidence,
         }
