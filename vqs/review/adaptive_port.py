@@ -24,12 +24,16 @@ class AdaptiveVisualReviewPort:
     reviewer_id = "vqs-independent-muse-specialists-p2"
 
     def __init__(self, *, regions_dir: str, provider: Any,
-                 max_tasks: int = 12) -> None:
+                 max_tasks: int = 12,
+                 selectors: list[tuple[str, str]] | None = None) -> None:
         if type(max_tasks) is not int or not 1 <= max_tasks <= 64:
             raise ValueError("invalid specialist call budget")
         self.regions_dir = Path(regions_dir)
         self.provider = provider
         self.max_tasks = max_tasks
+        self.selectors = None if selectors is None else frozenset(selectors)
+        if self.selectors is not None and not self.selectors:
+            raise ValueError("empty specialist target selection")
         self.last_specialist_evidence: dict[str, Any] | None = None
 
     def review(self, bundle_dir: str) -> dict[str, Any]:
@@ -44,6 +48,9 @@ class AdaptiveVisualReviewPort:
             encoding="utf-8"))["regions"]
         tasks: list[tuple[SpecialistTask, dict]] = []
         for region in regions:
+            if (self.selectors is not None and
+                    (region["page_id"], region["visual_id"]) not in self.selectors):
+                continue
             specialist = specialist_for_type(region["visual_type"])
             if specialist is None:
                 continue
@@ -51,6 +58,10 @@ class AdaptiveVisualReviewPort:
                 authority=authority, region=region, specialist=specialist.code,
                 checks=specialist.checks, prompt_version=specialist.version)
             tasks.append((task, region))
+        if self.selectors is not None:
+            selected = {(task.page_id, task.visual_id) for task, _ in tasks}
+            if selected != self.selectors:
+                raise ReviewError("requested specialist target absent or unsupported")
         if not tasks:
             raise ReviewError("region sidecar has no eligible card or matrix review")
         # Preserve source order, not model-generated ranking or arbitrary filesystem order.
@@ -133,6 +144,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("bundle")
     parser.add_argument("regions")
     parser.add_argument("--model", required=True)
+    parser.add_argument("--target", action="append", default=[],
+                        help="Exact PBIR PAGE_ID/VISUAL_ID; repeat for pilot targets")
     parser.add_argument("--max-tasks", type=int, default=12)
     parser.add_argument("--allow-remote-images", action="store_true")
     parser.add_argument("--allow-contributor", action="store_true")
@@ -148,8 +161,14 @@ def main(argv: list[str] | None = None) -> int:
         if args.allow_contributor:
             os.environ["VQS_ALLOW_MUSE_CONTRIBUTOR"] = "1"
         provider = MuseHighSpecialist(model=args.model)
+        selectors = []
+        for value in args.target:
+            if "/" not in value or not all(value.split("/", 1)):
+                parser.error("--target requires exact PAGE_ID/VISUAL_ID")
+            selectors.append(tuple(value.split("/", 1)))
         port = AdaptiveVisualReviewPort(
-            regions_dir=args.regions, provider=provider, max_tasks=args.max_tasks)
+            regions_dir=args.regions, provider=provider,
+            max_tasks=args.max_tasks, selectors=selectors or None)
         authority = verify_bundle(args.bundle)
         result = review_bundle(
             bundle_dir=args.bundle, reviewer=port,
