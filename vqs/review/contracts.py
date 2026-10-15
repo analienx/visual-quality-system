@@ -112,9 +112,11 @@ def validate_answer(task: SpecialistTask, answer: Any) -> dict[str, dict[str, An
         entry = answer[name]
         if not isinstance(entry, dict) or set(entry) != CHECK_FIELDS:
             raise ReviewError(f"specialist check {name} has an invalid shape")
-        if (not isinstance(entry["verdict"], str) or entry["verdict"] not in VERDICTS\n                or type(entry["observed_symptom"]) is not bool):
+        if (not isinstance(entry["verdict"], str) or entry["verdict"] not in VERDICTS
+                or type(entry["observed_symptom"]) is not bool):
             raise ReviewError(f"specialist check {name} has invalid verdict/symptom")
-        if (not isinstance(entry["severity_proposal"], str)\n                or entry["severity_proposal"] not in SEVERITIES):
+        if (not isinstance(entry["severity_proposal"], str)
+                or entry["severity_proposal"] not in SEVERITIES):
             raise ReviewError(f"specialist check {name} has invalid severity")
         for field in ("observation", "visible_evidence", "location_hint"):
             value = entry[field]
