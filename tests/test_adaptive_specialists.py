@@ -104,3 +104,40 @@ def test_provider_model_receipt_is_required(tmp_path):
     with pytest.raises(ReviewError, match="not attested"):
         AdaptiveVisualReviewPort(
             regions_dir=str(regions_dir), provider=MissingReceipt()).review(str(bundle))
+
+
+def test_second_provider_failure_preserves_first_real_task_evidence(tmp_path):
+    report, bundle = _scene_bundle(
+        tmp_path, extra={
+            "v2": {"x": 110, "y": 40, "width": 42, "height": 35, "z": 7}})
+    region_dir = tmp_path / "regions"
+    build_regions(str(bundle), str(region_dir), report=str(report))
+    class IntermittentProvider(FakeVerifiedProvider):
+        def review_task(self, task, page, crop):
+            if self.seen:
+                raise ReviewError("provider returned no usable fixed-key image answer")
+            return super().review_task(task, page, crop)
+
+    adapter = AdaptiveVisualReviewPort(
+        regions_dir=str(region_dir), provider=IntermittentProvider())
+    reviewed = review_bundle(
+        bundle_dir=str(bundle), reviewer=adapter,
+        reviewer_id=adapter.reviewer_id, fixer_id=verify(str(bundle))["fixer_id"])
+    assert reviewed["visual"] == "blocked"
+    assert adapter.last_specialist_evidence["executed_tasks"] == 2
+    assert adapter.last_specialist_evidence["blocked_tasks"] == 1
+    assert adapter.last_specialist_evidence["reviews"][0]["receipt"]["actual_model"] == "fixture-only"
+    assert any(item["detail"].get("status") == "provider_blocked"
+               for item in reviewed["observations"])
+
+
+def test_exact_source_selectors_refuse_unknown_target(tmp_path):
+    report, bundle = _scene_bundle(tmp_path)
+    region_dir = tmp_path / "regions"
+    build_regions(str(bundle), str(region_dir), report=str(report))
+    provider = FakeVerifiedProvider()
+    with pytest.raises(ReviewError, match="absent or unsupported"):
+        AdaptiveVisualReviewPort(
+            regions_dir=str(region_dir), provider=provider,
+            selectors=[("p1", "invented-visual")]).review(str(bundle))
+    assert not provider.seen
