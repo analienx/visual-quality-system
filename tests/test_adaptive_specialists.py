@@ -1,0 +1,106 @@
+"""Integration: real verified bundle/sidecar -> specialist ReviewPort observations."""
+from __future__ import annotations
+
+import hashlib
+from pathlib import Path
+
+import pytest
+
+from tests.test_visual_regions import _scene_bundle
+from vqs.pbir import source_digest
+from vqs.review.adaptive_port import AdaptiveVisualReviewPort
+from vqs.review.bundle import verify
+from vqs.review.port import ReviewError, review_bundle
+from vqs.visual.regions import build_regions
+
+
+def _pass(task):
+    return {name: {
+        "verdict": "pass", "observed_symptom": False,
+        "observation": "Visible card is contained in the render",
+        "visible_evidence": "No visibly cut off text at the lower edge",
+        "location_hint": "lower edge of card", "severity_proposal": "none",
+        "repair_hypothesis": None, "cannot_establish": [],
+    } for name in task.checks}
+
+
+class FakeVerifiedProvider:
+    def __init__(self):
+        self.seen = []
+
+    def review_task(self, task, page: Path, crop: Path):
+        self.seen.append((task, page, crop))
+        assert hashlib.sha256(page.read_bytes()).hexdigest() == task.page_image_sha256
+        assert hashlib.sha256(crop.read_bytes()).hexdigest() == task.crop_image_sha256
+        return {
+            "answer": _pass(task),
+            "receipt": {
+                "task_id": task.task_id, "provider": "test-double",
+                "actual_model": "fixture-only", "model_provenance": "provider_runtime_event",
+                "effort": "high",
+            },
+        }
+
+
+def test_reviewport_verifies_real_bundle_region_and_does_not_self_certify(tmp_path):
+    report, bundle = _scene_bundle(tmp_path)
+    before = source_digest(report)
+    regions_dir = tmp_path / "regions"
+    build_regions(str(bundle), str(regions_dir), report=str(report))
+    provider = FakeVerifiedProvider()
+    adapter = AdaptiveVisualReviewPort(
+        regions_dir=str(regions_dir), provider=provider)
+    output = review_bundle(
+        bundle_dir=str(bundle), reviewer=adapter,
+        reviewer_id=adapter.reviewer_id, fixer_id=verify(str(bundle))["fixer_id"])
+    assert len(provider.seen) == 1
+    assert output["source_sha256"] == before
+    assert source_digest(report) == before
+    assert output["tally"]["pass"] == 3
+    assert output["tally"]["blocked"] == 1
+    assert output["visual"] == "blocked"
+    evidence = adapter.last_specialist_evidence
+    assert evidence["executed_tasks"] == 1
+    assert evidence["reviews"][0]["visual_id"] == "v1"
+    assert evidence["reviews"][0]["page_id"] == "p1"
+    assert evidence["reviews"][0]["crop_sha256"]
+
+
+def test_budget_is_explicit_not_equated_with_pass(tmp_path):
+    report, bundle = _scene_bundle(
+        tmp_path, extra={
+            "v2": {"x": 110, "y": 40, "width": 42, "height": 35, "z": 7}})
+    regions_dir = tmp_path / "regions"
+    build_regions(str(bundle), str(regions_dir), report=str(report))
+    adapter = AdaptiveVisualReviewPort(
+        regions_dir=str(regions_dir), provider=FakeVerifiedProvider(),
+        max_tasks=1)
+    result = adapter.review(str(bundle))
+    assert adapter.last_specialist_evidence["executed_tasks"] == 1
+    assert adapter.last_specialist_evidence["skipped_by_budget"] == 1
+    assert any(row["detail"].get("status") == "not_run_budget"
+               for row in result["observations"])
+
+
+def test_tampered_crop_refused_before_any_model_call(tmp_path):
+    report, bundle = _scene_bundle(tmp_path)
+    regions_dir = tmp_path / "regions"
+    record = build_regions(str(bundle), str(regions_dir), report=str(report))
+    (regions_dir / record["regions"][0]["crop_image"]).write_bytes(b"tampered")
+    provider = FakeVerifiedProvider()
+    with pytest.raises(ReviewError, match="source evidence invalid"):
+        AdaptiveVisualReviewPort(
+            regions_dir=str(regions_dir), provider=provider).review(str(bundle))
+    assert not provider.seen
+
+
+def test_provider_model_receipt_is_required(tmp_path):
+    report, bundle = _scene_bundle(tmp_path)
+    regions_dir = tmp_path / "regions"
+    build_regions(str(bundle), str(regions_dir), report=str(report))
+    class MissingReceipt:
+        def review_task(self, task, page, crop):
+            return {"answer": _pass(task), "receipt": {"task_id": task.task_id}}
+    with pytest.raises(ReviewError, match="not attested"):
+        AdaptiveVisualReviewPort(
+            regions_dir=str(regions_dir), provider=MissingReceipt()).review(str(bundle))
