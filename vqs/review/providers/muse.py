@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from ..contracts import SpecialistTask, answer_schema, validate_answer
+from ..contracts import SpecialistTask, answer_schema
 from ..port import ReviewError
 from ..specialists import KPI, TABLE
 
@@ -128,5 +128,5 @@ class MuseHighSpecialist:
                 if hashlib.sha256(frozen.read_bytes()).hexdigest() != expected:
                     raise ReviewError("specialist frozen image changed during inference")
             raw, receipt = _provider_output(result.stdout, self.model)
-            return {"answer": validate_answer(task, raw),
+            return {"answer": raw,
                     "receipt": {**receipt, "task_id": task.task_id}}
