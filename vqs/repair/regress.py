@@ -90,7 +90,7 @@ def _declared_values(original: Path, candidate: Path,
             return [{"rule": "edits_unreadable",
                      "detail": f"edit {index} is not an object"}]
         if edit.get("op") not in (
-                LEAF_OPS | GEOMETRY_OPS | {"sort.set", "card.category_label.hide"}
+                LEAF_OPS | GEOMETRY_OPS | {"sort.set", "card.category_label.hide", "textbox.padding.compact"}
                 | FORMAT_OPS):
             continue
         if edit.get("op") == "format.unset_override":
@@ -113,7 +113,8 @@ def _declared_values(original: Path, candidate: Path,
                 # inventory and diff loops above; stay silent here.
                 break
             actual = _node_at(doc, path)
-            if (edit.get("op") == "card.category_label.hide"
+            if (edit.get("op") in ("card.category_label.hide",
+                                      "textbox.padding.compact")
                     and side == "original"
                     and edit[key] is None and actual is _MISSING):
                 continue
@@ -213,6 +214,10 @@ def _declared_for(edits: list[dict]) -> dict[str, dict[str, set]]:
                     "visual", "objects", "categoryLabels"]:
                 raise _Unreadable(
                     f"edit {index} declares a path outside card label recipe")
+            elif op == "textbox.padding.compact" and path != [
+                    "visual", "visualContainerObjects", "padding"]:
+                raise _Unreadable(
+                    f"edit {index} declares a path outside textbox padding recipe")
             slot["exact"].add(tuple(path))
     return declared
 
