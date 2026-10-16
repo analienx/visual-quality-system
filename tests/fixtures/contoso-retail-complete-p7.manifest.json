@@ -1,0 +1,16 @@
+{
+  "contract": "vqs.contoso-hosted-fixture/1",
+  "authorised_by_user": true,
+  "source": "P7 complete disposable Contoso sample project",
+  "excludes": "localSettings, editorSettings, machine-local scripts and credentials",
+  "archive": "contoso-retail-complete-p7.zip",
+  "zip_sha256": "b32224e2ef0521619f129c3e385a698a161123cfbd5ee57cb44a2e750275acb9",
+  "file_count": 86,
+  "uncompressed_bytes": 590217,
+  "archive_bytes": 282551,
+  "has_model_cache": true,
+  "report_and_semantic_project": true,
+  "expected_ms_cli_errors": 0,
+  "expected_ms_cli_warnings": 1,
+  "release_authority": "NONE"
+}
