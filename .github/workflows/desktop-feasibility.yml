@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/desktop-feasibility.yml"
       - "scripts/hosted_windows_desktop_probe.py"
+      - "scripts/hosted_windows_resize_probe.py"
   workflow_dispatch:
 
 permissions:
@@ -26,11 +27,22 @@ jobs:
         shell: pwsh
         run: |
           python scripts/hosted_windows_desktop_probe.py --out hosted-desktop-preflight.json
+      - name: Attempt temporary Windows virtual-display upgrade
+        shell: pwsh
+        run: |
+          python scripts/hosted_windows_resize_probe.py --out hosted-display-resize.json
+      - name: Probe requirements after display change
+        shell: pwsh
+        run: |
+          python scripts/hosted_windows_desktop_probe.py --out hosted-desktop-after-resize.json
       - name: Upload strictly allowlisted diagnostic JSON (no user files)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: hosted-windows-desktop-preflight
-          path: hosted-desktop-preflight.json
+          path: |
+            hosted-desktop-preflight.json
+            hosted-display-resize.json
+            hosted-desktop-after-resize.json
           if-no-files-found: warn
           retention-days: 7
