@@ -60,14 +60,17 @@ def _installer(temp: Path, evidence: dict[str, object]) -> Path:
 def _authenticode(path: Path) -> dict[str, object]:
     # Authenticode validation needs the Windows trust store, not just an
     # unauthenticated download checksum. Powershell is used only for this OS API.
+    # Use a literal path within one PowerShell script. PowerShell -Command
+    # does not reliably expose subsequent process argv via $args[0].
+    quoted = "'" + str(path).replace("'", "''") + "'"
     script = (
-        "$s=Get-AuthenticodeSignature -LiteralPath $args[0];"
-        "[pscustomobject]@{Status=[string]$s.Status;"
-        "Subject=[string]$s.SignerCertificate.Subject}"
-        "|ConvertTo-Json -Compress"
+        "$s=Get-AuthenticodeSignature -LiteralPath " + quoted + "; "
+        "$o=[pscustomobject]@{Status=[string]$s.Status;"
+        "Subject=[string]$s.SignerCertificate.Subject};"
+        "$o | ConvertTo-Json -Compress"
     )
     cp = _run(["powershell.exe", "-NoProfile", "-NonInteractive",
-               "-Command", script, str(path)], timeout=90)
+               "-Command", script], timeout=90)
     if cp.returncode:
         raise RuntimeError("Authenticode OS validation failed: " + cp.stderr[-200:])
     data = json.loads(cp.stdout)
