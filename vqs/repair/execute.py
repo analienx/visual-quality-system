@@ -467,7 +467,8 @@ def stage_candidate_workspace(original: str,
             "created_project": created_project}
 
 
-def write_candidate_wrapper(candidate_root: str) -> dict[str, str]:
+def write_candidate_wrapper(candidate_root: str, *,
+                            source_report: str | None = None) -> dict[str, str]:
     """Write the deterministic PBIP wrapper beside the candidate report.
 
     The wrapper mirrors the first-party shape (version + report path
@@ -488,7 +489,34 @@ def write_candidate_wrapper(candidate_root: str) -> dict[str, str]:
         raise RepairError(
             f"candidate wrapper path occupied; refusing to overwrite: "
             f"{wrapper}")
-    doc = {"version": "1.0", "artifacts": [{"report": {"path": base}}],
+    # The wrapper is host metadata, not just a Desktop-open convenience.
+    # Rebuilding it without $schema accidentally downgrades an already-valid
+    # source PBIP (confirmed by the P7 Microsoft paired validator).
+    schema = ("https://developer.microsoft.com/json-schemas/fabric/"
+              "pbip/pbipProperties/1.0.0/schema.json")
+    if source_report is not None:
+        source_wrapper = Path(source_report).with_suffix(".pbip")
+        if source_wrapper.exists():
+            if source_wrapper.is_symlink() or not source_wrapper.is_file():
+                raise RepairError("unsafe original PBIP shortcut")
+            try:
+                original_wrapper = json.loads(
+                    source_wrapper.read_text(encoding="utf-8-sig"))
+            except (ValueError, OSError) as exc:
+                raise RepairError("original PBIP shortcut unreadable") from exc
+            if not isinstance(original_wrapper, dict):
+                raise RepairError("original PBIP shortcut is not an object")
+            original_schema = original_wrapper.get("$schema")
+            if original_schema is not None:
+                if (not isinstance(original_schema, str)
+                        or not original_schema.startswith(
+                            "https://developer.microsoft.com/json-schemas/"
+                            "fabric/pbip/pbipProperties/")
+                        or not original_schema.endswith("/schema.json")):
+                    raise RepairError("original PBIP shortcut has unsupported schema")
+                schema = original_schema
+    doc = {"$schema": schema, "version": "1.0",
+           "artifacts": [{"report": {"path": base}}],
            "settings": {"enableAutoRecovery": True}}
     try:
         wrapper.write_text(json.dumps(doc, indent=2) + "\n",
@@ -785,7 +813,8 @@ def apply_plan(plan: dict, original: str, candidate_root: str,
         return {"verdict": "blocked", "stage": "digest",
                 "reason": f"cannot re-read reports: {exc}"}
     try:
-        wrapper = write_candidate_wrapper(candidate_root)
+        wrapper = write_candidate_wrapper(candidate_root,
+                                          source_report=original)
     except RepairError as exc:
         _drop_candidate()
         return {"verdict": "blocked", "stage": "workspace",

@@ -544,6 +544,55 @@ def bind_card_category_label_hide(op: dict, visual_doc: dict) -> dict:
     }
 
 
+def bind_textbox_padding_compact(op: dict, visual_doc: dict) -> dict:
+    """Exact, native-textbox 32px-height padding insertion, no geometry edit.
+
+    Based on official Power BI VCO padding metadata. This deliberately
+    supports one measured pattern rather than guessing font metrics or
+    silently changing all textboxes. A fresh Desktop render is still required
+    before any candidate can be accepted.
+    """
+    page, visual = _require_selector(op)
+    path = ["visual", "visualContainerObjects", "padding"]
+    if (op.get("path") != path or type(op.get("value")) is not int
+            or op["value"] != 2
+            or op.get("expected_height") != 32
+            or op.get("expected_font_size") != "12px"):
+        raise RecipeError("textbox.padding.compact: only proved 32px/12px/"
+                          "2px native textbox padding insertion supported")
+    position = visual_doc.get("position")
+    if not isinstance(position, dict) or position.get("height") != 32:
+        raise RecipeError("textbox.padding.compact: textbox height drift")
+    model = visual_doc.get("visual")
+    if not isinstance(model, dict) or model.get("visualType") != "textbox":
+        raise RecipeError("textbox.padding.compact: native textbox required")
+    objs = model.get("objects")
+    gen = objs.get("general") if isinstance(objs, dict) else None
+    if not isinstance(gen, list) or len(gen) != 1 or not isinstance(gen[0], dict):
+        raise RecipeError("textbox.padding.compact: expected simple text container")
+    props = gen[0].get("properties")
+    if not isinstance(props, dict):
+        raise RecipeError("textbox.padding.compact: textbox properties missing")
+    paragraphs = props.get("paragraphs")
+    if not isinstance(paragraphs, list) or len(paragraphs) != 1:
+        raise RecipeError("textbox.padding.compact: only one simple paragraph supported")
+    text_runs = paragraphs[0].get("textRuns") if isinstance(paragraphs[0], dict) else None
+    if not isinstance(text_runs, list) or len(text_runs) != 1:
+        raise RecipeError("textbox.padding.compact: only one text run supported")
+    run = text_runs[0]
+    if (not isinstance(run, dict) or not isinstance(run.get("value"), str)
+            or not run["value"] or not isinstance(run.get("textStyle"), dict)
+            or run["textStyle"].get("fontSize") != "12px"):
+        raise RecipeError("textbox.padding.compact: unsupported textbox run or font")
+    vco = model.get("visualContainerObjects")
+    if not isinstance(vco, dict) or "padding" in vco:
+        raise RecipeError("textbox.padding.compact: padding must be undeclared")
+    val = str(op["value"]) + "D"
+    return {"page": page, "visual": visual, "path": path, "old": None,
+            "new": [{"properties": {side: {"expr": {"Literal": {"Value": val}}}
+                                   for side in ("top", "bottom", "left", "right")}}]}
+
+
 def bind_operation(op: dict, visual_doc: dict | None,
                    canvas: tuple[int, int] = (0, 0)) -> dict:
     """Bind any typed op; RecipeError names the exact violated rule."""
@@ -568,6 +617,10 @@ def bind_operation(op: dict, visual_doc: dict | None,
         if not isinstance(visual_doc, dict):
             raise RecipeError("card.category_label.hide: visual document required")
         return {"op": op_type, **bind_card_category_label_hide(op, visual_doc)}
+    if op_type == "textbox.padding.compact":
+        if not isinstance(visual_doc, dict):
+            raise RecipeError("textbox.padding.compact: visual document required")
+        return {"op": op_type, **bind_textbox_padding_compact(op, visual_doc)}
     if op_type == "sort.set":
         if not isinstance(visual_doc, dict):
             raise RecipeError("sort.set: visual document required")
