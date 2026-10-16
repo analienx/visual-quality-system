@@ -89,7 +89,7 @@ def answer_schema(checks: tuple[str, ...]) -> dict[str, Any]:
             "visible_evidence": {"type": "string"},
             "location_hint": {"type": "string"},
             "severity_proposal": {"type": "string", "enum": sorted(SEVERITIES)},
-            "repair_hypothesis": {"type": ["string", "null"]},
+            "repair_hypothesis": {"type": ["string", "null"], "maxLength": 240},
             "cannot_establish": {
                 "type": "array", "items": {"type": "string"}, "maxItems": 6,
             },

@@ -23,10 +23,16 @@ from ..specialists import KPI, TABLE
 
 def _provider_output(stdout: str, expected_model: str
                      ) -> tuple[dict[str, Any], dict[str, str]]:
-    if not isinstance(stdout, str) or len(stdout) > 400_000:
-        raise ReviewError("model output missing or oversized")
-    response = None
-    actual = None
+    """Bind actual Muse JSON event facets and one terminal answer.
+
+    This is the genuine installed Muse --json event envelope observed in
+    the prior I8 experiments and the October 16 live P2 run. An LLM's
+    answer is NOT allowed to attest its own model/version/identity.
+    """
+    if not isinstance(stdout, str) or len(stdout) > 1_000_000:
+        raise ReviewError("model event stream missing or oversized")
+    models: list[str] = []
+    terminal: list[str] = []
     for raw_line in stdout.splitlines():
         if not raw_line.lstrip().startswith("{"):
             continue
@@ -36,24 +42,34 @@ def _provider_output(stdout: str, expected_model: str
             continue
         if not isinstance(event, dict):
             continue
-        # Only dedicated provider event envelopes attest a runtime model.
-        # Never accept a model ID the LLM embeds in its answer.
-        if (event.get("type") in {
-                "model_selected", "model-selected", "completion_model",
-                "completion-model", "model_resolved"}
-                and isinstance(event.get("model_id"), str)):
-            actual = event["model_id"]
-        if "type" not in event and isinstance(event.get("answer"), dict):
-            response = event["answer"]
-        elif "type" not in event and set(event) in (set(KPI.checks), set(TABLE.checks)):
-            response = event
-    if actual is None:
-        raise ReviewError("Muse runtime model receipt unavailable; no verified specialist result")
-    if actual != expected_model:
-        raise ReviewError("Muse runtime used a different model from the explicit pin")
-    if response is None:
-        raise ReviewError("Muse specialist returned no final fixed-key answer")
-    return response, {"provider": "muse", "actual_model": actual,
+        if event.get("payload_type") == "task.lifecycle.status":
+            payload = event.get("payload")
+            info = payload.get("event") if isinstance(payload, dict) else None
+            details = info.get("details") if isinstance(info, dict) else None
+            facets = details.get("facets", []) if isinstance(details, dict) else []
+            if isinstance(facets, list):
+                for facet in facets:
+                    detail = facet.get("detail") if isinstance(facet, dict) else None
+                    if (isinstance(detail, dict) and detail.get("kind") == "provider"
+                            and isinstance(detail.get("model"), str)):
+                        models.append(detail["model"])
+        if event.get("payload_type") == "run.terminal.completed":
+            payload = event.get("payload")
+            if isinstance(payload, dict) and isinstance(payload.get("text"), str):
+                terminal.append(payload["text"])
+    if not models:
+        raise ReviewError("Muse provider emitted no actual runtime model receipt")
+    if set(models) != {expected_model}:
+        raise ReviewError("Muse runtime model did not match the explicitly pinned model")
+    if len(terminal) != 1:
+        raise ReviewError("Muse provider did not produce exactly one completed answer")
+    try:
+        response = json.loads(terminal[0])
+    except ValueError as exc:
+        raise ReviewError("Muse completed response is not JSON") from exc
+    if not isinstance(response, dict):
+        raise ReviewError("Muse completed answer is not an object")
+    return response, {"provider": "muse", "actual_model": expected_model,
                       "model_provenance": "provider_runtime_event",
                       "effort": "high"}
 
@@ -105,9 +121,14 @@ class MuseHighSpecialist:
             schema.write_text(json.dumps(answer_schema(task.checks)), encoding="utf-8")
             prompt = (specialist.prompt + "\nRequired checks: "
                       + ", ".join(task.checks))
+            # Empirically validated localization: full-page inputs caused a
+            # clean Gross Margin card to be marked with Sales-card clipping.
+            # Use only the PBIR-verified exact target crop for this task.
+            views = ["target_crop"]
             command = [
-                binary, "exec", "--provider", "meta", "--model", self.model,
-                "--image", str(sources[0][1]), "--image", str(sources[1][1]),
+                binary, "exec", "--json", "--provider", "meta", "--model", self.model,
+                "--contributor-mode", ("on" if "contributor" in self.model.casefold() else "off"),
+                "--image", str(sources[1][1]),
                 "--output-schema", str(schema),
                 "--disable-shell", "--disable-write", "--disable-web-tools",
                 "--no-session-log", "--no-foreign-personal-context",
@@ -129,4 +150,5 @@ class MuseHighSpecialist:
                     raise ReviewError("specialist frozen image changed during inference")
             raw, receipt = _provider_output(result.stdout, self.model)
             return {"answer": raw,
-                    "receipt": {**receipt, "task_id": task.task_id}}
+                    "receipt": {**receipt, "task_id": task.task_id,
+                                "evidence_views": views}}

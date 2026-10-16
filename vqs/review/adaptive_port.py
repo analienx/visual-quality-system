@@ -113,11 +113,33 @@ class AdaptiveVisualReviewPort:
                 "response": answer, "receipt": receipt,
             })
             for check, decision in answer.items():
+                # A still screenshot cannot prove that scroll interaction
+                # exposes all rows. Preserve raw model verdict in sidecar,
+                # but never turn unexecuted interaction into visual PASS.
+                needs_scroll_test = (task.specialist == "table_matrix_overflow"
+                                     and check == "scroll_access"
+                                     and decision["verdict"] == "pass")
+                # Controlled Contoso pilots repeatedly returned a false
+                # clear on a partially exposed body row. Until calibrated
+                # against interaction or trustworthy human labels, never
+                # promote image-only 'row_total_visibility=PASS' as proof.
+                needs_row_confirmation = (
+                    task.specialist == "table_matrix_overflow"
+                    and check == "row_total_visibility"
+                    and decision["verdict"] == "pass")
+                effective_verdict = (
+                    "blocked" if needs_scroll_test or needs_row_confirmation
+                    else decision["verdict"])
                 observations.append({
                     "page_id": task.page_id,
                     "check": f"specialist.{task.specialist}.{task.visual_id}.{check}",
-                    "verdict": decision["verdict"],
+                    "verdict": effective_verdict,
                     "detail": {
+                        "interactive_scroll_test": (
+                            "not_run" if needs_scroll_test else "not_applicable"),
+                        "row_visibility_confirmation": (
+                            "not_run_pilot_false_clear"
+                            if needs_row_confirmation else "not_applicable"),
                         "visual_id": task.visual_id, "task_id": task.task_id,
                         "page_sha256": task.page_image_sha256,
                         "crop_sha256": task.crop_image_sha256,

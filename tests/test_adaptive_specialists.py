@@ -141,3 +141,37 @@ def test_exact_source_selectors_refuse_unknown_target(tmp_path):
             regions_dir=str(region_dir), provider=provider,
             selectors=[("p1", "invented-visual")]).review(str(bundle))
     assert not provider.seen
+
+
+def test_static_matrix_scroll_pass_does_not_certify_unexercised_interaction(
+        tmp_path, monkeypatch):
+    """A screenshot PASS cannot prove the user can reach hidden rows."""
+    from vqs.review.specialists import TABLE
+
+    report, bundle = _scene_bundle(tmp_path)
+    region_dir = tmp_path / "regions"
+    build_regions(str(bundle), str(region_dir), report=str(report))
+    # Synthetic PBIR visual uses a card container; force a matrix rubric
+    # solely to exercise the adapter's conditional scroll-coverage policy.
+    monkeypatch.setattr(
+        "vqs.review.adaptive_port.specialist_for_type",
+        lambda _visual_type: TABLE)
+    adapter = AdaptiveVisualReviewPort(
+        regions_dir=str(region_dir), provider=FakeVerifiedProvider())
+    review = review_bundle(
+        bundle_dir=str(bundle), reviewer=adapter,
+        reviewer_id=adapter.reviewer_id, fixer_id=verify(str(bundle))["fixer_id"])
+    scroll = next(row for row in review["observations"]
+                  if row["check"].endswith(".scroll_access"))
+    assert scroll["verdict"] == "blocked"
+    assert scroll["detail"]["interactive_scroll_test"] == "not_run"
+    assert scroll["detail"]["evidence"]["verdict"] == "pass"
+    assert review["visual"] == "blocked"
+    assert adapter.last_specialist_evidence["reviews"][0]["response"][
+        "scroll_access"]["verdict"] == "pass"
+    row_visibility = next(row for row in review["observations"]
+                          if row["check"].endswith(".row_total_visibility"))
+    assert row_visibility["verdict"] == "blocked"
+    assert row_visibility["detail"]["row_visibility_confirmation"] == (
+        "not_run_pilot_false_clear")
+    assert row_visibility["detail"]["evidence"]["verdict"] == "pass"

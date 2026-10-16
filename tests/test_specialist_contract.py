@@ -87,20 +87,32 @@ def test_blocked_verdict_retains_visible_symptom_for_confirmation():
     assert all(item["needs_confirmation"] for item in clean.values())
 
 
+def _real_muse_event_stream(answer, model="muse-pinned"):
+    status = {
+        "payload_type": "task.lifecycle.status",
+        "payload": {"event": {"details": {"facets": [
+            {"detail": {"kind": "provider", "model": model}}
+        ]}}},
+    }
+    completed = {
+        "payload_type": "run.terminal.completed",
+        "payload": {"text": json.dumps(answer)},
+    }
+    return json.dumps(status) + "\n" + json.dumps(completed)
+
+
 def test_model_receipt_requires_provider_event_not_llm_assertion():
     task = _task()
     answer = _answer(task)
     with pytest.raises(ReviewError, match="runtime model receipt"):
         _provider_output(json.dumps(answer), "muse-pinned")
     data, receipt = _provider_output(
-        '{"type":"model-selected","model_id":"muse-pinned"}\n'
-        + json.dumps(answer), "muse-pinned")
+        _real_muse_event_stream(answer), "muse-pinned")
     assert data == answer
     assert receipt["actual_model"] == "muse-pinned"
-    with pytest.raises(ReviewError, match="different model"):
+    with pytest.raises(ReviewError, match="did not match"):
         _provider_output(
-            '{"type":"model-selected","model_id":"wrong"}\n'
-            + json.dumps(answer), "muse-pinned")
+            _real_muse_event_stream(answer, model="wrong"), "muse-pinned")
 
 
 def test_two_images_tool_disabled_high_effort_model_pinned(tmp_path, monkeypatch):
@@ -111,7 +123,7 @@ def test_two_images_tool_disabled_high_effort_model_pinned(tmp_path, monkeypatch
     monkeypatch.setenv("VQS_ALLOW_VISION_UPLOAD", "1")
     result = _answer(task, verdict="fail", symptom=True)
     def runner(command, **kwargs):
-        assert command.count("--image") == 2
+        assert command.count("--image") == 1
         assert command[command.index("--model") + 1] == "muse-pinned"
         assert command[command.index("--reasoning-effort") + 1] == "high"
         assert "--disable-shell" in command and "--disable-write" in command
@@ -119,13 +131,12 @@ def test_two_images_tool_disabled_high_effort_model_pinned(tmp_path, monkeypatch
         assert kwargs["stdin"] == subprocess.DEVNULL
         assert kwargs["timeout"] == 30
         paths = [Path(command[i + 1]) for i, x in enumerate(command) if x == "--image"]
-        assert [p.read_bytes() for p in paths] == [b"page", b"crop"]
+        assert [p.read_bytes() for p in paths] == [b"crop"]
         schema = json.loads(Path(command[command.index("--output-schema") + 1]).read_text())
         assert set(schema["required"]) == set(task.checks)
         return SimpleNamespace(
             returncode=0,
-            stdout=('{"type":"model-selected","model_id":"muse-pinned"}\n'
-                    + json.dumps(result)), stderr="")
+            stdout=_real_muse_event_stream(result), stderr="")
     provider = MuseHighSpecialist(
         model="muse-pinned", executable="test-muse", timeout_seconds=30,
         runner=runner)
@@ -151,3 +162,22 @@ def test_contributor_needs_separate_permission(tmp_path, monkeypatch):
     with pytest.raises(ReviewError, match="separate explicit consent"):
         MuseHighSpecialist(model="muse-spark-1.3-contributor").review_task(
             task, tmp_path / "missing", tmp_path / "missing")
+
+
+def test_malformed_muse_runtime_event_never_crashes_or_attests_model():
+    """Unexpected status shapes remain a typed BLOCKED provider outcome."""
+    payload = {"payload_type": "task.lifecycle.status",
+               "payload": {"event": "not-a-dictionary"}}
+    terminal = {"payload_type": "run.terminal.completed",
+                "payload": {"text": json.dumps(_answer(_task()))}}
+    with pytest.raises(ReviewError, match="runtime model receipt"):
+        _provider_output(
+            json.dumps(payload) + "\n" + json.dumps(terminal), "muse-pinned")
+
+
+def test_duplicate_terminal_response_fails_closed_even_with_real_model_event():
+    raw = _real_muse_event_stream(_answer(_task()))
+    terminal = {"payload_type": "run.terminal.completed",
+                "payload": {"text": json.dumps(_answer(_task()))}}
+    with pytest.raises(ReviewError, match="exactly one"):
+        _provider_output(raw + "\n" + json.dumps(terminal), "muse-pinned")
