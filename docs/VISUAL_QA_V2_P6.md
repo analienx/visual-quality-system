@@ -33,7 +33,8 @@ The new *read-only* command:
    declared PBIR `visual.json` targets.
 3. Also binds the sibling PBIP project shortcut, which Microsoft validates
    outside the `.Report` tree, refusing unequal or missing counterpart
-   shortcuts.
+   shortcuts. The referenced local semantic-model definition inventory and
+   all its included TMDL/JSON file bytes must also match across both projects.
 4. Probes the Microsoft authoring CLI once and runs **the same executable**
    against both reports. No direct-writer fallback.
 5. Reconciles structured diagnostic codes, severities and complete messages,

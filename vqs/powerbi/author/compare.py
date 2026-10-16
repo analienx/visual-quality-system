@@ -12,7 +12,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
-from ...pbir import source_digest
+from ...pbir import source_digest, source_inventory
 from ...repair.preview import _inventory
 from . import mscli
 
@@ -112,6 +112,23 @@ def compare_authoring(
     changed = {name for name in before_files if before_files[name] != after_files[name]}
     if changed != authorized:
         raise ValueError(f"unexpected/missing candidate mutation: {sorted(changed ^ authorized)}")
+    # A report-only repair cannot quietly point at different TMDL/JSON bytes
+    # through definition.pbir, even if Microsoft reports the same warnings.
+    old_source = source_inventory(baseline)
+    new_source = source_inventory(candidate)
+    if old_source["issues"] or new_source["issues"]:
+        raise ValueError("referenced semantic model source unresolved")
+    old_model = old_source["model_dir"]
+    new_model = new_source["model_dir"]
+    old_names = old_source["model_files"]
+    new_names = new_source["model_files"]
+    if bool(old_model) != bool(new_model) or old_names != new_names:
+        raise ValueError("referenced semantic model file inventory differs")
+    if (old_model is not None and new_model is not None
+            and any((Path(old_model) / name).read_bytes() !=
+                    (Path(new_model) / name).read_bytes()
+                    for name in old_names)):
+        raise ValueError("referenced semantic model bytes differ")
     if runner is None:
         observed = mscli.probe()
         if not observed.get("available") or not isinstance(observed.get("path"), str):
@@ -152,6 +169,8 @@ def compare_authoring(
         "baseline_report_sha256": source_digest(baseline),
         "candidate_report_sha256": source_digest(candidate),
         "declared_changed_files": sorted(changed),
+        "semantic_model_definition_files_identical": True,
+        "semantic_model_file_count": len(old_names),
         "microsoft_tool": executable,
         "microsoft_version": version,
         "baseline": earlier,

@@ -212,3 +212,19 @@ def test_microsoft_project_shortcut_is_part_of_validation_input(tmp_path):
     new.with_suffix(".pbip").write_text('{"version":"1.1"}')
     with pytest.raises(ValueError,match="shortcuts differ"):
         compare_authoring(old,new,[VISUAL],runner=lambda path,*,tool:_result(path))
+
+
+def test_referenced_model_change_rejected_even_if_visual_delta_is_valid(tmp_path):
+    old,new=_pair(tmp_path)
+    model=new.parent/"Model.SemanticModel"/"definition"/"tables"/"T.tmdl"
+    assert model.is_file()
+    model.write_text("table T\n\tmeasure Changed = 123\n",encoding="utf-8")
+    with pytest.raises(ValueError,match="semantic model bytes differ"):
+        compare_authoring(old,new,[VISUAL],runner=lambda path,*,tool:_result(path))
+
+
+def test_real_model_definition_files_are_bound_to_pair(tmp_path):
+    old,new=_pair(tmp_path)
+    result=compare_authoring(old,new,[VISUAL],runner=lambda path,*,tool:_result(path))
+    assert result["semantic_model_definition_files_identical"] is True
+    assert result["semantic_model_file_count"] >= 1
