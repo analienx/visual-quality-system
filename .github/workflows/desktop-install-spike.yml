@@ -1,0 +1,52 @@
+name: VQS real Power BI Desktop hosted install spike
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/desktop-install-spike.yml"
+      - "scripts/hosted_windows_install_probe.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  microsoft-powerbi-desktop:
+    name: Official installer + synthetic Power BI window on hosted Windows
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Enable supported 1920x1080 virtual display
+        shell: pwsh
+        run: |
+          python scripts/hosted_windows_resize_probe.py --out hosted-display-install.json
+          python -c "import json; x=json.load(open('hosted-display-install.json')); assert x['display']['status']=='candidate', x"
+      - name: Install pinned Microsoft authoring CLI and Python screenshot driver
+        shell: pwsh
+        run: |
+          npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
+          python -m pip install pillow==11.3.0
+      - name: Install signed Microsoft Power BI Desktop and open synthetic PBIP
+        shell: pwsh
+        run: |
+          python scripts/hosted_windows_install_probe.py --out hosted-desktop-install.json --preview hosted-desktop-synthetic.png
+      - name: Archive diagnostic result and synthetic-only screen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-pbi-hosted-install-spike
+          path: |
+            hosted-display-install.json
+            hosted-desktop-install.json
+            hosted-desktop-synthetic.png
+          if-no-files-found: warn
+          retention-days: 7
