@@ -19,6 +19,7 @@ PROBE_ARGS = ("--version",)
 PROBE_TIMEOUT = 60
 RAW_TAIL_LIMIT = 8192
 DIAGNOSTIC_LINE_LIMIT = 50
+FULL_DIAGNOSTIC_CHAR_LIMIT = 4096
 
 
 def _run(argv: list[str], timeout: int) -> dict[str, Any]:
@@ -106,6 +107,8 @@ def _structured(stdout: str, returncode: int) -> dict[str, Any]:
                 "errors": [], "warnings": [], "result": result}
     errors: list[str] = []
     warnings: list[str] = []
+    full_errors: list[str] = []
+    full_warnings: list[str] = []
     seen_errors = 0
     seen_warnings = 0
     for code, group in diagnostics.items():
@@ -121,7 +124,12 @@ def _structured(stdout: str, returncode: int) -> dict[str, Any]:
             if not isinstance(item, dict) or not isinstance(item.get("message"), str):
                 return {"status": "error", "note": "malformed diagnostic item",
                         "errors": [], "warnings": [], "result": result}
+            if len(item["message"]) > FULL_DIAGNOSTIC_CHAR_LIMIT:
+                return {"status": "error", "note": "oversized untrusted CLI diagnostic",
+                        "errors": [], "warnings": [], "result": result}
             target.append(f"{code}: {item['message']}"[:300])
+            (full_errors if group["severity"] == "error"
+             else full_warnings).append(f"{code}: {item['message']}")
             if group["severity"] == "error":
                 seen_errors += 1
             else:
@@ -137,7 +145,9 @@ def _structured(stdout: str, returncode: int) -> dict[str, Any]:
     return {"status": "invalid" if result == "failed" else "valid",
             "note": None, "errors": errors[:DIAGNOSTIC_LINE_LIMIT],
             "warnings": warnings[:DIAGNOSTIC_LINE_LIMIT], "result": result,
-            "errorCount": errors_count, "warningCount": warnings_count}
+            "errorCount": errors_count, "warningCount": warnings_count,
+            "diagnostics_full": {"errors": full_errors[:DIAGNOSTIC_LINE_LIMIT],
+                                 "warnings": full_warnings[:DIAGNOSTIC_LINE_LIMIT]}}
 
 
 def validate(report_dir: str | Path, timeout: int = 300,

@@ -486,6 +486,24 @@ def _run(args) -> int:
     return _verdict_exit(envelope)
 
 
+def _compare_authoring(args) -> int:
+    """Read-only baseline-versus-candidate Microsoft diagnostic comparison."""
+    from vqs.powerbi.author.compare import compare_authoring
+
+    try:
+        result = compare_authoring(
+            args.baseline_report, args.candidate_report, args.visual)
+        if args.out is not None:
+            with args.out.open("x", encoding="utf-8") as stream:
+                stream.write(json.dumps(result, indent=2,
+                                        ensure_ascii=False) + "\n")
+    except (OSError, ValueError, TypeError) as exc:
+        print(json.dumps({"status": "blocked", "reason": str(exc)}))
+        return 2
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
 def _preview_candidate(args) -> int:
     """One action to prepare a private, populated full-project Desktop preview.
 
@@ -690,6 +708,15 @@ def main(argv: list[str] | None = None) -> int:
                              help="New private output root OUTSIDE every Git checkout")
     preview_cmd.add_argument("--visual", action="append", required=True,
                              help="Exact changed relative PBIR visual.json path; repeat")
+    compare_cmd = commands.add_parser(
+        "compare-authoring",
+        help="Read-only paired Microsoft diagnostics; never implies release PASS")
+    compare_cmd.add_argument("baseline_report", type=Path)
+    compare_cmd.add_argument("candidate_report", type=Path)
+    compare_cmd.add_argument("--visual", action="append", required=True,
+                             help="Exact PBIR visual.json file changed; repeat")
+    compare_cmd.add_argument("--out", type=Path, default=None,
+                             help="New private receipt file; refuses overwrite")
     capture_cmd = commands.add_parser("capture", help="Bridge screenshots plus capture manifest")
     capture_cmd.add_argument("report", type=Path, help="Enhanced-format *.Report folder")
     capture_cmd.add_argument("renders", type=Path, help="Output directory for PNGs and manifest")
@@ -944,6 +971,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cycles(args.model)
     if args.command == "prepare-preview":
         return _preview_candidate(args)
+    if args.command == "compare-authoring":
+        return _compare_authoring(args)
     if args.command == "capture":
         return _capture(args.report, args.renders, args.pid, args.scale,
                         args.wait_seconds, args.live_data)
