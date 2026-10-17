@@ -1,0 +1,48 @@
+name: VQS hosted Desktop feasibility (evidence only)
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/desktop-feasibility.yml"
+      - "scripts/hosted_windows_desktop_probe.py"
+      - "scripts/hosted_windows_resize_probe.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-desktop-envelope:
+    name: Windows 2025 interactive Desktop preflight
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Examine session, display, and WebView2 without any credentials
+        shell: pwsh
+        run: |
+          python scripts/hosted_windows_desktop_probe.py --out hosted-desktop-preflight.json
+      - name: Attempt temporary Windows virtual-display upgrade
+        shell: pwsh
+        run: |
+          python scripts/hosted_windows_resize_probe.py --out hosted-display-resize.json
+      - name: Probe requirements after display change
+        shell: pwsh
+        run: |
+          python scripts/hosted_windows_desktop_probe.py --out hosted-desktop-after-resize.json
+      - name: Upload strictly allowlisted diagnostic JSON (no user files)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosted-windows-desktop-preflight
+          path: |
+            hosted-desktop-preflight.json
+            hosted-display-resize.json
+            hosted-desktop-after-resize.json
+          if-no-files-found: warn
+          retention-days: 7

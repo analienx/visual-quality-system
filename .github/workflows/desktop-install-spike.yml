@@ -1,0 +1,78 @@
+name: VQS real Power BI Desktop hosted install spike
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/desktop-install-spike.yml"
+      - "scripts/hosted_windows_install_probe.py"
+      - "scripts/hosted_contoso_desktop_smoke.py"
+      - "scripts/hosted_contoso_dax_probe.ps1"
+      - "scripts/hosted_get_adomd.py"
+      - "tests/fixtures/contoso-retail-complete-p7.zip"
+  workflow_dispatch:
+
+concurrency:
+  group: vqs-hosted-desktop-install-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  microsoft-powerbi-desktop:
+    name: Official installer + synthetic Power BI window on hosted Windows
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Enable supported 1920x1080 virtual display
+        shell: pwsh
+        run: |
+          python scripts/hosted_windows_resize_probe.py --out hosted-display-install.json
+          python -c "import json; x=json.load(open('hosted-display-install.json')); assert x['display']['status']=='candidate', x"
+      - name: Install pinned Microsoft authoring CLI and Python screenshot driver
+        shell: pwsh
+        run: |
+          npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
+          python -m pip install pillow==11.3.0
+      - name: Install signed Microsoft Power BI Desktop and open synthetic PBIP
+        shell: pwsh
+        run: |
+          python scripts/hosted_windows_install_probe.py --out hosted-desktop-install.json --preview hosted-desktop-synthetic.png --install-only
+      - name: Open complete authorized Contoso in real Desktop and sample settled screen
+        shell: pwsh
+        run: |
+          python scripts/hosted_contoso_desktop_smoke.py --out hosted-real-contoso.json --screens hosted-contoso
+      - name: Prepare official pinned ADOMD.NET client (ephemeral)
+        shell: pwsh
+        run: |
+          python scripts/hosted_get_adomd.py --out hosted-adomd-client.json
+      - name: Probe genuine Contoso Sales DAX on local Desktop engine
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/hosted_contoso_dax_probe.ps1 -Out hosted-contoso-dax.json
+      - name: Archive diagnostic result and synthetic-only screen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: official-pbi-hosted-install-spike
+          path: |
+            hosted-display-install.json
+            hosted-desktop-install.json
+            hosted-desktop-synthetic.png
+            hosted-real-contoso.json
+            hosted-contoso-dax.json
+            hosted-adomd-client.json
+            hosted-contoso-25s.png
+            hosted-contoso-75s.png
+            hosted-contoso-140s.png
+          if-no-files-found: warn
+          retention-days: 7

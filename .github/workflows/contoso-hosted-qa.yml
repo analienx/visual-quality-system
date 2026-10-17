@@ -1,0 +1,47 @@
+name: VQS complete Contoso authoring QA (hosted)
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/contoso-hosted-qa.yml"
+      - "scripts/hosted_contoso_real_cli.py"
+      - "tests/fixtures/contoso-retail-complete-p7.zip"
+      - "tests/fixtures/contoso-retail-complete-p7.manifest.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-contoso:
+    name: Microsoft official complete-PBIP oracle (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install pinned Microsoft authoring tool and VQS
+        run: |
+          python -m pip install .
+          npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
+      - name: Run complete Contoso PBIR/TMDL positive and negative
+        run: python scripts/hosted_contoso_real_cli.py --out hosted-contoso-real-cli.json
+      - name: Store JSON-only QA receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-contoso-authoring-${{ matrix.os }}
+          path: hosted-contoso-real-cli.json
+          if-no-files-found: warn
+          retention-days: 7

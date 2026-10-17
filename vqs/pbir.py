@@ -485,7 +485,16 @@ def source_inventory(report: str | Path) -> dict[str, Any]:
         issues.append({"rule": model_rule, "detail": model_detail})
     digest = hashlib.sha256()
     report_files: list[str] = []
-    for path in sorted(report_path.rglob("*")):
+    # Python's pathlib Path ordering is case-insensitive on Windows and
+    # case-sensitive on Linux. Hashing in native Path order made the SAME
+    # complete Contoso project produce different source digests on GitHub.
+    # Sort the relative POSIX spelling using one host-independent key.
+    def portable_order(path: Path, base: Path) -> tuple[str, str]:
+        rel = path.relative_to(base).as_posix()
+        return (rel.casefold(), rel)
+
+    for path in sorted(report_path.rglob("*"),
+                       key=lambda path: portable_order(path, report_path)):
         if not path.is_file() or path.is_symlink():
             continue
         rel = path.relative_to(report_path)
@@ -507,7 +516,8 @@ def source_inventory(report: str | Path) -> dict[str, Any]:
             digest.update(b"\0")
     model_files: list[str] = []
     if model_dir is not None:
-        for path in sorted(model_dir.rglob("*")):
+        for path in sorted(model_dir.rglob("*"),
+                           key=lambda path: portable_order(path, model_dir)):
             if not path.is_file() or path.is_symlink():
                 continue
             rel = path.relative_to(model_dir)
