@@ -52,13 +52,27 @@ def run(out: Path) -> dict[str, object]:
             names = archive.namelist()
             candidates = [
                 name for name in names
-                if name == "lib/net472/Microsoft.AnalysisServices.AdomdClient.dll"
+                if name.lower().endswith("/microsoft.analysisservices.adomdclient.dll")
             ]
-            if len(candidates) != 1:
-                raise RuntimeError("official ADOMD net472 binary absent")
+            if not candidates:
+                record["available_lib_paths"] = sorted(
+                    name for name in names if name.startswith("lib/")
+                )[:45]
+                raise RuntimeError("official ADOMD binary absent; see available_lib_paths")
+            frameworks = ("net472", "net48", "net462", "net461", "netstandard2.0")
+            selected = next(
+                (candidate for framework in frameworks for candidate in candidates
+                 if candidate.lower().startswith("lib/" + framework + "/")),
+                None,
+            )
+            if selected is None:
+                record["available_assembly_paths"] = sorted(candidates)
+                raise RuntimeError("ADOMD assembly has no supported framework")
+            prefix = selected.rsplit("/", 1)[0] + "/"
+            record["runtime_target"] = prefix.split("/")[1]
             included = [
                 name for name in names
-                if name.startswith("lib/net472/") and name.lower().endswith(".dll")
+                if name.startswith(prefix) and name.lower().endswith(".dll")
             ]
             if len(included) > 25:
                 raise RuntimeError("unexpected ADOMD library count")
