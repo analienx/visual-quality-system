@@ -185,6 +185,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--preview", type=Path, required=True)
+    parser.add_argument("--install-only", action="store_true",
+                        help="Do not open synthetic PBIP; Contoso opens first")
     args = parser.parse_args(argv)
     if args.out.exists() or args.preview.exists():
         raise SystemExit("Refusing to overwrite evidence")
@@ -207,15 +209,15 @@ def main(argv: list[str] | None = None) -> int:
         downloaded = _installer(tmp, evidence)
         evidence["authenticode"] = _authenticode(downloaded)
         # UnknownError is permitted *only* in this one-off disposable
-        # experiment when source is official MS HTTPS, signer identifies
-        # Microsoft, AND the exact twice-observed installer hash is pinned.
+        # experiment when source is official MS HTTPS AND the exact twice-observed
+        # installer hash is pinned. Signer verification is NOT claimed.
         if evidence["authenticode"]["status"] != "Valid":
             if evidence["installer_sha256"] != (
                 "5412131d1f5d535e42358cb6d496703c3c0cdf9267779ac9220171f58ce20cdd"
             ):
                 raise ValueError("unverifiable signature AND unknown installer hash")
             evidence["signature_override"] = (
-                "diagnostic_only_official_https_microsoft_signer_exact_sha256"
+                "diagnostic_only_official_https_exact_sha256_unverified_signer"
             )
         setup = _run([str(downloaded), "-quiet", "-norestart",
                       "LANGUAGE=en-US", "ACCEPT_EULA=1"], timeout=720)
@@ -225,9 +227,17 @@ def main(argv: list[str] | None = None) -> int:
         )
         if setup.returncode not in (0, 3010):
             raise RuntimeError("Microsoft installer exit was non-success")
-        report = _scaffold(tmp)
-        evidence["synthetic_pbip_scaffold"] = True
-        _start_desktop(report, evidence, args.preview)
+        if args.install_only:
+            evidence["synthetic_pbip_scaffold"] = False
+            evidence["synthetic_desktop_open"] = "SKIPPED_INTENTIONALLY"
+            evidence["powerbi_executable"] = _desktop_path() is not None
+            evidence["desktop_screen_captured"] = False
+            if not evidence["powerbi_executable"]:
+                raise RuntimeError("installed Desktop executable missing")
+        else:
+            report = _scaffold(tmp)
+            evidence["synthetic_pbip_scaffold"] = True
+            _start_desktop(report, evidence, args.preview)
     except Exception as exc:  # noqa: BLE001 - evidence must survive external failures
         evidence["error_class"] = type(exc).__name__
         evidence["error_summary"] = str(exc)[:200]
