@@ -9,6 +9,10 @@ on:
       - "tests/fixtures/contoso-retail-complete-p7.zip"
   workflow_dispatch:
 
+concurrency:
+  group: vqs-hosted-desktop-install-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
