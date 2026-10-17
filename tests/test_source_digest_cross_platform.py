@@ -8,9 +8,9 @@ from vqs.pbir import source_inventory
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests" / "fixtures" / "contoso-retail-complete-p7.zip"
-# Verified against a separate local Windows P7 candidate and hosted Windows CI.
+# Verified on both hosted Ubuntu and hosted Windows against the exact same ZIP with host-independent ordering. Historical P7 fingerprints used native OS path ordering and are intentionally different.
 CONTOSO_PORTABLE_SHA256 = (
-    "b957dac6ab1af4f1fc42ce366b0ea333b78a5918191a2a612d3ded6589b04eeb"
+    "d8714ab77ee3aa9225c9656ea10c093156fcbcd3dd77a25c0226015d2c0a31f0"
 )
 
 
