@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/desktop-install-spike.yml"
       - "scripts/hosted_windows_install_probe.py"
+      - "scripts/hosted_contoso_desktop_smoke.py"
+      - "tests/fixtures/contoso-retail-complete-p7.zip"
   workflow_dispatch:
 
 permissions:
@@ -14,7 +16,7 @@ jobs:
   microsoft-powerbi-desktop:
     name: Official installer + synthetic Power BI window on hosted Windows
     runs-on: windows-2025
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
@@ -39,6 +41,10 @@ jobs:
         shell: pwsh
         run: |
           python scripts/hosted_windows_install_probe.py --out hosted-desktop-install.json --preview hosted-desktop-synthetic.png
+      - name: Open complete authorized Contoso in real Desktop and sample settled screen
+        shell: pwsh
+        run: |
+          python scripts/hosted_contoso_desktop_smoke.py --out hosted-real-contoso.json --screens hosted-contoso
       - name: Archive diagnostic result and synthetic-only screen
         if: always()
         uses: actions/upload-artifact@v4
@@ -48,5 +54,9 @@ jobs:
             hosted-display-install.json
             hosted-desktop-install.json
             hosted-desktop-synthetic.png
+            hosted-real-contoso.json
+            hosted-contoso-25s.png
+            hosted-contoso-75s.png
+            hosted-contoso-140s.png
           if-no-files-found: warn
           retention-days: 7
