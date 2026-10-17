@@ -25,9 +25,21 @@ try {
   $record.engine_process_seen = ($processes.Count -gt 0)
   if ($processes.Count -eq 0) { throw "No Desktop Analysis Services engine" }
   $pbi = Join-Path $env:ProgramFiles "Microsoft Power BI Desktop"
-  $assemblies = @(Get-ChildItem -LiteralPath $pbi -Filter "Microsoft.AnalysisServices.AdomdClient.dll" -Recurse -File -ErrorAction Stop)
-  if ($assemblies.Count -eq 0) { throw "Installed Desktop has no ADOMD client assembly" }
-  Add-Type -Path $assemblies[0].FullName -ErrorAction Stop
+  $packageAssembly = Join-Path $env:RUNNER_TEMP "vqs-adomd-net472\Microsoft.AnalysisServices.AdomdClient.dll"
+  if (Test-Path -LiteralPath $packageAssembly) {
+    Add-Type -Path $packageAssembly -ErrorAction Stop
+    $record.client_source = "microsoft_nuget_19.117.0_net472"
+  } else {
+    try {
+      Add-Type -AssemblyName "Microsoft.AnalysisServices.AdomdClient" -ErrorAction Stop
+      $record.client_source = "desktop_global_assembly_cache"
+    } catch {
+      $assemblies = @(Get-ChildItem -LiteralPath $pbi -Filter "Microsoft.AnalysisServices.AdomdClient.dll" -Recurse -File -ErrorAction Stop)
+      if ($assemblies.Count -eq 0) { throw "No ADOMD client from official NuGet, GAC or Desktop" }
+      Add-Type -Path $assemblies[0].FullName -ErrorAction Stop
+      $record.client_source = "desktop_local_bin"
+    }
+  }
   $record.assembly_loaded = $true
   $roots = @(
     (Join-Path $env:LOCALAPPDATA "Microsoft\Power BI Desktop\AnalysisServicesWorkspaces"),
