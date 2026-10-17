@@ -6,6 +6,7 @@ on:
       - ".github/workflows/desktop-install-spike.yml"
       - "scripts/hosted_windows_install_probe.py"
       - "scripts/hosted_contoso_desktop_smoke.py"
+      - "scripts/hosted_contoso_dax_probe.ps1"
       - "tests/fixtures/contoso-retail-complete-p7.zip"
   workflow_dispatch:
 
@@ -49,6 +50,10 @@ jobs:
         shell: pwsh
         run: |
           python scripts/hosted_contoso_desktop_smoke.py --out hosted-real-contoso.json --screens hosted-contoso
+      - name: Probe genuine Contoso Sales DAX on local Desktop engine
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/hosted_contoso_dax_probe.ps1 -Out hosted-contoso-dax.json
       - name: Archive diagnostic result and synthetic-only screen
         if: always()
         uses: actions/upload-artifact@v4
@@ -59,6 +64,7 @@ jobs:
             hosted-desktop-install.json
             hosted-desktop-synthetic.png
             hosted-real-contoso.json
+            hosted-contoso-dax.json
             hosted-contoso-25s.png
             hosted-contoso-75s.png
             hosted-contoso-140s.png
