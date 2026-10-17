@@ -61,7 +61,7 @@ try {
         $value = $reader.GetValue(0)
         if ($null -ne $value -and $value -ne [DBNull]::Value) {
           $sales = [double]::Parse([string]$value, [System.Globalization.CultureInfo]::InvariantCulture)
-          if ([double]::IsFinite($sales)) {
+          if (-not [double]::IsNaN($sales) -and -not [double]::IsInfinity($sales)) {
             $record.result = [ordered]@{
               sales = $sales
               row_count = 1
