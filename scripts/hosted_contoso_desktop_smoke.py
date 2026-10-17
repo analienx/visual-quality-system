@@ -104,8 +104,8 @@ def evaluate(out: Path, screen_prefix: Path) -> dict[str, object]:
         if remaining > 0:
             time.sleep(remaining)
         windows = _windows()
-        result = subprocess.run(["tasklist", "/FO", "CSV"], capture_output=True,
-                                text=True, timeout=30)
+        result = subprocess.run(["tasklist", "/FO", "CSV"], check=False,
+                                capture_output=True, text=True, timeout=30)
         filename = screen_prefix.with_name(f"{screen_prefix.name}-{seconds}s.png")
         shot = ImageGrab.grab(all_screens=False)
         shot.save(filename)
