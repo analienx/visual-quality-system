@@ -35,7 +35,7 @@ jobs:
           node-version: "22"
       - name: Install VQS and pinned official authoring CLI
         run: |
-          python -m pip install .
+          python -m pip install . pytest==8.4.2
           npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
       - name: Validate full candidate and adversarial refusal tests
         run: python -m pytest -q tests/test_contoso_no_login_map.py tests/test_world_shape_map_asset.py
