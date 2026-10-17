@@ -21,7 +21,7 @@ $record = [ordered]@{
 }
 try {
   if (Test-Path -LiteralPath $Out) { throw "Receipt exists; refusing overwrite" }
-  $processes = @(Get-CimInstance Win32_Process -Filter "Name = 'msmdsrv.exe'" -ErrorAction Stop)
+  $processes = @([System.Diagnostics.Process]::GetProcessesByName("msmdsrv"))
   $record.engine_process_seen = ($processes.Count -gt 0)
   if ($processes.Count -eq 0) { throw "No Desktop Analysis Services engine" }
   $pbi = Join-Path $env:ProgramFiles "Microsoft Power BI Desktop"
@@ -43,7 +43,15 @@ try {
   if($portFiles.Count -eq 0) { throw "No local Desktop workspace port file" }
   if($portFiles.Count -gt 16) { throw "Unexpected number of engine workspaces" }
   foreach($portFile in $portFiles) {
-    $raw = (Get-Content -LiteralPath $portFile.FullName -Raw).Trim()
+    # Power BI Desktop may write msmdsrv.port.txt in UTF-16LE without a
+    # reliably detected BOM. Attempt native UTF-16 first, then ASCII/UTF-8.
+    $bytes = [System.IO.File]::ReadAllBytes($portFile.FullName)
+    $trimChars = [char[]]@(0, 0xFEFF, 9, 10, 13, 32)
+    $raw = [System.Text.Encoding]::Unicode.GetString($bytes).Trim($trimChars)
+    $number = 0
+    if(-not [int]::TryParse($raw, [ref]$number)) {
+      $raw = [System.Text.Encoding]::UTF8.GetString($bytes).Trim($trimChars)
+    }
     $number = 0
     if(-not [int]::TryParse($raw, [ref]$number) -or $number -lt 1 -or $number -gt 65535) {
       continue
