@@ -7,6 +7,7 @@ on:
       - "scripts/hosted_windows_install_probe.py"
       - "scripts/hosted_contoso_desktop_smoke.py"
       - "scripts/hosted_contoso_dax_probe.ps1"
+      - "scripts/hosted_get_adomd.py"
       - "tests/fixtures/contoso-retail-complete-p7.zip"
   workflow_dispatch:
 
@@ -50,6 +51,10 @@ jobs:
         shell: pwsh
         run: |
           python scripts/hosted_contoso_desktop_smoke.py --out hosted-real-contoso.json --screens hosted-contoso
+      - name: Prepare official pinned ADOMD.NET client (ephemeral)
+        shell: pwsh
+        run: |
+          python scripts/hosted_get_adomd.py --out hosted-adomd-client.json
       - name: Probe genuine Contoso Sales DAX on local Desktop engine
         shell: pwsh
         run: |
@@ -65,6 +70,7 @@ jobs:
             hosted-desktop-synthetic.png
             hosted-real-contoso.json
             hosted-contoso-dax.json
+            hosted-adomd-client.json
             hosted-contoso-25s.png
             hosted-contoso-75s.png
             hosted-contoso-140s.png
