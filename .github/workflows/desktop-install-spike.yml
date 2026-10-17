@@ -45,7 +45,7 @@ jobs:
       - name: Install signed Microsoft Power BI Desktop and open synthetic PBIP
         shell: pwsh
         run: |
-          python scripts/hosted_windows_install_probe.py --out hosted-desktop-install.json --preview hosted-desktop-synthetic.png
+          python scripts/hosted_windows_install_probe.py --out hosted-desktop-install.json --preview hosted-desktop-synthetic.png --install-only
       - name: Open complete authorized Contoso in real Desktop and sample settled screen
         shell: pwsh
         run: |
