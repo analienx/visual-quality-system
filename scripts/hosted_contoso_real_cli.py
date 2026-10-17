@@ -35,12 +35,13 @@ def _extract(root: Path) -> tuple[Path, dict]:
             if (path.is_absolute() or ".." in path.parts
                     or member.is_dir() or member.file_size > 1_000_000):
                 raise ValueError("unsafe or unexpected fixture file")
-            if (len(path.parts) < 2
-                    or path.parts[0] not in ("Contoso Retail.Report",
-                                             "Contoso Retail.SemanticModel")
-                    and member.filename != "Contoso Retail.pbip"):
-                if member.filename != "Contoso Retail.pbip":
-                    raise ValueError("unrecognized fixture file")
+            if (
+                member.filename != "Contoso Retail.pbip"
+                and (len(path.parts) < 2
+                     or path.parts[0] not in ("Contoso Retail.Report",
+                                              "Contoso Retail.SemanticModel"))
+            ):
+                raise ValueError("unrecognized fixture file")
             # Machine-local state was deliberately excluded.
             if (path.parts and ".pbi" in path.parts
                     and path.name != "cache.abf"):
@@ -58,7 +59,7 @@ def _visual_inventory(report: Path) -> dict:
     visuals = sorted((report / "definition" / "pages").glob("*/visuals/*/visual.json"))
     for filename in pages + visuals:
         if not isinstance(json.loads(filename.read_text(encoding="utf-8")), dict):
-            raise ValueError("invalid PBIR object")
+            raise TypeError("invalid PBIR object")
     if len(pages) != 5 or len(visuals) != 54:
         raise ValueError("unexpected Contoso visual/page inventory")
     return {"pages": len(pages), "visuals": len(visuals)}
