@@ -9,6 +9,11 @@ import pytest
 from vqs.cli import main as vqs_main
 from vqs.review.bundle import pack, unpack, verify
 
+CALIBRATION = {"canvas_width": 500, "canvas_height": 500, "scale": 1,
+               "viewport": "500x500@1x", "method": "bridge-screenshot-all"}
+READINESS = {"populated": True, "method": "scoped-dax-probe",
+             "checked_at": "2026-10-03T00:00:00Z"}
+
 
 def _write_png(path: Path, width: int = 500, height: int = 500) -> None:
     ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
@@ -25,10 +30,17 @@ def _write_png(path: Path, width: int = 500, height: int = 500) -> None:
 def _report(root: Path) -> Path:
     report = root / "Example.Report"
     (report / "definition" / "pages" / "p1").mkdir(parents=True)
-    (report / "definition" / "pages" / "pages.json").write_text(
+    (report / "definition" / "pages.json").write_text(
         json.dumps({"pageOrder": ["p1"]}), encoding="utf-8")
+    (report / "definition" / "version.json").write_text(
+        json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "2.0.0"}), encoding="utf-8")
+    (report / "definition" / "report.json").write_text(json.dumps({
+        "$schema": ("https://developer.microsoft.com/json-schemas/fabric/item/"
+                    "report/definition/report/3.3.0/schema.json"),
+        "layoutOptimization": "None", "themeCollection": {}}),
+        encoding="utf-8")
     (report / "definition" / "pages" / "p1" / "page.json").write_text(
-        json.dumps({"displayName": "Overview", "width": 1280, "height": 720}),
+        json.dumps({"displayName": "Overview", "width": 500, "height": 500}),
         encoding="utf-8")
     return report
 
@@ -42,7 +54,8 @@ def _renders(report: Path, root: Path) -> Path:
     sha = hashlib.sha256((renders / "p1.png").read_bytes()).hexdigest()
     (renders / "capture-manifest.json").write_text(json.dumps(
         {"source_sha256": source_digest(report),
-         "page_images": {"p1": "p1.png"}, "files": {"p1.png": sha}}),
+         "page_images": {"p1": "p1.png"}, "files": {"p1.png": sha},
+         "calibration": CALIBRATION, "data_readiness": READINESS}),
         encoding="utf-8")
     return renders
 
@@ -69,6 +82,69 @@ def test_tampered_render_rejected(tmp_path: Path) -> None:
         verify(str(tmp_path / "b1"))
 
 
+def test_tampered_inventory_rejected(tmp_path: Path) -> None:
+    """Supervisor #22 P1-11: inventory.json is a hashed bundle member."""
+    report = _report(tmp_path)
+    renders = _renders(report, tmp_path)
+    pack(str(report), str(renders), str(tmp_path / "b1"), "fixer-1")
+    inv_path = tmp_path / "b1" / "inventory.json"
+    inv = json.loads(inv_path.read_text(encoding="utf-8"))
+    inv["notes"] = "forged after packing"
+    inv_path.write_text(json.dumps(inv), encoding="utf-8")
+    with pytest.raises(ValueError, match="tampered.*inventory"):
+        verify(str(tmp_path / "b1"))
+
+
+def test_tampered_capture_metadata_rejected(tmp_path: Path) -> None:
+    """Supervisor #22 P1-11: capture metadata is a hashed bundle member."""
+    report = _report(tmp_path)
+    renders = _renders(report, tmp_path)
+    pack(str(report), str(renders), str(tmp_path / "b1"), "fixer-1")
+    meta_path = tmp_path / "b1" / "capture-manifest.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["desktop"] = {"pid": 99999, "note": "forged after packing"}
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+    with pytest.raises(ValueError, match="tampered.*capture-manifest"):
+        verify(str(tmp_path / "b1"))
+
+
+def test_dropped_member_hash_rejected(tmp_path: Path) -> None:
+    """Review finding: files must cover every fixed member and mapped render."""
+    report = _report(tmp_path)
+    renders = _renders(report, tmp_path)
+    pack(str(report), str(renders), str(tmp_path / "b1"), "fixer-1")
+    header_path = tmp_path / "b1" / "bundle.json"
+    header = json.loads(header_path.read_text(encoding="utf-8"))
+    del header["files"]["inventory.json"]
+    header_path.write_text(json.dumps(header), encoding="utf-8")
+    with pytest.raises(ValueError, match="member hash missing"):
+        verify(str(tmp_path / "b1"))
+
+
+def test_extra_member_rejected(tmp_path: Path) -> None:
+    """Supervisor #22 P1-12: bundle membership is allowlisted."""
+    report = _report(tmp_path)
+    renders = _renders(report, tmp_path)
+    pack(str(report), str(renders), str(tmp_path / "b1"), "fixer-1")
+    (tmp_path / "b1" / "notes.txt").write_text("stowaway", encoding="utf-8")
+    with pytest.raises(ValueError, match="unexpected bundle member"):
+        verify(str(tmp_path / "b1"))
+
+
+def test_symlink_member_rejected(tmp_path: Path) -> None:
+    """Supervisor #22 P1-12: symlinks never pass as bundle members."""
+    report = _report(tmp_path)
+    renders = _renders(report, tmp_path)
+    pack(str(report), str(renders), str(tmp_path / "b1"), "fixer-1")
+    link = tmp_path / "b1" / "p1-alias.png"
+    try:
+        link.symlink_to(tmp_path / "b1" / "p1.png")
+    except OSError:
+        pytest.skip("symlinks unavailable")
+    with pytest.raises(ValueError, match="symlink|unexpected bundle member"):
+        verify(str(tmp_path / "b1"))
+
+
 def test_stale_source_rejected(tmp_path: Path) -> None:
     report = _report(tmp_path)
     renders = _renders(report, tmp_path)
@@ -84,6 +160,23 @@ def test_pack_refuses_bad_renders(tmp_path: Path) -> None:
     renders = tmp_path / "renders"
     renders.mkdir()
     with pytest.raises((OSError, ValueError)):
+        pack(str(report), str(renders), str(tmp_path / "b1"), "fixer-1")
+
+
+def test_pack_refuses_renders_without_calibration(tmp_path: Path) -> None:
+    import hashlib
+
+    from vqs.pbir import source_digest
+    report = _report(tmp_path)
+    renders = tmp_path / "renders"
+    renders.mkdir()
+    _write_png(renders / "p1.png")
+    sha = hashlib.sha256((renders / "p1.png").read_bytes()).hexdigest()
+    (renders / "capture-manifest.json").write_text(json.dumps(
+        {"source_sha256": source_digest(report),
+         "page_images": {"p1": "p1.png"}, "files": {"p1.png": sha}}),
+        encoding="utf-8")
+    with pytest.raises(ValueError, match="calibration|data_readiness"):
         pack(str(report), str(renders), str(tmp_path / "b1"), "fixer-1")
 
 

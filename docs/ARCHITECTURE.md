@@ -49,20 +49,17 @@ Verified against the installed tools, not assumed:
   control and source-bound screenshots.
 - **VQS owns** quality logic, design rules, evidence reconciliation,
   repair planning, and acceptance.
-- **pbir-cli is optional**, report-side only: `validate`
-  (schema/`--qa`/`--semantic`), `fields`, `bpa`, `add`/`set`/`get`,
-  theme/color/fonts. Those commands were proven to work with no
-  `AdomdClient.dll` present (2026-09-26 probe). Only `pbir model -d/-q`
-  and `pbir validate --fields` need the client library, and Modeling
-  MCP covers both better — so VQS never requires them.
-- **ADOMD role: none.** VQS has no ADOMD.NET dependency. The only
-  sanctioned ADOMD path is pbir's own discovery (`PBIR_ADOMD_DIR` or a
-  DAX Studio install) for interactive `pbir model` use. No ADOMD
-  installer ships with VQS or runs during setup; `vqs doctor` reports
-  discoverability as information only.
-- **Caution:** pbir.tools ships under a Custom Non-Commercial,
-  no-derivatives license. VQS must stay fully functional with pbir
-  absent; any deeper dependence needs a licensing decision first.
+- **Report-side validation is optional**: the Microsoft-guided
+  `powerbi-report-author` executable (documented distribution channel
+  `@microsoft/powerbi-report-authoring-cli`) validates candidates
+  (`vqs/powerbi/author`, policies auto/microsoft/direct). R6 removed
+  the former pbir-cli legs: Microsoft rejection fails, warnings
+  block unless explicitly allowed, and outages block — failures
+  never fall back silently, and VQS stays fully functional with the
+  CLI absent via the recorded direct fallback.
+- **ADOMD role: none.** VQS has no ADOMD.NET dependency and ships
+  no ADOMD installer; `vqs doctor` reports tool discoverability as
+  information only.
 
 ## A real run, not a diagram-only workflow
 

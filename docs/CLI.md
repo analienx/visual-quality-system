@@ -7,8 +7,14 @@ during development; see `tests/test_pipeline.py` and
 
 Exit codes: `0` pass, `1` demonstrated violation, `2` blocked
 (environment, capability, or input prevents a verdict). Nothing here
-renders pixels, queries live data, executes a repair, or approves a
+renders pixels, queries live data, or approves a
 release — those need leased backends plus owner promotion.
+Start with `vqs run` for the whole sequence in one sealed run
+(`review`, `propose`, or `repair` modes stop earlier); the commands
+below expose each stage separately for debugging (expert interface).
+`vqs --version` prints the package version and `python -m vqs`
+works anywhere the installed `vqs` does.
+
 
 ## vqs status
 
@@ -62,9 +68,16 @@ vqs cycles path/to/Example.SemanticModel/definition
 Capture every report page through the Desktop Bridge and write
 `capture-manifest.json` (source hash, page images, file hashes) for
 `vqs request-review`. Selects the Desktop instance by exact PID +
-report path; unsaved changes, a wrong report, or several instances
-without `--pid` block with the reason. Needs Windows, Desktop, and
+report path; a wrong report, several instances without `--pid`, or an
+unreported save state block with the reason. A reported unsaved flag
+blocks user-owned instances absolutely; a run-owned disposable
+candidate (opened by the run itself with a fresh PID, exact path,
+sealed source, and run lease) records the flag instead of treating it
+as proof of user edits. Needs Windows, Desktop, and
 the report open — otherwise use `vqs doctor` to see what is missing.
+Viewport-less captures (the actual Bridge 1.0.0 contract) bind render
+identity for whole-page review with geometry calibration honestly
+blocked — no pixel-to-PBIR coordinate transform is claimed.
 
 ```console
 vqs capture path/to/Example.Report path/to/renders
@@ -88,11 +101,13 @@ vqs bundle unpack path/to/bundle path/to/copy
 
 ## vqs doctor
 
-Report which external Power BI tools are present (pbir version,
-Desktop Bridge, Modeling MCP, running Desktop, ADOMD
-discoverability). Read-only and informational: it installs nothing,
-and always exits 0. ADOMD is reported only because `pbir model` and
-`pbir validate --fields` need it; VQS itself has no ADOMD dependency.
+Report which external Power BI tools are present (Microsoft-guided
+report author executable, Desktop Bridge, Modeling MCP, running
+Desktop) plus install identity (package version, import root,
+engine/tool schemas, git SHA when discoverable). Read-only and
+informational: it installs and modifies nothing — a stale editable
+install is reported obvious, never auto-repaired — and always
+exits 0. VQS has no ADOMD dependency.
 
 ```console
 vqs doctor
@@ -166,8 +181,44 @@ Adjudicate a review bundle on static checks only: reviewer separation,
 image-capability presence, full-canvas calibration, per-page source
 binding (stale images fail), observation completeness. Pixel judgment
 itself needs a capable image reviewer plus real renders.
+`--transport-bundle` (verified first) or `--report` (live inventory)
+binds whole-source coverage; without either, coverage is unbound
+and blocked. Static adjudication never passes: the ceiling is
+`static_conformance: pass` with verdict `blocked` and rule
+`image_review_required`.
 
 ```console
-vqs adjudicate-bundle bundle.json
-vqs adjudicate-bundle bundle.json --run-id review-01
+vqs adjudicate-bundle bundle.json --report path/to/Example.Report
+vqs adjudicate-bundle bundle.json --transport-bundle path/to/bundle --report path/to/Example.Report --run-id review-01
+```
+
+## vqs inspect
+
+Measure check-ready facts for a report into an envelope (read-only);
+same engine as the `vqs_inspect` tool. Blocking coverage gaps
+(unreadable sources) block instead of guessing.
+
+```console
+vqs inspect path/to/Example.Report --model path/to/Example.SemanticModel/definition --out inspect.json
+```
+
+## vqs repair
+
+Validate a repair plan, materialize a disposable candidate, apply
+typed visual edits only (the executor cannot touch model bytes),
+and validate the candidate. Model/DAX/RLS targets fail closed
+without an owner approval id. `--authoring-backend` selects the
+validation route: `auto` (default) probes the Microsoft-guided
+`powerbi-report-author` executable (documented distribution channel
+`@microsoft/powerbi-report-authoring-cli`) and records any fallback,
+`microsoft`
+never falls back silently, `direct` is the explicit typed-writer
+fallback. Microsoft rejection fails; warnings block unless
+`--authoring-allow-warnings` is given; missing, timed-out, or
+errored validation blocks. The run seals `authoring.json` and
+carries a top-level `authoring` block.
+
+```console
+vqs repair plan.json --original path/to/Example.Report --candidate-root path/to/candidate.Report --run-root runs --run-id repair-1
+vqs repair plan.json --original path/to/Example.Report --candidate-root path/to/candidate.Report --run-root runs --run-id repair-2 --authoring-backend direct
 ```

@@ -1,0 +1,3 @@
+# Pin Microsoft's reviewed skill documents as LF across operating systems.
+# The provenance checker also canonicalizes historical CRLF checkouts.
+.agents/skills/powerbi-report-cli/** text eol=lf whitespace=-blank-at-eol

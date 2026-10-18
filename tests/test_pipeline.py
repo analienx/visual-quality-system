@@ -290,3 +290,21 @@ def test_cli_check_end_to_end(tmp_path, capsys, monkeypatch):
     assert (tmp_path / ".vqs-runs" / out["run_id"] / "manifest.json").is_file()
     with pytest.raises(SystemExit):
         main([])
+def test_slash_pipeline_auto_id_is_sanitized(tmp_path):
+    """Review finding: generated ids never contain path separators."""
+    from vqs.pipeline import seal_verdict
+    result = seal_verdict(tmp_path, None, "vqs.validate-plan/1", "pass", [])
+    assert result["verdict"] == "pass"
+    assert "/" not in result["run_id"]
+    assert (tmp_path / result["run_id"] / "manifest.json").is_file()
+
+
+def test_traversal_run_id_blocks_without_raise(tmp_path):
+    """Review finding: hostile run ids block, never raise or escape."""
+    from vqs.pipeline import seal_verdict
+    result = run_check(_facts(), tmp_path, run_id="../escaped")
+    assert result["verdict"] == "blocked"
+    assert result["run_dir"] is None
+    result = seal_verdict(tmp_path, "../escaped", "vqs.check/1", "pass", [])
+    assert result["verdict"] == "blocked"
+    assert result["run_dir"] is None

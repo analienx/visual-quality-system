@@ -60,10 +60,16 @@ def test_forged_source_hash_rejected() -> None:
     assert any(row["rule"] == "forged_source_hash" for row in validate_manifest(bad))
 
 
-def test_duplicate_component_ids_rejected() -> None:
+def test_duplicate_findings_rejected_but_two_rules_share_a_visual() -> None:
+    """Supervisor #22 P0-7: identity is (component, rule), not component alone."""
     dup = _manifest()
     dup["findings"] = [dup["findings"][0], dup["findings"][0]]
-    assert any(row["rule"] == "duplicate_component_id" for row in validate_manifest(dup))
+    assert any(row["rule"] == "duplicate_finding" for row in validate_manifest(dup))
+    two_rules = _manifest()
+    second = dict(two_rules["findings"][0])
+    second["rule"] = "palette_consistency"
+    two_rules["findings"] = [two_rules["findings"][0], second]
+    assert validate_manifest(two_rules) == []
 
 
 def test_invalid_applicability_rejected() -> None:
@@ -97,12 +103,17 @@ def test_own_approval_forbidden() -> None:
     assert any(row["rule"] == "own_approval_forbidden" for row in validate_manifest(bad))
 
 
-def test_stale_render_rejected() -> None:
+def test_render_binding_checks_source_not_image_bytes() -> None:
+    """Supervisor #22 P0-8: image SHA != source SHA; bind via explicit render block."""
     bad = _manifest()
-    bad["findings"][0]["render_sha256"] = OTHER_SOURCE
-    assert any(row["rule"] == "stale_render" for row in validate_manifest(bad))
+    bad["findings"][0]["render"] = {"sha256": "d" * 64, "source_sha256": OTHER_SOURCE}
+    assert any(row["rule"] == "render_source_mismatch" for row in validate_manifest(bad))
+    legacy = _manifest()
+    legacy["findings"][0]["render_sha256"] = SOURCE
+    assert any(row["rule"] == "render_binding_invalid"
+               for row in validate_manifest(legacy))
     good = _manifest()
-    good["findings"][0]["render_sha256"] = SOURCE
+    good["findings"][0]["render"] = {"sha256": "d" * 64, "source_sha256": SOURCE}
     assert validate_manifest(good) == []
 
 

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "snapshot_utc": "2026-09-26T15:04:59Z",
+  "snapshot_utc": "2026-10-03T21:00:00Z",
   "program_issue": "https://github.com/analienx/visual-quality-system/issues/4",
   "product_scope": [
     "powerbi-desktop",
@@ -9,7 +9,7 @@
   "deferred_scope": [
     "fabric-apps-rayfin"
   ],
-  "assertion": "Planning snapshot only. No execution, test, PR merge or acceptance verified by this ledger creation.",
+  "assertion": "Review-candidate snapshot: 10 packages carry draft-PR evidence pointers with green hosted portable CI (unmerged); workflow states stay planned/active per the DAG prerequisite gate; 0 independently verified; live Desktop/Word gates not_run. Only the integrator advances states after Codex review and merge, in dependency order.",
   "status_vocabulary": [
     "planned",
     "ready",
@@ -98,9 +98,12 @@
         "tool-capability-matrix",
         "fixture-privacy-manifest"
       ],
-      "pull_request": null,
+      "pull_request": 24,
       "verified_commit": null,
-      "evidence_uri": null
+      "evidence_uri": "https://github.com/analienx/visual-quality-system/actions/runs/37139943352",
+      "candidate_head": "e684078",
+      "candidate_counts": "212 passed + ruff x3",
+      "candidate_pr": "https://github.com/analienx/visual-quality-system/pull/24"
     },
     {
       "id": "WP-01",
@@ -124,9 +127,12 @@
         "stale-evidence-negative-tests",
         "independent-contract-review"
       ],
-      "pull_request": null,
+      "pull_request": 25,
       "verified_commit": null,
-      "evidence_uri": null
+      "evidence_uri": "https://github.com/analienx/visual-quality-system/actions/runs/37141649636",
+      "candidate_head": "34a768f",
+      "candidate_counts": "253 passed + ruff x3",
+      "candidate_pr": "https://github.com/analienx/visual-quality-system/pull/25"
     },
     {
       "id": "WP-02",
@@ -151,9 +157,12 @@
         "file-and-pid-lock-tests",
         "private-evidence-and-leak-check"
       ],
-      "pull_request": null,
+      "pull_request": 27,
       "verified_commit": null,
-      "evidence_uri": null
+      "evidence_uri": "https://github.com/analienx/visual-quality-system/actions/runs/37145524373",
+      "candidate_head": "a8fe7c9",
+      "candidate_counts": "245 passed + ruff x3",
+      "candidate_pr": "https://github.com/analienx/visual-quality-system/pull/27"
     },
     {
       "id": "WP-03",
@@ -177,9 +186,12 @@
         "source-bound-full-page-captures",
         "wrong-pid-stale-crop-negative-tests"
       ],
-      "pull_request": null,
+      "pull_request": 28,
       "verified_commit": null,
-      "evidence_uri": null
+      "evidence_uri": "https://github.com/analienx/visual-quality-system/actions/runs/37148505431",
+      "candidate_head": "f2dc7af",
+      "candidate_counts": "259 passed + ruff x3",
+      "candidate_pr": "https://github.com/analienx/visual-quality-system/pull/28"
     },
     {
       "id": "WP-04",
@@ -230,9 +242,12 @@
         "scope-and-rls-aware-dax-oracles",
         "missing-data-negative-fixtures"
       ],
-      "pull_request": null,
+      "pull_request": 26,
       "verified_commit": null,
-      "evidence_uri": null
+      "evidence_uri": "https://github.com/analienx/visual-quality-system/actions/runs/37143950471",
+      "candidate_head": "2e26fa1",
+      "candidate_counts": "225 passed + ruff x3",
+      "candidate_pr": "https://github.com/analienx/visual-quality-system/pull/26"
     },
     {
       "id": "WP-06",
@@ -257,9 +272,12 @@
         "contrast-palette-label-oracles",
         "false-positive-audit"
       ],
-      "pull_request": null,
+      "pull_request": 29,
       "verified_commit": null,
-      "evidence_uri": null
+      "evidence_uri": "https://github.com/analienx/visual-quality-system/actions/runs/37152442131",
+      "candidate_head": "d1f1c4d",
+      "candidate_counts": "291 passed + 3 skipped + ruff x3",
+      "candidate_pr": "https://github.com/analienx/visual-quality-system/pull/29"
     },
     {
       "id": "WP-07",
@@ -285,9 +303,12 @@
         "observed-vs-hypothesis-tests",
         "independent-reviewer-and-privacy-check"
       ],
-      "pull_request": null,
+      "pull_request": 28,
       "verified_commit": null,
-      "evidence_uri": null
+      "evidence_uri": "https://github.com/analienx/visual-quality-system/actions/runs/37148505431",
+      "candidate_head": "f2dc7af",
+      "candidate_counts": "259 passed + ruff x3",
+      "candidate_pr": "https://github.com/analienx/visual-quality-system/pull/28"
     },
     {
       "id": "WP-08",
@@ -345,9 +366,12 @@
         "category-and-neighbor-regression",
         "independent-re-review"
       ],
-      "pull_request": null,
+      "pull_request": 29,
       "verified_commit": null,
-      "evidence_uri": null
+      "evidence_uri": "https://github.com/analienx/visual-quality-system/actions/runs/37152442131",
+      "candidate_head": "d1f1c4d",
+      "candidate_counts": "291 passed + 3 skipped + ruff x3",
+      "candidate_pr": "https://github.com/analienx/visual-quality-system/pull/29"
     },
     {
       "id": "WP-10",
@@ -373,9 +397,12 @@
         "filter-context-answer-oracles",
         "ambiguous-measure-negative-fixtures"
       ],
-      "pull_request": null,
+      "pull_request": 29,
       "verified_commit": null,
-      "evidence_uri": null
+      "evidence_uri": "https://github.com/analienx/visual-quality-system/actions/runs/37152442131",
+      "candidate_head": "d1f1c4d",
+      "candidate_counts": "291 passed + 3 skipped + ruff x3",
+      "candidate_pr": "https://github.com/analienx/visual-quality-system/pull/29"
     },
     {
       "id": "WP-11",
@@ -480,11 +507,14 @@
         "fixture-exactness",
         "contoso-parity"
       ],
-      "pull_request": null,
+      "pull_request": 26,
       "verified_commit": null,
-      "evidence_uri": null
+      "evidence_uri": "https://github.com/analienx/visual-quality-system/actions/runs/37143950471",
+      "candidate_head": "2e26fa1",
+      "candidate_counts": "225 passed + ruff x3",
+      "candidate_pr": "https://github.com/analienx/visual-quality-system/pull/26"
     }
   ],
   "first_ready_package": "WP-00",
-  "next_action": "Run baseline #5 locally and publish evidence; do not mark any package verified from this planning commit."
+  "next_action": "Codex independent review of candidate PRs #24-#29 in dependency order; then integrator merge + verification. Rollback of any candidate is branch abandonment (nothing merged)."
 }

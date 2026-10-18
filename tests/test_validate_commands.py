@@ -6,6 +6,7 @@ import json
 import pytest
 
 from vqs.cli import main
+from vqs.policy import POLICY_VERSION
 
 
 def _write(path, payload):
@@ -21,14 +22,27 @@ def _plan(**overrides):
     return plan
 
 
+def _observations():
+    from vqs.policy import REQUIRED
+    return [{"id": check, "criterion": check, "status": "pass",
+             "reason": "All labels legible at the target size on the fresh render."}
+            for check in REQUIRED["report"]]
+
+
 def _bundle(**overrides):
-    bundle = {"source_sha256": "s", "fixer_id": "a", "reviewer": {"id": "b"},
+    bundle = {"source_sha256": "s", "surface": "report", "schema": 1,
+              "policy_version": POLICY_VERSION, "fixer_id": "a",
+              "reviewer": {"id": "b", "role": "independent_visual_reviewer"},
               "image_capability": {"available": True},
-              "calibration": {"full_canvas": True, "viewport": "1920x1080",
-                              "scale": 1.0},
+              "calibration": {"canvas_width": 500, "canvas_height": 500,
+                              "scale": 1, "viewport": "500x500@1x",
+                              "method": "bridge-screenshot-all"},
+              "data_readiness": {"populated": True, "method": "scoped-dax-probe",
+                                 "checked_at": "2026-10-03T00:00:00Z"},
               "pages": [{"id": "p1", "image_source_sha256": "s",
-                         "observations": [{"status": "pass", "criterion": "c",
-                                           "reason": "r"}]}]}
+                         "image_sha256": "d" * 64,  # R12: passing bundles bind pixels
+                         "pixels": [500, 500],
+                         "observations": _observations()}]}
     bundle.update(overrides)
     return bundle
 
@@ -80,11 +94,16 @@ def test_validate_plan_bad_documents_block(tmp_path, capsys, monkeypatch, payloa
     assert main(args) == 2
 
 
-def test_adjudicate_bundle_pass_fail_blocked(tmp_path, capsys, monkeypatch):
+def test_adjudicate_bundle_missing_inventory_blocked(tmp_path, capsys, monkeypatch):
+    """S10: an undeclared whole-source inventory blocks, never passes."""
     monkeypatch.chdir(tmp_path)
     good = _write(tmp_path / "good.json", _bundle())
-    assert main(["adjudicate-bundle", good, "--run-id", "ab0"]) == 0
-    assert json.loads(capsys.readouterr().out)["verdict"] == "pass"
+    assert main(["adjudicate-bundle", good, "--run-id", "ab0"]) == 2
+    out = json.loads(capsys.readouterr().out)
+    assert out["verdict"] == "blocked"
+    checks = {finding["check"] for finding in out["findings"]}
+    assert "source_pages_missing" in checks
+    assert "image_review_required" in checks
     stale_pages = [{"id": "p1", "image_source_sha256": "other",
                     "observations": [{"status": "pass", "criterion": "c",
                                       "reason": "r"}]}]
@@ -93,6 +112,7 @@ def test_adjudicate_bundle_pass_fail_blocked(tmp_path, capsys, monkeypatch):
     out = json.loads(capsys.readouterr().out)
     assert out["verdict"] == "fail"
     assert out["findings"][0]["check"] == "stale_image"
+    assert out["findings"][0]["status"] == "fail"
     nocap = _write(tmp_path / "nocap.json", _bundle(image_capability={}))
     assert main(["adjudicate-bundle", nocap, "--run-id", "ab2"]) == 2
     assert json.loads(capsys.readouterr().out)["verdict"] == "blocked"

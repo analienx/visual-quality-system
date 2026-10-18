@@ -1,0 +1,1 @@
+{"data_permissions": {"allow_cloud": false, "allow_desktop": true}, "design_profile": {"contrast": "AA"}, "oracles": [{"oracle_scope": "page", "run_scope": "page"}], "questions": ["Is revenue shown?"], "recipes": {}, "schema_version": "vqs.config/1", "supported_states": ["alt", "default"]}

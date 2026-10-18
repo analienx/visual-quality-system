@@ -17,6 +17,7 @@ test = ["pytest>=8", "ruff>=0.6"]
 
 [project.scripts]
 vqs = "vqs.cli:main"
+vqs-mcp = "vqs.mcp.server:main"
 
 [tool.setuptools.packages.find]
 include = ["vqs*"]

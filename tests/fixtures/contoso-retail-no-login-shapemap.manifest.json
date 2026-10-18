@@ -1,0 +1,34 @@
+{
+  "contract": "vqs.contoso-offline-shapemap-migration/1",
+  "user_authorized": true,
+  "replacement_visual": "definition/pages/d9bc3b8f90439bcc/visuals/sales-by-country/visual.json",
+  "old_visual_type": "map",
+  "new_visual_type": "shapeMap",
+  "country_role": "Dim Store.Country",
+  "measure_role": "Fact Sales.Reporting Year Sales",
+  "map_asset_commit": "3c3120cae5c50cf37f611446c76b258cf40bc1fe",
+  "map_uses_organizational_sign_in": false,
+  "map_requires_internet_for_geojson_url": true,
+  "preview_visual": true,
+  "countries": [
+    "United States",
+    "Canada",
+    "United Kingdom",
+    "Germany",
+    "Australia"
+  ],
+  "repaired_report_model_sha256": "b6ddb39a1ec91d5412bf77015ff8cc81b52ceea8f26325d6f3b0d1c706d0baba",
+  "original_report_model_sha256": "b957dac6ab1af4f1fc42ce366b0ea333b78a5918191a2a612d3ded6589b04eeb",
+  "zip_sha256": "77819fbf64da46104f7be8ad5028e7aae7f2fc461a3ce631cefd451089b3f2b6",
+  "file_count": 86,
+  "uncompressed_bytes": 592441,
+  "archive_bytes": 282930,
+  "machine_local_settings_excluded": true,
+  "only_report_visual_changed": "Contoso Retail.Report/definition/pages/d9bc3b8f90439bcc/visuals/sales-by-country/visual.json",
+  "microsoft_validation": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "runtime": "real_local_desktop_with_populated_model",
+  "release_verdict": "draft_pending_broader_interaction_parity"
+}

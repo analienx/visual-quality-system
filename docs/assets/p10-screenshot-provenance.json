@@ -1,0 +1,39 @@
+{
+  "contract": "vqs.p10.page-canvas-screenshot-evidence/1",
+  "source": "fresh run-owned local Power BI Desktop captures",
+  "method": "crop raw screenshots without rewriting pixels",
+  "model_state": "default current year slicer All",
+  "identity_note": "Microsoft Modeling MCP source data readiness, not DAX parity",
+  "screenshots": {
+    "before": {
+      "source_screenshot_sha256": "b4363f6f8942f0bd898b252b20f7bdf5516c5cd9014c4cfe4367037262356efb",
+      "report_canvas_file": "docs/assets/p10-deep-dive-before.png",
+      "report_canvas_sha256": "aa54b2d67b21ecd0d9cd50ea746f26d466432dac844bd12e39c29ffd44cbc1f1",
+      "pixels": [
+        3070,
+        1746
+      ],
+      "source_crop_coordinates": [
+        0,
+        324,
+        3070,
+        2070
+      ]
+    },
+    "after": {
+      "source_screenshot_sha256": "d0180a3c6ed879de80d2bf50668b8c5143f4abb1a815012d2cce2a42fd537ab9",
+      "report_canvas_file": "docs/assets/p10-deep-dive-after.png",
+      "report_canvas_sha256": "beab57d19696b2bb677a290e1bb87668701dde440246471a89cc175300e0a50a",
+      "pixels": [
+        3070,
+        1746
+      ],
+      "source_crop_coordinates": [
+        0,
+        324,
+        3070,
+        2070
+      ]
+    }
+  }
+}

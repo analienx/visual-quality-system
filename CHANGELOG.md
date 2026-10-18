@@ -1,5 +1,78 @@
 # Changelog
 
+## Unreleased (work/wp02-integration-r2 — R6 E01-E08, draft PR #31, NOT merged)
+
+- R6 trust remediation for issue #22 on the integration candidate
+  branch (draft PR #31, unmerged; no work package verified):
+  - E01 scoped projection identity: one binding per projection
+    keyed by page/visual/role/projection; missing `queryRef`
+    blocks as `query_ref_missing` + `actual_unknown`.
+  - E02 gate-specific producer capability: `vqs.check/1` observes
+    G0 only; `run_check` strips caller seal keys, seals the actual
+    observation, and binds its own envelope.
+  - E03 suite binding for G6 via canonical suite digest.
+  - E04 reviewer/editor/promotion split: review binds both run
+    ids; promotion has no registered authorities and blocks.
+  - E05/E06 verified review authority: whole-source completeness
+    needs a verified transport or live report inventory; static
+    adjudication never passes (`image_review_required` ceiling).
+  - E07 Microsoft-guided authoring: new `vqs/powerbi/author` port
+    (auto/microsoft/direct); pbir-cli/BPA legs removed from
+    doctor, probes, and `pbip_acceptance.py`; repair seals
+    `authoring.json`.
+  - E08 truthful public surface: `docs/JOURNEY.md` (oracle-tested
+    installed-command walk), ADR 0001, README/CLI/USER_GUIDE/
+    ARCHITECTURE status corrections.
+- P1-U7 typography declaration rule: `format_declaration_consistency`
+  proves effective values (explicit declarations prove themselves;
+  inherited readings may carry a render-adapter-proved `effective`).
+  Proven-different fails; mixed explicit/inherited with an unknown
+  effective value is unknown (`needs_render_evidence`), never a
+  visual-quality fail; all-default passes; proved-equal passes with a
+  hygiene-only notice kept separate from the verdict. Narrow typed
+  `format.unset_override` (preferred when safe) and `format.set_explicit`
+  ops bind, apply, verify, and synthesize only with a proved effective
+  value plus named provenance; unproven bindings need the owner.
+  Tests `tests/test_u7_typography.py`; `scripts/smoke.py` honest
+  blocked (rule unknown on the mixed mini_report fixture, not fail).
+- P1 items 32-37 install/version hygiene and authoring correction:
+  new `vqs --version` and `python -m vqs` (`vqs/__main__.py`); `vqs
+  doctor` reports an `installation` check (package version,
+  import/package root, engine/tool schemas, git SHA when
+  discoverable) that flags stale editable installs without ever
+  modifying them; the Microsoft authoring identity is recorded as
+  the `powerbi-report-author` executable from
+  `@microsoft/powerbi-report-authoring-cli` in probe/validate
+  records, doctor, and docs; the legacy `--skip-pbir` alias is
+  removed (no pbir.tools hook remains). Tests
+  `tests/test_p1_install.py` plus `tests/test_doctor.py` updates.
+- P1 items 30-31 live answer regression: the coordinator baseline now
+  persists the query/scope/result evidence per DAX question, so the
+  `answer_regression` stage re-asks the identical scoped query against
+  the candidate (previously the rebuild lost DAX/scope and could only
+  block); non-empty filters/period stay fail-closed with the exact
+  blocker. Tests `tests/test_p1_answer_regression.py`.
+- Oracles `tests/test_r6_e01_bindings.py` … `tests/test_r6_e08_journey.py`
+  (two-project journey included); hosted lanes
+  `.github/workflows/authoring.yml` (real-CLI probe) and
+  `.github/workflows/r6-oracles.yml` (per-oracle counts).
+- No ledger, issue, or PR state advances here: independent Codex
+  acceptance review stays pending.
+
+## Unreleased (agent-first review candidates — NOT merged)
+
+- Six draft PRs with green hosted CI (3.11/3.12/3.13) await Codex
+  review; none is merged and no work package is verified:
+  WP-00 baseline audit (#24 @ `e684078`), trust remediation #22 /
+  WP-01 contracts slice (#25 @ `34a768f`), unified PBIR/TMDL facts
+  (#26 @ `2e26fa1`), shared CLI/MCP engine (#27 @ `a8fe7c9`),
+  runtime/data interfaces (#28 @ `f2dc7af`), visual candidate
+  repair + answer preservation (#29 @ `d1f1c4d`).
+- Ledger carries draft-PR evidence pointers; workflow states stay
+  `planned`/`active` per the DAG prerequisite gate.
+- New `docs/TEMPLATE_AUTHORING_CONTRACT.md` defines the post-repair
+  authoring milestone (contract only, no implementation).
+
 ## Unreleased (work/vqs-hardening-insights)
 
 - `vqs measure` now records a per-page insight inventory (visual,

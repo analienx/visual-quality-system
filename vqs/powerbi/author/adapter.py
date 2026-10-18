@@ -1,0 +1,211 @@
+"""Backend selection + Microsoft validation adjudication (R6-E07).
+
+Policies: ``auto`` (Microsoft when probed available, else the direct
+writer — the selection is recorded, so never silent), ``microsoft``
+(explicit; any tool/validation failure blocks or fails, never falls
+back), ``direct`` (explicit recorded fallback to the typed isolated
+candidate-file writer). ``run_backend`` never raises: runner crashes
+are recorded as blocked evidence.
+"""
+from __future__ import annotations
+
+import json
+from collections.abc import Callable
+from hashlib import sha256
+from pathlib import Path
+from typing import Any
+
+from .mscli import PACKAGE_NAME, TOOL_NAME, probe, validate
+
+POLICIES = ("auto", "microsoft", "direct")
+
+LIMITS = ("Microsoft schema validation only: a valid candidate is "
+          "structurally sound PBIR, never Desktop fidelity, render "
+          "approval, or data correctness.")
+
+Runner = Callable[..., dict[str, Any]]
+Prober = Callable[..., dict[str, Any]]
+
+
+def select(policy: str, probe_result: dict[str, Any]) -> dict[str, str]:
+    """Choose the backend for a validated policy; fail fast otherwise."""
+    if policy not in POLICIES:
+        raise ValueError(f"unknown authoring policy: {policy!r}")
+    if policy == "direct":
+        return {"backend": "direct", "policy": policy,
+                "reason": "explicit direct fallback selected"}
+    if policy == "microsoft":
+        return {"backend": "microsoft", "policy": policy,
+                "reason": "explicit Microsoft validation selected"}
+    if probe_result.get("available") is True:
+        return {"backend": "microsoft", "policy": policy,
+                "reason": "tool probed available"}
+    return {"backend": "direct", "policy": policy,
+            "reason": "tool unavailable; explicit recorded fallback"}
+
+
+def direct_record(policy: str, probe_result: dict[str, Any]) -> dict[str, Any]:
+    """Authoring record for the direct typed-writer backend."""
+    return {"backend": "direct", "policy": policy,
+            "reason": ("explicit direct fallback selected"
+                       if policy == "direct"
+                       else "tool unavailable; explicit recorded fallback"),
+            "tool": None, "version": None,
+            "probe": dict(probe_result), "commands": [],
+            "validation": None, "limits": LIMITS}
+
+
+def _microsoft_record(probe_result: dict[str, Any], policy: str,
+                      validation: dict[str, Any]) -> dict[str, Any]:
+    return {"backend": "microsoft", "policy": policy,
+            "reason": "explicit Microsoft validation selected"
+                      if policy == "microsoft" else "tool probed available",
+            "tool": TOOL_NAME,
+            "version": probe_result.get("version"),
+            "probe": dict(probe_result),
+            "commands": [validation.get("command", [])],
+            "validation": dict(validation), "limits": LIMITS}
+
+
+def run_backend(candidate: str | Path, *, policy: str = "auto",
+                timeout: int = 300, allow_warnings: bool = False,
+                assurance: str = "portable",
+                prober: Prober | None = None,
+                runner: Runner | None = None,
+                attestation: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Select the backend and validate the candidate; never raises.
+
+    Returns backend/policy/verdict/reason/record. Microsoft verdicts:
+    valid maps to pass (warnings block unless explicitly allowed and
+    are always recorded verbatim); invalid maps to fail; missing,
+    timeout, error, or runner crashes map to blocked. A Microsoft
+    failure never silently falls back to direct. The default ports
+    resolve late (module attribute at call time) so the seam stays
+    patchable; behavior is identical.
+    """
+    if assurance not in ("portable", "production"):
+        return {"backend": "unverified", "policy": policy,
+                "verdict": "blocked", "reason": "unknown authoring assurance",
+                "record": {"validation": None}}
+    if assurance == "production" and allow_warnings:
+        return {"backend": "unverified", "policy": policy,
+                "verdict": "blocked",
+                "reason": "production forbids blanket warning waivers",
+                "record": {"validation": None}}
+    active_prober = probe if prober is None else prober
+    active_runner = validate if runner is None else runner
+    if attestation is not None:
+        if (attestation.get("status") != "pass"
+                or attestation.get("policy") != policy
+                or attestation.get("mutation_engine") != "vqs_typed"
+                or attestation.get("validation_provider") not in ("microsoft", "direct")
+                or not isinstance(attestation.get("probe"), dict)):
+            return {"backend": "unverified", "policy": policy,
+                    "verdict": "blocked", "reason": "invalid preflight attestation",
+                    "record": {"backend": "unverified", "policy": policy,
+                               "validation": None, "limits": LIMITS}}
+        probe_result = attestation["probe"]
+    else:
+        try:
+            probe_result = active_prober()
+        except Exception as exc:  # noqa: BLE001 - probe crash blocks
+            probe_result = {"tool": TOOL_NAME, "package": PACKAGE_NAME,
+                            "available": False, "path": None, "version": None,
+                            "note": f"probe raised: {exc}"}
+    try:
+        selection = select(policy, probe_result)
+    except ValueError as exc:
+        record = direct_record("auto", probe_result)
+        record["reason"] = str(exc)
+        return {"backend": "direct", "policy": policy,
+                "verdict": "blocked", "reason": str(exc),
+                "record": record}
+    if attestation is not None and selection["backend"] != attestation["validation_provider"]:
+        return {"backend": selection["backend"], "policy": policy,
+                "verdict": "blocked", "reason": "validator differs from preflight",
+                "record": {"backend": selection["backend"], "policy": policy,
+                           "validation": None, "limits": LIMITS}}
+    if selection["backend"] == "direct":
+        record = direct_record(policy, probe_result)
+        return {"backend": "direct", "policy": policy,
+                "verdict": "pass", "reason": record["reason"],
+                "record": record}
+    pinned_tool: str | None = None
+    if attestation is not None:
+        cli = attestation.get("cli")
+        if (not isinstance(cli, dict)
+                or not isinstance(cli.get("path"), str)
+                or not cli["path"]
+                or cli.get("version") != probe_result.get("version")
+                or cli["path"] != probe_result.get("path")):
+            return {"backend": "microsoft", "policy": policy,
+                    "verdict": "blocked",
+                    "reason": "approved Microsoft CLI path/version unavailable",
+                    "record": _microsoft_record(probe_result, policy,
+                                                {"status": "missing", "errors": [],
+                                                 "warnings": [], "command": []})}
+        pinned_tool = cli["path"]
+    try:
+        if pinned_tool is not None:
+            validation = active_runner(candidate, timeout=timeout, tool=pinned_tool)
+        else:
+            validation = active_runner(candidate, timeout=timeout)
+    except Exception as exc:  # noqa: BLE001 - runner crash blocks
+        validation = {"tool": TOOL_NAME, "package": PACKAGE_NAME,
+                      "command": [TOOL_NAME],
+                      "status": "error", "returncode": None,
+                      "errors": [], "warnings": [], "raw_tail": "",
+                      "note": f"runner raised: {exc}"}
+    if not isinstance(validation, dict):
+        validation = {"tool": TOOL_NAME, "package": PACKAGE_NAME,
+                      "command": [TOOL_NAME],
+                      "status": "error", "returncode": None,
+                      "errors": [], "warnings": [], "raw_tail": "",
+                      "note": "runner returned malformed output"}
+    record = _microsoft_record(probe_result, policy, validation)
+    status = validation.get("status")
+    warnings = validation.get("warnings")
+    if (not isinstance(warnings, list)
+            or any(not isinstance(w, str) or not w for w in warnings)):
+        record["warning_policy"] = {
+            "contract": "vqs.warning-disposition/1",
+            "status": "blocked", "reason": "malformed diagnostic warnings",
+        }
+        return {"backend": "microsoft", "policy": policy,
+                "verdict": "blocked", "reason": "malformed diagnostic warnings",
+                "record": record}
+    record["warning_policy"] = {
+        "contract": "vqs.warning-disposition/1",
+        "assurance": assurance,
+        "count": len(warnings),
+        "messages_sha256": sha256(json.dumps(
+            warnings, ensure_ascii=False).encode("utf-8")).hexdigest(),
+        "status": ("no_warnings" if not warnings else
+                   "legacy_portable_waiver" if (allow_warnings
+                                                and assurance == "portable")
+                   else "blocked_pending_review"),
+    }
+    if status == "valid" and (
+            not warnings or (allow_warnings and assurance == "portable")):
+        return {"backend": "microsoft", "policy": policy,
+                "verdict": "pass",
+                "reason": ("Microsoft validation passed"
+                           + (" with explicitly allowed warnings"
+                              if warnings else "")),
+                "record": record}
+    if status == "valid":
+        return {"backend": "microsoft", "policy": policy,
+                "verdict": "blocked",
+                "reason": "authoring_warnings_require_review",
+                "record": record}
+    if status == "invalid":
+        return {"backend": "microsoft", "policy": policy,
+                "verdict": "fail",
+                "reason": ("Microsoft validation rejected the candidate: "
+                           + (validation.get("note") or "see validation")),
+                "record": record}
+    detail = validation.get("note") or f"status {status}"
+    return {"backend": "microsoft", "policy": policy,
+            "verdict": "blocked",
+            "reason": f"Microsoft validation unavailable: {detail}",
+            "record": record}

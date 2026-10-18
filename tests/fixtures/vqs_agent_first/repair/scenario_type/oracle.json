@@ -1,0 +1,1 @@
+{"dax": "EVALUATE ROW(\"Open Orders\", [Open Orders])", "id": "ops-open-orders", "ordered": true, "rows": [{"Open Orders": 37}], "scope": {"filters": {"Dim Warehouse[Region]": "West"}, "measure": "Open Orders", "period": "2024-W40", "role": ""}, "tolerance": null}

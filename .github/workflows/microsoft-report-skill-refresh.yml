@@ -1,0 +1,43 @@
+name: Microsoft report skill refresh proposal
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "35 6 * * 1"  # Weekly UTC: check official skill drift
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-proposal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch only Microsoft's report skill
+        shell: bash
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/microsoft/skills-for-fabric.git "$RUNNER_TEMP/skills-for-fabric"
+          git -C "$RUNNER_TEMP/skills-for-fabric" sparse-checkout set skills/powerbi-report-cli
+      - name: Prepare reviewed update candidate; never run downloaded instructions
+        shell: bash
+        run: |
+          rev="$(git -C "$RUNNER_TEMP/skills-for-fabric" rev-parse HEAD)"
+          python scripts/report_skill.py --sync-from "$RUNNER_TEMP/skills-for-fabric/skills/powerbi-report-cli" --commit "$rev"
+          python scripts/report_skill.py
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: automation/update-microsoft-report-skill
+          delete-branch: true
+          commit-message: 'chore: propose refreshed official Microsoft report skill'
+          title: 'chore: review new Microsoft powerbi-report-cli skill snapshot'
+          body: |
+            Upstream-only documentation/skill refresh proposed for review.
+            Do not auto-merge: verify the new skill version, preview semantics,
+            any breaking CLI dependencies and VQS ownership contracts.
+            Run pinned real CLI CI and an independent candidate-only acceptance
+            check before adopting updated report-authoring instructions.
+            Tracks #32.

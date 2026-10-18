@@ -2,14 +2,38 @@
 
 Aggregates per-subject gate results into a release verdict. The rules encode
 the acceptance contract itself: two unrelated PBIP subjects plus a DOCX
-(a partial suite is never acceptance), every gate linked to evidence, all
-named negative controls present and caught, reviewer different from editor,
-and explicit user promotion approval. Anything short of that fails or
+(a partial suite is never acceptance), the complete scope-specific G0-G6
+gate set with every passing gate bound to a declared subject (G6 binds
+the exact suite digest instead) and to a sealed evidence envelope
+resolved through a trusted store, all named negative controls present
+and caught on bound gates, an independent reviewer run bound to the
+exact editor run plus suite plus review envelope, and a separately
+reported owner-promotion decision. Anything short of that fails or
 blocks — never passes.
+
+Caller labels and hex strings alone are never evidence: without an exact
+:class:`vqs.evidence.SealedEvidenceStore`, acceptance blocks. Mappings,
+callables, the explicit unit-test double, and store subclasses are rejected
+as untrusted. Producer authority (F27): every envelope carries a producer pointer and
+the trusted root holds the sealed producer runs; acceptance requires a
+valid producer seal binding the envelope bytes plus matching
+gate/result/control. R6-DEC-02 adds gate-specific capability: a seal
+proves only what its pipeline actually observed (static checks observe
+G0 alone), corroborated against the producer-sealed observation. S15
+confines run and object lookups to the canonical trusted root: linked
+escapes block before any seal is read. A content seal proves integrity,
+never external identity: reviewer independence and owner promotion need
+genuinely external authority, reported separately from the technical
+verdict.
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
+
+from vqs.evidence import SealedEvidenceStore, canonical_json_sha256
+from vqs.run_store import _resolve_artifact, verify_seal
 
 REQUIRED_NEGATIVES: frozenset[str] = frozenset({
     "stale_image", "wrong_pid", "blank_first_open", "partial_canvas",
@@ -18,58 +42,732 @@ REQUIRED_NEGATIVES: frozenset[str] = frozenset({
     "false_agent_approval",
 })
 
+REQUIRED_GATES: frozenset[str] = frozenset({"G0", "G1", "G2", "G3", "G4", "G5", "G6"})
 
-def run_acceptance(record: dict[str, Any]) -> dict[str, Any]:
+# T05: exact known producer identities. A gate envelope is evidence
+# only when sealed by a run of a genuine VQS pipeline the codebase
+# actually emits (vqs.check/1 backs review/check runs); generic or
+# foreign pipeline labels (vqs.producer/1 and friends) block. A future
+# release publisher adds its exact identity here — never a wildcard.
+KNOWN_ACCEPTANCE_PRODUCERS: frozenset[str] = frozenset({"vqs.check/1"})
+
+# R6-DEC-02: gate-specific producer capability. A sealed run proves
+# only what its pipeline actually observed: static checks observe
+# source/contract facts (G0). A gate claim beyond capability fails
+# even with a valid seal — matching strings never mint authority.
+# Must agree with vqs.pipeline.STATIC_OBSERVATION_GATE (R6-E02 pins).
+PRODUCER_GATE_CAPABILITY: dict[str, frozenset[str]] = {
+    "vqs.check/1": frozenset({"G0"}),
+}
+# R6-DEC-04: no trusted reviewer publisher exists yet, and no owner
+# promotion authority is registered. Both stay empty until a genuine
+# external authority is integrated — never a caller string.
+REVIEWER_CAPABLE_PRODUCERS: frozenset[str] = frozenset()
+REGISTERED_PROMOTION_AUTHORITIES: frozenset[str] = frozenset()
+
+# T06: gate-dimension N/A policy. A both-side "not_applicable" pair
+# satisfies a dimension only when (a) the (gate, dim) pair is listed
+# here, (b) the gate's subject kind is one for which the dim is
+# genuinely inapplicable, and (c) the gate records a non-blank
+# na_justification for the dim. A document has no report view
+# state, so view_state N/A is authorized on the docx-capable gates
+# (G0/G1/G5) for docx subjects only; a pbip subject claiming
+# view_state N/A is rejected (its view state must be stated).
+# Every other N/A claim is rejected. R6-DEC-03: suite-level G6 has
+# no subject kind, so no N/A pair is authorized for it.
+NA_AUTHORIZED: frozenset[tuple[str, str]] = frozenset({
+    ("G0", "view_state"), ("G1", "view_state"),
+    ("G5", "view_state"),
+})
+NA_SUBJECT_KINDS: dict[str, frozenset[str]] = {
+    "view_state": frozenset({"docx"}),
+}
+
+GATE_SUBJECT_KINDS: dict[str, frozenset[str]] = {
+    "G0": frozenset({"pbip", "docx"}),
+    "G1": frozenset({"pbip", "docx"}),
+    "G2": frozenset({"pbip"}),
+    "G3": frozenset({"pbip"}),
+    "G4": frozenset({"pbip"}),
+    "G5": frozenset({"docx"}),
+}
+
+COVERAGE_PAIRS: frozenset[tuple[str, str]] = frozenset({
+    ("G0", "pbip"), ("G0", "docx"),
+    ("G1", "pbip"), ("G1", "docx"),
+    ("G2", "pbip"), ("G3", "pbip"), ("G4", "pbip"),
+    ("G5", "docx"),
+})
+
+_HEX = frozenset("0123456789abcdefABCDEF")
+
+
+_SCOPE_DIMS: tuple[str, ...] = ("role", "refresh_id", "filters", "query_context", "query_hash")
+_ENV_DIMS: tuple[str, ...] = ("renderer", "renderer_version", "locale", "view_state")
+
+# Required identity dimensions beyond renderer/version and role/refresh.
+# R14: completeness is a property of sealed evidence — the envelope
+# must state locale/view_state (environment) and query_context/
+# query_hash (data scope); a missing key or None on the envelope side
+# is unknown and blocks as evidence_identity_incomplete (unknown
+# never equals, not even unknown). S13: blank strings and wrong
+# types are likewise unknown, never stated. A thin gate claim against complete
+# evidence still fails closed through mismatch. The explicit string
+# "not_applicable" counts as stated: documented N/A pairs carry it on
+# both sides; plain None never does.
+_REQUIRED_ENV_DIMS: tuple[str, ...] = ("locale", "view_state")
+_REQUIRED_SCOPE_DIMS: tuple[str, ...] = ("query_context", "query_hash")
+IDENTITY_NOT_APPLICABLE = "not_applicable"
+
+
+def _envelope_identity_incomplete(envelope_slot: object,
+                                    dims: tuple[str, ...]) -> bool:
+    """True when sealed evidence leaves a required dimension unstated.
+
+    S13: blank strings and wrong types are unknown, not stated values;
+    only a non-blank string counts (the documented "not_applicable"
+    sentinel stays stated when both sides carry it).
+    """
+    if not isinstance(envelope_slot, dict):
+        return True
+    return any(not _stated_str(envelope_slot.get(dim)) for dim in dims)
+
+
+# Terminal statuses seal producer runs while gates speak pass/fail;
+# the sealed terminal is the truth both labels must match.
+_TERMINAL_TO_GATE: dict[str, str] = {
+    "completed": "pass", "failed": "fail", "blocked": "blocked",
+}
+
+
+def _canon_dim(value: object) -> object:
+    """Canonical dimension value; missing/None is unknown, never a stated value."""
+    if value is None:
+        return ("unknown",)
+    if isinstance(value, dict):
+        return ("dict", json.dumps(value, sort_keys=True, ensure_ascii=False, default=str))
+    if isinstance(value, list):
+        return ("list", json.dumps(value, ensure_ascii=False, default=str))
+    if isinstance(value, (str, int, float, bool)):
+        return ("scalar", value)
+    return ("other", str(value))
+
+
+def _dims_mismatch(gate_slot: object, envelope_slot: object, dims: tuple[str, ...]) -> bool:
+    """True when any applicable dimension differs (F16: unknown never equals stated)."""
+    if not isinstance(gate_slot, dict) or not isinstance(envelope_slot, dict):
+        return True
+    return any(_canon_dim(gate_slot.get(dim)) != _canon_dim(envelope_slot.get(dim))
+               for dim in dims)
+
+
+def _is_safe_run_id(run_id: object) -> bool:
+    """True for a single confined path segment (F27 producer lookup)."""
+    return (isinstance(run_id, str) and bool(run_id) and "\x00" not in run_id
+            and "/" not in run_id and "\\" not in run_id and ":" not in run_id
+            and run_id not in (".", "..") and Path(run_id).name == run_id
+            and not Path(run_id).is_absolute())
+
+
+def _is_hex64(value: object) -> bool:
+    return (isinstance(value, str) and len(value) == 64
+            and all(char in _HEX for char in value))
+
+
+def _stated_str(value: object) -> bool:
+    """A stated string identity: present, a string, and non-blank."""
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _na_violations(gate_id: str, gate_slot: object, envelope_slot: object,
+                   dims: tuple[str, ...], justification: object,
+                   subject_kind: object) -> list[str]:
+    """Both-side N/A dims that lack policy authorization plus reason.
+
+    T06: runs after equality matching, so only genuine pairs are
+    judged. A pair passes only for a policy-authorized (gate, dim)
+    on a subject kind where the dim is genuinely inapplicable,
+    with a recorded non-blank justification; anything else is an
+    unjustified scope bypass.
+    """
+    if not isinstance(gate_slot, dict) or not isinstance(envelope_slot, dict):
+        return []
+    reasons = justification if isinstance(justification, dict) else {}
+    bad = []
+    for dim in dims:
+        if (gate_slot.get(dim) != IDENTITY_NOT_APPLICABLE
+                or envelope_slot.get(dim) != IDENTITY_NOT_APPLICABLE):
+            continue
+        reason = reasons.get(dim)
+        if ((gate_id, dim) not in NA_AUTHORIZED
+                or subject_kind not in NA_SUBJECT_KINDS.get(dim, frozenset())
+                or not (isinstance(reason, str) and reason.strip())):
+            bad.append(dim)
+    return bad
+
+
+def run_acceptance(record: dict[str, Any],
+                   evidence_store: SealedEvidenceStore | None = None
+                   ) -> dict[str, Any]:
     """Adjudicate an acceptance record; see module docstring for the rules."""
     findings: list[dict[str, Any]] = []
     if not isinstance(record, dict):
-        return {"verdict": "blocked", "findings": [{"rule": "record_not_an_object"}]}
+        return {"verdict": "blocked",
+                "promotion": {"status": "blocked",
+                              "findings": [{"rule": "promotion_authority_unregistered",
+                                            "status": "blocked"}]},
+                "findings": [{"rule": "record_not_an_object"}]}
+    store_usable = True
+    if evidence_store is None:
+        findings.append({"rule": "evidence_store_missing", "status": "blocked",
+                         "reason": "Release acceptance needs a trusted evidence store"})
+        store_usable = False
+    elif type(evidence_store) is not SealedEvidenceStore:
+        findings.append({"rule": "evidence_store_untrusted", "status": "blocked",
+                         "reason": "Only a sealed materialized store backs acceptance; "
+                                   "mappings, doubles, and subclasses are rejected"})
+        store_usable = False
     subjects = record.get("subjects", [])
-    pbips = [s for s in subjects if isinstance(s, dict) and s.get("kind") == "pbip"]
-    docxs = [s for s in subjects if isinstance(s, dict) and s.get("kind") == "docx"]
+    by_id: dict[str, dict[str, Any]] = {}
+    if not isinstance(subjects, list):
+        findings.append({"rule": "subjects_not_a_list", "status": "blocked"})
+        subjects = []
+    for subject in subjects:
+        if (not isinstance(subject, dict) or not subject.get("id")
+                or not isinstance(subject.get("id"), str)
+                or subject.get("kind") not in ("pbip", "docx")
+                or not _is_hex64(subject.get("source_sha256"))):
+            findings.append({"rule": "subject_invalid", "status": "blocked"})
+            continue
+        if subject["id"] in by_id:
+            findings.append({"rule": "subject_invalid", "status": "blocked",
+                             "reason": f"duplicate subject id: {subject['id']}"})
+            continue
+        by_id[subject["id"]] = subject
+    pbips = [s for s in by_id.values() if s["kind"] == "pbip"]
+    docxs = [s for s in by_id.values() if s["kind"] == "docx"]
     layouts = {s.get("layout_digest") for s in pbips if s.get("layout_digest")}
     if len(pbips) < 2 or len(layouts) < 2 or len(docxs) < 1:
         findings.append({"rule": "partial_suite", "status": "blocked",
                          "reason": "Two unrelated PBIPs plus a DOCX are required"})
+    # R6-DEC-03: the suite block pins the exact subject set. Ordering
+    # normalizes (sort by id); duplicates, omissions, extras,
+    # substitutions, and digest drift fail closed.
+    suite_digest: str | None = None
+    suite = record.get("suite")
+    if suite is not None:
+        if (not isinstance(suite, dict)
+                or not isinstance(suite.get("subjects"), list)
+                or not _is_hex64(suite.get("suite_digest"))):
+            findings.append({"rule": "suite_subject_invalid",
+                             "status": "blocked"})
+        else:
+            triples: list[dict[str, str]] = []
+            wellformed = True
+            for entry in suite["subjects"]:
+                if (not isinstance(entry, dict)
+                        or not isinstance(entry.get("id"), str)
+                        or not entry.get("id")
+                        or entry.get("kind") not in ("pbip", "docx")
+                        or not _is_hex64(entry.get("source_sha256"))):
+                    wellformed = False
+                    break
+                triples.append({"id": entry["id"], "kind": entry["kind"],
+                                "source_sha256": entry["source_sha256"]})
+            ids = [triple["id"] for triple in triples]
+            if not wellformed or len(set(ids)) != len(ids):
+                findings.append({"rule": "suite_subject_invalid",
+                                 "status": "blocked"})
+            else:
+                declared = sorted((subject["id"], subject["kind"],
+                                   subject["source_sha256"])
+                                  for subject in by_id.values())
+                claimed = sorted((triple["id"], triple["kind"],
+                                  triple["source_sha256"])
+                                 for triple in triples)
+                computed = canonical_json_sha256(
+                    sorted(triples, key=lambda triple: triple["id"]))
+                if declared != claimed or suite["suite_digest"] != computed:
+                    findings.append({"rule": "suite_digest_mismatch",
+                                     "status": "fail"})
+                else:
+                    suite_digest = suite["suite_digest"]
     gates = record.get("gates", [])
     if not isinstance(gates, list) or not gates:
         findings.append({"rule": "no_gates_evidence", "status": "blocked"})
         gates = []
     seen_negatives: set[str] = set()
+    covered: set[tuple[str, str]] = set()
+    g6_covered = False
     for gate in gates:
         if not isinstance(gate, dict):
             findings.append({"rule": "gate_not_an_object", "status": "blocked"})
             continue
         gate_id = gate.get("id", "?")
-        ref = gate.get("evidence_ref", {})
-        if not isinstance(ref, dict) or not ref.get("sha256"):
-            findings.append({"rule": "missing_evidence_link", "status": "blocked",
-                             "gate": gate_id})
         status = gate.get("status", "")
         if status not in ("pass", "fail", "blocked", "unknown", "not_run"):
             findings.append({"rule": "invalid_gate_status", "status": "blocked",
                              "gate": gate_id})
-        elif status == "fail":
+            continue
+        if status == "fail":
             findings.append({"rule": "gate_failed", "status": "fail", "gate": gate_id})
-        elif status in ("blocked", "unknown", "not_run"):
+            continue
+        if status in ("blocked", "unknown", "not_run"):
             findings.append({"rule": "gate_not_green", "status": "blocked", "gate": gate_id,
                              "detail": status})
+            continue
+        if not isinstance(gate_id, str) or gate_id not in REQUIRED_GATES:
+            findings.append({"rule": "unknown_gate", "status": "blocked", "gate": gate_id})
+            continue
+        if gate_id == "G6":
+            # R6-DEC-03: suite-level G6. Binds the exact suite digest,
+            # never an arbitrary subject; subject data scopes do not
+            # apply and no N/A pair is authorized without a subject.
+            if "subject_id" in gate:
+                findings.append({"rule": "g6_subject_binding_retired",
+                                 "status": "fail", "gate": gate_id})
+                continue
+            if suite_digest is None:
+                findings.append({"rule": "suite_subject_invalid",
+                                 "status": "blocked", "gate": gate_id})
+                continue
+            if gate.get("suite_digest") != suite_digest:
+                findings.append({"rule": "suite_digest_mismatch",
+                                 "status": "fail", "gate": gate_id})
+                continue
+            ref = gate.get("evidence_ref", {})
+            if (not isinstance(ref, dict) or not _is_hex64(ref.get("sha256"))
+                    or ref.get("suite_digest") != suite_digest):
+                findings.append({"rule": "invalid_evidence_ref",
+                                 "status": "blocked", "gate": gate_id})
+                continue
+            if not store_usable:
+                continue
+            assert evidence_store is not None
+            try:
+                envelope = evidence_store.resolve(ref["sha256"])
+            except LookupError:
+                findings.append({"rule": "evidence_unresolved",
+                                 "status": "blocked", "gate": gate_id})
+                continue
+            except ValueError:
+                findings.append({"rule": "evidence_tampered", "status": "fail",
+                                 "gate": gate_id})
+                continue
+            gate_env = gate.get("environment", {})
+            if (not isinstance(gate_env, dict)
+                    or not _stated_str(gate_env.get("renderer"))
+                    or not _stated_str(gate_env.get("renderer_version"))):
+                findings.append({"rule": "gate_environment_incomplete",
+                                 "status": "blocked", "gate": gate_id})
+                continue
+            envelope_env = envelope.get("environment", {})
+            if _envelope_identity_incomplete(envelope_env, _REQUIRED_ENV_DIMS):
+                findings.append({"rule": "evidence_identity_incomplete",
+                                 "status": "blocked", "gate": gate_id})
+                continue
+            if _dims_mismatch(gate_env, envelope_env, _ENV_DIMS):
+                findings.append({"rule": "evidence_environment_mismatch",
+                                 "status": "fail", "gate": gate_id})
+                continue
+            na_bad = _na_violations(gate_id, gate_env, envelope_env,
+                                    _ENV_DIMS,
+                                    gate.get("na_justification"), None)
+            if na_bad:
+                findings.append({"rule": "na_unjustified", "status": "fail",
+                                 "gate": gate_id, "dims": sorted(na_bad)})
+                continue
+        else:
+            subject_ref = gate.get("subject_id", "")
+            subject = by_id.get(subject_ref) if isinstance(subject_ref, str) else None
+            if subject is None:
+                findings.append({"rule": "gate_subject_unknown", "status": "blocked",
+                                 "gate": gate_id})
+                continue
+            if subject["kind"] not in GATE_SUBJECT_KINDS[gate_id]:
+                findings.append({"rule": "gate_subject_mismatch", "status": "blocked",
+                                 "gate": gate_id})
+                continue
+            ref = gate.get("evidence_ref", {})
+            if not isinstance(ref, dict) or not ref.get("sha256"):
+                findings.append({"rule": "missing_evidence_link", "status": "blocked",
+                                 "gate": gate_id})
+                continue
+            if not _is_hex64(ref.get("sha256")) or not _is_hex64(ref.get("source_sha256")):
+                findings.append({"rule": "invalid_evidence_ref", "status": "blocked",
+                                 "gate": gate_id})
+                continue
+            if not store_usable:
+                continue
+            assert evidence_store is not None
+            try:
+                envelope = evidence_store.resolve(ref["sha256"])
+            except LookupError:
+                findings.append({"rule": "evidence_unresolved", "status": "blocked",
+                                 "gate": gate_id})
+                continue
+            except ValueError:
+                findings.append({"rule": "evidence_tampered", "status": "fail",
+                                 "gate": gate_id})
+                continue
+            if (envelope.get("source_sha256") != subject["source_sha256"]
+                    or ref.get("source_sha256") != subject["source_sha256"]):
+                findings.append({"rule": "evidence_source_mismatch", "status": "fail",
+                                 "gate": gate_id})
+                continue
+            gate_env = gate.get("environment", {})
+            if (not isinstance(gate_env, dict)
+                    or not _stated_str(gate_env.get("renderer"))
+                    or not _stated_str(gate_env.get("renderer_version"))):
+                findings.append({"rule": "gate_environment_incomplete", "status": "blocked",
+                                 "gate": gate_id})
+                continue
+            envelope_env = envelope.get("environment", {})
+            if _envelope_identity_incomplete(envelope_env, _REQUIRED_ENV_DIMS):
+                findings.append({"rule": "evidence_identity_incomplete", "status": "blocked",
+                                 "gate": gate_id})
+                continue
+            if _dims_mismatch(gate_env, envelope_env, _ENV_DIMS):
+                findings.append({"rule": "evidence_environment_mismatch", "status": "fail",
+                                 "gate": gate_id})
+                continue
+            na_bad = _na_violations(gate_id, gate_env, envelope_env, _ENV_DIMS,
+                                    gate.get("na_justification"),
+                                    subject["kind"])
+            if na_bad:
+                findings.append({"rule": "na_unjustified", "status": "fail",
+                                 "gate": gate_id, "dims": sorted(na_bad)})
+                continue
+            if subject["kind"] == "pbip":
+                scope = gate.get("data_scope", {})
+                if (not isinstance(scope, dict) or not _stated_str(scope.get("role"))
+                        or not _stated_str(scope.get("refresh_id"))):
+                    findings.append({"rule": "gate_data_scope_incomplete", "status": "blocked",
+                                     "gate": gate_id})
+                    continue
+                envelope_scope = envelope.get("data_scope", {})
+                if _envelope_identity_incomplete(envelope_scope, _REQUIRED_SCOPE_DIMS):
+                    findings.append({"rule": "evidence_identity_incomplete", "status": "blocked",
+                                     "gate": gate_id})
+                    continue
+                if (not isinstance(scope.get("filters"), dict)
+                        or not isinstance(envelope_scope.get("filters"), dict)):
+                    findings.append({"rule": "evidence_identity_incomplete", "status": "blocked",
+                                     "gate": gate_id})
+                    continue
+                if _dims_mismatch(scope, envelope_scope, _SCOPE_DIMS):
+                    findings.append({"rule": "evidence_data_scope_mismatch", "status": "fail",
+                                     "gate": gate_id})
+                    continue
+                na_bad = _na_violations(gate_id, scope, envelope_scope,
+                                        _SCOPE_DIMS,
+                                        gate.get("na_justification"),
+                                        subject["kind"])
+                if na_bad:
+                    findings.append({"rule": "na_unjustified", "status": "fail",
+                                     "gate": gate_id, "dims": sorted(na_bad)})
+                    continue
+        producer = envelope.get("producer")
+        if (not isinstance(producer, dict)
+                or not isinstance(producer.get("run_id"), str) or not producer["run_id"]
+                or not isinstance(producer.get("gate"), str)
+                or not isinstance(producer.get("status"), str)
+                or not (producer.get("control") is None or isinstance(producer.get("control"), str))):
+            findings.append({"rule": "producer_authority_missing", "status": "blocked",
+                             "gate": gate_id})
+            continue
+        run_id = producer["run_id"]
+        if not _is_safe_run_id(run_id) or not isinstance(getattr(evidence_store, "root", None), Path):
+            findings.append({"rule": "producer_authority_missing", "status": "blocked",
+                             "gate": gate_id})
+            continue
+        run_dir = evidence_store.root / run_id
+        if _resolve_artifact(evidence_store.root, run_id) is None:
+            findings.append({"rule": "producer_run_escaped", "status": "blocked",
+                             "gate": gate_id})
+            continue
+        if verify_seal(run_dir):
+            findings.append({"rule": "producer_seal_invalid", "status": "blocked",
+                             "gate": gate_id})
+            continue
+        try:
+            manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            findings.append({"rule": "producer_seal_invalid", "status": "blocked",
+                             "gate": gate_id})
+            continue
+        if (not isinstance(manifest, dict)
+                or manifest.get("pipeline") not in KNOWN_ACCEPTANCE_PRODUCERS):
+            findings.append({"rule": "producer_unsupported", "status": "blocked",
+                             "gate": gate_id})
+            continue
+        bound = manifest.get("artifacts", {}) if isinstance(manifest, dict) else {}
+        if not isinstance(bound, dict) or bound.get("envelope_sha256") != ref["sha256"]:
+            findings.append({"rule": "producer_binding_mismatch", "status": "fail",
+                             "gate": gate_id})
+            continue
+        if producer.get("gate") != gate_id or bound.get("gate") != gate_id:
+            findings.append({"rule": "producer_gate_mismatch", "status": "fail",
+                             "gate": gate_id})
+            continue
+        if producer.get("status") != status or bound.get("status") != status:
+            findings.append({"rule": "producer_result_mismatch", "status": "fail",
+                             "gate": gate_id})
+            continue
+        sealed_status = manifest.get("status") if isinstance(manifest, dict) else None
+        if (_TERMINAL_TO_GATE.get(sealed_status) is None
+                or producer.get("status") != _TERMINAL_TO_GATE[sealed_status]
+                or bound.get("status") != _TERMINAL_TO_GATE[sealed_status]):
+            findings.append({"rule": "producer_terminal_mismatch", "status": "fail",
+                             "gate": gate_id})
+            continue
+        result = envelope.get("result")
+        if not isinstance(result, dict):
+            findings.append({"rule": "gate_result_missing", "status": "blocked",
+                             "gate": gate_id})
+            continue
+        if result.get("gate") != gate_id:
+            findings.append({"rule": "producer_gate_mismatch", "status": "fail",
+                             "gate": gate_id})
+            continue
+        if gate_id == "G6" and result.get("suite_digest") != suite_digest:
+            findings.append({"rule": "producer_gate_mismatch", "status": "fail",
+                             "gate": gate_id})
+            continue
+        result_status = result.get("status")
+        if result_status is None:
+            findings.append({"rule": "gate_result_status_missing",
+                             "status": "blocked", "gate": gate_id})
+            continue
+        if (result_status != status
+                or result_status != producer.get("status")
+                or result_status != bound.get("status")):
+            findings.append({"rule": "gate_result_status_mismatch",
+                             "status": "fail", "gate": gate_id})
+            continue
+        # R6-DEC-02: capability after structural agreement, so tests of
+        # upstream checks keep their isolation. A valid seal claiming a
+        # gate its pipeline never observed fails here.
+        pipeline_name = manifest.get("pipeline")
+        if gate_id not in PRODUCER_GATE_CAPABILITY.get(
+                pipeline_name, frozenset()):
+            findings.append({"rule": "producer_capability_exceeded",
+                             "status": "fail", "gate": gate_id})
+            continue
+        observation = bound.get("observation")
+        if (not isinstance(observation, dict)
+                or not isinstance(observation.get("gate"), str)
+                or not observation["gate"]
+                or not isinstance(observation.get("status"), str)
+                or not observation["status"]
+                or not isinstance(observation.get("controls"), list)
+                or any(not isinstance(entry, str)
+                       for entry in observation["controls"])
+                or not _is_hex64(observation.get("input_sha256"))):
+            findings.append({"rule": "producer_observation_missing",
+                             "status": "blocked", "gate": gate_id})
+            continue
+        if (observation["gate"] != gate_id or observation["status"] != status
+                or observation["gate"] != result.get("gate")
+                or observation["status"] != result.get("status")):
+            findings.append({"rule": "producer_observation_mismatch",
+                             "status": "fail", "gate": gate_id})
+            continue
+        sealed_controls: list[str] = list(observation["controls"])
+        gate_control = gate.get("negative_control")
+        if isinstance(gate_control, str) or gate_control is None:
+            norm = gate_control or None
+            if producer.get("control") != norm or bound.get("control") != norm:
+                findings.append({"rule": "producer_control_mismatch", "status": "fail",
+                                 "gate": gate_id})
+                continue
+        if gate_id == "G6":
+            g6_covered = True
+        else:
+            covered.add((gate_id, subject["id"]))
         control = gate.get("negative_control", "")
-        if control:
-            seen_negatives.add(control)
-            if gate.get("caught", False) is not True:
+        if ((control and not isinstance(control, str))
+                or (isinstance(control, str) and control
+                    and control not in REQUIRED_NEGATIVES)):
+            findings.append({"rule": "invalid_negative_control", "status": "blocked",
+                             "gate": gate_id})
+        elif control:
+            observed = envelope.get("control_result")
+            if gate.get("caught", False) is True:
+                # R6-DEC-02: a caught claim needs the envelope record
+                # AND the producer-sealed observation. Static runs seal
+                # no controls, so forged static caught claims fail.
+                if (isinstance(observed, dict)
+                        and observed.get("control") == control
+                        and observed.get("caught") is True
+                        and control in sealed_controls):
+                    seen_negatives.add(control)
+                else:
+                    findings.append({"rule": "caught_uncorroborated",
+                                     "status": "fail", "control": control,
+                                     "gate": gate_id})
+            else:
                 findings.append({"rule": "negative_uncaught", "status": "fail",
                                  "control": control})
+    # F15: every applicable gate is required for each selected subject;
+    # G6 stays suite-global (see below).
+    missing_pairs = sorted(
+        f"{gate_id}:{subject_id}"
+        for subject_id, subject in by_id.items()
+        for gate_id, kind in sorted(COVERAGE_PAIRS)
+        if subject["kind"] == kind and (gate_id, subject_id) not in covered)
+    if not g6_covered:
+        missing_pairs.append("G6:suite")
+    if missing_pairs:
+        findings.append({"rule": "gate_set_incomplete", "status": "blocked",
+                         "missing": sorted(missing_pairs)})
     missing = REQUIRED_NEGATIVES - seen_negatives
     if missing:
         findings.append({"rule": "negative_controls_missing", "status": "blocked",
                          "missing": sorted(missing)})
-    if record.get("reviewer_id", "") == record.get("editor_id", "") or not record.get("reviewer_id"):
-        findings.append({"rule": "reviewer_not_independent", "status": "fail"})
-    if record.get("user_approved", False) is not True:
-        findings.append({"rule": "promotion_not_approved", "status": "blocked"})
+    # R6-DEC-04: reviewer independence binds sealed runs, never
+    # caller strings; promotion is a separate output. Legacy
+    # reviewer_id/editor_id/user_approved keys are retired and never
+    # consulted. Suite + editor + review evidence is required when a
+    # G6 gate is claimed or a review block is present (records that
+    # exercise only subject gates keep their isolation).
+    g6_mentioned = any(isinstance(gate, dict) and gate.get("id") == "G6"
+                       for gate in gates)
+    review = record.get("review")
+    if "suite" not in record and (g6_mentioned or review is not None):
+        findings.append({"rule": "suite_subject_invalid", "status": "blocked",
+                         "reason": "G6/review claims require the suite block"})
+    editor_run_id = record.get("editor_run_id")
+    editor_ok = False
+    if g6_mentioned or review is not None:
+        if (not store_usable or not _is_safe_run_id(editor_run_id)
+                or not isinstance(getattr(evidence_store, "root", None),
+                                  Path)):
+            findings.append({"rule": "editor_run_unbound",
+                             "status": "blocked"})
+        else:
+            assert evidence_store is not None
+            editor_dir = evidence_store.root / editor_run_id
+            if (_resolve_artifact(evidence_store.root,
+                                   editor_run_id) is None
+                    or verify_seal(editor_dir)):
+                findings.append({"rule": "editor_run_unbound",
+                                 "status": "blocked"})
+            else:
+                editor_ok = True
+    if g6_mentioned or review is not None:
+        if not isinstance(review, dict):
+            findings.append({"rule": "reviewer_binding_missing",
+                             "status": "blocked"})
+        else:
+            reviewer_run = review.get("reviewer_run_id")
+            bound_editor = review.get("editor_run_id")
+            bound_suite = review.get("suite_digest")
+            bound_envelope = review.get("review_envelope_sha256")
+            if (not _is_safe_run_id(reviewer_run)
+                    or not _is_safe_run_id(bound_editor)
+                    or not _is_hex64(bound_suite)
+                    or not _is_hex64(bound_envelope)):
+                findings.append({"rule": "reviewer_binding_missing",
+                                 "status": "blocked"})
+            elif reviewer_run == bound_editor:
+                findings.append({"rule": "reviewer_not_independent",
+                                 "status": "fail"})
+            elif not _is_safe_run_id(editor_run_id):
+                # Record side unstated (already flagged as
+                # editor_run_unbound): divergence cannot be
+                # demonstrated, so the review claim blocks.
+                findings.append({"rule": "reviewer_binding_missing",
+                                 "status": "blocked"})
+            elif bound_editor != editor_run_id:
+                findings.append({"rule": "reviewer_binding_mismatch",
+                                 "status": "fail"})
+            elif suite_digest is None:
+                findings.append({"rule": "reviewer_binding_missing",
+                                 "status": "blocked"})
+            elif bound_suite != suite_digest:
+                findings.append({"rule": "reviewer_binding_mismatch",
+                                 "status": "fail"})
+            elif not editor_ok or not store_usable:
+                findings.append({"rule": "reviewer_binding_missing",
+                                 "status": "blocked"})
+            else:
+                assert evidence_store is not None
+                reviewer_dir = evidence_store.root / reviewer_run
+                if (_resolve_artifact(evidence_store.root,
+                                       reviewer_run) is None
+                        or verify_seal(reviewer_dir)):
+                    findings.append({"rule": "reviewer_binding_missing",
+                                     "status": "blocked"})
+                else:
+                    try:
+                        reviewer_manifest = json.loads(
+                            (reviewer_dir / "manifest.json").read_text(
+                                encoding="utf-8"))
+                    except (OSError, ValueError):
+                        reviewer_manifest = None
+                    if (not isinstance(reviewer_manifest, dict)
+                            or reviewer_manifest.get("pipeline")
+                            not in REVIEWER_CAPABLE_PRODUCERS):
+                        findings.append(
+                            {"rule": "reviewer_authority_unsupported",
+                             "status": "blocked"})
+                    else:
+                        reviewer_bound = reviewer_manifest.get(
+                            "artifacts", {})
+                        if (not isinstance(reviewer_bound, dict)
+                                or reviewer_bound.get("envelope_sha256")
+                                != bound_envelope
+                                or reviewer_bound.get("editor_run_id")
+                                != bound_editor
+                                or reviewer_bound.get("suite_digest")
+                                != bound_suite):
+                            findings.append(
+                                {"rule": "reviewer_binding_mismatch",
+                                 "status": "fail"})
+                        else:
+                            try:
+                                review_envelope = evidence_store.resolve(
+                                    bound_envelope)
+                            except LookupError:
+                                findings.append(
+                                    {"rule": "reviewer_binding_missing",
+                                     "status": "blocked"})
+                            except ValueError:
+                                findings.append(
+                                    {"rule": "reviewer_binding_mismatch",
+                                     "status": "fail"})
+                            else:
+                                review_producer = review_envelope.get(
+                                    "producer", {})
+                                review_result = review_envelope.get(
+                                    "result", {})
+                                if (not isinstance(review_producer, dict)
+                                        or review_producer.get("run_id")
+                                        != reviewer_run
+                                        or not isinstance(review_result, dict)
+                                        or review_result.get("gate") != "G6"
+                                        or review_result.get("suite_digest")
+                                        != suite_digest):
+                                    findings.append(
+                                        {"rule": "reviewer_binding_mismatch",
+                                         "status": "fail"})
+    promotion: dict[str, Any] = {"status": "authorized", "findings": []}
+    promotion_record = record.get("promotion")
+    authority = (promotion_record.get("authority")
+                 if isinstance(promotion_record, dict) else None)
+    if authority not in REGISTERED_PROMOTION_AUTHORITIES:
+        promotion = {"status": "blocked",
+                     "findings": [{"rule": "promotion_authority_unregistered",
+                                   "status": "blocked"}]}
+    elif promotion_record.get("approved") is not True:
+        promotion = {"status": "blocked",
+                     "findings": [{"rule": "promotion_not_approved",
+                                   "status": "blocked"}]}
     if not findings:
-        return {"verdict": "pass", "findings": []}
+        return {"verdict": "pass", "promotion": promotion, "findings": []}
     if any(finding.get("status") == "fail" for finding in findings):
-        return {"verdict": "fail", "findings": findings}
-    return {"verdict": "blocked", "findings": findings}
+        return {"verdict": "fail", "promotion": promotion,
+                "findings": findings}
+    return {"verdict": "blocked", "promotion": promotion,
+            "findings": findings}

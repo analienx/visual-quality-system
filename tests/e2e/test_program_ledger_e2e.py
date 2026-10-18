@@ -26,6 +26,13 @@ from vqs.pbir import report_context, source_digest
 
 ROOT = Path(__file__).resolve().parents[2]
 ROADMAP_SCRIPT = ROOT / "scripts" / "roadmap_report.py"
+CALIBRATION = {"canvas_width": 500, "canvas_height": 500, "scale": 1,
+               "viewport": "500x500@1x", "method": "bridge-screenshot-all"}
+CALIBRATION_1280 = {"canvas_width": 1280, "canvas_height": 720, "scale": 1,
+                    "viewport": "1280x720@1x",
+                    "method": "bridge-screenshot-all"}
+READINESS = {"populated": True, "method": "scoped-dax-probe",
+             "checked_at": "2026-10-03T00:00:00Z"}
 
 
 def _ledger() -> dict:
@@ -56,8 +63,18 @@ def _make_report(root: Path) -> Path:
     report = root / "Example.Report"
     visual = report / "definition" / "pages" / "p1" / "visuals" / "vis1"
     visual.mkdir(parents=True)
-    (report / "definition" / "pages" / "pages.json").write_text(
+    (report / "definition" / "pages.json").write_text(
         json.dumps({"pageOrder": ["p1"]}), encoding="utf-8"
+    )
+    (report / "definition" / "version.json").write_text(
+        json.dumps({"$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/versionMetadata/1.0.0/schema.json", "version": "2.0.0"}), encoding="utf-8"
+    )
+    (report / "definition" / "report.json").write_text(
+        json.dumps({
+            "$schema": ("https://developer.microsoft.com/json-schemas/fabric/item/"
+                        "report/definition/report/3.3.0/schema.json"),
+            "layoutOptimization": "None", "themeCollection": {}}),
+        encoding="utf-8",
     )
     (report / "definition" / "pages" / "p1" / "page.json").write_text(
         json.dumps({"displayName": "Overview", "width": 1280, "height": 720}),
@@ -161,11 +178,12 @@ def test_e2e_vqs_inventory_roundtrip(tmp_path: Path, capsys) -> None:
 
 
 def test_e2e_request_review_success_and_stale_negative(tmp_path: Path, capsys) -> None:
+    """S11: renders must fit the source canvas (1280x720 here)."""
     report = _make_report(tmp_path)
     renders = tmp_path / "renders"
     renders.mkdir()
     png = renders / "p1.png"
-    _write_png(png)
+    _write_png(png, 1280, 720)
     sha = source_digest(report)
     png_sha = hashlib.sha256(png.read_bytes()).hexdigest()
     (renders / "capture-manifest.json").write_text(
@@ -174,6 +192,8 @@ def test_e2e_request_review_success_and_stale_negative(tmp_path: Path, capsys) -
                 "source_sha256": sha,
                 "page_images": {"p1": "p1.png"},
                 "files": {"p1.png": png_sha},
+                "calibration": CALIBRATION_1280,
+                "data_readiness": READINESS,
             }
         ),
         encoding="utf-8",
@@ -192,6 +212,8 @@ def test_e2e_request_review_success_and_stale_negative(tmp_path: Path, capsys) -
                 "source_sha256": "stale-source",
                 "page_images": {"p1": "p1.png"},
                 "files": {"p1.png": png_sha},
+                "calibration": CALIBRATION_1280,
+                "data_readiness": READINESS,
             }
         ),
         encoding="utf-8",
@@ -270,12 +292,13 @@ def test_e2e_remanifested_stale_pixels_trust_manifest_author(
     request-review binds renders to the source SHA named in the manifest; it
     cannot prove the pixels were captured after the latest source edit. Only
     the lazy stale-manifest case (wrong SHA left in place) is blocked.
+    S11: canvas fit is still enforced — the old pixels here are source-sized.
     """
     report = _make_report(tmp_path)
     renders = tmp_path / "renders"
     renders.mkdir()
     png = renders / "p1.png"
-    _write_png(png)
+    _write_png(png, 1280, 720)
     png_sha = hashlib.sha256(png.read_bytes()).hexdigest()
     visual = report / "definition" / "pages" / "p1" / "visuals" / "vis1" / "visual.json"
     visual.write_text(visual.read_text(encoding="utf-8") + " ", encoding="utf-8")
@@ -286,6 +309,8 @@ def test_e2e_remanifested_stale_pixels_trust_manifest_author(
                 "source_sha256": new_sha,
                 "page_images": {"p1": "p1.png"},
                 "files": {"p1.png": png_sha},
+                "calibration": CALIBRATION_1280,
+                "data_readiness": READINESS,
             }
         ),
         encoding="utf-8",

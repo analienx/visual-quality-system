@@ -68,6 +68,8 @@ class Finding:
     component: ComponentRef
     data_scope: DataScope = field(default_factory=DataScope)
     detail: str = ""
+    finding_id: str = ""
+    render: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -103,6 +105,17 @@ class ReviewIdentity:
 
     id: str = ""
     role: str = "independent_visual_reviewer"
+
+
+def normalize_identity(value: object) -> str:
+    """Canonical identity for comparison: stripped and case-folded.
+
+    Quoted " Alice " and "alice" name the same human, so exact-string
+    inequality is a minimum sanity check, never proof of independence.
+    Sealed records keep the verbatim claimed id; every gate compares
+    the normalized form.
+    """
+    return value.strip().casefold() if isinstance(value, str) else ""
 
 
 @dataclass(frozen=True)
