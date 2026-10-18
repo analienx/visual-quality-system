@@ -596,11 +596,19 @@ def _review_images(args) -> int:
 
 
 def _regions(args) -> int:
-    """Produce/read source-verified private visual crops; never judge defects."""
+    """Produce/read source-verified visual crops and bounded pixel QA facts."""
     from vqs.visual.regions import RegionError, build_regions, verify_regions
 
     try:
-        if args.region_action == "verify":
+        if args.region_action == "audit":
+            from vqs.visual.pixel_quality import audit_regions
+
+            policy = (json.loads(args.policy.read_text(encoding="utf-8"))
+                      if args.policy is not None else None)
+            output = audit_regions(
+                str(args.bundle), str(args.output), policy=policy,
+                report=str(args.report) if args.report else None)
+        elif args.region_action == "verify":
             output = verify_regions(
                 str(args.bundle), str(args.output),
                 report=str(args.report) if args.report else None)
@@ -667,6 +675,9 @@ def _regions(args) -> int:
                           "reason": f"{type(exc).__name__}: {exc}"}))
         return 2
     print(json.dumps(output, indent=2))
+    if args.region_action == "audit":
+        return {"fail": 1, "unknown": 2,
+                "review_required": 0, "no_pixel_issue_proven": 0}[output["status"]]
     return 0
 
 
@@ -757,7 +768,7 @@ def main(argv: list[str] | None = None) -> int:
                             help="Write private JSON findings; refuses overwrite")
     regions_cmd = commands.add_parser(
         "regions", help="Derive/verify pixel-exact PBIR-bound visual crop sidecars")
-    regions_cmd.add_argument("region_action", choices=("build", "verify", "plan"))
+    regions_cmd.add_argument("region_action", choices=("build", "verify", "plan", "audit"))
     regions_cmd.add_argument("bundle", type=Path,
                              help="Existing complete verified review bundle")
     regions_cmd.add_argument("output", type=Path,
@@ -768,6 +779,8 @@ def main(argv: list[str] | None = None) -> int:
                              help="Select exact PAGE_ID/VISUAL_ID (repeatable)")
     regions_cmd.add_argument("--padding-px", type=int, default=16,
                              help="Pixel context outside visual bounds, max 128")
+    regions_cmd.add_argument("--policy", type=Path, default=None,
+                             help="For audit: exact source/bundle-bound content budgets")
     commands.add_parser("doctor", help="Report external tool capabilities; never installs")
     review = commands.add_parser("request-review", help="Require complete source-bound page images")
     review.add_argument("report", type=Path)
