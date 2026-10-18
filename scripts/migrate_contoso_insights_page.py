@@ -85,6 +85,18 @@ def _inventory(folder: Path) -> dict[str, str]:
     }
 
 
+def _deterministic_template_bytes(path: Path) -> bytes:
+    """Preserve the Windows-authored, evidence-bound fixture on every OS.
+
+    Git normally checks out text JSON with CRLF on Windows and LF on Linux.
+    The screenshot-verified P10 fixture was authored with CRLF. Normalize
+    only our two replacement visual templates so independent Linux/Windows
+    runs regenerate the *identical bytes*, not just structurally equal JSON.
+    """
+    raw = path.read_bytes().replace(b"\r\n", b"\n")
+    return raw.replace(b"\n", b"\r\n")
+
+
 def migrate(original: Path, candidate: Path) -> dict[str, object]:
     original = original.resolve()
     candidate = candidate.resolve()
@@ -110,8 +122,8 @@ def migrate(original: Path, candidate: Path) -> dict[str, object]:
         dest = candidate / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(file, dest)
-    (candidate / MAP).write_bytes(TARGET_MAP.read_bytes())
-    (candidate / REGION).write_bytes(TARGET_REGION.read_bytes())
+    (candidate / MAP).write_bytes(_deterministic_template_bytes(TARGET_MAP))
+    (candidate / REGION).write_bytes(_deterministic_template_bytes(TARGET_REGION))
     before = _inventory(original)
     after = _inventory(candidate)
     changes = sorted(key for key in after if before.get(key) != after[key])
