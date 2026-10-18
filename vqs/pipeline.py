@@ -122,6 +122,10 @@ def _within_page(params: dict[str, Any]) -> dict:
     return design_rules.layout_visuals_within_page(params.get("pages"))
 
 
+def _composition(params: dict[str, Any]) -> dict:
+    return design_rules.layout_composition(params.get("pages"))
+
+
 def _map_labels(params: dict[str, Any]) -> dict:
     return design_rules.chart_map_location_labels(params.get("maps"))
 
@@ -139,6 +143,7 @@ RULES = {
     "insight.no_cross_page_duplicate_grain": _xdup_grain,
     "layout.no_visual_overlap": _overlap,
     "layout.visuals_within_page": _within_page,
+    "layout.composition": _composition,
     "chart.map_location_labels": _map_labels,
 }
 

@@ -24,6 +24,7 @@ HIGH = frozenset({
     "layout.visuals_within_page", "typography.text_contrast",
     "axis.display_values_not_distinct",
     "encoding.metric_unit_consistency",
+    "layout.composition",
 })
 MEDIUM = frozenset({
     "layout.no_visual_overlap", "axis.category_label_space",
@@ -119,7 +120,7 @@ def _locations(detail: Any) -> list[str]:
         return []
     found: set[str] = set()
     rows = []
-    for key in ("conflicts", "failures", "pending"):
+    for key in ("conflicts", "failures", "pending", "findings"):
         group = evidence.get(key)
         if isinstance(group, list):
             rows.extend(group)
@@ -134,6 +135,12 @@ def _locations(detail: Any) -> list[str]:
             for member in item["visuals"]:
                 if isinstance(member, str):
                     found.add(f"{page}/{member}" if isinstance(page, str) else member)
+        else:
+            for key in ("cards", "detail_panels"):
+                for member in item.get(key, []):
+                    visual = member.get("visual") if isinstance(member, dict) else member
+                    if isinstance(visual, str) and isinstance(page, str):
+                        found.add(f"{page}/{visual}")
     return sorted(found)
 
 
@@ -149,6 +156,11 @@ def _summary_recommendation(check: str, status: str, detail: dict) -> str:
         "layout.no_visual_overlap": (
             "Potential visual overlap: inspect actual rendering first; "
             "reposition only if the overlap is unintended."),
+        "layout.composition": (
+            "Remove redundant slicer caption; size KPI cohorts within 15% "
+            "of the canvas and align their paired grid anchors with the "
+            "matching detail panels. Edit a disposable candidate, validate "
+            "with the Microsoft CLI and inspect a fresh full-canvas render."),
         "typography.text_contrast": "Improve foreground/background contrast; confirm rendered colors.",
         "typography.format_declaration_consistency":
             "Resolve inconsistent styling with measured effective theme values.",

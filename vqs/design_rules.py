@@ -6,6 +6,7 @@ These are narrow building blocks, not an overall dashboard-design verdict.
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Sequence
 
 
@@ -721,6 +722,121 @@ def layout_visuals_within_page(pages: Sequence[dict] | None) -> dict:
                          reason="Some pages lack a measurable size",
                          pages=sorted(unverified))
     return _finding(rule, "pass", pages=len(pages))
+
+
+def layout_composition(pages: Sequence[dict] | None) -> dict:
+    """Flag three independently grounded PBIR composition policy defects.
+
+    The 15% KPI-row height cap comes from the pinned Microsoft card sizing
+    guide. An inferred two-column grid is checked only with exactly four
+    same-row cards and two same-row detail panels directly underneath. A
+    duplicate slicer heading is flagged only when both are explicitly shown
+    and share a meaningful token. These are *static* failures; not claims of
+    visible clipping, rendered padding or slicer interaction behavior.
+    """
+    rule = "layout.composition"
+    if not pages:
+        return _finding(rule, "unknown", reason="PBIR page/visual facts missing")
+    findings: list[dict] = []
+    probed = 0
+    ignored = []
+    for page in pages:
+        if not isinstance(page, dict) or not isinstance(page.get("visuals"), list):
+            return _finding(rule, "unknown", reason="Malformed composition facts")
+        pid, width, height = page.get("page"), page.get("width"), page.get("height")
+        if (not isinstance(pid, str) or not pid or type(width) not in (int, float)
+                or type(height) not in (int, float) or not math.isfinite(width)
+                or not math.isfinite(height) or width <= 0 or height <= 0):
+            ignored.append(pid)
+            continue
+        members = []
+        for v in page["visuals"]:
+            if not isinstance(v, dict):
+                ignored.append(pid)
+                continue
+            typ = v.get("type", "")
+            if not isinstance(typ, str):
+                continue
+            kind = typ.casefold()
+            if kind == "slicer":
+                a, b = v.get("slicer_title"), v.get("slicer_header")
+                if (v.get("slicer_title_shown") == "true"
+                        and v.get("slicer_header_shown") == "true"
+                        and isinstance(a, str) and isinstance(b, str)):
+                    noise = {"reporting", "selected", "select", "filter", "filters",
+                             "the", "of", "by", "for", "choose", "show"}
+                    def terms(s: str) -> set[str]:
+                        return set(re.findall(r"\w+", s.casefold())) - noise
+                    if terms(a) & terms(b):
+                        findings.append({"kind": "redundant_slicer_caption",
+                                         "page": pid, "visual": v.get("visual"),
+                                         "container_title": a, "field_header": b})
+                    probed += 1
+            pos = v.get("position")
+            if not isinstance(pos, dict):
+                continue
+            rect = [pos.get(k) for k in ("x", "y", "width", "height")]
+            if (any(type(n) not in (int, float) or not math.isfinite(n)
+                    for n in rect) or rect[2] <= 0 or rect[3] <= 0):
+                continue
+            members.append({"id": v.get("visual"), "type": kind,
+                            "x": float(rect[0]), "y": float(rect[1]),
+                            "w": float(rect[2]), "h": float(rect[3])})
+        # A quartet of metric cards is a visual row, not four independent
+        # full-height panels. Require a shared y baseline before applying the
+        # compactness budget, so single large cards are not false failures.
+        cards = [m for m in members if m["type"] in
+                 {"card", "cardvisual", "kpi", "multirowcard"}]
+        for top in sorted({m["y"] for m in cards}):
+            row = sorted((m for m in cards if abs(m["y"] - top) <= 2),
+                         key=lambda m: m["x"])
+            if len(row) != 4:
+                continue
+            probed += 1
+            oversized = [m for m in row if m["h"] > 0.15 * height + 0.01]
+            if oversized:
+                findings.append({"kind": "kpi_row_crowding", "page": pid,
+                                 "max_height_pct": 15, "canvas_height": height,
+                                 "cards": [{"visual": m["id"], "height": m["h"],
+                                            "height_pct": round(m["h"] / height * 100, 2)}
+                                           for m in oversized]})
+            lower = [m for m in members if m["type"] not in
+                     {"card", "cardvisual", "kpi", "multirowcard", "slicer", "textbox"}
+                     and m["y"] >= max(c["y"] + c["h"] for c in row)]
+            if not lower:
+                continue
+            first_y = min(m["y"] for m in lower)
+            panels = sorted((m for m in lower if abs(m["y"] - first_y) <= 2),
+                            key=lambda m: m["x"])
+            # An intentionally asymmetric 2-column dashboard (e.g. 2/3 +
+            # 1/3 panels) is not expected to follow 2+2 KPI card anchors.
+            # Only enforce pair-to-panel alignment for near-equal halves.
+            if (len(panels) != 2
+                    or abs(panels[0]["w"] - panels[1]["w"]) > 0.08 * width):
+                continue
+            probed += 1
+            left_end = row[1]["x"] + row[1]["w"]
+            right_begin = row[2]["x"]
+            alignment = ((row[0]["x"], panels[0]["x"]),
+                         (left_end, panels[0]["x"] + panels[0]["w"]),
+                         (right_begin, panels[1]["x"]),
+                         (row[3]["x"] + row[3]["w"],
+                          panels[1]["x"] + panels[1]["w"]))
+            tolerance = max(4.0, width * 0.003)
+            if any(abs(a - b) > tolerance for a, b in alignment):
+                findings.append({"kind": "kpi_detail_grid_drift", "page": pid,
+                                 "cards": [m["id"] for m in row],
+                                 "detail_panels": [m["id"] for m in panels],
+                                 "edges": [[a, b] for a, b in alignment],
+                                 "tolerance": tolerance})
+    if findings:
+        return _finding(rule, "fail", findings=findings, checks=probed,
+                        basis="PBIR declared layout, rendered review required")
+    if ignored:
+        return _finding(rule, "unknown", reason="Missing page geometry",
+                        pages=ignored, checks=probed)
+    return _finding(rule, "pass", checks=probed,
+                    basis="PBIR declared layout, rendered review required")
 
 
 def chart_map_location_labels(maps: Sequence[dict] | None) -> dict:

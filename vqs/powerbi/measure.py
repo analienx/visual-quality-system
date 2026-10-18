@@ -572,6 +572,10 @@ def measure_report(report_dir: str, model_dir: str | None = None) -> dict:
     if inventory["page_bounds"]:
         rules["layout.visuals_within_page"] = {
             "pages": inventory["page_bounds"]}
+    from vqs.visual.composition import composition_facts
+    composition = composition_facts(found)
+    if composition:
+        rules["layout.composition"] = {"pages": composition}
     if inventory["trees"]:
         rules["chart.decomposition_tree_dimensions"] = {
             "trees": inventory["trees"]}
