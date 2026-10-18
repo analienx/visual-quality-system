@@ -71,7 +71,7 @@ def migrate(destination: Path) -> dict:
             raise ValueError(f"unexpected P10 visual identity: {visual_id}")
         old = doc.get("position", {})
         if not isinstance(old, dict):
-            raise ValueError(f"missing P10 visual geometry: {visual_id}")
+            raise TypeError(f"missing P10 visual geometry: {visual_id}")
         old.update(rect)
         if visual_id == "slicer-year":
             vco = doc["visual"]["visualContainerObjects"]

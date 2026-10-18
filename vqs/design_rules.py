@@ -765,9 +765,9 @@ def layout_composition(pages: Sequence[dict] | None) -> dict:
                         and isinstance(a, str) and isinstance(b, str)):
                     noise = {"reporting", "selected", "select", "filter", "filters",
                              "the", "of", "by", "for", "choose", "show"}
-                    def terms(s: str) -> set[str]:
-                        return set(re.findall(r"\w+", s.casefold())) - noise
-                    if terms(a) & terms(b):
+                    title_terms = set(re.findall(r"\w+", a.casefold())) - noise
+                    header_terms = set(re.findall(r"\w+", b.casefold())) - noise
+                    if title_terms & header_terms:
                         findings.append({"kind": "redundant_slicer_caption",
                                          "page": pid, "visual": v.get("visual"),
                                          "container_title": a, "field_header": b})
