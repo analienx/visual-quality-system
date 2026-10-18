@@ -24,7 +24,7 @@ KPI = {"Sales": 210.0, "Units": 99.0, "YoY": 0.10, "GM": 0.34}
 
 
 class FakePort:
-    def __init__(self) -> None:
+    def __init__(self, desktop_pid=4242) -> None:
         self.tables = {
             "country": [{"[Key]": k, "[Sales]": v} for k, v in COUNTRY.items()],
             "region": [{"[Key]": k, "[Sales]": v} for k, v in REGION.items()],
@@ -33,11 +33,14 @@ class FakePort:
         self.calls = []
         self.available = True
         self.bad_context = False
+        self.desktop_pid = desktop_pid
+        self.connect_calls = 0
 
     def connect(self):
+        self.connect_calls += 1
         if not self.available:
             raise OSError("no local owned model")
-        return {"model": "localhost:123/P10", "desktopPid": 4242}
+        return {"model": "localhost:123/P10", "desktopPid": self.desktop_pid}
 
     def readiness(self, scope):
         return {"populated": self.available}
@@ -178,9 +181,10 @@ def test_cli_refuses_wrong_project_before_mcp(tmp_path, monkeypatch):
 def test_exact_archived_project_accepts_valid_fingerprint(tmp_path, monkeypatch):
     with zipfile.ZipFile(cli.FIXTURE) as archive:
         archive.extractall(tmp_path)
-    monkeypatch.setattr(cli, "StdioModelingClient", lambda **kw: FakePort())
-    # The fake uses a deliberately different PID, illustrating why the
-    # semantic-only receipt cannot claim Desktop runtime binding verified.
+    fake = FakePort(desktop_pid=42)
+    monkeypatch.setattr(cli, "StdioModelingClient", lambda **kw: fake)
+    # The real adapter OS-attests its Desktop PID. A fake validates the
+    # probe's logical guard, not actual process ownership.
     result = cli.run(tmp_path, 42, [None, 2024])
     assert result["semantic"] == "pass"
     assert result["interactive"] == "not_run"
@@ -188,6 +192,9 @@ def test_exact_archived_project_accepts_valid_fingerprint(tmp_path, monkeypatch)
     assert result["source_sha256"] == result["p10_historical_fingerprint"]
     assert len(result["vqs_runtime_source_digest"]) == 64
     assert all(s["source_sha256"] == result["source_sha256"] for s in result["states"])
+    assert {s["desktop_pid"] for s in result["states"]} == {42}
+    assert len({s["model"] for s in result["states"]}) == 1
+    assert fake.connect_calls == 1
     assert len(result["states"]) == 2
     visual = tmp_path / (
         "Contoso Retail.Report/definition/pages/d9bc3b8f90439bcc/"
@@ -196,3 +203,13 @@ def test_exact_archived_project_accepts_valid_fingerprint(tmp_path, monkeypatch)
     blocked = cli.run(tmp_path, 42, [None])
     assert blocked["semantic"] == "blocked"
     assert "drift" in blocked["reason"]
+
+
+def test_cli_refuses_cross_year_pid_disagreement(tmp_path, monkeypatch):
+    with zipfile.ZipFile(cli.FIXTURE) as archive:
+        archive.extractall(tmp_path)
+    monkeypatch.setattr(cli, "StdioModelingClient", lambda **kw: FakePort())
+    result = cli.run(tmp_path, 42, [None, 2024])
+    assert all(state["semantic"] == "pass" for state in result["states"])
+    assert result["semantic"] == "blocked"
+    assert "PID" in result["reason"]

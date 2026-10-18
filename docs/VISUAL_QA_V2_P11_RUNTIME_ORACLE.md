@@ -8,6 +8,8 @@ accepted until source-bound live evidence and independent review exist.
 
 - Query the **real Microsoft Modeling MCP** model associated with an exact
   run-owned Power BI Desktop PID. Refuse ambiguous or absent local engines.
+  Reuse a single connection across all year states and reject model/PID drift
+  even if the individual DAX results are internally consistent.
 - Verify the opened candidate's on-disk report+model **files byte-for-byte**
   against the committed screenshot-bound P10 fixture, whose historical
   report+model fingerprint is

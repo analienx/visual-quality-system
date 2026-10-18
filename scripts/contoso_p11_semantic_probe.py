@@ -108,13 +108,24 @@ def run(project: Path, pid: int, years: list[int | None]) -> dict:
         return receipt
     client = StdioModelingClient(target_pid=pid)
     try:
-        results = [collect(client, desired, year) for year in years]
+        results = []
+        bound_connection = None
+        for year in years:
+            state = collect(client, desired, year, connection=bound_connection)
+            results.append(state)
+            if bound_connection is None and state["semantic"] == "pass":
+                bound_connection = {"model": state["model"],
+                                    "desktopPid": state["desktop_pid"]}
     finally:
         client.close()
     receipt["states"] = results
-    receipt["semantic"] = "pass" if results and all(
-        row["semantic"] == "pass" for row in results) else "blocked"
-    if receipt["semantic"] == "blocked":
+    all_pass = bool(results) and all(row["semantic"] == "pass" for row in results)
+    stable_model = len({row.get("model") for row in results}) == 1
+    stable_pid = {row.get("desktop_pid") for row in results} == {pid}
+    receipt["semantic"] = "pass" if all_pass and stable_model and stable_pid else "blocked"
+    if all_pass and not (stable_model and stable_pid):
+        receipt["reason"] = "cross-year model identity or Desktop PID changed"
+    elif receipt["semantic"] == "blocked":
         receipt["reason"] = "one or more year states lack executed DAX parity"
     return receipt
 

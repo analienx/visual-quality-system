@@ -125,12 +125,15 @@ def _kpis(rows: Any) -> dict[str, float | None]:
     return result
 
 
-def collect(port: Any, source_sha256: str, year: int | None) -> dict[str, Any]:
+def collect(port: Any, source_sha256: str, year: int | None,
+            *, connection: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Collect one source-bound live snapshot; no UI result is inferred.
 
     ``port`` is the existing StdioModelingClient or a contract-compatible
-    injectable fake. Any unavailable engine, query failure, or inconsistent
-    data BLOCKS; matched numerical totals PASS the semantic axis only.
+    injectable fake. ``connection`` can reuse the *same already-connected*
+    model across year states instead of creating new Microsoft session labels.
+    Any unavailable engine, query failure, or inconsistent data BLOCKS;
+    matched numerical totals PASS the semantic axis only.
     """
     queries = build_queries(year)
     receipt: dict[str, Any] = {
@@ -144,7 +147,7 @@ def collect(port: Any, source_sha256: str, year: int | None) -> dict[str, Any]:
         receipt["reason"] = "missing exact source fingerprint"
         return receipt
     try:
-        connection = port.connect()
+        connection = port.connect() if connection is None else connection
         model = connection["model"]
         if not isinstance(model, str) or not model:
             raise ValueError("MCP connection identity absent")
