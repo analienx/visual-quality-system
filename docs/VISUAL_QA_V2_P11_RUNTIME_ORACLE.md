@@ -12,9 +12,12 @@ accepted until source-bound live evidence and independent review exist.
   against the committed screenshot-bound P10 fixture, whose historical
   report+model fingerprint is
   `0aabd401d0fb2973263a77faa8349b552e7a74325b3154499c0aeef40d29bdc3`
-  *before* launching an MCP connection. VQS's own `source_digest` uses a
-  distinct hash algorithm: never compare its SHA against that historical
-  fingerprint. Record both separately.
+  *before* launching an MCP connection. A portability review found that
+  `vqs.pbir.source_digest` can vary between Linux and Windows for identical
+  archived files; it may also equal the historical fingerprint on Windows.
+  The **byte comparison**, not digest inequality, authorizes use of the
+  stable manifest identity for live queries. Record the local digest as a
+  diagnostic only (`vqs_runtime_source_digest`).
 - DAX `SUMMARIZECOLUMNS` uses `Fact Sales[Reporting Year Sales]` by `Dim
   Store[Country]` (five expected values), `Dim Store[Region]` (three expected
   values), and a KPI `ROW` (Sales, Units, YoY growth, GM%).

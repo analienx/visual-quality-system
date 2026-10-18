@@ -51,9 +51,9 @@ def _source_name(name: str) -> bool:
 def _fixture_matches(project: Path, manifest: dict) -> str | None:
     """Compare actual report/model bytes to the archived screenshot-bound P10.
 
-    The manifest's ``report_model_source_sha256`` is a *different historical*
-    fingerprint scheme from ``vqs.pbir.source_digest``. Never compare those
-    unlike SHA encodings. Exact filename+bytes parity is stronger and portable.
+    ``vqs.pbir.source_digest`` has yielded different values for identical
+    archived files on Linux and Windows. Exact filename+bytes parity is the
+    portable authority; the manifest carries the stable P10 source identity.
     """
     if hashlib.sha256(FIXTURE.read_bytes()).hexdigest() != manifest["sha256"]:
         return "committed P10 fixture SHA differs from its manifest"
@@ -97,14 +97,18 @@ def run(project: Path, pid: int, years: list[int | None]) -> dict:
     except (OSError, ValueError) as exc:
         receipt["reason"] = f"could not fingerprint project: {exc}"
         return receipt
-    receipt["source_sha256"] = actual
+    # Use the screenshot-bound manifest identity only after byte-for-byte
+    # verification. The local source_digest is diagnostic until cross-platform
+    # inventory ordering is normalized elsewhere.
+    receipt["source_sha256"] = desired
+    receipt["vqs_runtime_source_digest"] = actual
     receipt["source_verified_against_p10_fixture"] = True
     if type(pid) is not int or pid <= 0:
         receipt["reason"] = "an exact run-owned Desktop PID is mandatory"
         return receipt
     client = StdioModelingClient(target_pid=pid)
     try:
-        results = [collect(client, actual, year) for year in years]
+        results = [collect(client, desired, year) for year in years]
     finally:
         client.close()
     receipt["states"] = results

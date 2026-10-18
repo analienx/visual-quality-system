@@ -9,7 +9,11 @@ import pytest
 
 from scripts import contoso_p11_semantic_probe as cli
 from vqs.powerbi.contoso_runtime import (
-    COUNTRIES, REGIONS, build_queries, collect, compare_ui,
+    COUNTRIES,
+    REGIONS,
+    build_queries,
+    collect,
+    compare_ui,
 )
 
 SHA = "a" * 64
@@ -151,6 +155,9 @@ def test_ui_comparison_exact_year_source_and_numbers():
     wrong = deepcopy(observation)
     del wrong["region"]["Europe"]
     assert compare_ui(receipt, wrong)["verdict"] == "blocked"
+    wrong = deepcopy(observation)
+    wrong["region"]["Europe"] = "not a number"
+    assert compare_ui(receipt, wrong)["verdict"] == "blocked"
 
 
 def test_cli_refuses_wrong_project_before_mcp(tmp_path, monkeypatch):
@@ -178,7 +185,9 @@ def test_exact_archived_project_accepts_valid_fingerprint(tmp_path, monkeypatch)
     assert result["semantic"] == "pass"
     assert result["interactive"] == "not_run"
     assert result["source_verified_against_p10_fixture"] is True
-    assert result["source_sha256"] != result["p10_historical_fingerprint"]
+    assert result["source_sha256"] == result["p10_historical_fingerprint"]
+    assert len(result["vqs_runtime_source_digest"]) == 64
+    assert all(s["source_sha256"] == result["source_sha256"] for s in result["states"])
     assert len(result["states"]) == 2
     visual = tmp_path / (
         "Contoso Retail.Report/definition/pages/d9bc3b8f90439bcc/"

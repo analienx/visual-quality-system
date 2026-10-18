@@ -80,7 +80,7 @@ def _column(row: Mapping[str, Any], name: str) -> Any:
 
 def _number(value: Any, *, signed: bool = False) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError("DAX value missing or not numeric")
+        raise TypeError("DAX value missing or not numeric")
     if not math.isfinite(value) or (value < 0 and not signed):
         raise ValueError("DAX value negative/non-finite")
     return float(value)
@@ -198,7 +198,7 @@ def compare_ui(receipt: Mapping[str, Any], observed: Mapping[str, Any] | None) -
         for name in category:
             try:
                 actual = _number(values[name])
-            except ValueError:
+            except (TypeError, ValueError):
                 return {"verdict": "blocked", "reason": f"invalid {area} UI value: {name}"}
             if not math.isclose(actual, receipt[area][name], rel_tol=0, abs_tol=0.05):
                 return {"verdict": "fail", "reason": f"{area} mismatch: {name}"}
