@@ -16,7 +16,14 @@ from pathlib import Path
 from typing import Any
 
 from vqs.evidence import _PNG_FILE_CAP, _decode_png
-from vqs.powerbi.contoso_runtime import COUNTRIES, REGIONS, YEARS
+from vqs.powerbi.contoso_runtime import (
+    COUNTRIES,
+    CURRENT_SOURCE_CONTRACT,
+    REGIONS,
+    SOURCE_CONTRACT,
+    YEARS,
+    build_queries,
+)
 
 SCHEMA = "vqs.contoso-desktop-interaction-trace/1"
 RESULT_SCHEMA = "vqs.contoso-desktop-interaction-audit/1"
@@ -64,6 +71,8 @@ def displayed_interval(label: str, *, percentage: bool = False
     found = _DISPLAY.fullmatch(label)
     if found is None or bool(found["percent"]) != percentage:
         raise ValueError(f"unrecognized or incorrectly formatted UI number: {label!r}")
+    if percentage and found["suffix"]:
+        raise ValueError("percent display must not include a magnitude suffix")
     if bool(found["neg"]) != bool(found["close"]):
         raise ValueError("unbalanced negative-number parentheses")
     try:
@@ -176,8 +185,11 @@ def _photo(event: dict[str, Any], images_dir: Path, *,
     _require(_hex(expected), "blocked", "screenshot SHA missing/invalid")
     # Bound read, then decode only frozen bytes; never allow a swap between
     # the recorded SHA check and decoder's second open.
-    with path.open("rb") as handle:
-        raw = handle.read(_PNG_FILE_CAP + 1)
+    try:
+        with path.open("rb") as handle:
+            raw = handle.read(_PNG_FILE_CAP + 1)
+    except OSError as exc:
+        raise InteractionEvidenceError("blocked", f"screenshot unreadable: {exc}") from exc
     _require(len(raw) <= _PNG_FILE_CAP, "blocked", "screenshot exceeds PNG size cap")
     _require(hashlib.sha256(raw).hexdigest() == expected,
              "fail", "screenshot bytes differ from capture SHA")
@@ -190,15 +202,22 @@ def _photo(event: dict[str, Any], images_dir: Path, *,
         raise InteractionEvidenceError("blocked", f"unreadable screenshot: {exc}") from exc
     _require(capture.get("pixels") == [width, height],
              "fail", "screenshot dimensions differ from claimed capture")
-    _require(hashlib.sha256(path.read_bytes()).hexdigest() == expected,
-             "fail", "screenshot changed while decoded")
+    try:
+        _require(hashlib.sha256(path.read_bytes()).hexdigest() == expected,
+                 "fail", "screenshot changed while decoded")
+    except OSError as exc:
+        raise InteractionEvidenceError("blocked", f"screenshot disappeared: {exc}") from exc
     return expected
 
 
 def _year_states(oracle: object, source: str, desktop_pid: int
                  ) -> tuple[dict[int | None, dict[str, Any]], str]:
-    _require(isinstance(oracle, dict) and oracle.get("semantic") == "pass",
-             "blocked", "executed live DAX oracle is required")
+    # The schema and exact DAX query fingerprints provide basic provenance
+    # checks, not cryptographic proof that a caller really executed them.
+    _require(isinstance(oracle, dict) and oracle.get("semantic") == "pass"
+             and oracle.get("contract") == CURRENT_SOURCE_CONTRACT
+             and oracle.get("local_project_source_fingerprinted") is True,
+             "blocked", "current-source, four-year live DAX oracle receipt is required")
     _require(oracle.get("source_sha256") == source
              and oracle.get("desktop_pid") == desktop_pid,
              "fail", "DAX source/PID differs from UI session")
@@ -216,6 +235,11 @@ def _year_states(oracle: object, source: str, desktop_pid: int
         _require(year is None or (type(year) is int and year in YEARS),
                  "blocked", "unexpected DAX year")
         _require(year not in indexed, "blocked", "duplicate DAX year")
+        _require(state.get("contract") == SOURCE_CONTRACT
+                 and state.get("queries") == {
+                     key: hashlib.sha256(dax.encode("utf-8")).hexdigest()
+                     for key, dax in build_queries(year).items()},
+                 "blocked", "DAX query fingerprint is absent or altered")
         model = state.get("model")
         _require(isinstance(model, str) and bool(model),
                  "blocked", "live DAX model identity absent")

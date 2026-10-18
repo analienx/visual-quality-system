@@ -22,14 +22,20 @@ Eight separate UI states must be provided in **that order**: `year:all`, `year:2
 ## Run only against current source and private evidence
 
 ```text
+python -m scripts.contoso_p14_live_oracle <current-Contoso-project-dir> \
+  --desktop-pid <run-owned-Power-BI-Desktop-PID> \
+  --output <new-private-current-all-years-dax.json>
+
 python -m scripts.contoso_p14_interaction_assess <live-Report-dir> \
-  --oracle <private-current-all-years-dax.json> \
+  --oracle <new-private-current-all-years-dax.json> \
   --trace <private-ui-observations.json> \
   --captures <private-PNG-dir> \
   --output <new-private-interaction-audit.json>
 ```
 
-The existing `scripts.contoso_p11_semantic_probe` is historically pinned to the **P10** archived source. To use a **P12** source, obtain a genuinely fresh same-source model receipt (using the P11 `collect` API in the relevant live Desktop model); never copy the old P10 hash or alter the JSON label to make it fit. In the Windows runner, source hashing must be performed in the same environment as the report/receipt because the prior P10 archive inventory reported cross-platform `source_digest` ordering drift.
+The original `scripts.contoso_p11_semantic_probe` is historically pinned to the **P10** archived source. The new `contoso_p14_live_oracle` command checks the **current** Contoso PBIP wrapper, sibling Report, local referenced TMDL SemanticModel, source symlinks and pre/post-query source inventory; it executes all four actual year-specific DAX states against the OS-owned Desktop PID, requiring one stable model and PID. It refuses unverified remote/missing sources and does not copy the old P10 hash. `source_digest` must be computed on the same host for the oracle, trace and report because older P10 archive inventory showed cross-platform ordering drift.
+
+**Important provenance limit:** OS-verifying that a DAX model belongs to a Desktop PID cannot prove Desktop loaded the on-disk PBIP being fingerprinted, or that human-visible filters/clicks happened. The receipt says `local_project_source_fingerprinted: true`, `desktop_source_attested: false`, `interactive: not_run` accordingly. The trace checker also checks the P14 receipt contract and exact four-year DAX query hashes; all such JSON can still be caller fabricated. A separate trusted Desktop-loaded-path and input/action witness is needed for actual acceptance.
 
 The trace JSON uses `schema: vqs.contoso-desktop-interaction-trace/1`, the same `source_sha256` and `desktop_pid` as the oracle, `model`, `page_id: d9bc3b8f90439bcc`, and an eight-item `events` array. Example of one event (repeat with all required scenarios):
 

@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from tests.test_visual_regions import _run_one
+from tests.test_visual_regions import _run_one, _scene_bundle
 from vqs.cli import main
 from vqs.visual import pixel_quality
 from vqs.visual.pixel_quality import (
@@ -16,7 +16,7 @@ from vqs.visual.pixel_quality import (
     audit_regions,
     inspect_pixels,
 )
-from vqs.visual.regions import RegionError
+from vqs.visual.regions import RegionError, build_regions
 
 
 def _tile(width=160, height=120, *, marks=(), color=(238, 239, 242)) -> bytes:
@@ -61,6 +61,38 @@ def test_tiny_map_fails_with_source_bound_minimum_plot_width():
     assert result["findings"][0]["budget"] == "min_content_width"
 
 
+def test_thin_frame_cannot_hide_underfilled_data_visual():
+    # The border makes the naive occupied rectangle almost the full panel,
+    # even though the actual plotted mark is minuscule.
+    frame = [(8, 7, 151, 8), (8, 112, 151, 113),
+             (8, 7, 9, 113), (150, 7, 151, 113), (79, 58, 81, 60)]
+    result = _inspect(frame)
+    assert result["metrics"]["content_width_fraction"] > .85
+    assert result["status"] == "review_required"
+    assert "sparse_visual_needs_review" in {f["kind"] for f in result["findings"]}
+    enforced = _inspect(frame, limits={"min_foreground_fraction": .06})
+    assert enforced["status"] == "fail"
+    assert enforced["findings"][0]["budget"] == "min_foreground_fraction"
+
+
+def test_explicit_foreground_policy_rejects_blank_even_for_nondata_surface():
+    result = _inspect(kind="shape", limits={"min_foreground_fraction": 0.04})
+    assert result["status"] == "fail"
+    assert result["findings"][0]["budget"] == "min_foreground_fraction"
+
+
+def test_thick_frame_does_not_fool_interior_content_measure():
+    frame = [(7, 7, 153, 10), (7, 110, 153, 113),
+             (7, 7, 10, 113), (150, 7, 153, 113), (79, 59, 81, 61)]
+    report = _inspect(frame)
+    assert report["metrics"]["foreground_fraction"] > .035
+    assert report["metrics"]["interior_foreground_fraction"] < .02
+    assert report["status"] == "review_required"
+    enforced = _inspect(frame, limits={"min_interior_foreground_fraction": .05})
+    assert enforced["status"] == "fail"
+    assert enforced["findings"][0]["budget"] == "min_interior_foreground_fraction"
+
+
 def test_balanced_full_panel_map_passes_declared_content_budget():
     limits = {"min_content_width": 0.68, "min_content_height": 0.58,
               "max_margin_skew_x": 0.1}
@@ -101,6 +133,34 @@ def test_background_without_stable_perimeter_remains_unknown():
     result = inspect_pixels(bytes(raw), 160, 120, 3, visual_type="shapeMap")
     assert result["status"] == "unknown"
     assert result["findings"] == []
+
+
+def test_thin_legitimate_shape_does_not_abort_page_or_fail_occupancy():
+    tiny = bytes((240, 240, 240)) * (140 * 2)
+    result = inspect_pixels(tiny, 140, 2, 3, visual_type="shape")
+    assert result["status"] == "not_applicable"
+    assert result["metrics"]["pixel_dimensions"] == [140, 2]
+    assert inspect_pixels(tiny, 140, 2, 3, visual_type="card")["status"] == "unknown"
+
+
+def test_uncomposited_alpha_must_not_be_mistaken_for_opaque_content():
+    invisible_random_rgb = bytes((3, 118, 249, 0)) * (80 * 80)
+    assert inspect_pixels(invisible_random_rgb, 80, 80, 4,
+                          visual_type="shapeMap")["status"] == "unknown"
+    opaque_white = bytes((249, 249, 249, 255)) * (80 * 80)
+    assert inspect_pixels(opaque_white, 80, 80, 4,
+                          visual_type="shapeMap")["status"] == "fail"
+
+
+def test_tiny_pbip_data_visual_yields_unknown_not_uncaught_exception(tmp_path):
+    report, bundle = _scene_bundle(tmp_path, extra={
+        "v2": {"x": 30, "y": 110, "width": 100, "height": 6, "z": 9}})
+    regions = tmp_path / "all-regions"
+    build_regions(str(bundle), str(regions), report=str(report))
+    result = audit_regions(str(bundle), str(regions), report=str(report))
+    lookup = {r["visual_id"]: r for r in result["regions"]}
+    assert lookup["v2"]["status"] == "unknown"
+    assert result["status"] == "fail"  # The other real card is truly blank.
 
 
 @pytest.mark.parametrize("bad", [

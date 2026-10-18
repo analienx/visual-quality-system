@@ -10,6 +10,11 @@ from pathlib import Path
 import pytest
 
 from scripts import contoso_p14_interaction_assess as cli
+from vqs.powerbi.contoso_runtime import (
+    CURRENT_SOURCE_CONTRACT,
+    SOURCE_CONTRACT,
+    build_queries,
+)
 from vqs.powerbi.interaction_audit import (
     DEEP_DIVE_PAGE,
     SCHEMA,
@@ -42,6 +47,7 @@ def test_visible_number_rounding_interval_not_faked_exact_numbers(label, percent
 
 @pytest.mark.parametrize("text,percent", [
     ("$two million", False), ("10%", False), ("10M%", False),
+    ("10M%", True),
     ("(9", False), ("9)", False), ("", False),
 ])
 def test_bad_ui_number_blocks(text, percent):
@@ -51,6 +57,9 @@ def test_bad_ui_number_blocks(text, percent):
 
 def _state(year, factor):
     return {
+        "contract": SOURCE_CONTRACT,
+        "queries": {key: hashlib.sha256(dax.encode("utf-8")).hexdigest()
+                    for key, dax in build_queries(year).items()},
         "source_sha256": SOURCE, "desktop_pid": PID, "year": year,
         "semantic": "pass", "model": MODEL,
         "country": {key: value * factor for key, value in COUNTRY.items()},
@@ -64,7 +73,9 @@ def _state(year, factor):
 def _evidence(tmp_path):
     states = [_state(None, 2.0), _state(2023, 0.9),
               _state(2024, 1.0), _state(2025, 1.1)]
-    oracle = {"semantic": "pass", "source_sha256": SOURCE,
+    oracle = {"contract": CURRENT_SOURCE_CONTRACT,
+              "local_project_source_fingerprinted": True,
+              "semantic": "pass", "source_sha256": SOURCE,
               "desktop_pid": PID, "states": states}
     identifiers = ["year:all", "year:2023", "year:2024", "year:2025",
                    "year:2024-reset", "country:United States",
@@ -151,6 +162,9 @@ def test_full_matching_transcript_is_consistency_only_not_fake_ui_acceptance(tmp
     (lambda a,t: a["states"].pop(), "blocked"),
     (lambda a,t: a["states"][1].__setitem__("semantic", "blocked"), "fail"),
     (lambda a,t: a.__setitem__("semantic", "blocked"), "blocked"),
+    (lambda a,t: a.__setitem__("contract", "vqs.contoso-p11-semantic-oracle/1"), "blocked"),
+    (lambda a,t: a["states"][2]["queries"].__setitem__("country", "0" * 64), "blocked"),
+    (lambda a,t: a["states"][3].__delitem__("queries"), "blocked"),
 ])
 def test_forged_or_incomplete_ui_parity_rejected(tmp_path, change, expected):
     result = _audit(tmp_path, change)

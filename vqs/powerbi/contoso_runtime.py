@@ -24,6 +24,7 @@ REGIONS = frozenset({"North America", "Europe", "Asia Pacific"})
 YEARS = frozenset({2023, 2024, 2025})
 MEASURE = "'Fact Sales'[Reporting Year Sales]"
 SOURCE_CONTRACT = "vqs.contoso-p11-semantic-oracle/1"
+CURRENT_SOURCE_CONTRACT = "vqs.contoso-p14-current-live-oracle/1"
 
 
 def _year_filter(year: int | None) -> str:

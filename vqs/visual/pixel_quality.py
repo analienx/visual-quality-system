@@ -27,9 +27,13 @@ DATA_TYPES = frozenset({
     "map", "filledmap", "decompositiontreevisual", "decompositiontree",
     "donutchart", "piechart", "scatterchart", "treemap", "waterfallchart",
 })
+DECORATIVE_TYPES = frozenset({
+    "shape", "basicshape", "line", "textbox", "image", "actionbutton",
+    "button", "rectangle", "ellipse",
+})
 THRESHOLD_NAMES = frozenset({
-    "min_content_width", "min_content_height", "max_blank_band",
-    "max_margin_skew_x", "max_margin_skew_y",
+    "min_content_width", "min_content_height", "min_foreground_fraction", "max_blank_band",
+    "min_interior_foreground_fraction", "max_margin_skew_x", "max_margin_skew_y",
 })
 
 
@@ -76,7 +80,7 @@ def inspect_pixels(raw: bytes, width: int, height: int, channels: int, *,
     Sparse visuals whose render intent is unknown are review candidates only.
     """
     if (channels not in (1, 3, 4) or type(width) is not int
-            or type(height) is not int or min(width, height) < 24
+            or type(height) is not int or min(width, height) < 1
             or len(raw) != width * height * channels):
         raise RegionError("invalid/review-unreadable target pixel buffer")
     budgets = dict(requirements or {})
@@ -85,9 +89,30 @@ def inspect_pixels(raw: bytes, width: int, height: int, channels: int, *,
             for value in budgets.values()):
         raise RegionError("unsupported or invalid content-occupancy policy")
     kind = visual_type.casefold() if isinstance(visual_type, str) else ""
+    # Separators, dividers, rules, tiny images and decorative shapes are
+    # legitimate PBIR visuals. A 2px line must not abort whole-page QA.
+    # Conversely, an unreadably small actual data visual must stay unknown.
+    if min(width, height) < 24:
+        return {
+            "status": "not_applicable" if kind in DECORATIVE_TYPES else "unknown",
+            "reason": ("thin/small decorative surface has no plot occupancy"
+                       if kind in DECORATIVE_TYPES
+                       else "data or unknown visual too small for reliable pixel measurement"),
+            "metrics": {"pixel_dimensions": [width, height]}, "findings": [],
+        }
+    # An RGBA source with transparency is not yet the composed Desktop
+    # appearance. Invisible RGB bytes must not be classified as real content.
+    if channels == 4 and any(raw[i] != 255 for i in range(3, len(raw), 4)):
+        return {
+            "status": "unknown", "reason": "uncomposited RGBA transparency",
+            "metrics": {"pixel_dimensions": [width, height]}, "findings": [],
+        }
     background, support = _background(raw, width, height, channels)
     reliable = support >= 0.58
     count = 0
+    interior_count = 0
+    inset_x, inset_y = max(1, width * 8 // 100), max(1, height * 8 // 100)
+    interior_area = (width - 2 * inset_x) * (height - 2 * inset_y)
     min_x, max_x, min_y, max_y = width, -1, height, -1
     row_has_content = [False] * height
     stride = width * channels
@@ -99,12 +124,15 @@ def inspect_pixels(raw: bytes, width: int, height: int, channels: int, *,
                 if max(abs(rgb[k] - background[k]) for k in range(3)) < 32:
                     continue
                 count += 1
+                if inset_x <= x < width - inset_x and inset_y <= y < height - inset_y:
+                    interior_count += 1
                 min_x = min(min_x, x)
                 max_x = max(max_x, x)
                 min_y = min(min_y, y)
                 max_y = max(max_y, y)
                 row_has_content[y] = True
     density = count / (width * height)
+    interior_density = interior_count / interior_area
     if count:
         content_width = (max_x + 1 - min_x) / width
         content_height = (max_y + 1 - min_y) / height
@@ -126,6 +154,7 @@ def inspect_pixels(raw: bytes, width: int, height: int, channels: int, *,
     metric = {
         "background_support": round(support, 4),
         "foreground_fraction": round(density, 5),
+        "interior_foreground_fraction": round(interior_density, 5),
         "content_width_fraction": round(content_width, 4),
         "content_height_fraction": round(content_height, 4),
         "longest_central_blank_band": round(blank_band, 4),
@@ -141,10 +170,12 @@ def inspect_pixels(raw: bytes, width: int, height: int, channels: int, *,
     if _is_data_visual(kind) and density <= 0.0007:
         findings.append({"kind": "rendered_data_visual_blank", "severity": "fail",
                          "remedy": "Inspect data readiness/bindings and host errors; repair a candidate and recapture"})
-    if budgets and density > 0.0007:
+    if budgets:
         measured = {
             "min_content_width": content_width,
             "min_content_height": content_height,
+            "min_foreground_fraction": density,
+            "min_interior_foreground_fraction": interior_density,
             "max_blank_band": blank_band,
             "max_margin_skew_x": abs(left - right),
             "max_margin_skew_y": abs(top - bottom),
@@ -160,7 +191,11 @@ def inspect_pixels(raw: bytes, width: int, height: int, channels: int, *,
                     "remedy": "Adjust ONLY a disposable PBIR candidate's visual/plot sizing or formatting; validate, reload and recapture",
                 })
     if not budgets and density > 0.0007 and _is_data_visual(kind):
-        if (content_width < 0.42 and content_height < 0.48) or blank_band > 0.53:
+        # A thin outer stroke, grid, or axis can span the whole chart while
+        # the real plot is tiny. Content extents alone cannot certify fill.
+        if ((content_width < 0.42 and content_height < 0.48)
+                or blank_band > 0.53 or density < 0.035
+                or interior_density < 0.02):
             findings.append({"kind": "sparse_visual_needs_review", "severity": "review",
                              "remedy": "Confirm expected plot occupancy from report design before an auto-fail or resize"})
         if abs(left - right) > 0.4 or abs(top - bottom) > 0.4:

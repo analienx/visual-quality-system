@@ -27,6 +27,8 @@ An optional design budget deliberately states expected chart occupancy, rather t
       "requirements": {
         "min_content_width": 0.65,
         "min_content_height": 0.5,
+        "min_foreground_fraction": 0.05,
+        "min_interior_foreground_fraction": 0.04,
         "max_blank_band": 0.4,
         "max_margin_skew_x": 0.15,
         "max_margin_skew_y": 0.15
@@ -36,7 +38,7 @@ An optional design budget deliberately states expected chart occupancy, rather t
 }
 ```
 
-All five values are bounded fractions of that visual's rendered target dimensions. These numbers are *illustrative*, not universally correct or automatically endorsed design tokens; a reviewer should select and record limits per report/visual/task before judging. Stale source/bundle policy, duplicate or nonexistent selectors, tampered pixels and unverified crop calibration are rejected.
+All seven values are fractions bounded between zero and one. The width, height and margin figures are relative to the visual's target dimensions; foreground fraction is the proportion of pixels differing materially from the inferred background. Interior foreground excludes an 8% perimeter on every edge, reducing the influence of full-frame borders. These numbers are *illustrative*, not universally correct or automatically endorsed design tokens; a reviewer should select and record limits per report/visual/task before judging. A surrounding frame can make bounding-box width and height look healthy despite a tiny actual plot, so low overall **or interior** foreground density also causes review. Explicit `min_foreground_fraction` and `min_interior_foreground_fraction` budgets can enforce stronger design policies. Stale source/bundle policy, duplicate or nonexistent selectors, tampered pixels and unverified crop calibration are rejected.
 
 ## Outcomes and repair loop
 
@@ -45,6 +47,7 @@ All five values are bounded fractions of that visual's rendered target dimension
 | `fail` | A confidently near-blank data visual or an explicit source-bound occupancy/padding budget breached | 1 |
 | `review_required` | Large internal void, tiny content or skewed padding is plausible, but no design budget permits automated rejection | 0 |
 | `unknown` | No reliable uniform perimeter/background; metrics would be unreliable | 2 |
+| `not_applicable` (per region) | Thin/small decorative separator, shape or image; no data plot occupancy to judge | Aggregated with other region statuses |
 | `no_pixel_issue_proven` | No issue caught by these pixel rules; *not* visual approval | 0 |
 
 Every result sets `visual_acceptance: not_run`. A plot with labels rendered over each other, subtle text truncation, image-based map shading or an unusual patterned background can require other checks even if this gate is clear.
@@ -56,6 +59,8 @@ For a `fail`, identify the exact `page_id`/`visual_id`, `budget`, rendered crop 
 - Rendered data visual entirely empty; decorative blank shape not falsely failed.
 - Extremely small shape map/card: review by default, explicit minimum width/height budget can fail.
 - Lopsided left/right padding and large interior void between header and footer.
+- Thin or thick outline spanning the entire visual does not conceal a sparse, undersized plotted mark; a policy may demand minimum overall and interior foreground density.
+- Tiny legitimate decorative shape is not a fatal pixel decoder error; an unreadably small data visual stays `unknown`. Transparent RGBA pixels cannot create imaginary content.
 - Checkerboard/patterned perimeter makes the measurement `unknown`, not fabricated precision.
 - Stale source and screenshot bundle, unrecognized/duplicate selectors, invalid budgets, modified crop PNG and a crop swapped immediately **after** the first verification.
 - CLI returns a failing exit code on a source-bound blank-card fixture without claiming a complete review.
