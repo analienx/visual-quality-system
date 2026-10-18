@@ -681,6 +681,36 @@ def _regions(args) -> int:
     return 0
 
 
+def _assurance(args) -> int:
+    """Re-execute exact pixel QA and expose missing independent release proof."""
+    from vqs.quality_assurance import assess_report_readiness
+
+    if args.out is not None and (args.out.exists() or args.out.is_symlink()):
+        print(json.dumps({"status": "blocked", "reason": "refusing existing output"}))
+        return 2
+    try:
+        policy = (json.loads(args.policy.read_text(encoding="utf-8"))
+                  if args.policy else None)
+        oracle = (json.loads(args.oracle.read_text(encoding="utf-8"))
+                  if args.oracle else None)
+        trace = (json.loads(args.trace.read_text(encoding="utf-8"))
+                 if args.trace else None)
+        output = assess_report_readiness(
+            str(args.bundle), str(args.regions), report=str(args.report),
+            pages=args.page, policy=policy, oracle=oracle, trace=trace,
+            captures_dir=str(args.captures) if args.captures else None)
+        result = json.dumps(output, indent=2, ensure_ascii=False)
+        if args.out is not None:
+            with args.out.open("x", encoding="utf-8") as handle:
+                handle.write(result + "\n")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        print(json.dumps({"status": "blocked",
+                          "reason": f"{type(exc).__name__}: {exc}"}))
+        return 2
+    print(result)
+    return 1 if output["verdict"] == "fail" else 2
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="vqs", description="Visual Quality System pre-alpha tools")
     parser.add_argument("--version", action="version",
@@ -781,6 +811,26 @@ def main(argv: list[str] | None = None) -> int:
                              help="Pixel context outside visual bounds, max 128")
     regions_cmd.add_argument("--policy", type=Path, default=None,
                              help="For audit: exact source/bundle-bound content budgets")
+    assurance_cmd = commands.add_parser(
+        "assurance", help="Recheck full visual crop coverage, pixel quality and UI evidence")
+    assurance_cmd.add_argument("bundle", type=Path,
+                               help="Verified canvas review bundle")
+    assurance_cmd.add_argument("regions", type=Path,
+                               help="Pixel-exact source-bound visual sidecar")
+    assurance_cmd.add_argument("--report", type=Path, required=True,
+                               help="Current report source; never optional")
+    assurance_cmd.add_argument("--page", action="append", default=None,
+                               help="Require coverage of selected page(s), else all")
+    assurance_cmd.add_argument("--policy", type=Path, default=None,
+                               help="Exact source/bundle-bound pixel policy")
+    assurance_cmd.add_argument("--oracle", type=Path, default=None,
+                               help="Live current-source All/2023/2024/2025 DAX receipt")
+    assurance_cmd.add_argument("--trace", type=Path, default=None,
+                               help="Recorded eight-step Desktop UI observations")
+    assurance_cmd.add_argument("--captures", type=Path, default=None,
+                               help="Private exact screenshot files backing the trace")
+    assurance_cmd.add_argument("--out", type=Path, default=None,
+                               help="Write private JSON readiness; refuses overwrite")
     commands.add_parser("doctor", help="Report external tool capabilities; never installs")
     review = commands.add_parser("request-review", help="Require complete source-bound page images")
     review.add_argument("report", type=Path)
@@ -995,6 +1045,8 @@ def main(argv: list[str] | None = None) -> int:
         return _review_images(args)
     if args.command == "regions":
         return _regions(args)
+    if args.command == "assurance":
+        return _assurance(args)
     if args.command == "doctor":
         return _doctor()
     if args.command == "status":
