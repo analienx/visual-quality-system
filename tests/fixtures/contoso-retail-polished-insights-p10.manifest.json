@@ -1,0 +1,32 @@
+{
+  "contract": "vqs.p10-polished-contoso-report/1",
+  "date": "2026-10-18",
+  "user_authorized_contoso_public": true,
+  "sha256": "c46fd32848eb1ea3b9c039c64d702c8f9c9b4d41b3a95c8fd350ca50e671f21e",
+  "report_model_source_sha256": "0aabd401d0fb2973263a77faa8349b552e7a74325b3154499c0aeef40d29bdc3",
+  "verified_private_desktop_screenshot_source_sha256": "0aabd401d0fb2973263a77faa8349b552e7a74325b3154499c0aeef40d29bdc3",
+  "files": 86,
+  "size_bytes": 282924,
+  "pages": 5,
+  "visuals": 54,
+  "microsoft_validator": {
+    "errors": 0,
+    "warnings": 0
+  },
+  "map_type": "shapeMap",
+  "map_geo_commit": "eb172bc4bbfaea2f072fdecc8c1fe74851390bf4",
+  "geo_antartica_removed": true,
+  "country_binding": "Dim Store.Country",
+  "map_measure": "Fact Sales.Reporting Year Sales",
+  "region_binding": "Dim Store.Region",
+  "bar_measure": "Fact Sales.Reporting Year Sales",
+  "decomposition_tree_remaining_on_markets_drivers": true,
+  "source_unmodified": true,
+  "release_authority": "draft_not_merged",
+  "limitations": [
+    "Shape Map still Microsoft preview",
+    "map requires public GitHub reachability",
+    "region bar replaces this page's decomposition tree",
+    "slicer/drill interaction and per-country semantic parity not yet tested"
+  ]
+}
