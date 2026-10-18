@@ -57,10 +57,13 @@ def test_source_bound_full_project_and_model_unchanged(original: Path, tmp_path:
     assert set(receipt["changed_report_files"]) == {
         MAP.as_posix(), REGION.as_posix(),
     }
-    assert _digest(destination / MAP) == _digest(TARGET_MAP)
-    assert _digest(destination / REGION) == _digest(TARGET_REGION)
-    assert _digest(original / MAP) == _digest(OLD_MAP)
-    assert _digest(original / REGION) == _digest(ORIGINAL_TREE)
+    # Git converts repository JSON LF/CRLF on different runner platforms.
+    # Compare the corresponding source/template objects semantically; the
+    # authoritative packaged candidate still has a strict byte-for-byte test.
+    assert json.loads((destination / MAP).read_text()) == json.loads(TARGET_MAP.read_text())
+    assert json.loads((destination / REGION).read_text()) == json.loads(TARGET_REGION.read_text())
+    assert json.loads((original / MAP).read_text()) == json.loads(OLD_MAP.read_text())
+    assert json.loads((original / REGION).read_text()) == json.loads(ORIGINAL_TREE.read_text())
     for name, sha in source_inventory.items():
         assert _digest(original / name) == sha, "original project mutated"
         if name not in (MAP.as_posix(), REGION.as_posix()):
