@@ -19,6 +19,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from vqs.document.field_quality import scan_text
 from vqs.document.inspect import inspect_docx
 from vqs.document.native_word import MAX_PDF_BYTES
 from vqs.document.native_word import SCHEMA as NATIVE_SCHEMA
@@ -131,6 +132,8 @@ def run(source_docx: Path, native_pdf: Path, native_receipt: Mapping[str, Any],
     result: dict[str, Any] = {
         "schema": SCHEMA,
         "all_page_capture": "blocked",
+        "rendered_field_integrity": "blocked",
+        "document_bookmark_integrity": "blocked",
         "independent_paginated_review": "blocked",
         "document_report_consistency": "blocked",
         "independent_acceptance": "blocked",
@@ -184,6 +187,8 @@ def run(source_docx: Path, native_pdf: Path, native_receipt: Mapping[str, Any],
             created_dir = True
             pages: list[dict[str, Any]] = []
             total_png_bytes = 0
+            field_errors: dict[str, int] = {}
+            placeholders: dict[str, int] = {}
             for index in range(1, page_count + 1):
                 page = reader[index - 1]
                 bitmap = page.render(scale=RENDER_DPI / 72, draw_annots=True)
@@ -195,7 +200,13 @@ def run(source_docx: Path, native_pdf: Path, native_receipt: Mapping[str, Any],
                 count_chars = textpage.count_chars()
                 _require(count_chars <= 100_000, "blocked",
                          "PDF page text exceeds bounded geometry scan")
-                word_count = len(textpage.get_text_bounded().split())
+                page_text = textpage.get_text_bounded()
+                word_count = len(page_text.split())
+                field_scan = scan_text(page_text)
+                for key, value in field_scan["errors"].items():
+                    field_errors[key] = field_errors.get(key, 0) + value
+                for key, value in field_scan["placeholders"].items():
+                    placeholders[key] = placeholders.get(key, 0) + value
                 image_count = sum(1 for _ in page.get_objects(
                     filter=[pdfium.raw.FPDF_PAGEOBJ_IMAGE]))
                 width, height = page.get_size()
@@ -212,6 +223,8 @@ def run(source_docx: Path, native_pdf: Path, native_receipt: Mapping[str, Any],
                     flags.append("text_outside_page_bounds")
                 if word_count == 0 and image_count:
                     flags.append("image_only_review_required")
+                flags.extend(f"field_error:{key}" for key in field_scan["errors"])
+                flags.extend(f"placeholder:{key}" for key in field_scan["placeholders"])
                 buffer = io.BytesIO()
                 image.save(buffer, format="PNG")
                 png = buffer.getvalue()
@@ -235,6 +248,8 @@ def run(source_docx: Path, native_pdf: Path, native_receipt: Mapping[str, Any],
                     "text_word_count": word_count,
                     "pdf_image_count": image_count,
                     "sampled_nonwhite_fraction": ink_ratio,
+                    "field_error_counts": field_scan["errors"],
+                    "placeholder_counts": field_scan["placeholders"],
                     "flags": flags,
                 })
             _require(_file_hash(source_docx, cap=MAX_DOCX_BYTES, kind="DOCX") == source_sha
@@ -249,16 +264,26 @@ def run(source_docx: Path, native_pdf: Path, native_receipt: Mapping[str, Any],
                          "fail", "page PNG changed during publication")
             result.update({
                 "all_page_capture": "pass",
+                "rendered_field_integrity": "fail" if field_errors else "not_detected",
+                "document_bookmark_integrity": "fail" if document["inventory"].get(
+                    "unresolved_internal_bookmark_links", 0) else "not_detected",
                 "source_sha256": source_sha, "pdf_sha256": pdf_sha,
                 "native_word_version": native_receipt.get("word_version"),
                 "raster_backend": "PDFium", "raster_backend_version": pdfium.PDFIUM_INFO.version,
                 "raster_binding_version": pdfium.PYPDFIUM_INFO.version,
                 "dpi": RENDER_DPI, "page_count": page_count,
                 "captured_pages": pages,
+                "field_error_counts": field_errors,
+                "placeholder_counts": placeholders,
+                "internal_bookmark_links": document["inventory"].get(
+                    "internal_bookmark_links", 0),
+                "unresolved_internal_bookmark_links": document["inventory"].get(
+                    "unresolved_internal_bookmark_links", 0),
                 "docx_images": document["inventory"].get("images", []),
                 "review_flags": sum(len(page["flags"]) for page in pages),
                 "reason": ("every native Word PDF page captured and hash-bound; "
-                           "independent visual and report-claim verification still blocked"),
+                           + ("rendered Word field errors detected; " if field_errors else "")
+                           + "independent visual and report-claim verification still blocked"),
             })
             index_file = output_dir / "index.json"
             with index_file.open("x", encoding="utf-8") as stream:

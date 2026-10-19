@@ -16,12 +16,15 @@ def _sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _docx(path: Path) -> Path:
+def _docx(path: Path, *, broken_link=False) -> Path:
     xml = (
         b'<?xml version="1.0" encoding="UTF-8"?>'
         b'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
         b'<w:body><w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr>'
         b'<w:r><w:t>Native Word evidence source</w:t></w:r></w:p>'
+        + (b'<w:p><w:hyperlink w:anchor="_TocMissing">'
+           b'<w:r><w:t>Broken TOC link</w:t></w:r></w:hyperlink></w:p>'
+           if broken_link else b'') +
         b'</w:body></w:document>'
     )
     with zipfile.ZipFile(path, "w") as archive:
@@ -30,7 +33,8 @@ def _docx(path: Path) -> Path:
     return path
 
 
-def _pdf(path: Path, *, pages=2, blank_last=False, width=612, height=792) -> Path:
+def _pdf(path: Path, *, pages=2, blank_last=False, width=612, height=792,
+         page_texts=None) -> Path:
     """Construct tiny real PDF objects/xref using stdlib; no AGPL test tools."""
     objects: list[bytes] = [b""] * (3 + pages * 2)
     objects[0] = b"<< /Type /Catalog /Pages 2 0 R >>"
@@ -46,8 +50,9 @@ def _pdf(path: Path, *, pages=2, blank_last=False, width=612, height=792) -> Pat
             f"/Resources << /Font << /F1 3 0 R >> >> "
             f"/Contents {content_id} 0 R >>".encode()
         )
+        value = page_texts[index] if page_texts is not None else f"Word page {index + 1}"
         data = (b"" if blank_last and index == pages - 1 else
-                (f"BT /F1 11 Tf 72 {height - 72} Td (Word page {index + 1}) Tj ET".encode()))
+                (f"BT /F1 11 Tf 72 {height - 72} Td ({value}) Tj ET".encode()))
         objects[content_id - 1] = (b"<< /Length " + str(len(data)).encode()
                                    + b" >>\nstream\n" + data + b"\nendstream")
     raw = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
@@ -244,3 +249,23 @@ def test_page_size_match_requires_real_finite_width_and_height():
                                                 "height_points": 792}])
     assert not pe._page_size_matches(612, 792, [{"width_points": "612",
                                                 "height_points": 792}])
+
+
+def test_visible_word_bookmark_errors_override_clean_pixel_flags(tmp_path):
+    source = _docx(tmp_path / "broken-bookmarks.docx", broken_link=True)
+    pdf = _pdf(tmp_path / "native.pdf", page_texts=[
+        "Error! Bookmark not defined. Error! Bookmark not defined.",
+        "Owner: [To be confirmed]",
+    ])
+    result = pe.run(source, pdf, _receipt(source, pdf), tmp_path / "pages")
+    assert result["all_page_capture"] == "pass"
+    assert result["rendered_field_integrity"] == "fail"
+    assert result["document_bookmark_integrity"] == "fail"
+    assert result["unresolved_internal_bookmark_links"] == 1
+    assert result["field_error_counts"] == {"word_bookmark_not_defined": 2}
+    assert result["placeholder_counts"] == {"unconfirmed_owner_or_value": 1}
+    assert "field_error:word_bookmark_not_defined" in result["captured_pages"][0]["flags"]
+    assert "placeholder:unconfirmed_owner_or_value" in result["captured_pages"][1]["flags"]
+    assert result["independent_paginated_review"] == "blocked"
+    assert result["document_report_consistency"] == "blocked"
+    assert result["independent_acceptance"] == "blocked"

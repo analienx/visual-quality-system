@@ -86,6 +86,13 @@ def inspect_docx(path: Path) -> dict:
             issues.append({"rule": "missing_body"})
         embeds = [blip.get(f"{R}embed") for blip in document.findall(f".//{A}blip")
                   if blip.get(f"{R}embed")]
+        bookmarks = {item.get(f"{W}name") for item in
+                     document.findall(f".//{W}bookmarkStart")
+                     if item.get(f"{W}name")}
+        internal_links = [item.get(f"{W}anchor") for item in
+                          document.findall(f".//{W}hyperlink")
+                          if item.get(f"{W}anchor")]
+        unresolved_links = sum(anchor not in bookmarks for anchor in internal_links)
         rels_name = "word/_rels/document.xml.rels"
         targets: dict[str, str] = {}
         if rels_name in names:
@@ -114,5 +121,8 @@ def inspect_docx(path: Path) -> dict:
         inventory = {"parts": sorted(names), "paragraphs": len(paragraphs),
                      "headings": len(headings), "tables": len(tables),
                      "word_main_story_table_groups": word_table_groups,
+                     "bookmark_definitions": len(bookmarks),
+                     "internal_bookmark_links": len(internal_links),
+                     "unresolved_internal_bookmark_links": unresolved_links,
                      "style_ids": styles, "images": images}
         return {"inventory": inventory, "issues": issues}
