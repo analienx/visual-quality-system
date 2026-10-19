@@ -59,6 +59,31 @@ def inspect_docx(path: Path) -> dict:
                     if p.find(f"{W}pPr/{W}pStyle") is not None
                     and str(p.find(f"{W}pPr/{W}pStyle").get(f"{W}val", "")).startswith("Heading")]
         tables = document.findall(f".//{W}tbl")
+        # Document.Tables.Count is a *logical main-story* inventory, not a
+        # literal count of every OOXML <w:tbl>. Word joins adjacent body table
+        # elements without an intervening paragraph (observed 50 -> 42 on a
+        # real generated 30-page Contoso DOCX). It also need not include
+        # nested tables. Derive a conservative flat-body grouping and refuse
+        # parity claims for unsupported wrappers or nested table shapes.
+        body = document.find(f"{W}body")
+        word_table_groups: int | None = 0 if body is not None else None
+        if body is not None:
+            prior_was_table = False
+            for child in body:
+                if child.tag == f"{W}tbl":
+                    if not prior_was_table:
+                        word_table_groups += 1
+                    prior_was_table = True
+                    if child.findall(f".//{W}tbl"):
+                        word_table_groups = None
+                        break
+                else:
+                    prior_was_table = False
+                    if child.findall(f".//{W}tbl"):
+                        word_table_groups = None
+                        break
+        if body is None:
+            issues.append({"rule": "missing_body"})
         embeds = [blip.get(f"{R}embed") for blip in document.findall(f".//{A}blip")
                   if blip.get(f"{R}embed")]
         rels_name = "word/_rels/document.xml.rels"
@@ -88,5 +113,6 @@ def inspect_docx(path: Path) -> dict:
                 styles = sorted({s.get(f"{W}styleId", "") for s in root.findall(f"{W}style")})
         inventory = {"parts": sorted(names), "paragraphs": len(paragraphs),
                      "headings": len(headings), "tables": len(tables),
+                     "word_main_story_table_groups": word_table_groups,
                      "style_ids": styles, "images": images}
         return {"inventory": inventory, "issues": issues}

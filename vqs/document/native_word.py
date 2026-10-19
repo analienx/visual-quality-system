@@ -95,9 +95,13 @@ def _word_receipt(payload: Any, source: Path, inventory: Mapping[str, Any]) -> d
              and type(paragraphs) is int and 1 <= paragraphs <= 15000
              and type(table_count) is int and 0 <= table_count <= 1000,
              "blocked", "native Word page/paragraph/table statistics unavailable")
-    _require(paragraphs >= inventory.get("paragraphs", 0)
-             and table_count == inventory.get("tables"),
-             "fail", "Word rendered fewer source paragraphs or a different table inventory")
+    expected_groups = inventory.get("word_main_story_table_groups")
+    _require(type(expected_groups) is int and 0 <= expected_groups <= inventory.get("tables", 0),
+             "blocked", "Word table parity requires a supported flat OOXML body")
+    _require(paragraphs >= inventory.get("paragraphs", 0),
+             "fail", "Word rendered fewer paragraphs than the OOXML source")
+    _require(table_count == expected_groups,
+             "fail", "Word logical table count contradicts OOXML adjacent table groups")
     sections = payload.get("sections")
     _require(isinstance(sections, list) and bool(sections),
              "blocked", "native Word section/page margins not reported")
@@ -150,6 +154,8 @@ def _word_receipt(payload: Any, source: Path, inventory: Mapping[str, Any]) -> d
             split.append(index)
     return {
         "page_count": pages, "paragraphs": paragraphs, "tables": table_count,
+        "ooxml_table_elements": inventory["tables"],
+        "ooxml_adjacent_table_groups": expected_groups,
         "headings": headings, "sections": sections, "table_pages": tables,
         "split_table_indices": split,
         "heading_position_coverage": "complete" if all(positions) else "partial",

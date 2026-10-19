@@ -192,7 +192,8 @@ def test_multi_page_table_is_detected_as_review_candidate_not_false_failure(tmp_
     evidence["page_count"] = 4
     evidence["table_pages"] = [{"index": 1, "start_page": 1, "end_page": 4}]
     result = _word_receipt(evidence, source,
-                           {"paragraphs": 1, "headings": 1, "tables": 1})
+                           {"paragraphs": 1, "headings": 1, "tables": 1,
+                            "word_main_story_table_groups": 1})
     assert result["page_count"] == 4
     assert result["split_table_indices"] == [1]
 
@@ -200,6 +201,7 @@ def test_multi_page_table_is_detected_as_review_candidate_not_false_failure(tmp_
 def test_word_paragraph_and_table_inventory_cannot_be_fabricated(tmp_path):
     source = _docx(tmp_path / "a.docx")
     values = _payload(source)
-    with pytest.raises(WordNativeError, match="different table"):
+    with pytest.raises(WordNativeError, match="logical table count"):
         _word_receipt({**values, "tables": 1}, source,
-                      {"paragraphs": 1, "headings": 1, "tables": 0})
+                      {"paragraphs": 1, "headings": 1, "tables": 0,
+                       "word_main_story_table_groups": 0})
