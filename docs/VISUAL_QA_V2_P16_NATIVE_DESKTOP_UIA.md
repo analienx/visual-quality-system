@@ -101,6 +101,6 @@ Useful official engineering references:
 - Power BI Shape Map and its constraints:
   https://learn.microsoft.com/en-us/power-bi/visuals/power-bi-shape-map
 - Google OR-Tools CP-SAT 2D no-overlap:
-  https://developers.google.com/optimization/reference/python/sat/python/cp_model
+  https://or-tools.github.io/docs/python/classortools_1_1sat_1_1python_1_1cp__model_1_1CpModel.html
 - Microsoft Word ExportAsFixedFormat:
-  https://learn.microsoft.com/en-us/dotnet/api/microsoft.office.interop.word._document.exportasfixedformat
+  https://learn.microsoft.com/en-us/dotnet/api/microsoft.office.interop.word._document.exportasfixedformat?view=word-pia
