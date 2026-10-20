@@ -9,7 +9,7 @@ python -m ruff check .
 ```
 
 Python ≥3.11. The package has zero runtime dependencies; keep it
-that way — external tools (pbir, Bridge, MCP) are detected via
+that way — external tools (Microsoft Report Author CLI, Desktop Bridge, Modeling MCP) are detected via
 `vqs doctor`, never imported.
 
 ## Gates (must pass before review)
@@ -27,7 +27,7 @@ when they start a workflow, a `docs/USER_GUIDE.md` passage.
 
 ## PR rules
 
-- Follow [.github/pull_request_template.md](../.github/pull_request_template.md):
+- Follow [.github/pull_request_template.md](.github/pull_request_template.md):
   evidence table, tests run *and* tests not run, hashes, negative
   controls. Doc-only PRs say so and never advance a capability to
   `verified`.
