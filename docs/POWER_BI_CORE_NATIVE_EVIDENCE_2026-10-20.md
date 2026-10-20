@@ -39,15 +39,22 @@ the resulting report returned **zero errors and zero warnings**.
 - Modeling MCP executed a repeated live data-readiness query and returned
   a populated model. Source identity was checked before and after capture.
 - Native Windows UI Automation identified the actual Year slicer and Region
-  bars, selected 2024, then Europe, and cleared the selections. The Sales
-  KPI and regional bars responded to the selected context; restoration
-  returned the previous default. **Readback must allow for asynchronous
-  visual refresh**—the immediate first snapshot can be briefly stale.
+  bars. A formal **nine-event** sequence, checked against a fresh four-year
+  executed DAX oracle on the same Desktop PID, **passed all nine scenarios**,
+  including 2023/2024/2025, Europe selection, clearing and All restoration.
+  The Sales KPI and regional bars followed the selected context. **Readback
+  must allow for asynchronous visual refresh**—the first snapshot can be stale.
 - A bounded read-only hit test at expected Shape Map country coordinates
   resolved to an **unrelated foreground window**, not Power BI Desktop.
   Thus a blind pointer click would have targeted the wrong app; no pointer
   event was injected. The map country interaction is correctly left blocked
   until a trusted, foreground-attested visual input adapter is available.
+- A later formal recorder initially blocked while the disposable Desktop
+  window was minimized: Bridge stayed connected, but UIA bounds were empty.
+  A targeted `WindowPattern` restore of that **run-owned candidate only**
+  returned it to Normal and made the complete nine-event recorder pass.
+  Minimized windows now receive an explicit diagnostic; no adapter silently
+  restores or focuses a user-owned Desktop window.
 - The screenshots were reviewed as whole pages as well as individual
   repairs. The original visual problems above were actually removed.
 
@@ -62,7 +69,7 @@ test fixture is counted as an independent visual acceptance decision.
 | G1 populated native report | 5/5 real pages; Modeling MCP live readiness | Engineering pass |
 | G2 aesthetics and rendered text | Actual before/after screenshots reviewed by implementing agent; no independent reviewer | **Blocked** |
 | G3 repair confinement | Disposable copy; bounded PBIR cosmetics; audited changes; CLI validation | Engineering pass; promotion separate |
-| G4 interactive parity | Genuine Year/Region UIA click/readback; no Shape Map country click witness | **Blocked for complete scope** |
+| G4 interactive parity | Full 9/9 genuine Year/Region UIA + DAX parity; no Shape Map country click witness | **Blocked for complete scope** |
 | G6 release | No independently attested second unrelated PBIP and separate verifier/owner promotion | **Blocked** |
 
 Word/DOCX does **not** enter this `powerbi-core` gate. The next useful

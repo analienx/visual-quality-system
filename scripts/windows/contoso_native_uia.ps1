@@ -185,6 +185,17 @@ $window = [System.Windows.Automation.AutomationElement]::FromHandle(
 if ($null -eq $window -or $window.Current.Name -notmatch '^Contoso Retail(?:\\s|$)') {
     throw 'Desktop window title is not the explicit Contoso Retail preview'
 }
+# Bridge connectivity does not prove that the desktop is rendered. A
+# minimized Power BI window exposes an empty UIA root and no report group.
+# Report the OS state precisely; this adapter must never raise or focus a
+# user-owned window. An attested run-owned candidate can be restored by a
+# separate operator action using WindowPattern.SetWindowVisualState(Normal).
+$windowState = $window.GetCurrentPattern(
+    [System.Windows.Automation.WindowPattern]::Pattern).Current.WindowVisualState
+if ($windowState -eq [System.Windows.Automation.WindowVisualState]::Minimized -or
+    $window.Current.BoundingRectangle.IsEmpty) {
+    throw 'target Desktop window is minimized/unrendered: restore the attested disposable candidate before native UIA'
+}
 $report = Find-Exact $window 'Power BI Report' ([System.Windows.Automation.ControlType]::Group)
 $yearControl = Find-Exact $report 'Year' ([System.Windows.Automation.ControlType]::ComboBox)
 $actionRect = $null

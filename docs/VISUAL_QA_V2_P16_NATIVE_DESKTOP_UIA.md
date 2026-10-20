@@ -98,10 +98,19 @@ An independently opened **disposable** Contoso PBIP candidate was captured
 in Desktop after a surgical six-visual-definition repair. Microsoft Report
 Author validation returned **0 errors and 0 warnings**. Bridge captured
 all five report pages; Modeling MCP independently attested populated data
-with a repeat query. Native UIA, on the fresh run-owned Desktop PID, actually
-selected reporting year **2024**, selected the **Europe** regional bar,
-cleared Region, and restored Year **All**. A later read confirmed the Sales
-KPI followed the year change (native rendering is asynchronous).
+with a repeat query. A new four-year executed DAX oracle and **complete
+nine-event native UIA recorder**, on the same fresh run-owned Desktop PID,
+verified **All/2023/2024/2025**, Europe selection and clearing, and restored
+All. All nine scenarios passed real displayed KPI/region and geometry checks.
+Native visual refresh is asynchronous and the recorder waits for parity.
+
+The run also revealed a concrete runtime failure mode: Bridge remains
+connected when Desktop is **minimized**, but its UIA root has empty bounds
+and no report descendants. Restoring **only the attested disposable
+candidate** through Windows `WindowPattern.SetWindowVisualState(Normal)`
+made the nine-event recorder pass. The versioned adapter now diagnoses a
+minimized/unrendered window explicitly, but never silently raises or
+focuses a user-owned Desktop window.
 
 The full private snapshots, device paths, model cache, and observed sales
 numbers remain on the authorized Windows host, never in public Git.

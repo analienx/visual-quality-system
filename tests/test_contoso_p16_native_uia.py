@@ -176,3 +176,16 @@ def test_windows_ui_adapter_not_called_on_other_os(monkeypatch):
     monkeypatch.setattr(desktop_uia.os, "name", "posix")
     with pytest.raises(InteractionEvidenceError, match="needs Windows"):
         _invoke_native(PID, "probe", "")
+
+
+def test_minimized_desktop_diagnosis_never_silently_restores_window():
+    """Bridge connectivity is not proof the Win32/UIA canvas is rendered."""
+    from pathlib import Path
+
+    adapter = (Path(__file__).resolve().parents[1] /
+               "scripts/windows/contoso_native_uia.ps1").read_text(
+                   encoding="utf-8")
+    assert "WindowVisualState]::Minimized" in adapter
+    assert "BoundingRectangle.IsEmpty" in adapter
+    assert "target Desktop window is minimized/unrendered" in adapter
+    assert "SetWindowVisualState([System.Windows.Automation.WindowVisualState]::Normal)" not in adapter
