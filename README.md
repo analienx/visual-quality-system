@@ -72,7 +72,7 @@ Static facts come from parsing sources; rendered facts come from Desktop Bridge 
 | `vqs doctor` | Capability + install-identity report (never installs or gates) | Implemented on this branch |
 | `vqs inventory` / `status` | PBIR inventory / ledger snapshot | Implemented on this branch |
 | Typed candidate repair | Allowlisted edits in disposable candidates + explicit authoring backends | Review candidate ([PR #31](https://github.com/analienx/visual-quality-system/pull/31), draft unmerged; [WP-09](https://github.com/analienx/visual-quality-system/issues/14)) |
-| Word/DOCX backend | Native Word read-only pagination, all-page PNGs, broken bookmark/field-error detection; independent document quality and report-claim adjudication still blocked | 🔶 engineering partial ([P21 field integrity](docs/P21_WORD_FIELD_INTEGRITY.md), [WP-08](https://github.com/analienx/visual-quality-system/issues/13)) |
+| Word/DOCX backend | Native Word read-only pagination, all-page PNGs, broken bookmark/field-error detection and isolated TOC repair candidate; Word/PDF page-count reconciliation, independent prose/layout review and report-claim adjudication still blocked | 🔶 engineering partial ([P22 TOC candidate](docs/P22_WORD_TOC_CANDIDATE.md), [P21 field integrity](docs/P21_WORD_FIELD_INTEGRITY.md), [WP-08](https://github.com/analienx/visual-quality-system/issues/13)) |
 | Fabric Apps | React/TS adapter | ⏸ deferred ([WP-13](https://github.com/analienx/visual-quality-system/issues/18)) |
 
 Implemented means the command works on this branch with hosted CI; nothing here is independently accepted — the ledger reports zero verified work packages. The trust boundaries are recorded in [ADR 0001](docs/adr/0001-r6-trust-boundaries.md).
