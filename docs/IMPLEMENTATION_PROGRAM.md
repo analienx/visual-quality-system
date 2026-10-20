@@ -1,10 +1,29 @@
-# VQS implementation program — Power BI Desktop + Word first
+# VQS implementation program — historical combined-release baseline
+
+> **2026-10-20 architecture amendment:** This September delivery plan
+> assumed Power BI and Word would ship together. The product decision
+> is now **Power BI core first**; Word/DOCX is a separately gated
+> optional component. The implemented release profiles are
+> `powerbi-core`, `word-docx`, and legacy `combined`. See
+> [current architecture](ARCHITECTURE.md) and
+> [acceptance matrix](ACCEPTANCE_MATRIX.md). The phase description and
+> issue history below remain archival; they do **not** reinstate Word
+> G5 or WP-08 as hard blockers for the Power BI core release.
 
 **Planning baseline:** 2026-09-23. **State:** a delivery plan, not completed functionality. **Program:** [#4](https://github.com/analienx/visual-quality-system/issues/4). **Machine-readable work ledger:** [`roadmap/work_packages.json`](../roadmap/work_packages.json). **Execution architecture:** [EXECUTION_ARCHITECTURE.md](EXECUTION_ARCHITECTURE.md). **Agent/status protocol:** [LEDGER_AND_AGENT_PROTOCOL.md](LEDGER_AND_AGENT_PROTOCOL.md). **Acceptance:** [ACCEPTANCE_MATRIX.md](ACCEPTANCE_MATRIX.md). **Execution status (2026-10-03):** ten work packages carry unmerged draft-PR candidates with green hosted CI — see [roadmap/STATUS.md](../roadmap/STATUS.md); 0 independently verified; post-repair template authoring is defined in [TEMPLATE_AUTHORING_CONTRACT.md](TEMPLATE_AUTHORING_CONTRACT.md) and not implemented.
 
 ## 1. Deliverable and release boundaries
 
-**Release VQS-PBI-DOCX-0.1:** A single-developer/local-first Python package that (a) inspects the actual enhanced PBIR and associated semantic model; (b) diagnoses measurable and perceptual chart/page design problems against the data, effective design profile and a minimal analytical task; (c) creates a **disposable, openable Power BI Desktop candidate** with safe source-level visual/style repairs and, only for validated cases, new template visuals; (d) proves the candidate loads actual data and answers the same scoped questions; (e) applies an analogous **all-page, true paginated DOCX quality check** to generated Word output; (f) checks embedded report images and facts refer to the same report revision; and (g) produces an independent `pass | fail | blocked` verdict backed by reproducible evidence. `review` is read-only, `propose` produces a plan/diff, `repair` edits only an isolated candidate, and `promote` requires explicit owner approval.
+**Historical target VQS-PBI-DOCX-0.1 (superseded as a release boundary):**
+A single-developer/local-first Python package that (a) inspects
+PBIR and its model, (b) diagnoses chart/page design against source
+data, (c) creates an isolated Power BI candidate and (d) proves
+the same scoped answers, plus (e) checks genuine Word all-page
+rendering and (f) links Word figures to the report, producing an
+independent verdict. **Current** `powerbi-core` release includes
+(a)–(d) and independently signed G0–G4/G6; the separate optional
+`word-docx` release covers (e)–(f) with G0/G1/G5/G6. Default
+`review` remains read-only and promotion needs external authority.
 
 This does **not** promise automated repair of arbitrary Power BI visual formats, arbitrary Word page geometry, unsupportable browser-like Desktop interactions, generic causal inference or universally available model query access. The first release has an explicit feature/capability matrix: a required but unavailable capability returns `blocked` for that acceptance scope; an optional skipped check is `not_run`. Forecasting, broad story generation and Rayfin/Fabric Apps remain separate follow-on milestones, although the core contracts must not preclude them.
 

@@ -1,6 +1,18 @@
 # Delivery status ledger — review-candidate snapshot
 
-**Snapshot:** 2026-10-03. **Program:** [#4](https://github.com/analienx/visual-quality-system/issues/4). **Machine source:** [work_packages.json](work_packages.json). **Baseline:** [BASELINE.md](../docs/BASELINE.md) at `5fda4e5`. **State meaning:** [protocol](../docs/LEDGER_AND_AGENT_PROTOCOL.md). **WARNING:** ten packages carry unmerged draft-PR candidates with green hosted portable CI; workflow states stay `planned`/`active` because the DAG prerequisite gate (verified upstream) is unmet — 0 independently verified. The `snapshot_utc` inside the machine ledger is an edit timestamp, not current environmental verification. Only the integrator advances states after Codex review and merge, in dependency order. Rollback of any candidate is branch abandonment: nothing below is merged.
+**Archived 2026-10-03 ledger snapshot, not current October PR status.**
+**Program:** [#4](https://github.com/analienx/visual-quality-system/issues/4).
+**Machine source:** [work_packages.json](work_packages.json).
+**Baseline:** [BASELINE.md](../docs/BASELINE.md) at `5fda4e5`.
+**State meaning:** [protocol](../docs/LEDGER_AND_AGENT_PROTOCOL.md).
+**2026-10-20 architecture correction:** Power BI is now the primary
+independently gated component; Word/DOCX is optional. The historical
+WP-08/Word dependency on the combined-release graph **does not block
+`powerbi-core` G0–G4 + independently signed G6**. The machine ledger's
+archived counts are intentionally not falsified or auto-promoted;
+see [current architecture](../docs/ARCHITECTURE.md) and
+[scope matrix](../docs/ACCEPTANCE_MATRIX.md). Later P13–P22 stacked draft
+PRs exist; check live GitHub before interpreting this old table.
 
 | Work package | Phase | Component / acceptance focus | Depends on | GitHub | State / proof |
 | --- | --- | --- | --- | --- | --- |

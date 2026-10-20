@@ -1,6 +1,13 @@
 # Integration strategy: one product, multiple specialized engines
 
-**Status:** proposed adapters and ordering, not evidence that Fab Inspector, Draco 2, SemanticOps or Desktop Bridge are running from the standalone VQS package. See [product/design contract](PRODUCT_AND_DESIGN_CONTRACT.md), [architecture](ARCHITECTURE.md), [ecosystem research](RESEARCH.md) and [README](../README.md).
+**Status:** historical integration decisions with a mixture of shipped
+Power BI code and proposed future adapters. **Current reality** is in
+[the Power BI-first architecture](ARCHITECTURE.md); this page is
+neither an up-to-date capability inventory nor evidence that optional
+Fab Inspector, Draco 2 or SemanticOps are installed. Word/DOCX is
+separate and optional; Fabric Apps is deferred. See the
+[product contract](PRODUCT_AND_DESIGN_CONTRACT.md),
+[research](RESEARCH.md) and [README](../README.md).
 
 ## Decision
 
@@ -11,15 +18,15 @@ VQS **is** the integration and judgment layer, but it must own the quality model
 | Stage / question | Upstream or source | VQS-owned logic | Integration mode and current state |
 | --- | --- | --- | --- |
 | What is the required user journey and analytical question? | User-supplied persona, scenario, requirements, acceptance questions and design tokens | Requirement schema, question coverage, visual-to-story trace, default/filtered navigation tests, gap detection | **Build first**; no upstream tool can infer stakeholder intent from PBIR alone. Planned. |
-| Is PBIR syntactically/structurally valid? | Microsoft published report schemas, supported PBIR Toolkit / authoring CLI | Capability checks, normalized source references and failure propagation | Optional validator subprocess, pinned build. Adapter pending. |
+| Is PBIR syntactically/structurally valid? | Microsoft published report schemas and report-authoring CLI | Capability checks, normalized source references and failure propagation | Microsoft Report Author CLI integration is implemented and pinned; **PBIR toolkit was intentionally removed**. |
 | Does it meet existing Power BI governance rules? | [Fab Inspector](https://github.com/NatVanG/fab-inspector) | Normalize its rule IDs/severity/evidence, de-duplicate against native checks, maintain policy exceptions | Optional subprocess/JSON adapter after verifying executable output/version. **Do not vendor or assume all proposed rule families exist upstream.** Pending. |
-| Are the measures/filters/data ready and suitable for the question? | TMDL/PBIR plus read-only SemanticOps/modeling client and scoped DAX queries | Semantic fact graph, query/data provenance, cardinality, actual ranges, units, intent-to-encoding rules | Authorized opt-in connector; no arbitrary remote model probing. Pending in standalone package. |
+| Are the measures/filters/data ready and suitable for the question? | TMDL/PBIR plus Microsoft Modeling MCP and scoped read-only DAX | Semantic fact graph, query/data provenance, cardinality, actual ranges, units, intent-to-encoding rules | Source analysis implemented; live Contoso DAX witness exists. Other models/data/roles need capability checks, not assumed access. |
 | Is chart encoding appropriate? | Neutral chart/task facts; optionally [Draco 2](https://github.com/cmudig/draco2) | Power BI role mapping, task/semantic constraints, alternative chart candidate validation | Start with **inspiration and independent fixture-tested rules**. Add optional Draco bridge only for representable neutral specs; Power BI-only behaviors remain `unsupported`, not silently translated. Pending. |
 | Is the visual language coherent? | PBIR/theme/base-theme/overrides/conditional formatting, viewport, rendered page | Effective token resolution, palette and semantic-color consistency, contrast, typography, spatial rhythm and page hierarchy | **VQS-owned design-system analyzer**; rendered checks supplement measurements. Planned beyond contrast primitive. |
-| What did Power BI actually display? | Microsoft Desktop Bridge exact instance/path and native page capture | Saved-state/source/digest verification, entire-canvas calibration, crop-to-visual mapping, data-ready check | Optional Windows adapter, port from PBIPDocumenter prototype. Never mistake Bridge for a per-visual formatting/model API. |
+| What did Power BI actually display? | Microsoft Desktop Bridge exact instance/path and native page capture, plus Windows UI Automation separately | Saved-state/source/digest verification, full-canvas crop, native KPI/control rectangles, live selection readback | Desktop Bridge capture in main; P16 .NET UIA Year/Region **9/9** actions evidenced in unmerged [PR #56](https://github.com/analienx/visual-quality-system/pull/56). Country Shape Map click and G2/G4 independence remain blocked. |
 | Does the result feel purposeful, readable and navigable? | Configurable image-capable reviewer; whole page plus focused crops + source facts + persona/questions | Versioned observed-defect contract, reviewer disagreement adjudication, avoid unsupported causal/root-cause claims | Optional opt-in cloud/local provider. **No screenshot-only quality verdict**. Port pending. |
 | Can we fix it safely? | Constrained PBIR edits, theme changes, user-approved story/semantic changes | Source-bound plan, allowlist, isolation, invariants, rollback, whole-page and whole-journey regression | Build and port prototype recipes; substantial chart/measure changes require verified intent/data. Pending. |
-| Is generated Word output equally usable? | OOXML and paginated DOCX rendering | Style/figure/page integrity, document narrative and trace to report question IDs | Independent document adapter sharing VQS core; full loop pending. |
+| Is generated Word output equally usable? | OOXML, native Word COM, PDFium all-page PNGs | Style/figure/page integrity, narrative and link to report source | **Optional separate `word-docx` component**; basic OOXML in main, P21/P22 draft candidate evidence, pending P23 31/32-page issue and G5 blocked. No Word dependency for `powerbi-core`. |
 
 ## Concrete orchestration
 

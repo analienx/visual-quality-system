@@ -1,5 +1,13 @@
 # VQS developer workflow quickstart (pre-alpha)
 
+**Primary workflow: Power BI.** Word/DOCX is an independently gated
+optional component, not required for a Power BI core release.
+See [architecture](ARCHITECTURE.md) and
+[release-scope matrix](ACCEPTANCE_MATRIX.md#explicit-component-release-profiles-implemented-in-vqscomponentspy).
+The separate release adjudicator recognizes `release_scope` values
+`powerbi-core`, `word-docx`, and legacy `combined`. No
+`vqs acceptance` subcommand is implied.
+
 One engine behind two adapters: the `vqs` CLI and the optional `vqs-mcp`
 stdio server call the same tools with the same envelopes and verdicts.
 Every command below is implemented behavior against static sources;

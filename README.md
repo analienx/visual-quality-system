@@ -4,7 +4,17 @@
 [![License](https://img.shields.io/github/license/analienx/visual-quality-system)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 
-**Find concrete Power BI report problems and fix them without guessing.** VQS identifies source-backed issues by page and visual, ranks them, and can produce a typed repair plan for a disposable candidate. Real quality acceptance still needs populated Desktop renders and semantic checks — schema-valid JSON is not a good report.
+**Power BI quality is the product. Word assurance is an optional component.**
+VQS identifies source-backed Power BI report issues by page and visual,
+compares them with real semantic-model data and native Desktop evidence,
+and can produce a typed repair plan for a disposable candidate. It
+separately offers DOCX/Word pagination and content checks **without
+making Word a dependency for a Power BI-only release**.
+
+Real quality acceptance needs populated Desktop renders, source identity,
+semantic checks, supported interactions and independent visual review.
+Schema-valid JSON — or a pretty screenshot with wrong values — is not
+an accepted report.
 
 ## 60 seconds
 
@@ -39,22 +49,41 @@ Real output (`vqs cycles`, exit 0):
 }
 ```
 
-## How it works
+## The architecture at a glance
 
 ```mermaid
 flowchart LR
-    PBIR[PBIR report] --> measure[vqs measure]
-    TMDL[TMDL model] --> measure
-    TMDL --> cycles[vqs cycles]
-    measure --> check[vqs check]
-    check --> verdict[sealed verdict]
-    PBIR --> capture[vqs capture]
-    capture --> review[vqs request-review]
-    review --> bundle[review bundle]
-    bundle --> adjudicate[vqs adjudicate-bundle]
+    P["Power BI<br/>PBIR + TMDL"]:::input --> C["VQS core<br/>source + data + design"]:::core
+    C --> N["Windows witness<br/>Bridge + UIA + DAX"]:::native
+    N --> E["Evidence & review<br/>hashes + independent verdict"]:::evidence
+    C --> E
+    E --> R["Power BI G0–G4<br/>+ independent G6"]:::result
+    E -. "optional figures" .-> W["Word / DOCX<br/>OOXML + Word + PDFium"]:::word
+    W --> D["Separate Word<br/>G0/G1/G5 + G6"]:::word
+    classDef input fill:#eaf2ff,stroke:#7693c9,color:#18385b,stroke-width:1.5px
+    classDef core fill:#24539d,stroke:#183a79,color:#fff,stroke-width:2px
+    classDef native fill:#e5f6fa,stroke:#56a5b1,color:#184854,stroke-width:1.5px
+    classDef evidence fill:#f2edff,stroke:#9786d2,color:#382b65,stroke-width:1.5px
+    classDef result fill:#e3f5eb,stroke:#55aa81,color:#17513d,stroke-width:1.5px
+    classDef word fill:#fff4e3,stroke:#cf9b56,color:#5c3f1e,stroke-width:1.5px
 ```
 
-Static facts come from parsing sources; rendered facts come from Desktop Bridge screenshots hashed against the source revision; the two meet in review bundles that a *different* reviewer adjudicates. Every observation is keyed to source hash, tool versions, and data scope. `pass`, `fail`, and `blocked` are distinct verdicts — unknowns block, they never pass.
+Static facts come from PBIR/TMDL. Microsoft's **Report Author CLI**
+validates supported report content; **Modeling MCP** queries semantic
+models; the **Desktop Bridge** captures actual pages and controls
+reload/status; native **Windows UI Automation** invokes supported slicer
+selection patterns and reads real rendered controls. Remote Desktop
+Commander can orchestrate the authorized Windows host but is not
+itself a Power BI data or accessibility API. WinApp CLI is a potential
+future alternative and is **not integrated**.
+
+Every observation is bound to source hash, tool version, data scope and
+actual Desktop state. Independent review adjudicates the result.
+`pass`, `fail`, and `blocked` remain distinct.
+
+See the [illustrated Power BI-first architecture](docs/ARCHITECTURE.md)
+for three detailed diagrams, responsibilities, deployment split, actual
+status and release scopes.
 
 ## What runs today
 
@@ -72,10 +101,33 @@ Static facts come from parsing sources; rendered facts come from Desktop Bridge 
 | `vqs doctor` | Capability + install-identity report (never installs or gates) | Implemented on this branch |
 | `vqs inventory` / `status` | PBIR inventory / ledger snapshot | Implemented on this branch |
 | Typed candidate repair | Allowlisted edits in disposable candidates + explicit authoring backends | Review candidate ([PR #31](https://github.com/analienx/visual-quality-system/pull/31), draft unmerged; [WP-09](https://github.com/analienx/visual-quality-system/issues/14)) |
-| Word/DOCX backend | Paginated all-page verification | 🔶 planned ([WP-08](https://github.com/analienx/visual-quality-system/issues/13)) |
+| Windows native UIA | Real .NET `SelectionItemPattern` Year/Region actions, observed values and accessibility bounds | 🔶 P16 **unmerged candidate evidence** (9/9), **not independent G4** ([draft PR #56](https://github.com/analienx/visual-quality-system/pull/56)) |
+| **Word/DOCX component (optional)** | OOXML inspection exists in main; native Word/page/TOC field evidence developed in stacked candidates, independent prose/figures incomplete | 🔶 separate, **not a Power BI core blocker** ([draft PR #62](https://github.com/analienx/visual-quality-system/pull/62), [WP-08](https://github.com/analienx/visual-quality-system/issues/13)) |
 | Fabric Apps | React/TS adapter | ⏸ deferred ([WP-13](https://github.com/analienx/visual-quality-system/issues/18)) |
 
-Implemented means the command works on this branch with hosted CI; nothing here is independently accepted — the ledger reports zero verified work packages. The trust boundaries are recorded in [ADR 0001](docs/adr/0001-r6-trust-boundaries.md).
+Implemented rows describe main-branch code; phase-labeled P16/P22
+rows explicitly describe **unmerged** engineering candidates. None
+is independently G6-accepted; the ledger reports zero verified work
+packages. Trust boundaries: [ADR 0001](docs/adr/0001-r6-trust-boundaries.md).
+
+### Separate release scopes
+
+`vqs.acceptance.run_acceptance` accepts an explicit
+`release_scope` field:
+
+| Scope | Subjects and gates | Current release |
+| --- | --- | --- |
+| **`powerbi-core`** | Two unrelated PBIPs; G0–G4 plus independently bound G6 | **Blocked** on G2/G4/G6 evidence |
+| **`word-docx`** | DOCX-only; G0/G1/G5 plus independently bound G6 | **Blocked** on Word pagination, figures, review |
+| `combined` (default for old records) | Both report and document criteria | Backward-compatible, also blocked |
+
+Word cannot block the **Power BI-only** scope; Power BI approval does
+not automatically certify Word. Scope-specific evidence is
+cryptographically domain-separated and still requires genuinely
+independent reviewer/owner authority. Word's existing OOXML
+inspection lives within the same Python package; the native
+PDFium/page-renderer optional dependency extra appears in the
+unmerged P19+ candidate stack and is **not** present in main.
 
 Machine-readable status: [roadmap/STATUS.md](roadmap/STATUS.md) and [roadmap/work_packages.json](roadmap/work_packages.json). Program tracking: [issue #4](https://github.com/analienx/visual-quality-system/issues/4).
 
@@ -85,7 +137,7 @@ Machine-readable status: [roadmap/STATUS.md](roadmap/STATUS.md) and [roadmap/wor
 - [Developer journey](docs/JOURNEY.md) — the supported installed-command walk, oracle-tested
 - [User guide](docs/USER_GUIDE.md) — end-to-end workflows with copy-paste commands
 - [Command reference](docs/CLI.md) — every `vqs` command
-- [Architecture](docs/ARCHITECTURE.md) — system design + Power BI tool interfaces
+- [Illustrated architecture](docs/ARCHITECTURE.md) — Power BI core, optional Word, Windows Bridge/API/UIA/remote layers, quality loop and release scopes
 - [Acceptance matrix](docs/ACCEPTANCE_MATRIX.md) — falsifiable gates G0–G6
 - [Contributing](CONTRIBUTING.md) — setup, gates, PR rules
 - [Changelog](CHANGELOG.md)
@@ -93,7 +145,14 @@ Machine-readable status: [roadmap/STATUS.md](roadmap/STATUS.md) and [roadmap/wor
 
 ## Ecosystem: VQS owns the quality decision
 
-VQS parses facts itself and uses first-party tools at arm's length: the Microsoft-guided `powerbi-report-author` executable (documented distribution channel `@microsoft/powerbi-report-authoring-cli`; optional, report-side validation only — VQS records an explicit direct fallback without it), [Microsoft Power BI Modeling MCP](https://github.com/microsoft/powerbi-modeling-mcp) (live semantic models), [Desktop Bridge](https://www.npmjs.com/package/@microsoft/powerbi-desktop-bridge-cli) (captures). VQS has no ADOMD dependency. Details: [tool interfaces](docs/ARCHITECTURE.md#power-bi-tool-interfaces-decided-2026-09-26).
+VQS parses source facts itself and uses first-party tools at arm's length:
+Microsoft-guided `powerbi-report-author` (report authoring/validation,
+with policy-controlled fallback), [Microsoft Power BI Modeling MCP](https://github.com/microsoft/powerbi-modeling-mcp)
+(semantic models), [Desktop Bridge](https://learn.microsoft.com/en-us/power-bi/developer/agentic/power-bi-desktop-bridge-overview)
+(exact-process screenshot/reload/state), and Windows .NET UI Automation
+(P16 candidate native input/readback). VQS has no ADOMD dependency. The latter
+is **not** interchangeable with the Bridge. Details:
+[tool boundaries](docs/ARCHITECTURE.md#2-how-vqs-actually-interacts-with-power-bi-desktop).
 
 ## Security
 

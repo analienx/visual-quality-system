@@ -1,6 +1,14 @@
 # Execution architecture — how VQS actually runs
 
-**Decision status:** implementation blueprint, not a claim that these components run today. Supersedes broad execution sketches in [ARCHITECTURE.md](ARCHITECTURE.md); product requirements remain in [README](../README.md) and [DEFAULT_STORIES_AND_AUTOMATED_DESIGN.md](DEFAULT_STORIES_AND_AUTOMATED_DESIGN.md). First target: local Windows Power BI Desktop/PBIP; next target: local and staging Fabric Apps (Rayfin) with a Playwright browser runner. Neither requires hosting VQS inside Fabric. No rewrite as a cloud microservice is required.
+**Decision status:** historical implementation blueprint (original
+Power BI + Word combined-release assumptions retained for traceability).
+For the **current Power BI-first component boundaries, implemented
+Windows accessibility and independent Word release profiles**, use
+[the illustrated architecture](ARCHITECTURE.md), which now supersedes
+this document on runtime/status claims. Primary target: Windows Power
+BI Desktop/PBIP. Word is optional; Fabric Apps/Rayfin remains deferred.
+Neither requires hosting VQS inside Fabric or rewriting as cloud
+microservices.
 
 ## 0. Three boundaries we must not blur
 
@@ -10,9 +18,24 @@
 
 ## 1. Concrete runtime: a modular monolith with isolated tool workers
 
-Implement VQS as a **Python 3.12+ CLI/library** in this repository (Pydantic v2 typed contracts, pure rule functions, pytest and Ruff), plus **a separately launched, pinned Node/TypeScript Playwright worker** for web apps. The Python coordinator is the single source of truth for run state, evidence IDs, scheduling, safety policy and final decisions. Windows-only Desktop Bridge and local semantic tools are external subprocess adapters; Playwright runs under Node on Windows/Linux. The editor may be a configured model or first-party authoring CLI, but all actual writes go through a bounded artifact adapter.
+VQS currently ships as a **Python >=3.11 CLI/library** (see
+`pyproject.toml`) with typed contracts, deterministic rules, pytest
+and Ruff. The Python coordinator owns run state, evidence, safety
+policy and verdicts. Power BI Desktop Bridge and native .NET UI
+Automation are external, Windows-only capabilities. Microsoft
+Modeling MCP is a semantic tool and Microsoft Report Author CLI is a
+report metadata/validation tool. A separate pinned Node/TypeScript
+Playwright worker is **future Fabric/web scope**, not a present
+Power BI requirement.
 
-For single-developer use: `vqs run --artifact PATH --kind powerbi|fabric-app --profile FILE --out RUN_DIR --mode review|propose|repair`. `review` is read-only. `propose` produces diffs only. `repair` creates a disposable candidate and requires explicit configured authorization to promote; it never changes the input project or publishes an app automatically. In the *current pre-alpha*, only `vqs inventory` and `vqs request-review` exist: the command above is a **target interface**.
+For current use, `vqs run`, `triage`, `measure`, `capture`,
+`request-review`, `repair`, `verify`, `doctor` and related tools
+are present (see [CLI](CLI.md) and [README](../README.md)). The
+historical `vqs run --artifact ... --kind powerbi|fabric-app --profile`
+syntax was a **target example**, not a verified current CLI invocation.
+Use `vqs --help` and the current tests. `review` is read-only,
+`propose` only generates diffs, repair changes disposable candidates,
+and independent promotion remains blocked without external authority.
 
 Use **one process, no broker, no Kubernetes, no microservices** initially. Keep a SQLite WAL run index (run id/status, artifact hash, phase, issues, approvals, tool versions) and an append-only JSONL event log inside each run directory; write each phase's large JSON/PNG/trace evidence as content-addressed files under `runs/<run-id>/objects/<sha256>`. Atomic temp-write + rename, a file lock per artifact and a PID-scoped lock per Desktop instance prevent concurrent overwrites. SQLite indexes artifacts by `(source_revision, contract_hash, environment_hash, interaction_state_hash)`; caches are hints only and must not short-circuit mandatory fresh-render or data-readiness gates. If database/event log diverges, reconstruct from immutable run manifests; never infer pass from a partial run.
 
@@ -26,9 +49,11 @@ vqs/
   core/            # run lifecycle, CAS + SQLite index, policy, normalized graph, safety, evaluation
   stories/         # evidence-supported conditional defaults + domain packs; question-coverage tests
   design/          # effective palette/tokens, layout, typography, chart/encoding and contrast rules
-  adapters/powerbi/# PBIR/TMDL/semantic facts, Desktop Bridge runner, validation, bounded PBIR patcher
+  powerbi/        # CURRENT: PBIR/TMDL, Desktop Bridge, Windows UIA, authoring
+  visual/         # CURRENT: perceptual/layout/coverage/pixel rules
   adapters/web/    # source manifest/parser, build/test adapter, Playwright IPC wrapper, DOM evidence
-  adapters/docx/   # future OOXML/rendered pagination
+  document/       # CURRENT OPTIONAL: OOXML, native Word, PDFium pages, TOC
+  components.py   # CURRENT: Power BI / Word / combined release-scope registry
   integrations/    # optional Fab Inspector, Draco, authoring/model tools; subprocess + version contracts
   vision/          # opt-in reviewer, source-linked regions and conflicting-finding adjudication
   repair/          # candidate worktree, typed patch operations, allowlist, rollback, promotion
@@ -40,7 +65,13 @@ fixtures/           # small synthetic PBIR and React/Rayfin app projects, never 
 tests/              # pure unit + adapter contract + Windows/Desktop + browser acceptance tiers
 ```
 
-No import of PBIPDocumenter's application or local Contoso fixture from the core; PBIPDocumenter becomes a pinned VQS consumer. Do not duplicate Microsoft/Fab Inspector logic inside the core. External tools run through explicit adapters and report `available|unsupported|failed|not_run` and precise versions.
+The tree above mixes current and future directories on purpose.
+`adapters/web`, `workers/web` and `core/` are still architectural
+targets, **not shipped modules**. No import of PBIPDocumenter's
+application or a local Contoso fixture from the portable core;
+PBIPDocumenter remains a downstream consumer. Word and Power BI
+now have independent release profiles. External tools must report
+`available|unsupported|failed|not_run` and precise versions.
 
 ## 2. Common evidence contract, not a common UI schema
 
@@ -74,11 +105,36 @@ Run budgets: default one diagnostic pass, then at most three narrow repair round
 
 **Static facts:** PBIR pages/visuals/query roles/filters/sorting/theme and per-visual overrides; TMDL model metadata and measure formatting; model data and scoped DAX only through a connected authorized read-only endpoint/Modeling MCP. Normalize Fab Inspector JSON (if installed) without assuming it evaluates layout aesthetics. Use Microsoft report authoring CLI for schema/formatting capability detection and validation; feature flag any undocumented property. Effective visual formatting can be conditional or inherited; when not resolvable mark `unknown` and inspect actual render instead of pretending an absent JSON property is a default value.
 
-**Windows runner:** copy PBIP into `runs/<id>/candidate-project/` (report plus its SemanticModel project and a deterministic wrapper), verify its project/model references, use a local Power BI Desktop instance selected by **PID + canonical PBIP path**, check Bridge manifest and saved state, validate PBIR, then serially `reload --pid PID` and `screenshot[-all] --pid PID` (never parallel against same PID). Reopen rather than reload when changed TMDL/model state or theme caching requires it. Check page IDs, data readiness and entire-canvas bounds at each actual capture scale; Desktop chrome, filters pane and partial canvases must not masquerade as a report page. The Bridge currently exposes application state, manifest, capture, reload, and `open <report>` (open a PBIP/PBIX, then wait for bridge status), **not** a general per-visual live formatting/DOM API. The runner uses PBIR for definition and renderer for pixels. Store page/crop image SHA, source SHA, Desktop PID/version, viewport/calibration and query-data provenance. See Microsoft [Desktop verification guide](https://github.com/microsoft/skills-for-fabric/blob/main/skills/powerbi-report-authoring/references/powerbi-desktop.md) and [Bridge overview](https://learn.microsoft.com/en-us/power-bi/developer/agentic/power-bi-desktop-bridge-overview).
+**Windows runner (partly implemented):** use a disposable PBIP
+candidate (report plus semantic model), verify project/model
+references and exact Desktop **PID + canonical PBIP path**, check
+Bridge manifest and saved state, validate PBIR, then serially
+`reload --pid PID` and `screenshot[-all] --pid PID` (never
+parallel against one PID). Reopen instead of reloading when model
+or theme state requires it. Check page IDs, data readiness and full
+canvas per capture scale. The Bridge exposes application state,
+manifest, capture, reload and an `open <report>` CLI wrapper; it is
+**not** a per-visual live formatting/DOM/click API. Native Windows UI
+Automation is a **separate interaction and geometry witness**.
+The remote Windows control tool launches/monitors local commands
+but is not Bridge transport. Source hashes and report pixels must
+be bound to DAX oracle scope and UIA actions. See the Microsoft
+[Desktop Bridge overview](https://learn.microsoft.com/en-us/power-bi/developer/agentic/power-bi-desktop-bridge-overview)
+and [P16 native UIA witness draft PR #56](https://github.com/analienx/visual-quality-system/pull/56).
 
 **Power BI operations (versioned recipes):** `SetThemeToken`, `SetVisualProperty`, `SetVisualBounds`, `SetAxisFormat`, `SetVisualSort`, `ReplaceVisualFromTemplate`, `AddVisualFromTemplate`, `BindProjection`, `AddPageFromTemplate`. Each recipe declares visual types/schema versions, allowed paths/value domains, exact field-role expectations, source hash, affected-visual set, semantic-impact classification, reference-preservation (IDs/bookmarks/interactions), and rollback diff. Do not claim that arbitrary XML/JSON edits, filters, custom visuals, AI visuals or live Desktop controls are universally writable. Preserve correlation-vs-ranking intent when choosing chart replacements. After a change: schema validation → no lost bindings → scoped DAX oracle unchanged unless approved → Desktop reload/reopen → all affected page/neighbor screenshots → independent review.
 
-**Interaction testing:** Desktop Bridge does **not** supply a general slicer/click/drillthrough API in its documented manifest. Initially test static interaction definitions plus default/explicitly pre-saved states. Add bounded UI automation only behind a separately tested Windows driver or a supported Service/embed browser adapter. If reliable interaction automation is unavailable, mark that journey `not_run/blocked` instead of claiming the screenshot demonstrates it works.
+**Interaction testing (P16 implemented in unmerged draft PR #56):** Desktop Bridge still
+does **not** expose a general slicer/click/drillthrough API. VQS
+now uses bounded, native Windows **`SelectionItemPattern`**
+via `vqs/powerbi/desktop_uia.py` and
+`scripts/windows/contoso_native_uia.ps1`, with action readback,
+accessibility geometry and live DAX oracle matching. Real Contoso
+Year/Region **9/9** actions were observed; that does not attest
+the exact loaded-file identity or a Shape Map country click.
+Map UIA exposes only a broad Plot area, and pixel input is
+blocked on locked desktop. The unsupported country journey
+remains `blocked`; WinApp CLI is prospective, not integrated.
 
 ## 5. Fabric Apps (Rayfin) adapter: code-first web application, not PBIR
 
@@ -114,6 +170,12 @@ Apply **incremental invalidation**: on a changed visual, rerun its source/design
 
 **Slice D — Rayfin staging:** create a separate disposable Fabric Apps project from the **official data-app template**, use a permitted capacity/staging workspace and authorized semantic model. Confirm local frontend/backend integration, model queries, portal-only auth/render behavior, role-based task checks and CLI dry-run/status. Then apply one controlled styling repair and validate the deployed staged app. If preview capacity/workload/permission is unavailable, record `blocked` and do not claim deployed acceptance from the React fixture.
 
-**Slice E — decision contract and distribution:** question/task schema, default conditional story families, traceability and deterministic oracles across both surfaces. Only after A–D pass, extract the authoring workflow into a pinned standalone release and have PBIPDocumenter consume it. Word remains an independent downstream adapter and is not accidentally treated as a Fabric App or PBIR project.
+**Slice E — decision contract and distribution:** question/task
+schema, conditional story families, traceability and deterministic
+oracles across surfaces. Power BI core can be independently
+assessed through `release_scope=powerbi-core` without a DOCX.
+The optional Word component uses `word-docx`; historical
+`combined` remains backward compatible. PBIPDocumenter consumes
+the pinned VQS core once verified, without being folded into it.
 
 **Operational support matrix:** offline PBIR inspection works without Desktop or Fabric; real PBIR visual acceptance requires licensed Windows Desktop and a populated authorized model; local React/TypeScript review requires a runnable app/browser; Fabric-hosted acceptance requires allowed preview capacity, deployment identity and portal access; cross-tenant autonomous deployment is out of scope. Publish the gate that ran, the gate that was not run and its reason. No claim that `python` executes inside Rayfin, that Desktop Bridge automates clicks, that Playwright bypasses Fabric SSO, or that a mock semantic model proves real data validity.

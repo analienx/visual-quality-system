@@ -1,82 +1,293 @@
-# VQS architecture: actual processes, contracts and acceptance
+# Visual Quality System — Power BI-first architecture
 
-**Status: target implementation with a pre-alpha portable core.** The complete technical specification is **[EXECUTION_ARCHITECTURE.md](EXECUTION_ARCHITECTURE.md)**. Use that as the normative reference for implementers: CLI and worker protocol, state machine, data structures, file locks, exact Desktop PID, Playwright evidence, Rayfin staging, patch allowlists, test tiers and security. This page is its concise entry point, **not** evidence that the target runtime has shipped. The more integrated Windows report prototype remains in PBIPDocumenter draft PR #12.
+**Architecture revision:** 2026-10-20
 
-## One product, two real execution paths
+**Primary product:** VQS for Power BI reports and semantic models
 
-Choose a **modular Python coordinator** and isolated, replaceable platform workers—not microservices or an AI model with unrestricted shell access:
+**Optional component:** VQS Word/DOCX assurance, independently released
+**Implementation status:** pre-alpha candidate stack; **not** a G6-approved release
 
-```text
-CLI / pinned design + question contracts
-    ↓
-Python run coordinator → private SQLite run index + immutable evidence/event log
-    ├─ common: story coverage, source/data identity, measured rules, risk/adjudication
-    ├─ Power BI adapter → PBIR/TMDL + authorized DAX → locked Windows Desktop PID
-    │                   → actual full-canvas capture → bounded PBIR patch → reopen
-    ├─ Web/Fabric Apps adapter → TSX/CSS/Rayfin files + data oracle → Node Playwright
-    │                   → DOM/computed CSS/chart/a11y/route states → vetted source patch
-    ├─ optional independent vision reviewer for genuinely perceptual findings
-    └─ independent verifier → data + page/route + journey regression → result
+VQS is an independent **quality and safe-repair engine**, not a competing report
+authoring tool. Its primary object is an actual Power BI report, the semantic
+model behind it, what a viewer sees on each populated page, and how that view
+responds to real interactions. It may consume a Word deliverable later, but
+**a broken DOCX cannot block a Power BI-only release**; conversely, a successful
+Power BI review never constitutes Word acceptance.
+
+This page separates **main-branch code**, **unmerged P13–P23 candidate
+implementations**, and **future tools**. This architecture change is
+based on main `dc74414`, not on the unfinished Word P23 branch;
+therefore P16/P18/P22/P23 references below are engineering candidate
+evidence, **not modules currently merged into main**. The older
+[execution blueprint](EXECUTION_ARCHITECTURE.md) is
+retained for detailed design/history, not as a claim of shipped features.
+Follow the [acceptance matrix](ACCEPTANCE_MATRIX.md) for the actual gates.
+
+## 1. Product boundaries
+
+```mermaid
+flowchart TB
+    subgraph PBI["01  ·  POWER BI QUALITY  ·  PRIMARY"]
+      direction LR
+      P["PBIP / PBIR<br/>pages · visuals · themes"]:::source
+      S["Semantic model<br/>TMDL · DAX · M"]:::source
+      C["VQS Power BI engine<br/>measure · triage · repair"]:::core
+      R["Native Desktop witness<br/>pixels · UIA · query results"]:::runtime
+      P --> C
+      S --> C
+      C <-->|"source-bound evidence"| R
+    end
+
+    subgraph COMMON["SHARED ASSURANCE FOUNDATION"]
+      direction LR
+      E["Immutable run evidence<br/>hashes · scopes · capabilities"]:::foundation
+      V["Independent review<br/>adjudication · negative controls"]:::foundation
+      E --> V
+    end
+
+    subgraph DOC["02  ·  WORD / DOCX  ·  OPTIONAL COMPONENT"]
+      direction LR
+      O["DOCX OOXML<br/>styles · links · tables"]:::secondary
+      W["Native Word + PDFium<br/>physical pages · field checks"]:::secondary
+      O --> W
+    end
+
+    C --> E
+    R --> E
+    W --> E
+    E -. "optional report-figure provenance" .-> O
+    V --> A["Power BI verdict<br/>G0–G4 + scoped G6"]:::success
+    V -. "separate scope" .-> B["DOCX verdict<br/>G0, G1, G5 + scoped G6"]:::secondary
+
+    classDef source fill:#eaf2ff,stroke:#688bca,color:#162b4e,stroke-width:1.5px
+    classDef core fill:#234f9b,stroke:#153a7d,color:#ffffff,stroke-width:2px
+    classDef runtime fill:#e9f6f8,stroke:#4a9ca8,color:#123b46,stroke-width:1.5px
+    classDef foundation fill:#f0edff,stroke:#897bd3,color:#30275f,stroke-width:1.5px
+    classDef secondary fill:#fff4e4,stroke:#cc9750,color:#604118,stroke-width:1.5px
+    classDef success fill:#e3f5ed,stroke:#40a27b,color:#14523e,stroke-width:1.5px
+    style PBI fill:#f3f7ff,stroke:#7c9eda,stroke-width:2px,color:#173865
+    style COMMON fill:#f8f6ff,stroke:#a69bda,stroke-width:2px,color:#372c69
+    style DOC fill:#fffaf1,stroke:#d7ac69,stroke-width:2px,color:#714b21
 ```
 
-VQS must share the **question, design, evidence, finding and acceptance schemas** across surfaces, not assume that a PBIR `visual.json` is interchangeable with a React component. A component locator is tagged by artifact type; Power BI positions use PBIR canvas coordinates, web positions use actual CSS pixel geometry at a named viewport, and documents use paginated points. Every observation is keyed to source revision, exact state, identity/filter scope, renderer and tool versions. Source hash is not data freshness. `pass|fail|blocked` are distinct; proposed changes require their own approval/promotion boundary.
+**Reality vs design:** `vqs/powerbi/`, `vqs/visual/`, `vqs/repair/`,
+`vqs/capture.py`, `vqs/review/`, basic `vqs/document/`, and evidence/
+acceptance code exist on main. The P16 Windows UIA and P19–P23 native
+Word/PDFium extensions exist in **draft branches**. The Word component
+is **logically isolated by capabilities and release scope**, but remains
+inside the same Python distribution. Its optional `word-pages` PDFium/
+Pillow extra is in the unmerged document branch, **not current main**.
 
-## Scope and ownership
+## 2. How VQS actually interacts with Power BI Desktop
 
-| Subsystem | Technical owner and realistic behavior |
-| --- | --- |
-| `vqs.contracts` + `vqs.stories` | Typed owner/default story candidates and design profiles; question→measure/data oracle→component→interaction mapping. Unsupported/inferred meanings do not become user-approved requirements. |
-| `vqs.core` | Phase state machine, capability manifests, source/content digests, run-local private immutable evidence, SQLite + JSONL, deterministic rules, exception handling, no hidden green fallback. |
-| `vqs.adapters.powerbi` | PBIR and effective theme/visual facts, TMDL and read-only model queries; schema/first-open validation; exact saved Desktop PID/path, serial Bridge capture; source-bound crop; bounded visual/theme editing. No undocumented general Desktop click or per-visual live API. |
-| `vqs.adapters.web` and `workers/web` | Fabric Apps/React source and build manifest, stable test IDs, chart bindings, real DOM/SVG/computed CSS, Playwright browser journeys, `axe-core`, responsive captures, console/network failures and typed TypeScript/CSS patch operations. Canvas chart internals need library instrumentation or stay unknown. |
-| `vqs.design` + `vqs.vision` | Measured contrast/semantic-color consistency, chart and label density, hierarchy/layout; independent image reviewer only for composition, overall feeling and actual rendering, grounded in source+data facts. |
-| `vqs.repair` | Typed versioned operations + preconditions + allowlist; disposable worktree, semantic-impact ledger, validate/build/refresh/oracle/render/review, rollback and human promotion gate. |
-| Optional adapters | Fab Inspector governance, Microsoft authoring/model tools, optional Draco 2 where neutral chart mapping is supported, Rayfin deployment CLI, optional model providers. Versions and unsupported states are recorded. |
+There is **no single universal Power BI Desktop automation API** for
+report/model authoring, screenshots, control interactions and desktop process
+management. VQS composes distinct capabilities:
 
-## Power BI tool interfaces (decided 2026-09-26)
+```mermaid
+flowchart LR
+    A["VQS Python coordinator<br/>source digest · exact PID · run lease"]:::core
+    subgraph STATIC["SOURCE & MODEL  ·  portable where possible"]
+      direction TB
+      B["PBIR / TMDL parser<br/>visuals · geometry · bindings"]:::source
+      F["Report Author CLI<br/>metadata · validation"]:::source
+      M["Modeling MCP<br/>semantic model · DAX"]:::source
+    end
+    subgraph DESKTOP["WINDOWS  ·  NATIVE POWER BI DESKTOP"]
+      direction TB
+      D["Desktop Bridge<br/>status · manifest · reload · capture"]:::runtime
+      U[".NET UI Automation<br/>SelectionItemPattern · readback"]:::runtime
+      H["Authorized remote Windows control<br/>host process · files · diagnostics"]:::remote
+    end
+    Z["Bound evidence<br/>native pixels + UIA geometry + DAX"]:::success
+    A --> B
+    A --> F
+    A --> M
+    A --> D
+    A --> U
+    H -. "orchestrates local tools" .-> A
+    B --> Z
+    F --> Z
+    M --> Z
+    D --> Z
+    U --> Z
 
-Verified against the installed tools, not assumed:
+    classDef core fill:#234f9b,stroke:#153a7d,color:#ffffff,stroke-width:2px
+    classDef source fill:#edf2ff,stroke:#8194cc,color:#172b58,stroke-width:1.4px
+    classDef runtime fill:#e6f5fa,stroke:#62aabb,color:#133d50,stroke-width:1.4px
+    classDef remote fill:#fff3df,stroke:#d0a04f,color:#644518,stroke-width:1.4px
+    classDef success fill:#e4f6ed,stroke:#469d78,color:#14543f,stroke-width:2px
+    style STATIC fill:#f3f6ff,stroke:#a0add9,stroke-width:2px,color:#223b67
+    style DESKTOP fill:#eefaff,stroke:#87bdc9,stroke-width:2px,color:#134559
+```
 
-- **Report/source facts:** direct PBIR/TMDL parsing (pages, visuals,
-  positions, formatting, bindings, filters, DAX source, diffs).
-  VQS owns this layer; see `vqs.powerbi.measure` and `vqs measure`.
-- **Semantic model:** Microsoft local Power BI Authoring/Modeling MCP
-  (`@microsoft/powerbi-modeling-mcp`) is the primary interface for live
-  Desktop models — connect, tables/columns/measures/relationships, DAX
-  Execute/Validate, model edits and transactions. It cannot touch
-  report pages or layouts.
-- **Desktop/render:** Power BI Desktop Bridge for instance
-  control and source-bound screenshots.
-- **VQS owns** quality logic, design rules, evidence reconciliation,
-  repair planning, and acceptance.
-- **Report-side validation is optional**: the Microsoft-guided
-  `powerbi-report-author` executable (documented distribution channel
-  `@microsoft/powerbi-report-authoring-cli`) validates candidates
-  (`vqs/powerbi/author`, policies auto/microsoft/direct). R6 removed
-  the former pbir-cli legs: Microsoft rejection fails, warnings
-  block unless explicitly allowed, and outages block — failures
-  never fall back silently, and VQS stays fully functional with the
-  CLI absent via the recorded direct fallback.
-- **ADOMD role: none.** VQS has no ADOMD.NET dependency and ships
-  no ADOMD installer; `vqs doctor` reports tool discoverability as
-  information only.
+### Capability and responsibility matrix
 
-## A real run, not a diagram-only workflow
+| Tool / layer | Real supported responsibility | Cannot establish by itself | Current VQS status |
+| --- | --- | --- | --- |
+| **PBIR/TMDL parser** (`vqs/powerbi/measure.py`, etc.) | Source layout, visual IDs, field bindings, formatting, DAX/M cycles | Populated visual or correct native pixels | Implemented |
+| **Microsoft Power BI Report Author CLI** | Report metadata/structural validation, supported authoring workflow | Live slicer click or semantic-model edits | Pinned integration and validation guards implemented; verify installed version |
+| **Microsoft Power BI Modeling MCP** | Authorized local semantic model and live DAX queries | Report page layout/visual edits | Integration/probes exist; live Contoso DAX witness used |
+| **Desktop Bridge API/CLI** | Actual Desktop instance status, open file/unsaved state, manifest, PBIR reload and page screenshots | Arbitrary visual click/selection/drillthrough | Implemented capture/identity checks; exact PID and current source required |
+| **Native Windows UI Automation (UIA)** | Real accessibility rectangles, selected control patterns, readable KPI labels/values, slicer action/readback | Country-level Shape Map hit target when provider exposes only “Plot area”; true glyph ink clipping | **P16 candidate in draft PR #56**, 9/9 native actions observed; not on main |
+| **Remote Desktop Commander** | Remote execution, file/process inspection, controlled Windows tool orchestration on authorized ZephyrusG16 | Desktop Bridge data/model API, independent VQS proof, bypass of locked interactive GUI | Operator/infrastructure tool, **not** a runtime dependency inside VQS |
+| **Microsoft WinApp CLI** | Potential future Windows UIA querying/clicking/waits/screenshot wrapper | Guaranteed Power BI country map child exposure or locked-session pointer access | **Not integrated** and not found on Windows host at 2026-10-20 probe |
+| **Independent visual reviewer** | Perceptual composition, text ink/clipping, hierarchy, suspicious whitespace and blank visuals | DAX truth, source identity, safe mutation on its own | Partial evidence/review tooling; G2 independent acceptance blocked |
 
-`discover → contract → facts → static rules → render → observe → triage → [plan → typed patch → schema/build/data tests → fresh full-page/route render → interaction/neighbor regression → independent review]* → pass|fail|blocked|proposed`. Default mode is **read-only review**. Proposed and applied changes are isolated from the input repository. The eventual `vqs run --artifact PATH --kind powerbi|fabric-app --mode review|propose|repair` is a **target CLI**, not a current command; currently `vqs inventory` and `vqs request-review` are exposed. See [the execution blueprint](EXECUTION_ARCHITECTURE.md#3-run-state-machine-and-actual-jobs) for file and process locks, budgets, retry classes and privacy.
+The **Desktop Bridge is a local named-pipe JSON-RPC service per Desktop PID**,
+not a remote cloud API. Microsoft documents its methods as
+`bridge.manifest`, `application.state.get/v1`,
+`report.snapshot.capture/v1`, and `file.reload/v1`. It serializes
+operations per Desktop instance. The separate Report Author CLI validates
+source/report metadata; the Modeling MCP works on semantic models, not
+PBIR page layout. VQS must verify the actual installed manifest and tool
+versions rather than assume all preview methods exist.
 
-**Power BI:** load a disposable project, verify source/model identity, obtain scoped data oracles, validate PBIR, select saved matching Desktop PID/path, capture every affected page and crops without Desktop chrome, identify exact visual ID, apply safe PBIR/theme changes and verify full page plus adjacent visual and analytical task. For any changed model or theme requiring reopen, do not assume report-only reload is sufficient. Current Desktop Bridge cannot assert arbitrary user click/drillthrough journeys; unsupported interaction coverage is visible.
+The unmerged P16 native UIA witness calls
+`scripts/windows/contoso_native_uia.ps1` from
+`vqs/powerbi/desktop_uia.py` and verifies `SelectionItemPattern`
+actions and observed DAX-matched values. It can handle supported controls
+even with the workstation locked **when UIA providers permit**. This is not
+authorization to simulate unsupported map clicks on the lock screen.
+See the [P16 implementation and evidence in draft PR #56](https://github.com/analienx/visual-quality-system/pull/56).
 
-**Fabric Apps:** treat Rayfin as a **TypeScript-backed web application hosted as a Fabric item**, not a PBIR report or native Python host. Local developer flow: inspect TSX/CSS/router/chart tokens, run configured build and local frontend with authorized backend/fixtures, Playwright tests fixed desktop/mobile viewport with DOM/computed-style and source-backed KPI oracles, apply vetted token/component patch, re-run typecheck/build/browser test. Staging flow separately requires available Fabric capacity, preview workload, Entra SSO and an authorized tenant/workspace; dry-run and explicit `rayfin up` staging deployment followed by **Fabric-portal-hosted** authenticated browser verification. The published data-app template documents a semantic-query limitation outside the portal: a local mock or standalone tab must not be declared equivalent to deployment. See [Fabric adapter details](EXECUTION_ARCHITECTURE.md#5-fabric-apps-rayfin-adapter-code-first-web-application-not-pbir).
+## 3. End-to-end quality and repair loop
 
-## Why this stays useful as AI authoring improves
+```mermaid
+flowchart TB
+    A["Discover & attest<br/>PBIP + model + tools + PID"]:::source
+    B["Measure & diagnose<br/>source rules + answer oracle"]:::core
+    C["Observe native report<br/>full canvas + UIA + DAX"]:::runtime
+    D{"Issue evidenced<br/>and repairable?"}:::decision
+    E["Propose minimal typed patch<br/>candidate worktree only"]:::candidate
+    F["Author / validate<br/>Microsoft CLI + PBIR constraints"]:::candidate
+    G["Fresh native rerender<br/>affected page + neighbors + actions"]:::runtime
+    H{"Independent review<br/>all required evidence?"}:::decision
+    I["Candidate eligible<br/>owner-controlled promotion"]:::success
+    J["Blocked or failed<br/>reason + next evidence"]:::blocked
 
-VQS is not a new chart generator competing with the first-party authoring skill. It owns the **independent question/decision contract and answer oracle**, effective visual language, actual user-state observations, verifiable defects, safe scoped patches and measured before/after acceptance. Editors and model providers can change; the same tests should reject an aesthetically improved but misleading chart, an incorrect KPI, a hidden fifth category, a broken mobile journey or a Fabric app that renders only with mocked data. An optional model can review color hierarchy, but cannot override failing measurable contrast or RLS-scoped answer checks.
+    A --> B --> C --> D
+    D -->|"safe supported change"| E --> F --> G --> H
+    D -->|"unknown or unsafe"| J
+    H -->|"accepted"| I
+    H -->|"unresolved"| J
+    H -. "repair another bounded candidate" .-> E
 
-## Build and acceptance sequence
+    classDef source fill:#eaf2ff,stroke:#7492c2,color:#18355b,stroke-width:1.5px
+    classDef core fill:#234f9b,stroke:#1c3b73,color:#ffffff,stroke-width:2px
+    classDef runtime fill:#eaf8f8,stroke:#69a6ae,color:#184d54,stroke-width:1.5px
+    classDef decision fill:#f4efff,stroke:#9180c7,color:#41316b,stroke-width:2px
+    classDef candidate fill:#fff3df,stroke:#d4a052,color:#61451b,stroke-width:1.5px
+    classDef success fill:#e1f5e9,stroke:#4fa87e,color:#164a36,stroke-width:2px
+    classDef blocked fill:#fff0ed,stroke:#d1847d,color:#702b2b,stroke-width:2px
+```
 
-**A:** standalone Windows Power BI before/after repair on two unrelated real populated projects including wrong-PID/blank/partial-canvas negative tests. **B:** effective theme, axis/color/geometry test corpus and independent interpretation. **C:** synthetic local React analytics app with Playwright + accessibility/DOM/chart facts, successful bounded token/layout fix and responsive/task regression. **D:** disposable *official* Fabric Apps data-app template in a permitted staging workspace with separate portal-authenticated semantic verification, or explicit capacity/preview blocker. **E:** shared domain story packs, question-oracle/journey contracts, pinned package and PBIPDocumenter consumer migration. Word remains its own renderer adapter. These are acceptance milestones, **not completed results**.
+A reviewer looking at pixels should use separate **composition**, **text and
+padding**, **content and values**, **interaction**, and **cross-page consistency**
+passes. Source geometry detects deterministic collisions, native UIA checks
+real control bounds, PDF/PNG pixels show glyph ink and blank regions, and
+semantic DAX gives numerical truth. A general multimodal review is additive,
+never a substitute for attested source/data.
 
-Security: no business data, screenshots, secrets or user profiles in public commits; explicit remote-model opt-in and private run storage. No default production deployments, arbitrary AI shell edits, `rayfin ... --force`, bypassing Fabric SSO/portal limitations, or claim of general WCAG certification from automated scans.
+For Contoso, P18 reduced four KPI card heights **140 → 108** on a 720-unit
+canvas, removed repeated reporting-year wording and aligned tiles with
+lower panels; P16 showed **9/9 Year/Region** native actions. Remaining gaps:
+independent G2 screenshot review, full native Shape Map country click and
+loaded-file identity independent acceptance. The built-in **Shape Map**
+replaced account-dependent/blank Azure Maps attempts. It does not require
+an Azure Maps trial, but its geography asset may require a public GitHub
+URL and country-level UIA is currently unavailable.
 
-Additional context: [product/story contract](PRODUCT_AND_DESIGN_CONTRACT.md), [default analytical stories](DEFAULT_STORIES_AND_AUTOMATED_DESIGN.md), [tool integration](INTEGRATION_STRATEGY.md), [ecosystem research](RESEARCH.md), [README](../README.md).
+## 4. Separate acceptance scopes — product policy and implemented contract
+
+`vqs/components.py` defines three explicit release scopes. They apply to
+the **release adjudicator** `vqs.acceptance.run_acceptance`, not to the
+ordinary `vqs triage` CLI and **not** to repair-promotion authorization.
+
+| Release scope | Minimum independent subjects | Mandatory subject gates | Separate suite gate |
+| --- | --- | --- | --- |
+| **`powerbi-core`** — preferred | Two unrelated PBIPs, distinct layouts; **no DOCX** | **G0/G1/G2/G3/G4** for every PBIP | **G6** and Power BI negative controls |
+| **`word-docx`** — optional | One real DOCX; **no PBIP subject** | **G0/G1/G5** for every DOCX | **G6** and Word negative controls |
+| `combined` — compatibility | Two unrelated PBIPs **plus** DOCX | All applicable **G0–G5** | **G6** and union of controls |
+
+Callers set `record["release_scope"]` to one of these exact values. Omitting
+the field continues the old **combined** contract, so existing acceptance
+records are not weakened. Any unknown scope **blocks**, mixed artifact kinds
+in a single-component scope **fail**, and the new component-specific suite
+digests bind scope name to prevent cross-component evidence replay. The
+`combined` digest is intentionally legacy-compatible. Every scope still
+requires sealed producer evidence, negative controls, independently
+authenticated G6 review, and separately authorized promotion.
+
+**Security truth:** the current independent G6 publisher and owner authority
+registries are empty, and static `vqs.check/1` produces **G0 only**.
+Consequently adding release scopes does **not** manufacture a passing release
+or waive missing visual/native evidence. G2/G4 remain blocked for the
+Power BI core. Word G5 remains blocked without genuine current figures,
+prose review and stable physical pagination.
+
+The Word component can consume a **typed exported report evidence bundle**
+to compare document figures, but must not import the Desktop worker, open
+another Desktop PID implicitly, or add Word-only native costs to Power BI
+triage. PBIPDocumenter remains a **downstream consumer**; its application
+must not be silently rewritten while VQS contracts change.
+
+## 5. Actual module ownership
+
+| Location | Responsibility | Release component |
+| --- | --- | --- |
+| `vqs/powerbi/*`, `vqs/pbir.py` | PBIR/TMDL semantics, Desktop PID, report authoring; UIA added by unmerged P16 | **Power BI core** |
+| `vqs/visual/*`, `vqs/design_rules.py` | Source- and screenshot-grounded visual/design analysis | **Power BI core** |
+| `vqs/repair/*` | Typed allowlisted disposable PBIR repair / verify | **Power BI core** |
+| `vqs/coordinator.py`, `vqs/pipeline.py`, `vqs/evidence.py`, `vqs/run_store.py` | Orchestration, sealed evidence, traceability, roles | Shared foundation |
+| `vqs/acceptance.py`, `vqs/components.py` | Independent per-component release scope, negative controls and G6 | Shared foundation |
+| `vqs/document/*` (main), `scripts/word_p*.py` / `scripts/windows/native_word_*.ps1` (drafts) | OOXML; Word COM, TOC/fields and PDFium physical pages are unmerged | **Optional Word** |
+| `vqs/review/*` | Independent evidence bundles and adjudication | Shared foundation |
+| Future `adapters/web` / Fabric | TSX/CSS/Playwright and staged authenticated Fabric | Deferred, not Power BI core blocker |
+
+Today most direct imports remain intra-`vqs`; physical packaging into an
+independent Word distribution is **not done**. The explicit acceptance scopes
+and optional dependency group are the first safe separation without a
+destructive migration of existing Word code.
+
+## 6. Where work can run
+
+| Execution venue | Good candidates | Must not be represented as proven there |
+| --- | --- | --- |
+| GitHub-hosted CI | PBIR/TMDL parse, structural rules, typed repair contracts, source diffs, synthetic DAX/test fixtures, receipt tampering negatives, PDFium on non-private test PDF | Authenticated populated Desktop, real UIA Year/Region actions, Word COM native fidelity |
+| Local Linux/macOS | Source triage, Python tests, review bundle check, optional image evaluation | True Windows Power BI Desktop controls |
+| Authorized Windows host | Installed Desktop Bridge, Report Author CLI, Modeling MCP and live native UIA; Windows Word COM for optional DOCX | Independent acceptance merely because tests and tools executed |
+| Remote Desktop Commander operator | Starts/monitors bounded Windows jobs, retrieves status and private receipts | A Windows accessibility library inside VQS, or an authority to bypass sign-in/locked UI |
+
+The remote operator can administer a Windows session; the named-pipe Bridge
+remains **local to Power BI Desktop**. Do not expose the Bridge port or
+secrets to cloud CI. Persistent self-hosted Actions on a credentialed
+personal workstation should not execute untrusted public PR code.
+
+## 7. Honest release status (2026-10-20)
+
+**Power BI primary:** source-aware P18 reflow and P16 native Year/Region
+functions are **evidenced in draft PRs**, not merged; **G2 independent image signoff**, Shape Map country
+click **G4**, verified second unrelated PBIP and trusted G6 authority remain
+open. No claim of complete VQS release yet.
+
+**Word optional:** P21 detected 26 broken bookmark links, P22 native
+candidate repaired 26→0 without changing 45 headings or 1,561 table-cell
+strings, but 11 text hunks and physical 31/32-page instability remain.
+P23 code is committed locally (`044458e`) but not fully native verified;
+G5 and component G6 are blocked. The Windows broad test suite last
+returned 1,647 passed, 10 skipped, **2 failures** (symlink privilege and
+installed MCP parity).
+
+Draft stacked PRs #55–#62 are unmerged at this snapshot; P23 has no
+remote draft PR yet. Always verify live state before planning another run.
+
+## 8. Primary references
+
+- [Microsoft Power BI Desktop Bridge API and CLI](https://learn.microsoft.com/en-us/power-bi/developer/agentic/power-bi-desktop-bridge-overview) — named pipe, methods and supported screenshots.
+- [Microsoft Power BI Modeling MCP](https://github.com/microsoft/powerbi-modeling-mcp) — semantic model operations, no report page/layout editing.
+- [Microsoft UI Automation SelectionItemPattern](https://learn.microsoft.com/en-us/dotnet/api/system.windows.automation.selectionitempattern) — supported native selection patterns.
+- [Microsoft WinApp CLI UI automation](https://github.com/microsoft/WinAppCli/blob/main/docs/ui-automation.md) — prospective adapter only, not currently installed.
+- [Power BI built-in Shape Map](https://learn.microsoft.com/en-us/power-bi/visuals/power-bi-shape-map) — accepted no-Azure-Maps-account design.
+- [P16 native Desktop witness — draft PR #56](https://github.com/analienx/visual-quality-system/pull/56) · [P18 reflow — draft PR #58](https://github.com/analienx/visual-quality-system/pull/58) · [P22/P23 Word work — draft PR #62 and pending P23](https://github.com/analienx/visual-quality-system/pull/62)
+- [Execution blueprint](EXECUTION_ARCHITECTURE.md) · [acceptance matrix](ACCEPTANCE_MATRIX.md) · [integration strategy](INTEGRATION_STRATEGY.md)
