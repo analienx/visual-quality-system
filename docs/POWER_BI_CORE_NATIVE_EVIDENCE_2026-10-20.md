@@ -43,6 +43,11 @@ the resulting report returned **zero errors and zero warnings**.
   KPI and regional bars responded to the selected context; restoration
   returned the previous default. **Readback must allow for asynchronous
   visual refresh**—the immediate first snapshot can be briefly stale.
+- A bounded read-only hit test at expected Shape Map country coordinates
+  resolved to an **unrelated foreground window**, not Power BI Desktop.
+  Thus a blind pointer click would have targeted the wrong app; no pointer
+  event was injected. The map country interaction is correctly left blocked
+  until a trusted, foreground-attested visual input adapter is available.
 - The screenshots were reviewed as whole pages as well as individual
   repairs. The original visual problems above were actually removed.
 

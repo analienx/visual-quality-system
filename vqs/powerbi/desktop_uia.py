@@ -342,7 +342,7 @@ def assess_native_sequence(
         result["reason"] = (
             "UIA Year/Region actions, native KPI/geometry readbacks and "
             "unrounded DAX agree; country map, loaded-file source identity, "
-            "independent render review and Word verification remain blocked"
+            "independent render review and owner release acceptance remain blocked"
         )
     except InteractionEvidenceError as exc:
         result["native_uia"] = exc.status
