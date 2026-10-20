@@ -464,18 +464,26 @@ def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dic
                     else:
                         entry["actual_unknown"] = True
                     bindings.append(entry)
-            objects = node.get("objects", {})
-            for path, value in _walk(objects):
-                segments = [s.split("[")[0] for s in path.split("/") if s]
-                if "Value" not in segments:
-                    continue
-                size = [s for s in segments if re.fullmatch(r"(fontSize|textSize)", s)]
-                if not size:
-                    continue
-                owner = segments[0]
-                cohort = f"{visual_type}/{owner}.{size[0]}"
-                slot = cohorts.setdefault(cohort, {})
-                slot[f'{page_id}/{visual_id}'] = _literal(value)
+            # A visual title normally lives in visualContainerObjects, *not*
+            # visual.objects. Omitting this layer made mixed explicit/default
+            # title sizes invisible (and allowed oversized Desktop defaults
+            # beside 12/14-point peer titles). Keep the layers namespaced:
+            # objects.title and VCO title are not the same owner.
+            for objects, prefix in (
+                    (node.get("objects", {}), ""),
+                    (node.get("visualContainerObjects", {}), "vco.")):
+                for path, value in _walk(objects):
+                    segments = [s.split("[")[0] for s in path.split("/") if s]
+                    if "Value" not in segments:
+                        continue
+                    size = [s for s in segments
+                            if re.fullmatch(r"(fontSize|textSize)", s)]
+                    if not size:
+                        continue
+                    owner = segments[0]
+                    cohort = f"{visual_type}/{prefix}{owner}.{size[0]}"
+                    slot = cohorts.setdefault(cohort, {})
+                    slot[f'{page_id}/{visual_id}'] = _literal(value)
     readings: list[dict] = []
     for cohort in sorted(cohorts):
         for key in sorted(cohorts[cohort]):
@@ -506,6 +514,9 @@ def _cohort_nulls(found: dict, readings: list[dict]) -> list[dict]:
             visual_type = node.get("visualType", "?")
             objects = node.get("objects", {})
             declared = set(objects) if isinstance(objects, dict) else set()
+            vcos = node.get("visualContainerObjects", {})
+            if isinstance(vcos, dict):
+                declared.update(f"vco.{name}" for name in vcos)
             owners[(visual_type, page_id, visual_id)] = declared
     seen = {(r["cohort"], r["page"], r["visual"]) for r in readings}
     # Cohort ids embed "{visual_type}/{owner}.{prop}"; real PBIR

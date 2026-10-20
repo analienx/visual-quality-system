@@ -42,6 +42,56 @@ def test_cohorts_carry_declared_values_and_default_nulls() -> None:
          "visual": "slicerb"}]}
 
 
+def test_container_title_typography_detects_mixed_default_declarations(
+        tmp_path: Path) -> None:
+    """Real PBIR container titles must join the typography cohort.
+
+    If one chart inherits Desktop's default title font while a peer
+    declares 14pt, source analysis can prove the *missing declaration*,
+    not the inherited effective size. The rule must request render proof.
+    """
+    import json
+    import shutil
+
+    from vqs.pipeline import run_check
+
+    clone = tmp_path / "report"
+    shutil.copytree(REPORT, clone)
+    visuals = clone / "definition" / "pages" / "P1" / "visuals"
+    card = visuals / "cardx" / "visual.json"
+    doc = json.loads(card.read_text(encoding="utf-8"))
+    doc["visual"]["visualContainerObjects"] = {"title": [{"properties": {
+        "show": {"expr": {"Literal": {"Value": "true"}}},
+        "text": {"expr": {"Literal": {"Value": "'Revenue'"}}},
+        "fontSize": {"expr": {"Literal": {"Value": "14D"}}},
+    }}]}
+    card.write_text(json.dumps(doc), encoding="utf-8")
+    peer = visuals / "cardy" / "visual.json"
+    peer.parent.mkdir()
+    doc["visual"]["visualContainerObjects"]["title"][0]["properties"].pop(
+        "fontSize")
+    peer.write_text(json.dumps(doc), encoding="utf-8")
+
+    facts = measure_report(str(clone))
+    readings = facts["rules"]["typography.format_declaration_consistency"][
+        "readings"]
+    cohort = [item for item in readings if item["cohort"] ==
+              "card/vco.title.fontSize"]
+    assert cohort == [
+        {"cohort": "card/vco.title.fontSize", "page": "P1", "value": 14,
+         "visual": "cardx"},
+        {"cohort": "card/vco.title.fontSize", "page": "P1", "value": None,
+         "visual": "cardy"},
+    ]
+    finding = next(x for x in run_check(
+        facts, tmp_path / "gate", run_id="container-title")["findings"]
+        if x["check"] == "typography.format_declaration_consistency")
+    # The design rule remains evidence-unknown; the pipeline's fail-closed
+    # normalization deliberately converts that into a blocked gate.
+    assert finding["status"] == "blocked"
+    assert "card/vco.title.fontSize" in str(finding)
+
+
 def test_model_sections_needs_model_dir() -> None:
     facts = measure_report(REPORT, MODEL)
     assert facts["rules"]["encoding.metric_unit_consistency"] == {"readings": [

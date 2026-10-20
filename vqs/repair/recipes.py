@@ -202,6 +202,11 @@ def bind_leaf(op: dict, visual_doc: dict) -> dict:
     old = _walk(visual_doc, path)
     if old is None or isinstance(old, (dict, list)):
         raise RecipeError(f"{op_type}: path {path!r} is not a scalar leaf")
+    if "old" in op and (not _same_json_type(old, op["old"])
+                         or old != op["old"]):
+        raise RecipeError(
+            f"{op_type}: precondition failed: live leaf {old!r} "
+            f"differs from measured old {op['old']!r}")
     new = op.get("value", None if "value" in op else ...)
     if new is ...:
         raise RecipeError(f"{op_type}: missing value")
@@ -399,6 +404,15 @@ def bind_geometry(op: dict, visual_doc: dict,
     if (not isinstance(old, (int, float)) or isinstance(old, bool)
             or not math.isfinite(old)):
         raise RecipeError(f"{op_type}: existing {path[1]} is not finite")
+    # A synthesized, source-bound reflow supplies the measured old scalar.
+    # Refuse a stale plan instead of silently rebasing geometry on a changed
+    # report.  Legacy owner-authored plans without an old pin keep their
+    # existing behavior and are still guarded by candidate source identity.
+    if "old" in op and (not _same_json_type(old, op["old"])
+                         or old != op["old"]):
+        raise RecipeError(
+            f"{op_type}: precondition failed: live {path[1]}={old!r} "
+            f"differs from measured old {op['old']!r}")
     new = op.get("value", None if "value" in op else ...)
     if (new is ... or isinstance(new, bool)
             or not isinstance(new, (int, float)) or not math.isfinite(new)):

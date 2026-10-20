@@ -32,6 +32,7 @@ import re
 from typing import Any
 
 from .allowlist import validate_plan
+from .composition_reflow import solve_composition
 from .recipes import (
     FORMAT_OPS,
     LEAF_OPS,
@@ -52,6 +53,7 @@ _BAD_CONTROLS_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
 _OVERLAP_CHECK = "layout.no_visual_overlap"
 _WITHIN_CHECK = "layout.visuals_within_page"
+_COMPOSITION_CHECK = "layout.composition"
 
 # An overlap covering more than half of the moved visual is a stacking or
 # redesign decision, not a nudge: the owner chooses which visual moves.
@@ -373,6 +375,54 @@ def _plan_within_conflict(check: str, conflict: dict, tracked: dict,
             "clamped coordinate is inside the measured canvas by "
             "construction"))
     return candidates, []
+
+
+def _plan_composition(facts: Any, all_pages: list[str]
+                      ) -> tuple[list[dict], list[dict]]:
+    """Convert independently recomputed grid constraints into typed repairs.
+
+    An authorable source-bound plan is only the *proposal*.  The normal repair
+    executor, regression oracle and native render still decide whether it is
+    safe to retain; a failed placement never silently falls back to a guess.
+    """
+    rules = facts.get("rules") if isinstance(facts, dict) else None
+    observed = rules.get(_COMPOSITION_CHECK) if isinstance(rules, dict) else None
+    pages = observed.get("pages") if isinstance(observed, dict) else None
+    known_pages = set(all_pages)
+    if isinstance(pages, list):
+        known_pages.update(page["page"] for page in pages
+                           if isinstance(page, dict)
+                           and isinstance(page.get("page"), str))
+    edits, held = solve_composition(pages)
+    candidates = []
+    decisions = [_decision(_COMPOSITION_CHECK, "needs_owner_decision",
+                           problem["reason"], problem.get("page"))
+                 for problem in held]
+    for edit in edits:
+        page, visual = edit["page"], edit["visual"]
+        rel = _visual_rel(page, visual)
+        if rel is None:
+            decisions.append(_decision(
+                _COMPOSITION_CHECK, "needs_owner_decision",
+                "unsafe measured page/visual selector", page, visual))
+            continue
+        op = {"type": edit["op"],
+              "selector": {"page": page, "visual": visual},
+              "target": "visual", "path": edit["path"],
+              "old": edit["old"], "value": edit["new"], "writes": [rel]}
+        affected = affected_pages(op, sorted(known_pages))
+        candidates.append(_candidate(
+            _COMPOSITION_CHECK, page, visual, op, edit["old"], edit["new"],
+            rel, affected["pages"], edit["reason"], "medium",
+            "source-measured-grid-constraint",
+            "validated source geometry and declared caption; candidate "
+            "requires fresh full-canvas native render, interaction and "
+            "data-oracle comparison before acceptance"))
+    if not edits and not held:
+        decisions.append(_decision(
+            _COMPOSITION_CHECK, "covered_by_candidate",
+            "source composition no longer has a proven defect"))
+    return candidates, decisions
 
 
 def _check_leaf_string(op_type: str, old: Any, new: Any) -> str | None:
@@ -729,6 +779,10 @@ def synthesize_plan(findings: Any, facts: Any, *,
                         all_pages or [str(conflict.get("page", ""))])
                     candidates.extend(made)
                     decisions.extend(held)
+            elif check == _COMPOSITION_CHECK:
+                made, held = _plan_composition(facts, all_pages)
+                candidates.extend(made)
+                decisions.extend(held)
             elif _finding_binding(item) is not None:
                 binding = _finding_binding(item)
                 if (isinstance(binding, dict)

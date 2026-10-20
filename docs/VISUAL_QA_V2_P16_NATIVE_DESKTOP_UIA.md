@@ -1,0 +1,146 @@
+# P16 — Native Desktop UI Automation witness for Contoso Deep Dive
+
+Status: engineering implementation. It is **not** independent G2/G4/G6 acceptance.
+
+## Why this closes a real detection gap
+
+The P14 recorded trace validates a handwritten observation against real DAX,
+but rightly cannot infer that the user actually interacted with Desktop.
+P16 adds a *Windows-native executor*: Windows PowerShell/.NET UI Automation
+executes named `SelectionItemPattern.Select/RemoveFromSelection` on the real
+Power BI Desktop controls, then reads live native rendered values/bounds.
+
+It works against an explicitly pinned already-running Desktop process, even
+when the foreground session is locked, without a Power BI Service license,
+a browser driver, screen coordinates, or keyboard injection.
+
+The implementation makes these verifiable:
+
+| Prior failure / risk | New actual Desktop signal | Regression |
+|---|---|---|
+| Year and "Reporting year" share/misalign a box | Distinct UIA heading/dropdown rectangles, vertical separation and alignment | label-dropdown overlap fails |
+| Sales, Units, YoY and Gross Margin too tall or misaligned | Native title/value and card-container rectangles, size ratios, common baseline, no horizontal collision and bounded padding | uneven height, shifted title, excessive label height fail |
+| Sales/Units KPI row misaligned to map below | Four native card-group rectangles checked against combined left Map span, right Channel span and lower Region panel edges/gutters | shifted/oversized card, misaligned map/channel or regional panel fail |
+| Card numbers stale under Year | Actual slicer selection/readout and four rendered cards compared to executed source-bound DAX | wrong period, missing/false/blank numbers fail |
+| Regional sales bars don't match regions | Native category-label/bar center alignment and actual numeric accessibility values validated against three DAX regions | wrong bar value or detached label fails |
+| Region click visually changes nothing | Europe bar's actual UIA select/clear, Sales $2.48M under 2024 and return to $6.20M; compare with year+region DAX | absent selection/crossfilter/reset fails |
+| "A transcript said click occurred" | Explicit allowlisted native UIA control-pattern invocations, action geometry and subsequent independent native readback | wrong PID, method, page contract, source, model or output fail closed |
+
+The layout checks operate on *actual Windows accessibility geometry*, not
+just PBIR `position` JSON. This is a crucial complement to screenshot-only
+pixel occupancy and makes the original alignment misses reproducibly testable.
+A native accessibility box still does **not** prove glyph ink is unclipped:
+OCR/pixel detection remains necessary as a separate visual acceptance channel.
+
+## Windows reproduction (disposable report only)
+
+1. Open a disposable Contoso PBIP preview in Power BI Desktop; record its
+   positive `PBIDesktop.exe` PID. Do not run on an unrelated user's report.
+2. Capture the P14 live DAX oracle for that same physical project and PID.
+3. Run the native executable proof:
+
+```powershell
+python -m scripts.contoso_p14_live_oracle "C:\\scratch\\disposable-Contoso" --desktop-pid 12345 --output "C:\\private\\oracle.json"
+
+python -m scripts.contoso_p16_native_interaction "C:\\scratch\\disposable-Contoso" --desktop-pid 12345 --oracle "C:\\private\\oracle.json" --output "C:\\private\\native-uia.json"
+```
+
+The native adapter is `scripts/windows/contoso_native_uia.ps1`. It requires
+no third-party PowerShell modules. The orchestrator refuses to overwrite
+existing evidence, fingerprints the local PBIP wrapper/report/semantic model
+before and after, verifies the PBIR interaction contract, and compares
+native displayed *formatted numbers* using half-last-decimal rounding
+intervals against unrounded DAX. It verifies All, 2023, 2024, 2025,
+return to 2024, Europe region selection, clear Region, then restores All.
+The initial baseline accepts a *genuinely observed* prior 2023/24/25/All
+state if an earlier run was interrupted; it does not silently assume All.
+
+The JSON contains an ordered event series with native KPI strings, native
+bounding boxes, region values/selection, UTC timestamp and actual action
+method. Keep this JSON and any Desktop screenshots private; never commit
+business values or screenshots to Git.
+
+Exit code 0 means `native_uia: pass`, **not** G4 acceptance. An observed
+numeric/geometry mismatch exits 1; missing native controls, inputs or
+Windows capability block with exit 2. All outcomes retain
+`interactive: blocked`, `country_map: blocked`,
+`independent_acceptance: blocked` and
+`desktop_loaded_file_attested: false`.
+
+## Still blocked — explicit next product steps
+
+1. **Portable Shape Map country input**: the built-in Shape Map exposes a
+   `Plot area` and many initially unnamed SVG image descendants; this is
+   **not a stable country-name selector**. A private, source-bound prototype
+   now successfully selected/cleared the United States with a guarded
+   foreground Win32 click, live DAX KPI match and new screenshot. Its
+   coordinate was calibrated to that one Desktop map and does not generalize
+   to another viewport, dataset or country. Do not silently simulate
+   pointer input while an unrelated app/LockApp is foreground; require
+   an attested accessible hit target and a reproducible country resolver.
+2. **Independent rendered visual judgment**: combine accessibility for
+   controls/text bounds, OCR text boxes for canvas map/chart/Word, image
+   occupancy/SSIM for ink and clipping, and reviewer inspection. Normalize
+   DPI/window geometry. Numeric equality alone cannot decide aesthetics.
+3. **Safe automatic repair**: use allowlisted PBIR repair recipes, optionally
+   ranked by 2D constraint optimization (hard no-overlap/gutters/text area;
+   soft minimal movement/consistent rhythm). Generate a few isolated
+   candidates; render them natively; require improved evidence **and**
+   unmodified DAX/semantic bindings before promotion or rollback.
+4. **Word component (separate scope)**: when `word-docx` or historical
+   `combined` is requested, render generated DOCX with native Word where
+   available and inspect the paginated result. Word is **not** a precondition
+   for the primary `powerbi-core` release.
+5. **Power BI G6**: repeat inspect→diagnose→repair→native render→independent
+   signoff across two *unrelated* PBIPs with Power BI negative controls.
+   The separate Word scope has its own DOCX-focused acceptance obligations.
+
+## 20 October 2026: fresh native candidate evidence
+
+An independently opened **disposable** Contoso PBIP candidate was captured
+in Desktop after a surgical six-visual-definition repair. Microsoft Report
+Author validation returned **0 errors and 0 warnings**. Bridge captured
+all five report pages; Modeling MCP independently attested populated data
+with a repeat query. A new four-year executed DAX oracle and **complete
+nine-event native UIA recorder**, on the same fresh run-owned Desktop PID,
+verified **All/2023/2024/2025**, Europe selection and clearing, and restored
+All. All nine scenarios passed real displayed KPI/region and geometry checks.
+Native visual refresh is asynchronous and the recorder waits for parity.
+
+The run also revealed a concrete runtime failure mode: Bridge remains
+connected when Desktop is **minimized**, but its UIA root has empty bounds
+and no report descendants. Restoring **only the attested disposable
+candidate** through Windows `WindowPattern.SetWindowVisualState(Normal)`
+made the nine-event recorder pass. The versioned adapter now diagnoses a
+minimized/unrendered window explicitly, but never silently raises or
+focuses a user-owned Desktop window.
+
+Finally, an **authorized, bounded Shape Map country experiment** succeeded
+on that same private candidate. The foreground PID, Bridge loaded-project
+path and `Country sales` → `Plot area` ancestry were checked before a
+single physical US selection; its rendered KPI matched the independently
+executed US DAX total, and the new native screenshot showed the selected
+country and cross-highlighted neighbors. Clicking the same shape again
+restored the default KPI. The private receipt seals source, PID and image
+hashes. This is **real Contoso engineering interaction evidence** but not a
+generalized or independently signed G4 acceptance path.
+
+The full private snapshots, device paths, model cache, and observed sales
+numbers remain on the authorized Windows host, never in public Git.
+This is strong engineering G0/G1 and actual Year/Region/US-map interaction
+evidence, **not** an authenticated independent G2/G4/G6 verdict. A
+portable country locator, second unrelated PBIP, independent visual
+reviewer and release owner remain outstanding. See
+[the evidence and repair record](POWER_BI_CORE_NATIVE_EVIDENCE_2026-10-20.md).
+
+Useful official engineering references:
+- Microsoft Windows UI Automation overview:
+  https://learn.microsoft.com/en-us/dotnet/framework/ui-automation/ui-automation-overview
+- Microsoft WinApp CLI (optional interactive adapter):
+  https://github.com/microsoft/WinAppCli
+- Power BI Shape Map and its constraints:
+  https://learn.microsoft.com/en-us/power-bi/visuals/power-bi-shape-map
+- Google OR-Tools CP-SAT 2D no-overlap:
+  https://or-tools.github.io/docs/python/classortools_1_1sat_1_1python_1_1cp__model_1_1CpModel.html
+- Microsoft Word ExportAsFixedFormat:
+  https://learn.microsoft.com/en-us/dotnet/api/microsoft.office.interop.word._document.exportasfixedformat?view=word-pia

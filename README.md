@@ -95,6 +95,7 @@ status and release scopes.
 | `vqs cycles` | Static DAX/M/`let` acyclicity gate | Implemented on this branch |
 | `vqs check` | Facts → sealed verdict under run roots (G0 observation) | Implemented on this branch |
 | `vqs capture` | Bridge screenshots + capture manifest | Implemented on this branch; needs Desktop + Bridge |
+| `vqs assurance` | Source-bound region pixels + runtime trace coherence + explicitly blocked independent G2/G4/G6 | Integrated P13–P16 candidate; PBI-only scope by default |
 | `vqs request-review` | Source-bound review template from renders | Implemented on this branch |
 | `vqs bundle` | Portable fixer→reviewer evidence bundles | Implemented on this branch |
 | `vqs adjudicate-bundle` | Independent static adjudication (never passes statically) | Implemented on this branch |
@@ -138,6 +139,7 @@ Machine-readable status: [roadmap/STATUS.md](roadmap/STATUS.md) and [roadmap/wor
 - [User guide](docs/USER_GUIDE.md) — end-to-end workflows with copy-paste commands
 - [Command reference](docs/CLI.md) — every `vqs` command
 - [Illustrated architecture](docs/ARCHITECTURE.md) — Power BI core, optional Word, Windows Bridge/API/UIA/remote layers, quality loop and release scopes
+- [Fresh native visual evidence](docs/POWER_BI_CORE_NATIVE_EVIDENCE_2026-10-20.md) — five rendered pages, before/after PBIR repair, live model and Desktop interaction witness, honest open gates
 - [Acceptance matrix](docs/ACCEPTANCE_MATRIX.md) — falsifiable gates G0–G6
 - [Contributing](CONTRIBUTING.md) — setup, gates, PR rules
 - [Changelog](CHANGELOG.md)
