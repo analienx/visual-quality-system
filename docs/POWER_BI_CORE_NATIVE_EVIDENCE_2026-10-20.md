@@ -44,11 +44,17 @@ the resulting report returned **zero errors and zero warnings**.
   including 2023/2024/2025, Europe selection, clearing and All restoration.
   The Sales KPI and regional bars followed the selected context. **Readback
   must allow for asynchronous visual refresh**—the first snapshot can be stale.
-- A bounded read-only hit test at expected Shape Map country coordinates
-  resolved to an **unrelated foreground window**, not Power BI Desktop.
-  Thus a blind pointer click would have targeted the wrong app; no pointer
-  event was injected. The map country interaction is correctly left blocked
-  until a trusted, foreground-attested visual input adapter is available.
+- An initial read-only Shape Map hit test resolved to an **unrelated
+  foreground window**, so no unsafe click was dispatched. After the
+  disposable Desktop window was restored, a new read-only check attested
+  the exact Power BI foreground PID, source PBIP path and accessible
+  `Country sales` → `Plot area` shape hierarchy. A bounded Win32 mouse
+  click **actually selected the United States**. Native Sales/Units
+  readback agreed with the *executed country-specific DAX oracle*, and a
+  new private Desktop screenshot showed the selected map and downstream
+  cross-highlighting. A second guarded click **cleared the selection**;
+  the original Sales KPI returned. Before/selected/cleared PNGs and a
+  source/PID-bound country witness receipt stay private.
 - A later formal recorder initially blocked while the disposable Desktop
   window was minimized: Bridge stayed connected, but UIA bounds were empty.
   A targeted `WindowPattern` restore of that **run-owned candidate only**
@@ -69,13 +75,14 @@ test fixture is counted as an independent visual acceptance decision.
 | G1 populated native report | 5/5 real pages; Modeling MCP live readiness | Engineering pass |
 | G2 aesthetics and rendered text | Actual before/after screenshots reviewed by implementing agent; no independent reviewer | **Blocked** |
 | G3 repair confinement | Disposable copy; bounded PBIR cosmetics; audited changes; CLI validation | Engineering pass; promotion separate |
-| G4 interactive parity | Full 9/9 genuine Year/Region UIA + DAX parity; no Shape Map country click witness | **Blocked for complete scope** |
+| G4 interactive parity | Full 9/9 native Year/Region witness **plus real US Shape Map select/clear with DAX/readback/PNG parity** | Engineering witness pass for Contoso; **independent G4 release blocked** |
 | G6 release | No independently attested second unrelated PBIP and separate verifier/owner promotion | **Blocked** |
 
 Word/DOCX does **not** enter this `powerbi-core` gate. The next useful
-work is an authenticated **map country selection** and a second
-structurally unrelated PBIP through the same populated native
-inspect→repair→render→semantic/UI→review pipeline. Improve the
+work is to turn the **one-off, calibrated and foreground-guarded US click**
+into a reusable, country-identified interaction adapter and independently
+review it on a second structurally unrelated PBIP. A one-off screen
+coordinate is **not** a general country locator. Improve the
 renderer/canvas transform before claiming per-visual calibrated crops
 where the Bridge does not expose an unambiguous viewport.
 

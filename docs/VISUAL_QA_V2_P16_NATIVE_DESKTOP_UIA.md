@@ -69,12 +69,15 @@ Windows capability block with exit 2. All outcomes retain
 
 ## Still blocked — explicit next product steps
 
-1. **Shape Map United States input**: the built-in Power BI Shape Map
-   accessibility subtree exposes one image/"Plot area", not countries.
-   Country selection needs an authorized interactive/unlocked Desktop
-   observer or supported semantic hit-target mechanism. A human-approved
-   map-geometry pixel click must verify selected state, KPI outcome and
-   screenshot; it must not be simulated while LockApp is foreground.
+1. **Portable Shape Map country input**: the built-in Shape Map exposes a
+   `Plot area` and many initially unnamed SVG image descendants; this is
+   **not a stable country-name selector**. A private, source-bound prototype
+   now successfully selected/cleared the United States with a guarded
+   foreground Win32 click, live DAX KPI match and new screenshot. Its
+   coordinate was calibrated to that one Desktop map and does not generalize
+   to another viewport, dataset or country. Do not silently simulate
+   pointer input while an unrelated app/LockApp is foreground; require
+   an attested accessible hit target and a reproducible country resolver.
 2. **Independent rendered visual judgment**: combine accessibility for
    controls/text bounds, OCR text boxes for canvas map/chart/Word, image
    occupancy/SSIM for ink and clipping, and reviewer inspection. Normalize
@@ -112,12 +115,22 @@ made the nine-event recorder pass. The versioned adapter now diagnoses a
 minimized/unrendered window explicitly, but never silently raises or
 focuses a user-owned Desktop window.
 
+Finally, an **authorized, bounded Shape Map country experiment** succeeded
+on that same private candidate. The foreground PID, Bridge loaded-project
+path and `Country sales` → `Plot area` ancestry were checked before a
+single physical US selection; its rendered KPI matched the independently
+executed US DAX total, and the new native screenshot showed the selected
+country and cross-highlighted neighbors. Clicking the same shape again
+restored the default KPI. The private receipt seals source, PID and image
+hashes. This is **real Contoso engineering interaction evidence** but not a
+generalized or independently signed G4 acceptance path.
+
 The full private snapshots, device paths, model cache, and observed sales
 numbers remain on the authorized Windows host, never in public Git.
-This is strong engineering G0/G1 and partial G4 evidence, **not** an
-authenticated independent G2/G4/G6 verdict. The map's country click,
-second unrelated PBIP, independent visual reviewer and release owner
-remain outstanding. See
+This is strong engineering G0/G1 and actual Year/Region/US-map interaction
+evidence, **not** an authenticated independent G2/G4/G6 verdict. A
+portable country locator, second unrelated PBIP, independent visual
+reviewer and release owner remain outstanding. See
 [the evidence and repair record](POWER_BI_CORE_NATIVE_EVIDENCE_2026-10-20.md).
 
 Useful official engineering references:
