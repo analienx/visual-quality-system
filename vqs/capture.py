@@ -150,6 +150,19 @@ def select_instance(report_dir: str, pid: int | None,
         raise LookupError(
             f"Desktop PID {instance.get('pid')} has "
             f"{instance.get('currentFilePath')} open, not {report_dir}")
+    opened = instance.get("currentFilePath")
+    if not isinstance(opened, str) or not opened.strip():
+        raise LookupError("Bridge did not report an opened file path")
+    # A Bridge status must not bind one reportDir to another PBIP wrapper.
+    # The legacy synthetic port reports the .Report directory itself; when
+    # Desktop supplies a real .pbip path, its sibling/stem must agree with
+    # the selected PBIR directory before any screenshot can be trusted.
+    if opened.lower().endswith(".pbip") and not _same_path(
+            opened, str(Path(report_dir).with_suffix(".pbip"))):
+        raise LookupError("Bridge currentFilePath contradicts reportDir; "
+                          "refusing Desktop source identity")
+    if instance.get("bridgeStatus", "connected") != "connected":
+        raise LookupError("Desktop Bridge connection is not ready")
     if "hasUnsavedChanges" not in instance:
         raise LookupError("Bridge did not report a save state; refusing "
                           "to capture against unknown staleness")

@@ -161,6 +161,29 @@ def test_wrong_report_and_unsaved_block(tmp_path: Path, monkeypatch,
     assert "unsaved" in capsys.readouterr().out
 
 
+def test_bridge_cannot_pair_target_report_dir_with_foreign_pbip(tmp_path, monkeypatch):
+    report = _make_report(tmp_path)
+    instance = _instance(report)
+    instance["currentFilePath"] = str(tmp_path / "Different.pbip")
+    _stub(monkeypatch, report, [instance])
+    with pytest.raises(LookupError, match="contradicts reportDir"):
+        capture.select_instance(str(report), instance["pid"], 1)
+
+
+def test_bridge_missing_open_path_or_disconnected_is_not_capture_ready(tmp_path):
+    report = _make_report(tmp_path)
+    missing = _instance(report)
+    del missing["currentFilePath"]
+    with pytest.raises(LookupError, match="opened file path"):
+        capture.select_instance(str(report), 111, 1,
+                                status_payload={"instances": [missing]})
+    disconnected = _instance(report)
+    disconnected["bridgeStatus"] = "disconnected"
+    with pytest.raises(LookupError, match="connection is not ready"):
+        capture.select_instance(str(report), 111, 1,
+                                status_payload={"instances": [disconnected]})
+
+
 def test_pid_disambiguates_instances(tmp_path: Path, monkeypatch,
                                      capsys) -> None:
     report = _make_report(tmp_path)
