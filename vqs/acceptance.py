@@ -1,8 +1,9 @@
 """End-to-end acceptance adjudication (WP-11 core, issue #16).
 
-Aggregates per-subject gate results into a release verdict. The rules encode
-the acceptance contract itself: two unrelated PBIP subjects plus a DOCX
-(a partial suite is never acceptance), the complete scope-specific G0-G6
+Aggregates per-subject gate results into a release verdict. The default
+legacy combined scope requires two unrelated PBIPs plus a DOCX; explicit
+Power BI core and Word/DOCX release scopes are independently gated.
+All scopes still require the complete applicable G0-G6
 gate set with every passing gate bound to a declared subject (G6 binds
 the exact suite digest instead) and to a sealed evidence envelope
 resolved through a trusted store, all named negative controls present
@@ -32,6 +33,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from vqs.components import RELEASE_SCOPES, suite_subject_digest
 from vqs.evidence import SealedEvidenceStore, canonical_json_sha256
 from vqs.run_store import _resolve_artifact, verify_seal
 
@@ -217,6 +219,12 @@ def run_acceptance(record: dict[str, Any],
                               "findings": [{"rule": "promotion_authority_unregistered",
                                             "status": "blocked"}]},
                 "findings": [{"rule": "record_not_an_object"}]}
+    requested_scope = record.get("release_scope", "combined")
+    release_profile = (RELEASE_SCOPES.get(requested_scope)
+                       if isinstance(requested_scope, str) else None)
+    if release_profile is None:
+        findings.append({"rule": "release_scope_invalid", "status": "blocked"})
+        release_profile = RELEASE_SCOPES["combined"]  # strict legacy fallback
     store_usable = True
     if evidence_store is None:
         findings.append({"rule": "evidence_store_missing", "status": "blocked",
@@ -247,9 +255,20 @@ def run_acceptance(record: dict[str, Any],
     pbips = [s for s in by_id.values() if s["kind"] == "pbip"]
     docxs = [s for s in by_id.values() if s["kind"] == "docx"]
     layouts = {s.get("layout_digest") for s in pbips if s.get("layout_digest")}
-    if len(pbips) < 2 or len(layouts) < 2 or len(docxs) < 1:
+    forbidden = sorted(s["id"] for s in by_id.values()
+                       if s["kind"] not in release_profile.allowed_kinds)
+    if forbidden:
+        findings.append({"rule": "release_scope_subject_mismatch", "status": "fail",
+                         "subjects": forbidden})
+    if (len(pbips) < release_profile.min_pbip
+            or (release_profile.min_pbip >= 2 and len(layouts) < 2)
+            or len(docxs) < release_profile.min_docx):
         findings.append({"rule": "partial_suite", "status": "blocked",
-                         "reason": "Two unrelated PBIPs plus a DOCX are required"})
+                         "reason": ("Two unrelated PBIPs plus a DOCX are required"
+                                    if release_profile.name == "combined" else
+                                    f"Release scope {release_profile.name} requires "
+                                    f"{release_profile.min_pbip} PBIPs and "
+                                    f"{release_profile.min_docx} DOCX")})
     # R6-DEC-03: the suite block pins the exact subject set. Ordering
     # normalizes (sort by id); duplicates, omissions, extras,
     # substitutions, and digest drift fail closed.
@@ -286,7 +305,7 @@ def run_acceptance(record: dict[str, Any],
                                   triple["source_sha256"])
                                  for triple in triples)
                 computed = canonical_json_sha256(
-                    sorted(triples, key=lambda triple: triple["id"]))
+                    suite_subject_digest(triples, release_profile))
                 if declared != claimed or suite["suite_digest"] != computed:
                     findings.append({"rule": "suite_digest_mismatch",
                                      "status": "fail"})
@@ -588,7 +607,7 @@ def run_acceptance(record: dict[str, Any],
         control = gate.get("negative_control", "")
         if ((control and not isinstance(control, str))
                 or (isinstance(control, str) and control
-                    and control not in REQUIRED_NEGATIVES)):
+                    and control not in release_profile.required_negatives)):
             findings.append({"rule": "invalid_negative_control", "status": "blocked",
                              "gate": gate_id})
         elif control:
@@ -614,14 +633,14 @@ def run_acceptance(record: dict[str, Any],
     missing_pairs = sorted(
         f"{gate_id}:{subject_id}"
         for subject_id, subject in by_id.items()
-        for gate_id, kind in sorted(COVERAGE_PAIRS)
+        for gate_id, kind in sorted(release_profile.coverage_pairs)
         if subject["kind"] == kind and (gate_id, subject_id) not in covered)
     if not g6_covered:
         missing_pairs.append("G6:suite")
     if missing_pairs:
         findings.append({"rule": "gate_set_incomplete", "status": "blocked",
                          "missing": sorted(missing_pairs)})
-    missing = REQUIRED_NEGATIVES - seen_negatives
+    missing = release_profile.required_negatives - seen_negatives
     if missing:
         findings.append({"rule": "negative_controls_missing", "status": "blocked",
                          "missing": sorted(missing)})

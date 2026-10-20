@@ -1,5 +1,13 @@
 # VQS command reference (pre-alpha)
 
+**Component boundary:** The CLI below is the primary **Power BI** VQS
+interface. Word/DOCX native steps remain in separately invoked
+`scripts/word_p*.py` and optional `.[word-pages]` dependency
+group. The Python release validator `vqs.acceptance.run_acceptance`
+supports explicit `release_scope=powerbi-core|word-docx|combined`;
+this field is **not** a documented CLI flag. See
+[architecture](ARCHITECTURE.md) and [acceptance](ACCEPTANCE_MATRIX.md).
+
 Install once (editable): `pip install -e .` — this exposes the `vqs`
 entry point. Every command below was executed against synthetic fixtures
 during development; see `tests/test_pipeline.py` and

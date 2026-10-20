@@ -1,10 +1,47 @@
 # VQS acceptance matrix — tests before claims
 
-**Scope:** first independent Power BI Desktop + rendered Word/DOCX release. References: [program](IMPLEMENTATION_PROGRAM.md), [agent/ledger protocol](LEDGER_AND_AGENT_PROTOCOL.md), [work packages](../roadmap/work_packages.json). **All test cases below are planned requirements**; the initial planning commit is not evidence that any of them passed. Test fixtures must be created before repair implementation; do not measure only a model's approval score.
+**Primary release scope: Power BI core.** Word/DOCX is a separate optional
+component; the historical combined suite remains a compatibility profile.
+See the [illustrated architecture](ARCHITECTURE.md),
+[program](IMPLEMENTATION_PROGRAM.md), [agent/ledger protocol](LEDGER_AND_AGENT_PROTOCOL.md)
+and [work packages](../roadmap/work_packages.json). These are falsifiable
+acceptance requirements, **not** claims of independently passing evidence.
 
 ## 1. Gate definitions and result semantics
 
-`G0 source/contract/runtime`: correct complete PBIR/DOCX identity, schema, hashes, capabilities and evidence storage. `G1 actual data/renderer readiness`: Power BI model really populated and queryable at recorded filters/role; DOCX backend/version/fonts valid. `G2 design evidence`: quantitative rules and independently reviewed real render agree or conflicts remain explicit. `G3 repair safety`: typed allowlisted change in isolated candidate, exact source diff and rollback. `G4 same-task regression`: same question/answer/filter scope, all categories/neighbor visuals and supported interactions retain correctness on fresh Desktop render. `G5 all-page Word/document consistency`: validated OOXML, real pagination in declared backend, every page inspected and embedded figures traced to current report source. `G6 independent acceptance`: two unrelated PBIPs + generated DOCX + negative corpus completed, verifier not same editor, owner expressly approves promotion.
+`G0 source/contract/runtime`: correct artifact identity, schema, hashes,
+capabilities and evidence storage. `G1 actual data/renderer readiness`:
+Power BI model really populated/queryable at recorded filters/role, or
+DOCX backend/version/fonts valid when Word is selected. `G2 design
+evidence`: quantitative rules and independently reviewed real Power BI
+render. `G3 repair safety`: typed allowlisted source change in isolated
+candidate, diff and rollback. `G4 same-task regression`: same report
+question, answer/filter scope, neighbor visuals and supported native
+interactions on fresh Desktop. `G5 Word consistency`: validated OOXML,
+native paginated output, every page inspected and source-bound figures
+where applicable. `G6 independent acceptance`: separately sealed suite,
+negative corpus, independent reviewer and owner-controlled promotion.
+
+### Explicit component release profiles (implemented in `vqs/components.py`)
+
+| Profile | Required subjects | Subject gates | Suite requirement |
+| --- | --- | --- | --- |
+| **`powerbi-core` (primary)** | Two unrelated PBIPs with distinct layouts; **no DOCX needed** | G0/G1/G2/G3/G4 for each report | G6 + Power BI negative controls |
+| **`word-docx` (optional)** | At least one actual DOCX; no PBIP subject | G0/G1/G5 for each document | G6 + Word negative controls |
+| `combined` (legacy default) | Two unrelated PBIPs **and** DOCX | All applicable G0–G5 | G6 + union of negatives |
+
+Pass `release_scope` explicitly in a programmatic
+`run_acceptance(record, evidence_store)` request. A missing scope retains
+the **old combined behavior**, avoiding silent changes to existing
+records. Invalid scope blocks; mixing DOCX into `powerbi-core` (or
+PBIP into `word-docx`) fails; each scoped suite digest includes its
+component name so evidence cannot be replayed across profiles.
+**This is not a new CLI subcommand.**
+
+The report/data/capture/review engines do not yet publish full trusted
+G2/G4/G5/G6 producer evidence. `vqs.check/1` can attest **G0 only**,
+and no independent reviewer or owner promotion publisher is registered;
+these scopes make release boundaries correct, not artificially green.
 
 For any mandatory criterion: `pass` requires directly relevant current evidence; `fail` means a demonstrated violation; `blocked` means environment/capability/required data prevents testing; `not_run` has no evidence; `not_applicable` needs stated legitimate reason. `unknown` is a diagnosis state, not a release verdict. Mandatory `blocked/not_run/unknown` precludes G6 approval; optional unsupported features appear in feature matrix and must not be marketed as tested. A static unit-test pass cannot satisfy a Desktop render or Word pagination gate.
 
@@ -66,7 +103,13 @@ For any mandatory criterion: `pass` requires directly relevant current evidence;
 | FIX-08 | Attempt to write to original PBIP or promote without owner approval | write guard blocks and original digest unchanged | G3,G6 |
 | FIX-09 | Two independent PBIPs with different chart/data/layout | same typed repair API works when supported; unsupported feature handled explicitly | G4,G6 |
 
-## 6. Word and cross-artifact truth (WP-04,08,11)
+## 6. Optional Word component and cross-artifact truth (WP-04,08,11)
+
+**G5 is not mandatory for `powerbi-core`**. It is mandatory only when
+accepting `word-docx` or the historical `combined` profile.
+For a standalone DOCX derived from Power BI, embedded figures must be
+bound to an attested Power BI source revision; that link does not force
+the full Power BI artifact into Word's separate acceptance subject set.
 
 | Test ID | Stimulus / fixture | Expected observable result | Gate |
 | --- | --- | --- | --- |
@@ -85,8 +128,23 @@ For any mandatory criterion: `pass` requires directly relevant current evidence;
 
 Evidence set for **each** of the two unrelated PBIPs: source/ref digest and report open path/PID, model definition+authorized data scope and live answer samples, first-open+refresh assessment, all-page native render inventory and calibration, actual design findings with source refs, candidate source diff, fresh all-page/crop revision, unaffected neighbor/category coverage, supported user-task answers and limitations, negative tests, reviewer/editor separation, structured pass/fail/blocked matrix. **No raw private sample data should be committed to Git.**
 
-Evidence set for **each** generated DOCX: exact DOCX hash, renderer/locale/font inventory, actual page count and all-page PNG hashes, OOXML sections/style/figure refs, linked report image source hashes, paginated defects and narrow repair diff, final all-page rerender, independently inspected selected page images plus programmatic all-page checks, target-renderer compatibility limitations.
+For the **Power BI core**, the two unrelated PBIP evidence sets above
+are mandatory and **DOCX evidence is not required**. For the **optional
+Word component**, evidence for each generated DOCX consists of exact
+DOCX hash, renderer/locale/font inventory, actual page count and
+all-page PNG hashes, OOXML section/style/figure refs, linked report
+image source hashes if the document contains report figures, paginated
+defects and narrow repair diff, final all-page rerender, and independent
+page/prose/figure review. The historical combined suite still needs
+both classes.
 
-Before closing [#16](https://github.com/analienx/visual-quality-system/issues/16), independent verifier must answer: (1) Are all mandatory gates passing on pinned source versions? (2) Which user tasks and interaction states were genuinely exercised? (3) Did the actual report/Word document improve without changed answers/figures? (4) Is any unsupported capability presented as if tested? (5) Can results be reproduced in a clean permitted environment? (6) Are data/image privacy, rollback and owner promotion requirements met?
+Before closing [#16](https://github.com/analienx/visual-quality-system/issues/16),
+independent verifier must answer **for each selected component
+profile**: (1) Are all its mandatory gates passing on pinned source
+versions? (2) Which tasks and states were actually exercised?
+(3) Did the actual report or DOCX improve without corrupted
+answers/figures? (4) Is an unsupported capability presented as tested?
+(5) Can results be reproduced in a clean permitted environment?
+(6) Are privacy, rollback and owner promotion requirements met?
 
 A failure remains a failure until a new explicit run passes. An untested interaction can be declared out of first-release scope only in the owner-approved capability matrix; it cannot silently receive a pass.
