@@ -44,6 +44,8 @@ def test_real_source_and_pixels_do_not_mint_independent_release_approval(tmp_pat
     report, bundle, regions = _shape_fixture(tmp_path)
     result = assess_report_readiness(str(bundle), str(regions), report=str(report))
     assert result["schema"] == ASSURANCE_SCHEMA
+    assert result["premium"]["status"] in {"advisory", "blocked"}
+    assert result["premium"]["evidence_basis"] == "PBIR static, not independent rendered approval"
     assert result["release_scope"] == "powerbi-core"
     assert "DOCX" not in " ".join(result["required_next_evidence"])
     assert result["verdict"] == "blocked"

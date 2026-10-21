@@ -13,6 +13,7 @@ from typing import Any
 from vqs.components import RELEASE_SCOPES
 from vqs.pbir import source_digest
 from vqs.powerbi.interaction_audit import assess_recorded_trace, inspect_deep_dive_contract
+from vqs.premium import audit as premium_audit
 from vqs.visual.pixel_quality import audit_regions
 from vqs.visual.regions import RegionError, _inventory
 
@@ -66,6 +67,12 @@ def assess_report_readiness(
                     else "blocked" if scoped_status in ("unknown", "review_required")
                     else "measured_no_pixel_issue_proven")
     source = pixel["source_sha256"]
+    try:
+        premium = premium_audit(report)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        premium = {"status": "blocked", "reason": str(exc)}
+    if premium.get("source_sha256") not in (None, source):
+        raise RegionError("premium preflight source changed after verified render")
     runtime = {"evidence_consistency": "blocked", "interactive": "blocked",
                "reason": "no current-source Desktop click/observation trace"}
     if oracle is not None or trace is not None or captures_dir is not None:
@@ -106,6 +113,12 @@ def assess_report_readiness(
                   "covered_visuals": len(expected & captured),
                   "missing_visuals": [{"page_id": p, "visual_id": v} for p, v in missing],
                   "out_of_scope_crops": len(outside)},
+        "premium": {"status": premium["status"],
+                    "source_sha256": premium.get("source_sha256"),
+                    "top_three": premium.get("top_three", []),
+                    "findings_total": len(premium.get("findings", [])),
+                    "reason": premium.get("reason"),
+                    "evidence_basis": "PBIR static, not independent rendered approval"},
         "pixel": {"status": pixel_status, "measured": len(measured),
                   "source_bound_audit": scoped_status,
                   "policy_targets": pixel["policy_targets"],

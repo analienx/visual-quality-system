@@ -11,9 +11,9 @@
 - **20 October documentation update:** newcomer-first README, explicit GitHub-versus-Windows execution guidance, status-correct Power BI architecture, and an evidence-linked engineering release note.
 - **Not approved for production:** independent G2 visual review, generalized independent G4 interaction parity, two unrelated PBIP acceptance subjects, and trusted G6 reviewer/owner release authority remain blocked.
 
-### Not merged / not shipped
+### Pending independent acceptance / not tagged for release
 
-- **Premium P19 (#65):** design contract, three-perspective perceptual review, and top-three repair recommendations were implemented/tested locally at `8a31cde`. That commit is **not on remote `main`**; `vqs premium` is not yet part of this install. Do not treat local test results as hosted CI, visual acceptance, or a released feature.
+- **Premium P19 (#65):** the historical local candidate `8a31cde` was not recoverable and is not a remote GitHub commit. A smaller, separately reviewed implementation now adds `vqs premium` with source-bound design intent, focused geometric/explicit-style diagnostics, top-three advice, and advisory integration in `vqs assurance`. The current merged status is determined by the linked P19 PR and GitHub checks—not by that missing historical commit. The separate optional three-perspective model critique is **not shipped**; existing opt-in screenshot review remains available. No G2/G4/G6 approval is implied.
 - **Word/DOCX native work:** draft branch/PR sequence (including #62); still independently gated. No Word/DOCX tagged release.
 - **Fabric/web adapter:** deferred (#18).
 
