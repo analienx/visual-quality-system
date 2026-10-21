@@ -842,29 +842,48 @@ def layout_composition(pages: Sequence[dict] | None) -> dict:
 def chart_map_location_labels(maps: Sequence[dict] | None) -> dict:
     """A bubble map must label what its bubbles are (CHT-03).
 
-    Each map needs ``page``, ``visual``, ``labels_shown`` (whether
-    ``categoryLabels.show`` is true), and ``heatmap`` (whether a heatMap
-    layer is configured, which encodes values without labels). A plain
-    bubble map with no labels fails: unidentified bubbles are decoration.
+    This applies to bubble maps only: Shape/Filled Maps encode geography
+    differently, and missing/inherited formatting is not a proven false.
+    Unsupported map types are outside the applicability of this check.
     """
     rule = "chart.map_location_labels"
     if not maps:
         return _finding(rule, "unknown",
                          reason="Measured map label bindings required")
     conflicts = []
+    unresolved = []
+    skipped = []
+    checked = 0
     for item in maps:
         if not isinstance(item, dict):
             return _finding(rule, "unknown", reason="Invalid map observation")
         page, visual = item.get("page"), item.get("visual")
-        shown, heat = item.get("labels_shown"), item.get("heatmap")
         if not all(isinstance(v, str) and v for v in (page, visual)):
             return _finding(rule, "unknown",
                              reason="page and visual must be nonempty strings")
-        if not isinstance(shown, bool) or not isinstance(heat, bool):
-            return _finding(rule, "unknown",
-                             reason="labels_shown and heatmap must be booleans")
-        if not shown and not heat:
+        kind = item.get("type", "map")
+        if not isinstance(kind, str) or not kind:
+            return _finding(rule, "unknown", reason="Map type is unknown")
+        kind = kind.casefold()
+        if kind in {"shapemap", "filledmap", "azuremap", "arcgismap"}:
+            skipped.append({"page": page, "visual": visual, "type": kind})
+            continue
+        if kind != "map":
+            unresolved.append({"page": page, "visual": visual,
+                               "reason": "unrecognized map type"})
+            continue
+        checked += 1
+        shown, heat = item.get("labels_shown"), item.get("heatmap")
+        if shown is True or heat is True:
+            continue
+        if shown is False and heat is False:
             conflicts.append({"kind": "unlabeled_map", "page": page,
                               "visual": visual})
-    return _finding(rule, "fail" if conflicts else "pass",
-                    maps=len(maps), conflicts=conflicts)
+        else:
+            unresolved.append({"page": page, "visual": visual,
+                               "reason": "effective bubble labels/heatmap unknown"})
+    status = ("fail" if conflicts else "unknown" if unresolved or not checked
+              else "pass")
+    return _finding(rule, status, maps=len(maps), checked=checked,
+                    conflicts=conflicts, unresolved=unresolved,
+                    not_applicable=skipped)

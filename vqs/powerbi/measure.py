@@ -592,10 +592,15 @@ def measure_report(report_dir: str, model_dir: str | None = None) -> dict:
             "trees": inventory["trees"]}
     if inventory["maps"]:
         rules["chart.map_location_binding"] = {"maps": inventory["maps"]}
-        rules["chart.map_location_labels"] = {"maps": [
-            {"page": m["page"], "visual": m["visual"],
-             "labels_shown": m["labels_shown"], "heatmap": m["heatmap"]}
-            for m in inventory["maps"]]}
+        # CHT-03 governs bubble maps, not choropleth Shape/Filled Maps.
+        # An unsupported map's missing bubble labels is not a defect.
+        bubble_maps = [m for m in inventory["maps"]
+                       if m["type"].casefold() == "map"]
+        if bubble_maps:
+            rules["chart.map_location_labels"] = {"maps": [
+                {"page": m["page"], "visual": m["visual"], "type": m["type"],
+                 "labels_shown": m["labels_shown"], "heatmap": m["heatmap"]}
+                for m in bubble_maps]}
     if resolved_model is not None:
         formats = _measure_formats(resolved_model)
         readings = [{"measure": ref["measure"],
