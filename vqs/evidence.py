@@ -448,6 +448,15 @@ def check_calibration(calibration: object,
             or isinstance(scale, bool) or scale not in (1, 2)
             or not isinstance(method, str) or not method.strip()):
         return [{"rule": "calibration_invalid", "verdict": "blocked"}]
+    page_canvases = calibration.get("page_canvases")
+    if page_canvases is not None and (
+            not isinstance(page_canvases, dict) or not page_canvases
+            or calibration.get("geometry_calibration") != "blocked"
+            or any(not isinstance(pid, str) or not pid
+                   or not isinstance(size, list) or len(size) != 2
+                   or any(not _is_positive_int(n) for n in size)
+                   for pid, size in page_canvases.items())):
+        return [{"rule": "calibration_page_canvases_invalid", "verdict": "blocked"}]
     if calibration.get("geometry_calibration") == "blocked":
         reason = calibration.get("geometry_reason")
         if not isinstance(reason, str) or not reason.strip():
@@ -590,6 +599,11 @@ def image_evidence(images: Path, source_sha: str, page_ids: list[str],
     shape_issues = check_calibration(calibration)
     issues.extend(shape_issues)
     issues.extend(check_data_readiness(readiness))
+    if isinstance(calibration, dict) and "page_canvases" in calibration:
+        declared_pages = calibration.get("page_canvases", {})
+        if isinstance(declared_pages, dict) and set(declared_pages) != set(page_ids):
+            issues.append({"rule": "calibration_page_inventory_mismatch",
+                           "verdict": "blocked"})
     pages = []
     for page_id in page_ids:
         fallback = page_id if page_id.lower().endswith(".png") else page_id + ".png"
@@ -637,12 +651,15 @@ def image_evidence(images: Path, source_sha: str, page_ids: list[str],
             if canvases is not None:
                 canvas = canvases.get(page_id)
                 calib = calibration if isinstance(calibration, dict) else {}
+                declared = (calib["page_canvases"].get(page_id)
+                            if isinstance(calib.get("page_canvases"), dict)
+                            else [calib.get("canvas_width"), calib.get("canvas_height")])
                 if (not isinstance(canvas, (list, tuple)) or len(canvas) != 2
-                        or [calib.get("canvas_width"), calib.get("canvas_height")] != [canvas[0], canvas[1]]):
+                        or declared != [canvas[0], canvas[1]]):
                     issues.append({"rule": "render_canvas_mismatch", "verdict": "blocked",
                                    "page": page_id,
                                    "source_canvas": list(canvas) if isinstance(canvas, (list, tuple)) and len(canvas) == 2 else None,
-                                   "calibration_canvas": [calib.get("canvas_width"), calib.get("canvas_height")]})
+                                   "calibration_canvas": declared})
         pages.append({"id": page_id, "image": name, "sha256": sha, "pixels": dimensions})
     return pages, issues
 

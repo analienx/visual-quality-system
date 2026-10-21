@@ -4,6 +4,10 @@
 
 > This is an **engineering integration**, not a production release or an independently accepted Power BI product. See the [readable 20 October engineering release notes](docs/RELEASE_NOTES_2026-10-20.md).
 
+### Power BI core capture compatibility (candidate; acceptance independent)
+
+- **Mixed-size native PBIR pages:** support distinct per-page canvas dimensions (including tooltip pages) during capture and review-bundle verification without assuming a single pixel-to-PBIR transform. Exact per-page source identity is mandatory; unverifiable geometry remains `blocked`. This addresses a real converted Microsoft Corporate Spend sample. Its Desktop Bridge still returned `BRIDGE_ERROR: Host is not ready to accept operations`, so **real rendered acceptance is not yet established**. See the associated capture PR and issue #16.
+
 ### Integrated in `main`
 
 - **PR #63 (merged):** Power BI becomes VQS's primary product and independently gated `powerbi-core` acceptance scope. Optional Word/DOCX has its own `word-docx` gate; historical `combined` records still work.
