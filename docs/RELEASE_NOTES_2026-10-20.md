@@ -1,5 +1,8 @@
 # Engineering release notes — 20 October 2026
 
+> [!NOTE]
+> **Historical snapshot.** The premium preflight and mixed-size page capture have since merged, and two unrelated PBIPs now have native engineering evidence. Read the [current 21 October status](RELEASE_NOTES_2026-10-21.md) before drawing conclusions from this archived snapshot.
+
 **Visual Quality System · Power BI-first · version `0.0.1a0` · pre-alpha**
 
 > [!CAUTION]

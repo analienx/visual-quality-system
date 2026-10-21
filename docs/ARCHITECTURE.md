@@ -1,6 +1,6 @@
 # Visual Quality System — Power BI-first architecture
 
-**Architecture revision:** 2026-10-20
+**Architecture revision:** 2026-10-21 · current merged Power BI core
 
 **Primary product:** VQS for Power BI reports and semantic models
 
@@ -14,15 +14,13 @@ responds to real interactions. It may consume a Word deliverable later, but
 **a broken DOCX cannot block a Power BI-only release**; conversely, a successful
 Power BI review never constitutes Word acceptance.
 
-This page distinguishes **merged Power BI core**, **unmerged optional Word
-and premium candidates**, and **future tools**. The Power BI-first scope
+This page distinguishes the **merged Power BI engineering core** (including the premium preflight and mixed-canvas capture), **unmerged optional Word candidates**, and **future tools**. The Power BI-first scope
 was merged in [PR #63](https://github.com/analienx/visual-quality-system/pull/63);
 the source-bound P13/P14/P15/P16/P18 native Power BI integration was merged
 in [PR #64](https://github.com/analienx/visual-quality-system/pull/64)
 (base `main` `f24660c`). Earlier draft PRs are historical work branches,
 **not evidence that their integrated Power BI functionality is absent from main**.
-The newer [premium initiative #65](https://github.com/analienx/visual-quality-system/issues/65)
-is only locally implemented and is **not** on `main`. The older
+The compact [premium preflight (#65)](https://github.com/analienx/visual-quality-system/issues/65) **is merged into `main` in [PR #69](https://github.com/analienx/visual-quality-system/pull/69)**, and [PR #70](https://github.com/analienx/visual-quality-system/pull/70) adds mixed-size report/Tooltip page support, and [PR #71](https://github.com/analienx/visual-quality-system/pull/71) verifies doubled-DPI report-only crops. None implies independent visual approval. The older
 [execution blueprint](EXECUTION_ARCHITECTURE.md) remains historical design,
 not a claim of a finished release.
 Follow the [acceptance matrix](ACCEPTANCE_MATRIX.md) for the actual gates.
@@ -273,7 +271,7 @@ remains **local to Power BI Desktop**. Do not expose the Bridge port or
 secrets to cloud CI. Persistent self-hosted Actions on a credentialed
 personal workstation should not execute untrusted public PR code.
 
-## 7. Honest release status (2026-10-20)
+## 7. Honest release status (2026-10-21)
 
 **Power BI primary:** source-aware P18 reflow and P16 native Year/Region
 functions are **merged into `main` via PR #64**. The Contoso engineering
@@ -281,7 +279,7 @@ witness includes nine Year/Region actions and a separately guarded one-off
 U.S. Shape Map selection/clear with executed DAX parity. **G2 independent
 visual sign-off, reusable/independently approved G4 interaction parity,
 a second unrelated PBIP, and trusted G6 authority remain blocked.**
-The P19 premium-design auditor (#65) is locally tested but **not merged**.
+The bounded `vqs premium` source-hashed design preflight is **merged** ([PR #69](https://github.com/analienx/visual-quality-system/pull/69)); mixed-size page source-bound capture also **merged** ([PR #70](https://github.com/analienx/visual-quality-system/pull/70)). Both projects have real Desktop-rendered captures and verified sealed private bundles, but independent visual review and viewport calibration are still blocked. [Current two-PBIP evidence and gating](RELEASE_NOTES_2026-10-21.md).
 No claim of a complete VQS release is made.
 
 **Word optional:** P21 detected 26 broken bookmark links, P22 native
@@ -304,5 +302,5 @@ GitHub status before planning another run.
 - [Microsoft UI Automation SelectionItemPattern](https://learn.microsoft.com/en-us/dotnet/api/system.windows.automation.selectionitempattern) — supported native selection patterns.
 - [Microsoft WinApp CLI UI automation](https://github.com/microsoft/WinAppCli/blob/main/docs/ui-automation.md) — prospective adapter only, not currently installed.
 - [Power BI built-in Shape Map](https://learn.microsoft.com/en-us/power-bi/visuals/power-bi-shape-map) — accepted no-Azure-Maps-account design.
-- [Merged Power BI native integration — PR #64](https://github.com/analienx/visual-quality-system/pull/64) · [Power BI evidence](POWER_BI_CORE_NATIVE_EVIDENCE_2026-10-20.md) · [premium candidate #65](https://github.com/analienx/visual-quality-system/issues/65) · [Word draft PR #62](https://github.com/analienx/visual-quality-system/pull/62) · [engineering release notes](RELEASE_NOTES_2026-10-20.md)
+- [Merged Power BI native integration — PR #64](https://github.com/analienx/visual-quality-system/pull/64) · [Power BI evidence](POWER_BI_CORE_NATIVE_EVIDENCE_2026-10-20.md) · [merged premium preflight PR #69](https://github.com/analienx/visual-quality-system/pull/69) · [Word draft PR #62](https://github.com/analienx/visual-quality-system/pull/62) · [current engineering release notes](RELEASE_NOTES_2026-10-21.md)
 - [Execution blueprint](EXECUTION_ARCHITECTURE.md) · [acceptance matrix](ACCEPTANCE_MATRIX.md) · [integration strategy](INTEGRATION_STRATEGY.md)
