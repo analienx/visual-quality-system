@@ -22,29 +22,36 @@ def _chunk(tag, payload):
 
 
 def _scene(path: Path, *, top=True, bottom=True, seam=True,
-           intruder=False, width=900, page_width=768, page_height=432):
-    """Controlled colored Desktop host and 3-row dotted page outlines."""
+           intruder=False, width=900, page_width=768, page_height=432,
+           screenshot_height=600, doubled=False):
+    """Controlled Desktop host with legacy or observed doubled-DPI dots."""
     top_y = 60
-    bottom_y = top_y + 3 + page_height
+    stroke = 6 if doubled else 3
+    period = 12 if doubled else 6
+    bottom_y = top_y + stroke + page_height
     data = bytearray()
-    for y in range(600):
+    for y in range(screenshot_height):
         row = bytearray([255, 255, 255] * width)
         if y == top_y + 120:
             # A report chart retained by the output crop.
             for x in range(25, 180):
                 row[3*x:3*x+3] = bytes([12, 75, 170])
-        if (top and top_y <= y < top_y + 3
-                or bottom and bottom_y <= y < bottom_y + 3
-                or intruder and top_y+35 <= y < top_y+38):
+        if (top and top_y <= y < top_y + stroke
+                or bottom and bottom_y <= y < bottom_y + stroke
+                or intruder and top_y+35 <= y < top_y+35+stroke):
             for x in range(page_width):
-                if x % 6 in (2, 3, 4):
+                phase = x % period
+                if (4 <= phase <= 9) if doubled else (phase in (2, 3, 4)):
                     row[3*x:3*x+3] = bytes([75, 85, 99])
         if seam:
-            for x in range(page_width + 1, width):
-                row[3*x:3*x+3] = bytes([209, 213, 219]) if x == page_width + 1 else bytes([249, 250, 251])
+            offset = 2 if doubled else 1
+            for x in range(page_width + offset, width):
+                row[3*x:3*x+3] = (bytes([209, 213, 219])
+                                   if x in range(page_width + offset, page_width + offset + stroke // 3)
+                                   else bytes([249, 250, 251]))
         data.append(0)
         data.extend(row)
-    head = struct.pack(">IIBBBBB", width, 600, 8, 2, 0, 0, 0)
+    head = struct.pack(">IIBBBBB", width, screenshot_height, 8, 2, 0, 0, 0)
     path.write_bytes(
         b"\x89PNG\r\n\x1a\n" + _chunk(b"IHDR", head)
         + _chunk(b"IDAT", zlib.compress(bytes(data), 6))
@@ -121,3 +128,35 @@ def test_partial_page_boundaries_cannot_get_complete_evidence(tmp_path):
     assert not (tmp_path / "canvas-p2.png").exists()
     assert json.loads((tmp_path / "canvas-evidence.json").read_text())["status"] == "blocked"
     assert png_size(good) == (900, 600)
+
+
+def test_measured_doubled_dpi_page_crop_and_sidebar(tmp_path):
+    """Observed Desktop signature: 6px dots/12px pitch and 2px pane seam."""
+    source = _scene(tmp_path / "double.png", doubled=True, width=1800,
+                    page_width=1536, page_height=864, screenshot_height=1200)
+    frame = locate_desktop_canvas(source, (640, 360))
+    assert frame["crop"] == [0, 66, 1536, 864]
+    assert frame["effective_scale"] == "12/5"
+    assert frame["host_divider_x"] == 1538
+    assert frame["border_top_rows"] == list(range(60, 66))
+    assert frame["border_bottom_rows"] == list(range(930, 936))
+    clean = tmp_path / "report-only.png"
+    original = hashlib.sha256(source.read_bytes()).hexdigest()
+    crop_canvas(source, clean, frame)
+    assert png_size(clean) == (1536, 864)
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == original
+
+
+@pytest.mark.parametrize("change,reason", [
+    ({"bottom": False}, "three-row page boundaries"),
+    ({"seam": False}, "sidebar divider"),
+    ({"intruder": True}, "three-row page boundaries"),
+    ({"page_width": 1524}, "aspect/scale mismatch"),
+])
+def test_doubled_dpi_adversarial_host_and_geometry_block(tmp_path, change, reason):
+    parameters = {"doubled": True, "width": 1800, "page_width": 1536,
+                  "page_height": 864, "screenshot_height": 1200}
+    parameters.update(change)
+    source = _scene(tmp_path / "bad.png", **parameters)
+    with pytest.raises(CanvasUnproven, match=reason):
+        locate_desktop_canvas(source, (640, 360))
