@@ -19,6 +19,7 @@ from ..evidence import _decode_png, _unfilter_scanlines, png_size
 
 _SIGNATURE = 48
 _PERIOD = 6
+_SCALED_PERIOD = 12  # Desktop Bridge's 2x screenshot uses 6px dashes / 6px spaces
 
 
 class CanvasUnproven(ValueError):
@@ -40,25 +41,26 @@ def _dot(rgb: tuple[int, int, int]) -> bool:
 
 
 def _dotted_width(raw: bytes, row: int, width: int,
-                  channels: int) -> int | None:
-    """Measure a full-width, regular 3px dotted Desktop page outline."""
+                  channels: int, period: int = _PERIOD) -> int | None:
+    """Measure exact repeated page-border pixels at legacy or doubled DPI."""
     stride = width * channels
     start = row * stride
 
     def matches(x: int) -> bool:
         rgb = _pixel(raw, start + x * channels, channels)
-        if x % _PERIOD in (2, 3, 4):
+        phase = x % period
+        if (phase in (2, 3, 4) if period == _PERIOD else 4 <= phase <= 9):
             return _dot(rgb)
         return _bright(rgb)
 
-    if width < 320 or not all(matches(x) for x in range(_SIGNATURE)):
+    if width < 320 or not all(matches(x) for x in range(max(_SIGNATURE, period * 8))):
         return None
     # Reject a plain black separator or arbitrary content stroke:
     # the long *periodic* pattern must extend to the actual page edge.
     x = _SIGNATURE
     while x < width and matches(x):
         x += 1
-    candidate = x - (x % _PERIOD)
+    candidate = x - (x % period)
     if candidate < 320 or width - candidate < 40:
         return None
     return candidate
@@ -83,23 +85,27 @@ def locate_desktop_canvas(source: Path,
         raise CanvasUnproven("invalid PBIR canvas dimensions")
     edges = []
     for y in range(height):
-        w = _dotted_width(raw, y, width, channels)
-        if w is not None:
-            edges.append((y, w))
-    groups: list[list[tuple[int, int]]] = []
-    for y, w in edges:
-        if groups and groups[-1][-1] == (y - 1, w):
-            groups[-1].append((y, w))
+        for period in (_PERIOD, _SCALED_PERIOD):
+            w = _dotted_width(raw, y, width, channels, period)
+            if w is not None:
+                edges.append((y, w, period))
+                break
+    groups: list[list[tuple[int, int, int]]] = []
+    for y, w, period in edges:
+        if (groups and groups[-1][-1][0] == y - 1
+                and groups[-1][-1][1:] == (w, period)):
+            groups[-1].append((y, w, period))
         else:
-            groups.append([(y, w)])
-    strong = [g for g in groups if len(g) >= 3]
-    if len(strong) != 2 or any(len(g) != 3 for g in strong):
+            groups.append([(y, w, period)])
+    strong = [g for g in groups if len(g) == (3 if g[0][2] == _PERIOD else 6)]
+    if len(strong) != 2 or any(len(g) != len(strong[0]) for g in strong):
         raise CanvasUnproven(
-            "expected exactly two distinct three-row page boundaries")
+            "expected exactly two distinct three-row page boundaries (or six-row doubled-DPI)")
     top, bottom = strong
     assert top and bottom
     page_width = top[0][1]
-    if any(w != page_width for group in strong for _, w in group):
+    if any(w != page_width or p != top[0][2]
+           for group in strong for _, w, p in group):
         raise CanvasUnproven("horizontal boundaries have different widths")
     page_top = top[-1][0] + 1
     page_bottom = bottom[0][0]
@@ -122,9 +128,19 @@ def locate_desktop_canvas(source: Path,
         page_top + page_height // 2, page_top + page_height * 3 // 4,
         page_bottom + (height - page_bottom) // 2,
     ]
-    seam = [_pixel(raw, (y * width + page_width + 1) * channels, channels)
-            for y in samples]
-    if len(set(seam)) != 1 or not all(165 <= v <= 235 for v in seam[0]):
+    seam_x = None
+    seam_color = None
+    for offset in (1, 2, 3):
+        candidate_x = page_width + offset
+        seam = [_pixel(raw, (y * width + candidate_x) * channels, channels)
+                for y in samples]
+        if (len(set(seam)) == 1
+                and all(165 <= v <= 235 for v in seam[0])
+                and all(_bright(_pixel(raw, (y * width + x) * channels, channels))
+                        for y in samples for x in range(page_width, candidate_x))):
+            seam_x, seam_color = candidate_x, seam[0]
+            break
+    if seam_x is None or seam_color is None:
         raise CanvasUnproven("Desktop sidebar divider not independently proved")
     # Across the three dotted rows, the canvas must end *before* the seam;
     # this prevents accepting a crop that keeps the host Filters pane.
@@ -143,8 +159,8 @@ def locate_desktop_canvas(source: Path,
         "effective_scale": str(scale_x),
         "border_top_rows": [v[0] for v in top],
         "border_bottom_rows": [v[0] for v in bottom],
-        "host_divider_x": page_width + 1,
-        "host_divider_color": list(seam[0]),
+        "host_divider_x": seam_x,
+        "host_divider_color": list(seam_color),
         "host_ui_excluded": True,
     }
 
