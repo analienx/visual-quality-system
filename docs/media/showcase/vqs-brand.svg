@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="260" viewBox="0 0 1200 260" role="img" aria-labelledby="title desc">
+  <title id="title">VQS · Visual Quality System</title>
+  <desc id="desc">VQS brand banner for a Power BI-first source and visual quality verification system.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1426"/>
+      <stop offset="0.58" stop-color="#11243e"/>
+      <stop offset="1" stop-color="#102b43"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#4789ff"/>
+      <stop offset="1" stop-color="#48d9cb"/>
+    </linearGradient>
+    <linearGradient id="faint" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#244464" stop-opacity="0"/>
+      <stop offset="1" stop-color="#42618a" stop-opacity=".4"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="260" rx="24" fill="url(#bg)"/>
+  <rect x="0.75" y="0.75" width="1198.5" height="258.5" rx="23.5" fill="none" stroke="#3c607c" stroke-opacity=".38"/>
+  <g opacity=".5">
+    <path d="M795 25V235 M855 25V235 M915 25V235 M975 25V235 M1035 25V235 M1095 25V235 M1155 25V235" stroke="#31516c" stroke-opacity=".35"/>
+    <path d="M765 55H1180 M765 115H1180 M765 175H1180 M765 235H1180" stroke="#31516c" stroke-opacity=".35"/>
+  </g>
+  <g transform="translate(50 66)">
+    <rect width="124" height="124" rx="29" fill="#172e4a" stroke="#426786" stroke-width="1.5"/>
+    <g fill="url(#accent)">
+      <rect x="23" y="35" width="19" height="55" rx="5"/>
+      <rect x="52" y="49" width="19" height="41" rx="5"/>
+      <rect x="81" y="22" width="19" height="68" rx="5"/>
+    </g>
+    <path d="M26 100H98" stroke="#8ba6c8" stroke-opacity=".6" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <text x="204" y="91" font-family="Segoe UI,Inter,Arial,sans-serif" font-size="17" font-weight="700" letter-spacing="4" fill="#60d8ce">POWER BI · QUALITY ENGINE</text>
+  <text x="199" y="155" font-family="Segoe UI,Inter,Arial,sans-serif" font-size="62" font-weight="730" letter-spacing="-2" fill="#f3f8ff">Visual Quality</text>
+  <text x="203" y="202" font-family="Segoe UI,Inter,Arial,sans-serif" font-size="37" font-weight="360" letter-spacing="2" fill="#b4c9df">SYSTEM</text>
+  <path d="M784 164L858 129L912 145L970 78L1049 97L1128 50" fill="none" stroke="#57a2f8" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity=".96"/>
+  <path d="M784 198L858 186L912 189L970 157L1049 160L1128 129" fill="none" stroke="#44ddcb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".58"/>
+  <circle cx="970" cy="78" r="6" fill="#74c6ff"/>
+  <circle cx="1128" cy="50" r="7" fill="#4addc9"/>
+  <rect x="985" y="209" width="146" height="28" rx="14" fill="#19394e" stroke="#35737e" stroke-opacity=".7"/>
+  <text x="1058" y="227" font-family="Segoe UI,Inter,Arial,sans-serif" font-size="13" font-weight="700" text-anchor="middle" letter-spacing="1.5" fill="#9df1e4">SOURCE · PIXELS</text>
+</svg>
