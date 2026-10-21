@@ -42,6 +42,19 @@ bindings, source hash. Read-only; not design approval.
 vqs inventory path/to/Example.Report
 ```
 
+## vqs premium — source-bound design preflight
+
+For actual PBIR/PBIP reports, identify **measurable** page-design opportunities without redesigning data or querying a model. Generate a template with empty audience/question/focal fields; edit that JSON to state the owner's intent and budgets. It is tied to the exact current report source hash, so changing the report invalidates the template until re-reviewed. Results identify real page/visual IDs and rank up to three actions; `status=advisory` is **not** G2 visual acceptance.
+
+```console
+vqs premium path/to/Example.pbip --init-contract intent.json
+# Edit intent.json to declare the audience, decision, focal visual and optional density budget.
+vqs premium path/to/Example.pbip --contract intent.json --out premium.md
+vqs premium path/to/Example.pbip --format json
+```
+
+Rules: peer-card gutter consistency, explicitly declared peer chart-title size, owner-specified content-area budget and focal prominence. Exceptions must be declared by exact rule and page. Inherited values, actual pixels, semantics and visual beauty remain unverified until native render/independent review. Output/intent files must be new (no silent overwrites). Read [premium usage and acceptance boundaries](PREMIUM_POWERBI.md).
+
 ## vqs measure
 
 Emit check-ready facts for a PBIR `*.Report` folder: text contrast,

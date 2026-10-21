@@ -98,7 +98,7 @@ A dashboard should feel deliberately designed **and** answer the right business 
 2. **Independent full-canvas visual judgment.** Combine measurable PBIR geometry with real screenshot evidence, not one generic vision prompt or a falsely “green” static score.
 3. **Three meaningful fixes, not fifty opinions.** Rank by impact on comprehension, severity, and evidence; propose bounded, reversible changes and check them again after rendering.
 
-**Availability:** these premium features have a locally tested engineering candidate; they are **not yet merged into `main`**, and `vqs premium` is **not a published command**. The merged core already provides source-backed layout/format and native evidence capabilities. The next milestone is independent premium review and verified publication, **not** a decorative score.
+**Available in the Power BI engineering core:** `vqs premium` provides a read-only, source-hashed design contract, measurable peer-card gutters, declared title scale, owner-configured density/focal hierarchy, and the three highest-priority grounded improvements. It also contributes an advisory section to `vqs assurance`. Run `vqs premium path/to/Report.pbip --init-contract intent.json`, edit the intent, then `vqs premium path/to/Report.pbip --contract intent.json --out premium.md`. This is not a generic beauty score, automated redesign, or independent G2 approval; the existing full-canvas screenshot reviewer and Desktop gates still matter. [Premium preflight guide](docs/PREMIUM_POWERBI.md).
 
 ## Choose the workflow that fits your environment
 

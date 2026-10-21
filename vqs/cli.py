@@ -219,6 +219,42 @@ def _triage(args) -> int:
     return 2 if result["status"] == "blocked" else 0
 
 
+def _premium(args) -> int:
+    """Read-only premium-design preflight, never a release verdict."""
+    from vqs.pbir import report_context
+    from vqs.premium import audit, contract_template, markdown
+    from vqs.triage import _report_input
+
+    try:
+        report, _model = _report_input(str(args.report), None)
+        if args.init_contract is not None:
+            template = contract_template(report_context(Path(report)))
+            # Contract is owned by the caller; never overwrite existing intent.
+            with args.init_contract.open("x", encoding="utf-8") as handle:
+                json.dump(template, handle, indent=2, ensure_ascii=False)
+                handle.write("\n")
+            print(f"Design-intent template: {args.init_contract}")
+            return 0
+        policy = (json.loads(args.contract.read_text(encoding="utf-8-sig"))
+                  if args.contract is not None else None)
+        result = audit(str(args.report), contract=policy)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        print(json.dumps({"status": "blocked", "reason": str(exc)}))
+        return 2
+    output = (json.dumps(result, indent=2, ensure_ascii=False)
+              if args.format == "json" else markdown(result))
+    if args.out is not None:
+        try:
+            with args.out.open("x", encoding="utf-8") as handle:
+                handle.write(output + ("" if output.endswith("\n") else "\n"))
+        except OSError as exc:
+            print(json.dumps({"status": "blocked", "reason": str(exc)}))
+            return 2
+    else:
+        print(output)
+    return 1 if result["findings"] else 0
+
+
 def _doctor() -> int:
     """Print the capability report; always exit 0, never gate."""
     from vqs.doctor import report
@@ -730,6 +766,17 @@ def main(argv: list[str] | None = None) -> int:
     triage.add_argument("--out", type=Path, default=None)
     triage.add_argument("--plan-out", type=Path, default=None,
                         help="Export source-bound typed repair plan if synthesizable")
+    premium = commands.add_parser(
+        "premium", help="Source-bound design intent, spacing, title hierarchy and top-three improvements (advisory)")
+    premium.add_argument("report", type=Path, help="Enhanced-format .pbip or *.Report folder")
+    policy = premium.add_mutually_exclusive_group()
+    policy.add_argument("--contract", type=Path,
+                        help="Owner-authored source-bound design intent JSON")
+    policy.add_argument("--init-contract", type=Path,
+                        help="Create a new, unapproved design-intent template; never overwrites")
+    premium.add_argument("--format", choices=("markdown", "json"), default="markdown")
+    premium.add_argument("--out", type=Path, default=None,
+                         help="Write the advisory report to a new file")
     measure = commands.add_parser("measure", help="Emit check-ready facts for a PBIR report")
     measure.add_argument("report", type=Path, help="Enhanced-format *.Report folder")
     measure.add_argument("--model", type=Path, default=None,
@@ -1032,6 +1079,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "triage":
         return _triage(args)
+    if args.command == "premium":
+        return _premium(args)
     if args.command == "measure":
         return _measure(args.report, args.model, args.out)
     if args.command == "cycles":
