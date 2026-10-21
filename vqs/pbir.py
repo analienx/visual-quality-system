@@ -22,7 +22,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any
 
 SOURCE_EXTENSIONS = frozenset({".json", ".tmdl", ".pbism", ".pbir"})
@@ -485,7 +485,12 @@ def source_inventory(report: str | Path) -> dict[str, Any]:
         issues.append({"rule": model_rule, "detail": model_detail})
     digest = hashlib.sha256()
     report_files: list[str] = []
-    for path in sorted(report_path.rglob("*")):
+    # Match the established Windows PBIR digest on every platform. Path
+    # ordering otherwise differs on Linux (case-sensitive component sort),
+    # even though the source file bytes are identical.
+    for path in sorted(report_path.rglob("*"),
+                       key=lambda p: (PureWindowsPath(p.relative_to(report_path).as_posix()),
+                                      p.relative_to(report_path).as_posix())):
         if not path.is_file() or path.is_symlink():
             continue
         rel = path.relative_to(report_path)
@@ -507,7 +512,9 @@ def source_inventory(report: str | Path) -> dict[str, Any]:
             digest.update(b"\0")
     model_files: list[str] = []
     if model_dir is not None:
-        for path in sorted(model_dir.rglob("*")):
+        for path in sorted(model_dir.rglob("*"),
+                           key=lambda p: (PureWindowsPath(p.relative_to(model_dir).as_posix()),
+                                          p.relative_to(model_dir).as_posix())):
             if not path.is_file() or path.is_symlink():
                 continue
             rel = path.relative_to(model_dir)
