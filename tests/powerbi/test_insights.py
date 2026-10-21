@@ -51,10 +51,10 @@ def test_tree_and_map_params() -> None:
         {"page": "P1", "visual": "mapvis", "type": "map",
          "locations": ["Dim Store.Region"],
          "categories": {"Dim Store.Region": None},
-         "labels_shown": False, "heatmap": False},
+         "labels_shown": None, "heatmap": False},
         {"page": "P2", "visual": "lostmap", "type": "map",
          "locations": [], "categories": {},
-         "labels_shown": False, "heatmap": False}]
+         "labels_shown": None, "heatmap": False}]
 
 
 def test_unrecognized_tree_roles_flagged(tmp_path: Path) -> None:
@@ -167,7 +167,7 @@ def test_model_categories_flow_from_tmdl_to_map_verdict(tmp_path: Path) -> None:
                                 "type": "map",
                                 "locations": ["Dim Store.Region"],
                                 "categories": {"Dim Store.Region": "Country"},
-                                "labels_shown": False, "heatmap": False}]}
+                                "labels_shown": None, "heatmap": False}]}
     assert map_location_binding(params["maps"])["status"] == "pass"
     params["maps"][0]["categories"] = {"Dim Store.Region": "ImageUrl"}
     failed = map_location_binding(params["maps"])
@@ -213,10 +213,10 @@ def test_measure_emits_cross_page_and_label_sections() -> None:
     rules = measure_report(REPORT)["rules"]
     assert "insight.no_cross_page_duplicate_grain" in rules
     assert rules["chart.map_location_labels"] == {"maps": [
-        {"page": "P1", "visual": "mapvis",
-         "labels_shown": False, "heatmap": False},
-        {"page": "P2", "visual": "lostmap",
-         "labels_shown": False, "heatmap": False}]}
+        {"page": "P1", "visual": "mapvis", "type": "map",
+         "labels_shown": None, "heatmap": False},
+        {"page": "P2", "visual": "lostmap", "type": "map",
+         "labels_shown": None, "heatmap": False}]}
     # Fixture visuals carry no positions: layout sections stay omitted.
     assert "layout.no_visual_overlap" not in rules
     assert "layout.visuals_within_page" not in rules

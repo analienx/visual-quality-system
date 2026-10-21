@@ -296,18 +296,31 @@ def _page_size(page: dict) -> dict | None:
 
 
 def _label_facts(node: dict) -> dict:
-    """Map label configuration: shown labels or a heatMap layer."""
+    """Only explicit PBIR label/heatmap visibility is proven.
+
+    An absent categoryLabels property can be inherited. Presence of a
+    heatMap formatting object likewise does not prove that it is enabled.
+    """
     objects = node.get("objects", {})
     if not isinstance(objects, dict):
-        return {"labels_shown": False, "heatmap": False}
-    shown = False
-    try:
-        first = objects.get("categoryLabels", [])[0]
-        raw = first["properties"]["show"]["expr"]["Literal"]["Value"]
-        shown = raw == "true"
-    except (KeyError, IndexError, TypeError, AttributeError):
-        shown = False
-    return {"labels_shown": shown, "heatmap": "heatMap" in objects}
+        return {"labels_shown": None, "heatmap": None}
+
+    def explicit_show(key: str) -> bool | None:
+        group = objects.get(key)
+        try:
+            raw = group[0]["properties"]["show"]["expr"]["Literal"]["Value"]
+        except (KeyError, IndexError, TypeError, AttributeError):
+            return None
+        if raw is True or raw == "true":
+            return True
+        if raw is False or raw == "false":
+            return False
+        return None
+
+    return {
+        "labels_shown": explicit_show("categoryLabels"),
+        "heatmap": explicit_show("heatMap") if "heatMap" in objects else False,
+    }
 
 
 def page_insights(report_dir: str, model_dir: str | None = None) -> dict:
