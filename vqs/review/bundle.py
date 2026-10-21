@@ -262,6 +262,9 @@ def verify(bundle: str, report: str | None = None) -> dict:
             for page in inv_pages:
                 if isinstance(page, dict):
                     inv_canvas[page.get("id")] = page.get("canvas")
+        per_page = calibration.get("page_canvases")
+        if isinstance(per_page, dict) and set(per_page) != set(header.get("pages") or []):
+            problems.append("per-page calibration inventory differs from report pages")
         for page_id in header.get("pages") or []:
             if not isinstance(page_id, str):
                 continue
@@ -270,7 +273,10 @@ def verify(bundle: str, report: str | None = None) -> dict:
                     or any(isinstance(v, bool) or not isinstance(v, (int, float)) for v in canvas)):
                 problems.append(f"inventory canvas missing or invalid: {page_id}")
                 continue
-            if [calibration["canvas_width"], calibration["canvas_height"]] != [canvas[0], canvas[1]]:
+            declared = (calibration["page_canvases"].get(page_id)
+                        if isinstance(calibration.get("page_canvases"), dict)
+                        else [calibration["canvas_width"], calibration["canvas_height"]])
+            if declared != [canvas[0], canvas[1]]:
                 problems.append(f"render canvas differs from source canvas: {page_id}")
                 continue
             name = mapping.get(page_id)

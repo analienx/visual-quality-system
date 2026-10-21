@@ -270,8 +270,11 @@ def test_stale_staging_mixed_canvas_and_scale_block(
     mixed = _make_report(tmp_path / "mixed",
                          {"p1": (1280, 720), "p2": (1920, 1080)})
     _stub(monkeypatch, mixed, actions={"p1": "ok", "p2": "ok"})
-    with pytest.raises(OSError, match="differing"):
-        capture_mod.capture(str(mixed), str(tmp_path / "r"))
+    measured = capture_mod.capture(str(mixed), str(tmp_path / "r"))
+    assert measured["calibration"]["geometry_calibration"] == "blocked"
+    assert measured["calibration"]["page_canvases"] == {
+        "p1": [1280, 720], "p2": [1920, 1080]}
+    assert "mixed-page-canvases" in measured["calibration"]["geometry_reason"]
     with pytest.raises(OSError, match="must be 1 or 2"):
         capture_mod.capture(str(report), str(tmp_path / "r2"), scale=3)
 

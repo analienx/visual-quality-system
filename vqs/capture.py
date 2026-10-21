@@ -30,8 +30,10 @@ reason — no coordinate transform is claimed, inferred, or
 special-cased. Capture refuses to manifest
 blank captures, below-minimum pixels, unproven
 data, pre/post drift (source, target, or readiness), stale staging,
-unsupported interactions, non-default
-saved states, and mixed-size page sets. An exclusive per-PID lease
+unsupported interactions and non-default saved states. Mixed-size
+report pages (such as tooltips) retain page-specific canvas identity;
+without a Bridge-proven transform, per-page coordinate calibration
+remains blocked rather than being fabricated. An exclusive per-PID lease
 serializes captures on one host. Set VQS_MODELING_AUTO=1 to attempt
 a live modeling connection; otherwise pass a modeling port explicitly
 or accept a manifest without data readiness (downstream blocks it).
@@ -679,14 +681,11 @@ def capture(report: str, renders: str, pid: int | None = None,
         raise OSError(f"Cannot read report: {exc}") from exc
     for page_id in expected:
         _safe_page_id(page_id)
-    canvas = set(sizes.values())
-    if len(canvas) != 1:
-        raise OSError("Pages have differing canvas sizes; single "
-                      "calibration cannot hold")
-    canvas_width, canvas_height = canvas.pop()
-    if (not isinstance(canvas_width, int) or not isinstance(canvas_height, int)
-            or canvas_width <= 0 or canvas_height <= 0):
+    if any(type(width) is not int or type(height) is not int
+           or width <= 0 or height <= 0 for width, height in sizes.values()):
         raise OSError("Page canvas size is not a positive integer pair")
+    mixed_canvases = len(set(sizes.values())) > 1
+    canvas_width, canvas_height = sizes[expected[0]]
     if scale not in (1, 2):
         raise OSError(f"Capture scale must be 1 or 2, not {scale!r}")
     # S01: the source preflight above runs before any external port —
@@ -838,10 +837,22 @@ def capture(report: str, renders: str, pid: int | None = None,
             shot = mapping.get(page_id)
             shot_viewports[page_id] = (
                 shot.get("viewport") if isinstance(shot, dict) else None)
-        calibration = _measured_calibration(
-            canvas_width=canvas_width, canvas_height=canvas_height,
-            scale=scale, ordered_pages=expected,
-            pixels_by_page=pixels, viewports_by_page=shot_viewports)
+        if mixed_canvases:
+            # Tooltips can have a different PBIR page size. Do not invent
+            # one report-wide coordinate transform; retain exact per-page
+            # canvas identity for native whole-page perceptual evidence.
+            calibration = {
+                "canvas_width": canvas_width, "canvas_height": canvas_height,
+                "page_canvases": {pid: list(sizes[pid]) for pid in expected},
+                "scale": scale, "method": "bridge-page-identity",
+                "geometry_calibration": "blocked",
+                "geometry_reason": "mixed-page-canvases: no shared pixel-to-PBIR transform; per-page geometry remains unproven",
+            }
+        else:
+            calibration = _measured_calibration(
+                canvas_width=canvas_width, canvas_height=canvas_height,
+                scale=scale, ordered_pages=expected,
+                pixels_by_page=pixels, viewports_by_page=shot_viewports)
         manifest: dict[str, Any] = {
             "source_sha256": source_after,
             "page_images": page_images,
@@ -870,7 +881,8 @@ def capture(report: str, renders: str, pid: int | None = None,
             from .visual.canvas import extract_report_canvases
 
             frame_proof = extract_report_canvases(
-                renders_path, expected, (canvas_width, canvas_height))
+                renders_path, expected,
+                sizes if mixed_canvases else (canvas_width, canvas_height))
             manifest["canvas_review"] = {
                 "status": frame_proof["status"],
                 "method": "desktop-dotted-page-boundary-v1",

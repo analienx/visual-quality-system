@@ -204,7 +204,7 @@ def crop_canvas(source: Path, target: Path,
 
 
 def extract_report_canvases(renders: Path, pages: list[str],
-                           canvas: tuple[int, int]) -> dict[str, Any]:
+                           canvas: tuple[int, int] | dict[str, tuple[int, int]]) -> dict[str, Any]:
     """Build private clean page images; partial proofs never become a PASS."""
     results: dict[str, Any] = {}
     for page in pages:
@@ -214,8 +214,9 @@ def extract_report_canvases(renders: Path, pages: list[str],
         source = renders / f"{page}.png"
         target = renders / f"canvas-{page}.png"
         try:
+            page_canvas = canvas[page] if isinstance(canvas, dict) else canvas
             results[page] = crop_canvas(
-                source, target, locate_desktop_canvas(source, canvas))
+                source, target, locate_desktop_canvas(source, page_canvas))
         except (CanvasUnproven, OSError, ValueError, KeyError) as exc:
             results[page] = {
                 "status": "blocked", "reason": str(exc),
