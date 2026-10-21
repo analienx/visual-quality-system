@@ -95,7 +95,12 @@ def test_symlinked_model_source_does_not_get_silently_omitted(tmp_path, monkeypa
     shadow = tmp_path / "shadow.tmdl"
     shadow.write_bytes(target.read_bytes())
     target.unlink()
-    target.symlink_to(shadow)
+    try:
+        target.symlink_to(shadow)
+    except (OSError, NotImplementedError) as exc:
+        # Windows without symlink privilege cannot construct this fixture.
+        # Keep the negative control active on symlink-capable hosts.
+        pytest.skip(f"filesystem symlinks unavailable: {exc}")
     monkeypatch.setattr(cli, "StdioModelingClient",
                         lambda **kw: (_ for _ in ()).throw(AssertionError("no MCP")))
     result = cli.run(project, 4242)
