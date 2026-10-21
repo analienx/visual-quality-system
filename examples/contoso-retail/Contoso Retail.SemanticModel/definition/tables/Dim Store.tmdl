@@ -1,0 +1,61 @@
+/// Store and channel dimension for geographic and operational analysis. One row per store or digital location.
+table 'Dim Store'
+	lineageTag: 4987e074-b573-4f23-baa9-d17ea47ebf08
+
+	/// Surrogate key used to relate stores to the sales fact.
+	column 'Store Key'
+		dataType: int64
+		isHidden
+		isKey
+		lineageTag: 1e136305-0894-40d4-bf79-bd9bbdb74e77
+		summarizeBy: none
+		sourceColumn: Store Key
+
+	/// Business-facing store or digital location name.
+	column 'Store Name'
+		dataType: string
+		lineageTag: a5caae33-ed4d-4c20-99ad-78d7470ab85d
+		summarizeBy: none
+		sourceColumn: Store Name
+
+	/// Sales region used for performance accountability.
+	column Region
+		dataType: string
+		lineageTag: 83425406-fea1-4981-a9e5-d25a16667356
+		summarizeBy: none
+		sourceColumn: Region
+
+	/// Store country used for geographic mapping.
+	column Country
+		dataType: string
+		lineageTag: 1de2700f-4991-4a88-b969-170c6ed30551
+		dataCategory: Country
+		summarizeBy: none
+		sourceColumn: Country
+
+	/// Sales channel, such as physical retail or online.
+	column Channel
+		dataType: string
+		lineageTag: 3eb2968a-053d-4eca-94f3-46666cd347d2
+		summarizeBy: none
+		sourceColumn: Channel
+
+	partition 'Dim Store' = m
+		mode: import
+		source =
+				let
+					Source = #table(
+						type table [#"Store Key" = Int64.Type, #"Store Name" = text, Region = text, Country = text, Channel = text],
+						{
+							{1, "Seattle Flagship", "North America", "United States", "Retail"},
+							{2, "Toronto Central", "North America", "Canada", "Retail"},
+							{3, "London Digital", "Europe", "United Kingdom", "Online"},
+							{4, "Berlin Mitte", "Europe", "Germany", "Retail"},
+							{5, "Sydney Online", "Asia Pacific", "Australia", "Online"}
+						}
+					)
+				in
+					Source
+
+	annotation PBI_ResultType = Table
+

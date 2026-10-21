@@ -1,0 +1,88 @@
+{
+  "name": "ContosoExecutive-4f18b4d2.json",
+  "dataColors": [
+    "#6C8FF0",
+    "#6B7280",
+    "#35C7B4",
+    "#D97706",
+    "#BE123C",
+    "#5B8CFF"
+  ],
+  "background": "#FFFFFF",
+  "foreground": "#0F1626",
+  "tableAccent": "#6C8FF0",
+  "good": "#047857",
+  "neutral": "#D97706",
+  "bad": "#BE123C",
+  "textClasses": {
+    "title": {
+      "fontFace": "Segoe UI",
+      "fontSize": 16,
+      "color": "#0F1626",
+      "fontWeight": "bold"
+    },
+    "header": {
+      "fontFace": "Segoe UI Semibold",
+      "fontSize": 12,
+      "color": "#243041",
+      "fontWeight": "bold"
+    },
+    "label": {
+      "fontFace": "Segoe UI",
+      "fontSize": 10,
+      "color": "#4B5563"
+    },
+    "callout": {
+      "fontFace": "Segoe UI Semibold",
+      "fontSize": 28,
+      "color": "#0F1626",
+      "fontWeight": "bold"
+    }
+  },
+  "foregroundNeutralSecondary": "#4B5563",
+  "foregroundNeutralTertiary": "#6B7280",
+  "accent": "#6C8FF0",
+  "shapeStroke": "#E5E7EB",
+  "mapPushpin": "#35C7B4",
+  "visualStyles": {
+    "page": {
+      "*": {
+        "outspacePane": [
+          {
+            "width": 280,
+            "backgroundColor": {
+              "solid": {
+                "color": "#F9FAFB"
+              }
+            },
+            "border": true,
+            "borderColor": {
+              "solid": {
+                "color": "#D1D5DB"
+              }
+            },
+            "foregroundColor": {
+              "solid": {
+                "color": "#1F2937"
+              }
+            },
+            "fontFamily": "Segoe UI",
+            "headerSize": 14,
+            "titleSize": 11,
+            "searchTextSize": 11,
+            "inputBoxColor": {
+              "solid": {
+                "color": "#FEFEFE"
+              }
+            },
+            "checkboxAndApplyColor": {
+              "solid": {
+                "color": "#0D9488"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

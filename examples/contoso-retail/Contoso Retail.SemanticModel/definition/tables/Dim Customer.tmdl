@@ -1,0 +1,69 @@
+/// Customer dimension for segmentation and geographic analysis. One row per customer.
+table 'Dim Customer'
+	lineageTag: bcdb4cb8-b9aa-43eb-a34a-e63d09351249
+
+	/// Surrogate key used to relate customers to the sales fact.
+	column 'Customer Key'
+		dataType: int64
+		isHidden
+		isKey
+		lineageTag: 21a07f14-ca28-49ed-81d6-12cc59c137a3
+		summarizeBy: none
+		sourceColumn: Customer Key
+
+	/// Business-facing customer name.
+	column 'Customer Name'
+		dataType: string
+		lineageTag: 48dd7bd9-be2e-4feb-95dc-4f1ce49eed46
+		summarizeBy: none
+		sourceColumn: Customer Name
+
+	/// Commercial customer segment used for mix and contribution analysis.
+	column Segment
+		dataType: string
+		lineageTag: 678dbb0e-e9b8-4c1f-8356-8b5e97503a24
+		summarizeBy: none
+		sourceColumn: Segment
+
+	/// Customer city.
+	column City
+		dataType: string
+		lineageTag: aaed6f9c-114e-47a5-ab60-6ec5b91d818f
+		dataCategory: City
+		summarizeBy: none
+		sourceColumn: City
+
+	/// Customer country or market.
+	column Country
+		dataType: string
+		lineageTag: 8351bd74-2ac9-441b-a838-f4e8a49b6f9c
+		dataCategory: Country
+		summarizeBy: none
+		sourceColumn: Country
+
+	partition 'Dim Customer' = m
+		mode: import
+		source =
+				let
+					Source = #table(
+						type table [#"Customer Key" = Int64.Type, #"Customer Name" = text, Segment = text, City = text, Country = text],
+						{
+							{1, "A. Datum", "Corporate", "Seattle", "United States"},
+							{2, "Adventure Works", "Corporate", "Austin", "United States"},
+							{3, "Fabrikam", "Small Business", "Toronto", "Canada"},
+							{4, "Northwind Traders", "Consumer", "Vancouver", "Canada"},
+							{5, "Proseware", "Corporate", "London", "United Kingdom"},
+							{6, "Tailspin Toys", "Small Business", "Manchester", "United Kingdom"},
+							{7, "Contoso Europe", "Consumer", "Berlin", "Germany"},
+							{8, "Wide World Importers", "Corporate", "Munich", "Germany"},
+							{9, "Alpine Ski House", "Consumer", "Sydney", "Australia"},
+							{10, "City Power & Light", "Small Business", "Melbourne", "Australia"},
+							{11, "Wingtip Toys", "Consumer", "Tokyo", "Japan"},
+							{12, "Blue Yonder Airlines", "Corporate", "Osaka", "Japan"}
+						}
+					)
+				in
+					Source
+
+	annotation PBI_ResultType = Table
+

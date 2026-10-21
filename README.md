@@ -20,10 +20,10 @@
 <a href="docs/media/showcase/executive-overview.webp">
   <img src="docs/media/showcase/executive-overview.webp" width="100%" alt="Real Power BI Desktop capture of the fictional Contoso Retail Executive overview: four KPIs, monthly revenue trend, regional performance and gross-margin-to-target comparisons">
 </a>
-<p align="center"><sub><strong>REAL POWER BI DESKTOP RENDER</strong> · Contoso Retail sample · Report-only crop, independently measured and hash-verified · <a href="docs/media/showcase/ASSET_PROVENANCE.md">Image provenance</a></sub></p>
+<p align="center"><sub><strong>REAL POWER BI DESKTOP RENDER</strong> · <a href="examples/contoso-retail/Contoso%20Retail.pbip"><strong>Open the exact matching PBIP</strong></a> · Fictional Contoso sample · Verified source and image hashes · <a href="docs/media/showcase/ASSET_PROVENANCE.md">Image provenance</a></sub></p>
 
 > [!NOTE]
-> **These are reports VQS inspected, not screenshots of a VQS GUI.** All five previews below show fictional Contoso sample data and are downscaled for public viewing. Original high-resolution runtime evidence, data models and customer files are not uploaded. This is an **engineering preview**, not signed production acceptance.
+> **These five previews come from [the exact PBIP and self-contained semantic model committed in this repository](examples/contoso-retail/README.md)** — not mockups or a VQS GUI. Each screenshot's source digest matches the checked-in report. Open it in Power BI Desktop and click **Refresh now** on first use to populate its fictional data; private cache and raw screenshot evidence remain excluded. This is an **engineering preview**, not signed production acceptance.
 
 ## Inside the reports
 
@@ -50,7 +50,13 @@
   </tr>
 </table>
 
-<sub>**Showcase source:** fictitious Contoso Retail PBIP, captured in an actual Windows Power BI Desktop session on 21 October 2026. All five report-only canvases were independently remeasured from full-window captures. The public WebP previews are resized illustrations; the verified private PNGs and model cache remain outside Git. [Public image digests and provenance](docs/media/showcase/ASSET_PROVENANCE.md).</sub>
+<sub>**Every screenshot ↔ one committed project:** [Open Contoso Retail.pbip](examples/contoso-retail/Contoso%20Retail.pbip) · [Reproduction instructions](examples/contoso-retail/README.md) · [SHA-256 provenance](docs/media/showcase/ASSET_PROVENANCE.md). The public WebP previews come from source-identical real Power BI Desktop canvases; the private high-resolution PNGs and cache remain outside Git.</sub>
+
+### Try the exact dashboard shown above
+
+The complete five-page [Contoso Retail example](examples/contoso-retail/README.md) is part of this repository, with its matching PBIR report and self-generating Power Query/TMDL semantic model. Clone the repo, open [Contoso Retail.pbip](examples/contoso-retail/Contoso%20Retail.pbip) in Power BI Desktop, and select **Refresh now** on the first open. The default Executive overview reproduces the **$6.82M / 10.0% / 33.9%** headline values shown above; no separate sample download, private ABF cache or database is required.
+
+A source-hash regression test locks the screenshots to the included PBIP, so future design changes cannot leave outdated marketing images behind.
 
 ## Why VQS exists
 

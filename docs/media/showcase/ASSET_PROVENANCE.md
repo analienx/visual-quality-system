@@ -1,6 +1,8 @@
 # Public showcase provenance
 
-These are **resized illustrative previews** of a fictional Contoso Retail Power BI sample, not raw runtime-evidence files or the VQS application UI. They were derived from five independently verified report-only canvases captured on 21 October 2026 from a disposable PBIP. The source/report digest is `0e94efc38bd1ec852e4e079afb13b626ec586d5a9506ea607f691dfffa60c847`. Full-resolution PNGs, Desktop chrome, data models, local paths and caches are deliberately **not published**.
+**Reproducible checked-in source:** [Contoso Retail.pbip](../../../examples/contoso-retail/Contoso%20Retail.pbip) · [full five-page demo and refresh instructions](../../../examples/contoso-retail/README.md). All screenshots were rendered from the exact report-source SHA-256 below; the committed semantic model generates fictional data internally. The images are now continuously checked against that PBIP by `tests/test_public_showcase_example.py`.
+
+These are **resized illustrative previews** of a fictional Contoso Retail Power BI sample, not raw runtime-evidence files or the VQS application UI. They were derived from five independently verified report-only canvases captured on 21 October 2026 from a disposable PBIP. The source/report digest is `0e94efc38bd1ec852e4e079afb13b626ec586d5a9506ea607f691dfffa60c847`. Full-resolution PNGs, Desktop chrome, **binary model caches**, private customer data and machine-local paths are deliberately **not published**. The self-contained fictional TMDL semantic model **is** published alongside its exact PBIR report.
 
 Published assets have no user-identifying data; the images show fictional demo business aggregates, regions, categories and branded sample stores. They are examples of reports inspected with VQS, not screenshots of a VQS graphical interface and not independent design acceptance.
 

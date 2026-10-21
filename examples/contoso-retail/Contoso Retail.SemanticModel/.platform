@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "Contoso Retail"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "7cbd452b-f7b0-4676-9159-e68a10f7910f"
+  }
+}

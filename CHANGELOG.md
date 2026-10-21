@@ -16,6 +16,7 @@
 - **PR #69 merged:** source-hashed owner-authored premium design preflight, top-three measured advice, and advisory `assurance` integration.
 - **PR #70 merged:** page-specific source-bound capture dimensions for mixed report/Tooltip sizes; missing viewport calibration stays blocked.
 - **PR #71 merged:** exact doubled-DPI (six-row/12px) Desktop dotted-border detection plus independent sidebar proof; all five real Contoso pages captured and losslessly cropped as **verified report-only canvases** while unknown universal geometry remains blocked.
+- **README showcase reproducibility:** committed the exact five-page Contoso Retail PBIP and 12-table, self-generating synthetic TMDL semantic model behind all five public screenshots. A fresh Power BI Desktop open and refresh reproduced real KPIs and the Shape Map without a published ABF cache. New CI regression guards page identities, source and model SHA-256, and all published image digests.
 - **21 October live validation:** two unrelated PBIPs, **8/8 native pages**, genuine populated Modeling MCP probes, **9 Contoso Year/Region events** and Corporate **Europe→Latin America→Europe** interaction with pixel-identical screenshot restoration. No private business evidence uploaded. [See the actual engineering run](docs/RELEASE_NOTES_2026-10-21.md).
 - **Not approved for production:** two unrelated PBIP engineering subjects now exist; independent G2 visual review, reliable per-visual pixel calibration, country-map/G4 scope, and trusted G6 reviewer/owner release authority remain blocked.
 
