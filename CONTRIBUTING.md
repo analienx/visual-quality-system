@@ -34,9 +34,13 @@ when they start a workflow, a `docs/USER_GUIDE.md` passage.
 - One work package per PR; link the WP issue. Ledger transitions
   (`planned`→`review`→`verified`) need independent proof — the
   author is never the verifier.
-- Never commit business data, real screenshots, `.abf` caches,
+- Never commit business data, real customer screenshots, `.abf` caches,
   credentials, `.vqs-runs/`, or machine-local paths. Fixtures must
-  be synthetic (see `tests/powerbi/fixtures/`).
+  be synthetic (see `tests/powerbi/fixtures/`). The only permitted README
+  images are explicitly owner-approved, privacy-reviewed **downscaled
+  previews of fictional demo reports**, documented with provenance and
+  checksums in `docs/media/showcase/ASSET_PROVENANCE.md`. They are not
+  source-bound acceptance evidence; full native captures remain private.
 - Keep the offline core offline: no network calls from `vqs/`
   (Bridge/MCP/pip are out-of-process and optional).
 

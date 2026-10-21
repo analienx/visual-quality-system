@@ -1,24 +1,93 @@
-# Visual Quality System
+<div align="center">
+  <img src="docs/media/showcase/vqs-brand.svg" alt="Visual Quality System — Power BI quality engine" width="100%">
+  <h2>Make every Power BI report worth trusting.</h2>
+  <p><strong>Understand the source. Refine the design. Verify the actual experience.</strong></p>
+  <p>Deterministic PBIP diagnostics, grounded premium-design feedback, safe candidate repairs, and evidence from real Power BI Desktop.</p>
+  <p>
+    <a href="#get-started">Get started</a> ·
+    <a href="#inside-the-reports">See real screenshots</a> ·
+    <a href="#how-vqs-works">How it works</a> ·
+    <a href="docs/RELEASE_NOTES_2026-10-21.md">Release notes</a>
+  </p>
+  <p>
+    <a href="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml"><img src="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
+    <img src="https://img.shields.io/badge/Python-3.11%2B-3270B7" alt="Python 3.11+"/>
+    <img src="https://img.shields.io/badge/License-Apache--2.0-18977A" alt="Apache 2.0"/>
+    <a href="docs/RELEASE_NOTES_2026-10-21.md"><img src="https://img.shields.io/badge/Status-engineering%20preview-E2A744" alt="Engineering preview"/></a>
+  </p>
+</div>
 
-**Build Power BI reports people can actually trust.**
+<a href="docs/media/showcase/executive-overview.webp">
+  <img src="docs/media/showcase/executive-overview.webp" width="100%" alt="Real Power BI Desktop capture of the fictional Contoso Retail Executive overview: four KPIs, monthly revenue trend, regional performance and gross-margin-to-target comparisons">
+</a>
+<p align="center"><sub><strong>REAL POWER BI DESKTOP RENDER</strong> · Contoso Retail sample · Report-only crop, independently measured and hash-verified · <a href="docs/media/showcase/ASSET_PROVENANCE.md">Image provenance</a></sub></p>
 
-Diagnose source defects. Improve visual consistency. Verify what Power BI Desktop **really renders and does**. Keep the original project safe.
+> [!NOTE]
+> **These are reports VQS inspected, not screenshots of a VQS GUI.** All five previews below show fictional Contoso sample data and are downscaled for public viewing. Original high-resolution runtime evidence, data models and customer files are not uploaded. This is an **engineering preview**, not signed production acceptance.
 
-[![CI](https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml/badge.svg)](https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml)
-[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-347CB3)](pyproject.toml)
-[![Apache--2.0](https://img.shields.io/badge/License-Apache--2.0-18896A)](LICENSE)
-[![Engineering preview](https://img.shields.io/badge/Status-engineering%20preview-E4A63A)](docs/RELEASE_NOTES_2026-10-21.md)
+## Inside the reports
 
-**Power BI-first · Source-grounded · Privacy-conscious · Reviewable by design**
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/media/showcase/deep-dive-map.webp"><img src="docs/media/showcase/deep-dive-map.webp" width="100%" alt="Power BI Deep-dive insights page with a rendered no-login country Shape Map, channel mix and regional sales charts"></a>
+      <p><strong>01 · Geography &amp; insight</strong><br><sub>Actual country shapes, regional ranking and channel breakdown—not a blank map placeholder.</sub></p>
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/media/showcase/products-brands.webp"><img src="docs/media/showcase/products-brands.webp" width="100%" alt="Power BI Products and brands page with sales by brand, subcategory bars, and margin-action matrix"></a>
+      <p><strong>02 · Product performance</strong><br><sub>Ranked categories, margin context and readable analytical tables.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/media/showcase/stores-customers.webp"><img src="docs/media/showcase/stores-customers.webp" width="100%" alt="Power BI Stores and customers page with store sales, customer segments and regional customer tables"></a>
+      <p><strong>03 · Customer analytics</strong><br><sub>Native slicers, KPI hierarchy, peer visuals and source-backed matrices.</sub></p>
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/media/showcase/markets-drivers.webp"><img src="docs/media/showcase/markets-drivers.webp" width="100%" alt="Power BI Markets and drivers page with waterfall chart, channel delivery and category margin contribution"></a>
+      <p><strong>04 · Business drivers</strong><br><sub>Region waterfall, channel mix and contribution analysis across one consistent layout.</sub></p>
+    </td>
+  </tr>
+</table>
 
----
+<sub>**Showcase source:** fictitious Contoso Retail PBIP, captured in an actual Windows Power BI Desktop session on 21 October 2026. All five report-only canvases were independently remeasured from full-window captures. The public WebP previews are resized illustrations; the verified private PNGs and model cache remain outside Git. [Public image digests and provenance](docs/media/showcase/ASSET_PROVENANCE.md).</sub>
 
-> [!IMPORTANT]
-> **Engineering preview, not a production-certified quality gate.** The working code is merged and CI-tested; **two unrelated reports have real native evidence**, but independent design review, some geographic interactions, pixel-coordinate calibration, and authorized release approval remain open. [Read the current evidence and decision](docs/RELEASE_NOTES_2026-10-21.md).
+## Why VQS exists
 
-## See value in one minute
+Power BI source files can be valid while the delivered report still has a clipped matrix, empty map, poor visual hierarchy, inconsistent measures, or broken filter interactions. VQS is designed to **separate what the source says from what the user actually sees**.
 
-No Power BI license, Microsoft sign-in, Windows Desktop, or business data is required for the included **static** demo. Python 3.11+ and Git are enough.
+| | VQS gives you | Evidence boundary |
+| --- | --- | --- |
+| **Inspect** | Page-/visual-level PBIR checks, TMDL and DAX/M cycle diagnostics, prioritized findings | Deterministic source evidence; no UI needed |
+| **Improve** | Owner-authored `premium` design contract, top-three grounded recommendations, bounded typed repairs | Your original report remains untouched |
+| **Observe** | Populated Power BI Desktop captures, Modeling MCP live DAX probes, supported Windows UI Automation interaction witnesses | Needs a real authorized Windows/Power BI session |
+| **Verify** | Source hashes, per-page image digests, measured report-only crops when possible, sealed review bundles | No self-awarded aesthetic or production approval |
+
+### A Power BI-first architecture
+
+```mermaid
+flowchart LR
+  A["PBIP · PBIR · TMDL<br/>Report + semantic model"] --> B["VQS core<br/>triage · measure · premium"]
+  B --> C["Disposable candidate<br/>typed, reversible repairs"]
+  C --> D["Real Desktop evidence<br/>pixels · DAX · UIA"]
+  D --> E["Verified review bundle<br/>source + image hashes"]
+  E -. "independent review" .-> F["Scoped release decision"]
+  E -. "proved defect only" .-> C
+  classDef src fill:#EAF2FF,stroke:#7296D5,color:#1C406B
+  classDef core fill:#2455A0,stroke:#15417F,color:#fff
+  classDef native fill:#E5F5F6,stroke:#58A6AD,color:#194A50
+  classDef gate fill:#E5F3E9,stroke:#66AA85,color:#225940
+  class A src
+  class B,C core
+  class D,E native
+  class F gate
+```
+
+GitHub Actions runs reproducible source checks; an authenticated Windows Power BI Desktop session is required for real rendered and interactive evidence. [Full architecture and boundaries](docs/ARCHITECTURE.md).
+
+## Get started
+
+**Static quality analysis works on Windows, macOS and Linux.** No Microsoft account, Power BI Desktop installation or upload is needed for the included fixture.
 
 ```bash
 git clone https://github.com/analienx/visual-quality-system.git
@@ -28,93 +97,56 @@ python -m pip install -e ".[test]"
 vqs triage tests/powerbi/fixtures/mini_report --out quality.md
 ```
 
-Open `quality.md`: findings are prioritized by page and visual, with explanations of what can be proven from source and what still needs a real render. **No project edits.**
+Open `quality.md` for prioritized, source-located observations. The command **does not edit the PBIP**.
 
-### Use your own PBIP
+### Bring your own Power BI report
 
 ```bash
-# Source-level defects and safe-plan opportunities
+# Fast, grounded assessment of a local enhanced-format PBIP
 vqs triage path/to/YourReport.pbip --out quality.md
 
-# Premium design: start from *your* audience, question and intended focal point
+# Define design intent once, then review the most useful deviations
 vqs premium path/to/YourReport.pbip --init-contract intent.json
-# Edit intent.json, then:
+# Edit the generated intent.json for your audience, question and focal visual
 vqs premium path/to/YourReport.pbip --contract intent.json --out premium.md
 
-# See which optional Desktop/Modeling features this machine actually supports
+# Discover available optional Microsoft/Windows integrations
 vqs doctor
 ```
 
-`premium.md` gives **at most three** grounded recommendations: peer-card spacing, explicit title scale, and owner-declared density/focal hierarchy. No fake “beautiful dashboard” score, no cloud dependency, and no style changes to your original report.
+VQS `premium` looks for measurable spacing, explicit typography and visual hierarchy problems. It is a **source-aware preflight**, not an automatic beauty rating or AI-led restyling of your report. [Premium quality guide](docs/PREMIUM_POWERBI.md).
 
-## One system, three useful stages
+### Verify in Power BI Desktop
 
-```mermaid
-flowchart LR
-  A["1 · Understand<br/>PBIP/PBIR + TMDL<br/>triage · premium"] --> B["2 · Improve safely<br/>typed plan<br/>disposable candidate"]
-  B --> C["3 · Verify reality<br/>native Power BI Desktop<br/>DAX · screenshots · UIA"]
-  C --> D["Source-sealed review<br/>page + image hashes<br/>independent decision"]
-  D -. "defect proved; repair with rollback" .-> B
-  classDef input fill:#edf4ff,stroke:#6e96d7,color:#193c69
-  classDef core fill:#244f9b,stroke:#183c7f,color:#ffffff
-  classDef verify fill:#e6f5f7,stroke:#63a1ab,color:#194d55
-  classDef review fill:#e5f4ed,stroke:#6eaa88,color:#1d543d
-  class A input
-  class B core
-  class C verify
-  class D review
+```bash
+# Private, live Windows instance; replace placeholders with real paths and PID
+vqs capture MyReport.Report private-renders --pid <DESKTOP_PID> --live-data
+vqs bundle pack MyReport.Report private-renders private-review-bundle --fixer-id reviewer-candidate
+vqs bundle verify private-review-bundle --report MyReport.Report
 ```
 
-| Need | Working capability | What it **doesn't** claim |
+Real captures are bound to the model process and report revision. Image-only claims don't substitute for real DAX answers. Unsupported operations and unproven pixel geometry remain explicitly **blocked**, not silently passed.
+
+## Demonstrated on two unrelated PBIPs
+
+| Evidence | Contoso Retail | Microsoft Corporate Spend |
 | --- | --- | --- |
-| **Find problems** | `triage`, `measure`, `cycles`: real page/visual identities, source bindings, formatting and layout diagnostics | Static checks cannot see actual clipping or a login-blocked map |
-| **Make layouts feel intentional** | `premium`: source-hashed design intent, consistent peer spacing and roles, prioritized improvements | A clean preflight is **not** independent aesthetic acceptance |
-| **Change safely** | `propose` → `repair` → `verify` on a disposable candidate, with an allowlisted diff | Never authorizes arbitrary report, DAX, filter or RLS changes |
-| **Prove displayed behavior** | `capture --live-data`, Modeling MCP and Windows UIA for supported Desktop controls | A GitHub runner cannot replace an interactive, populated Desktop |
-| **Hand evidence to another reviewer** | `bundle pack` / `verify`, `review-images` (explicit upload consent), `assurance` | An AI's opinion cannot issue its own G6 approval |
+| Native captured pages | **5 / 5** | **3 / 3** including Tooltip |
+| Real model readiness | Repeated populated DAX probes | Repeated populated DAX probes |
+| Interaction witness | **9 native** Year/Region events | **Europe → Latin America → Europe**, DAX-matched |
+| Public-safe report-only preview | **5 verified canvases** above | Not published; clean crop unproven |
+| Known limits | Some map-country automation unsupported | Azure Maps prompts for sign-in |
 
-## Reality check: two real reports
+A report can pass static diagnostics without looking premium. Independent G2 aesthetic acceptance, broader G4 country-map coverage and separate G6 release authority are **not** signed off. [Exact engineering evidence and open blockers](docs/RELEASE_NOTES_2026-10-21.md) · [Acceptance issue #16](https://github.com/analienx/visual-quality-system/issues/16).
 
-The **21 October engineering run** covered a five-page Contoso Retail PBIP and a separate three-page Microsoft Corporate Spend PBIP, including a differently sized Tooltip. Both had live-model evidence, complete native-window captures, and bundles that verified against source and image hashes.
+## Who this is for
 
-- **Contoso:** nine actual Year/Region UI Automation events agreed with a freshly executed DAX oracle. The Shape Map rendered country geography.
-- **Corporate Spend:** selecting **Europe → Latin America → Europe** changed visible figures as predicted by DAX, and the restored screenshot matched the original **pixel for pixel**.
-- **Real limitations:** Corporate Spend's Azure Maps visual requires sign-in. **Contoso's five report-only canvases are measured and verified** ([PR #71](https://github.com/analienx/visual-quality-system/pull/71)), while Corporate Spend's report-only crop and the Bridge's universal pixel-to-PBIR coordinate transform remain unproven. Not every map action is accessible. Independent visual and owner release approval are pending.
+**Report authors** get a clear source-aware punch list before spending another design iteration. **BI platform and governance teams** can compare source, data, rendered pages and supported interactions without conflating their evidence. **Reviewers** receive sealable, verifiable artifacts rather than screenshots detached from the report revision.
 
-These are **specific verified engineering observations**, not a claim that every Power BI report works or that G2/G4/G6 is green. [Evidence summary and reproducible acceptance checklist](docs/RELEASE_NOTES_2026-10-21.md).
+Read the [user guide](docs/USER_GUIDE.md), [CLI reference](docs/CLI.md), [acceptance matrix](docs/ACCEPTANCE_MATRIX.md) and [contribution guide](CONTRIBUTING.md).
 
-## Choose your path
+---
 
-<details>
-<summary><strong>I'm a Power BI report author</strong></summary>
+**Power BI is the primary product.** Word/DOCX assurance is a separate optional component. Source diagnosis is local by default; remote image review needs explicit consent. Never commit private screenshots, `.pbi` caches, ABF files or business report data.
 
-Start with `vqs triage`, then create an owner-edited `vqs premium` contract. Apply only verified typed edits to a disposable copy; compare the same measures/filters after a real Desktop render. See the [user guide](docs/USER_GUIDE.md), [premium guide](docs/PREMIUM_POWERBI.md), and [complete CLI reference](docs/CLI.md).
-
-</details>
-
-<details>
-<summary><strong>I own a Windows validation machine</strong></summary>
-
-Use the actual Power BI Desktop process, the Power BI Desktop Bridge and Microsoft's Modeling MCP. `vqs capture <Report> <private-renders> --pid <exact-pid> --live-data` collects page images and attempts model readiness; `vqs bundle pack` seals them for verification. A report with mixed-size pages is supported, but unproven pixel-to-PBIR calibration stays `blocked`. See [Windows/native workflow](docs/QUICKSTART.md) and [architecture](docs/ARCHITECTURE.md).
-
-</details>
-
-<details>
-<summary><strong>I'm an independent reviewer or contributor</strong></summary>
-
-Review the [G0–G6 evidence requirements](docs/ACCEPTANCE_MATRIX.md) and [release-candidate dossier](docs/RELEASE_NOTES_2026-10-21.md). Verify hashes and scope, inspect the actual full-page images privately, distinguish fail from missing evidence, and never approve your own repair. Contributors: read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md).
-
-</details>
-
-## Built to be honest about evidence
-
-- **Local by default.** Source analysis never needs to upload the customer's PBIP or semantic model. Private screenshots and `.pbi/cache.abf` files must stay outside Git.
-- **Three different claims.** `pass` means a narrowly defined check has proof; `fail` means a demonstrated issue; `blocked` means proof or capability is missing. Missing evidence never becomes a pass.
-- **Correct division of labor.** GitHub Actions owns reproducible static tests. Power BI Desktop Bridge identifies/report-renders a real instance; Modeling MCP verifies actual DAX data; Windows UI Automation observes supported interactions. A reviewer then makes a separate decision.
-- **Power BI is primary.** Word/DOCX is an optional, separately gated component, not a dependency for Power BI quality. Fabric/web adapters are deferred. See [component architecture](docs/ARCHITECTURE.md).
-
-## Project references
-
-[**Quickstart**](docs/QUICKSTART.md) · [**User guide**](docs/USER_GUIDE.md) · [**Premium design**](docs/PREMIUM_POWERBI.md) · [**Architecture**](docs/ARCHITECTURE.md) · [**CLI**](docs/CLI.md) · [**Acceptance matrix**](docs/ACCEPTANCE_MATRIX.md) · [**Engineering release notes**](docs/RELEASE_NOTES_2026-10-21.md) · [**Changelog**](CHANGELOG.md) · [**Issues**](https://github.com/analienx/visual-quality-system/issues)
-
-**License:** [Apache 2.0](LICENSE) · Version `0.0.1a0` · No production release tag.
+<sub>Apache-2.0 · Version `0.0.1a0` · Engineering preview · [Security and contribution rules](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)</sub>
