@@ -1,23 +1,27 @@
 # Changelog
 
-## Unreleased — 2026-10-20 (main branch; pre-alpha, no GitHub Release)
+## Unreleased — 2026-10-21 (main branch; Power BI engineering preview, no GitHub Release)
 
-> This is an **engineering integration**, not a production release or an independently accepted Power BI product. See the [readable 20 October engineering release notes](docs/RELEASE_NOTES_2026-10-20.md).
+> This is an **engineering integration**, not a production release or an independently accepted Power BI product. See the [21 October Power BI engineering evidence and release-candidate notes](docs/RELEASE_NOTES_2026-10-21.md).
 
-### Power BI core capture compatibility (candidate; acceptance independent)
+### Power BI core — published on `main` (acceptance independent)
 
-- **Mixed-size native PBIR pages:** support distinct per-page canvas dimensions (including tooltip pages) during capture and review-bundle verification without assuming a single pixel-to-PBIR transform. Exact per-page source identity is mandatory; unverifiable geometry remains `blocked`. This addresses a real converted Microsoft Corporate Spend sample. Its Desktop Bridge still returned `BRIDGE_ERROR: Host is not ready to accept operations`, so **real rendered acceptance is not yet established**. See the associated capture PR and issue #16.
+- **Mixed-size native PBIR pages:** support distinct per-page canvas dimensions (including tooltip pages) during capture and review-bundle verification without assuming a single pixel-to-PBIR transform. Exact per-page source identity is mandatory; unverifiable geometry remains `blocked`. After Windows was unlocked, `vqs capture --live-data` succeeded for **all three** pages of a real converted Microsoft Corporate Spend PBIP and **all five** pages of Contoso Retail, with individually hash-verified, re-verified private bundles. Source/model evidence and limited native interactions are present; **pixel-coordinate calibration and independent release acceptance remain blocked**. See the associated capture PR and issue #16.
 
 ### Integrated in `main`
 
 - **PR #63 (merged):** Power BI becomes VQS's primary product and independently gated `powerbi-core` acceptance scope. Optional Word/DOCX has its own `word-docx` gate; historical `combined` records still work.
 - **PR #64 (merged; `f24660c`):** native Power BI Desktop QA and scoped assurance, including full-page rendered checks, source/model interaction traces, .NET UI Automation for supported controls, and constrained composition repair in disposable candidates.
-- **20 October documentation update:** newcomer-first README, explicit GitHub-versus-Windows execution guidance, status-correct Power BI architecture, and an evidence-linked engineering release note.
-- **Not approved for production:** independent G2 visual review, generalized independent G4 interaction parity, two unrelated PBIP acceptance subjects, and trusted G6 reviewer/owner release authority remain blocked.
+- **PR #66 merged:** newcomer-first README, GitHub/Windows execution guidance, Power BI-first architecture. **PR #67 merged:** portable Windows symlink negative control. **PR #68 merged:** bubble-map-only label policy; no false Shape Map warning.
+- **PR #69 merged:** source-hashed owner-authored premium design preflight, top-three measured advice, and advisory `assurance` integration.
+- **PR #70 merged:** page-specific source-bound capture dimensions for mixed report/Tooltip sizes; missing viewport calibration stays blocked.
+- **PR #71 merged:** exact doubled-DPI (six-row/12px) Desktop dotted-border detection plus independent sidebar proof; all five real Contoso pages captured and losslessly cropped as **verified report-only canvases** while unknown universal geometry remains blocked.
+- **21 October live validation:** two unrelated PBIPs, **8/8 native pages**, genuine populated Modeling MCP probes, **9 Contoso Year/Region events** and Corporate **Europe→Latin America→Europe** interaction with pixel-identical screenshot restoration. No private business evidence uploaded. [See the actual engineering run](docs/RELEASE_NOTES_2026-10-21.md).
+- **Not approved for production:** two unrelated PBIP engineering subjects now exist; independent G2 visual review, reliable per-visual pixel calibration, country-map/G4 scope, and trusted G6 reviewer/owner release authority remain blocked.
 
 ### Pending independent acceptance / not tagged for release
 
-- **Premium P19 (#65):** the historical local candidate `8a31cde` was not recoverable and is not a remote GitHub commit. A smaller, separately reviewed implementation now adds `vqs premium` with source-bound design intent, focused geometric/explicit-style diagnostics, top-three advice, and advisory integration in `vqs assurance`. The current merged status is determined by the linked P19 PR and GitHub checks—not by that missing historical commit. The separate optional three-perspective model critique is **not shipped**; existing opt-in screenshot review remains available. No G2/G4/G6 approval is implied.
+- **Premium P19 (#65):** the historical local candidate `8a31cde` was not recoverable and is not a remote GitHub commit. A smaller, separately reviewed implementation now adds `vqs premium` with source-bound design intent, focused geometric/explicit-style diagnostics, top-three advice, and advisory integration in `vqs assurance`. The current merged functionality is [PR #69](https://github.com/analienx/visual-quality-system/pull/69) with green hosted checks—not the missing historical commit. The separate optional three-perspective model critique is **not shipped**; existing opt-in screenshot review remains available. No G2/G4/G6 approval is implied.
 - **Word/DOCX native work:** draft branch/PR sequence (including #62); still independently gated. No Word/DOCX tagged release.
 - **Fabric/web adapter:** deferred (#18).
 
