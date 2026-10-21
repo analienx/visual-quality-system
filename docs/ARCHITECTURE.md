@@ -4,8 +4,8 @@
 
 **Primary product:** VQS for Power BI reports and semantic models
 
-**Optional component:** VQS Word/DOCX assurance, independently released
-**Implementation status:** pre-alpha candidate stack; **not** a G6-approved release
+**Optional component:** VQS Word/DOCX assurance, separately gated and not released
+**Implementation status:** pre-alpha engineering integration on `main`; **not** a G6-approved release
 
 VQS is an independent **quality and safe-repair engine**, not a competing report
 authoring tool. Its primary object is an actual Power BI report, the semantic
@@ -14,13 +14,17 @@ responds to real interactions. It may consume a Word deliverable later, but
 **a broken DOCX cannot block a Power BI-only release**; conversely, a successful
 Power BI review never constitutes Word acceptance.
 
-This page separates **main-branch code**, **unmerged P13–P23 candidate
-implementations**, and **future tools**. This architecture change is
-based on main `dc74414`, not on the unfinished Word P23 branch;
-therefore P16/P18/P22/P23 references below are engineering candidate
-evidence, **not modules currently merged into main**. The older
-[execution blueprint](EXECUTION_ARCHITECTURE.md) is
-retained for detailed design/history, not as a claim of shipped features.
+This page distinguishes **merged Power BI core**, **unmerged optional Word
+and premium candidates**, and **future tools**. The Power BI-first scope
+was merged in [PR #63](https://github.com/analienx/visual-quality-system/pull/63);
+the source-bound P13/P14/P15/P16/P18 native Power BI integration was merged
+in [PR #64](https://github.com/analienx/visual-quality-system/pull/64)
+(base `main` `f24660c`). Earlier draft PRs are historical work branches,
+**not evidence that their integrated Power BI functionality is absent from main**.
+The newer [premium initiative #65](https://github.com/analienx/visual-quality-system/issues/65)
+is only locally implemented and is **not** on `main`. The older
+[execution blueprint](EXECUTION_ARCHITECTURE.md) remains historical design,
+not a claim of a finished release.
 Follow the [acceptance matrix](ACCEPTANCE_MATRIX.md) for the actual gates.
 
 ## 1. Product boundaries
@@ -72,11 +76,13 @@ flowchart TB
 
 **Reality vs design:** `vqs/powerbi/`, `vqs/visual/`, `vqs/repair/`,
 `vqs/capture.py`, `vqs/review/`, basic `vqs/document/`, and evidence/
-acceptance code exist on main. The P16 Windows UIA and P19–P23 native
-Word/PDFium extensions exist in **draft branches**. The Word component
-is **logically isolated by capabilities and release scope**, but remains
-inside the same Python distribution. Its optional `word-pages` PDFium/
-Pillow extra is in the unmerged document branch, **not current main**.
+acceptance code exist on main. **P16 Windows UIA and P18 composition
+repair were integrated by PR #64.** The native Word/TOC/PDFium work in
+older P19–P23 Word draft branches is **not** part of that integration.
+The Word component is **logically isolated by capabilities and release
+scope** but remains in the same Python distribution. Its optional
+`word-pages` PDFium/Pillow extra is in an unmerged document branch,
+**not current main**.
 
 ## 2. How VQS actually interacts with Power BI Desktop
 
@@ -129,8 +135,8 @@ flowchart LR
 | **Microsoft Power BI Report Author CLI** | Report metadata/structural validation, supported authoring workflow | Live slicer click or semantic-model edits | Pinned integration and validation guards implemented; verify installed version |
 | **Microsoft Power BI Modeling MCP** | Authorized local semantic model and live DAX queries | Report page layout/visual edits | Integration/probes exist; live Contoso DAX witness used |
 | **Desktop Bridge API/CLI** | Actual Desktop instance status, open file/unsaved state, manifest, PBIR reload and page screenshots | Arbitrary visual click/selection/drillthrough | Implemented capture/identity checks; exact PID and current source required |
-| **Native Windows UI Automation (UIA)** | Real accessibility rectangles, selected control patterns, readable KPI labels/values, slicer action/readback | Country-level Shape Map hit target when provider exposes only “Plot area”; true glyph ink clipping | **P16 candidate in draft PR #56**, 9/9 native actions observed; not on main |
-| **Remote Desktop Commander** | Remote execution, file/process inspection, controlled Windows tool orchestration on authorized ZephyrusG16 | Desktop Bridge data/model API, independent VQS proof, bypass of locked interactive GUI | Operator/infrastructure tool, **not** a runtime dependency inside VQS |
+| **Native Windows UI Automation (UIA)** | Real accessibility rectangles, supported selection patterns, KPI labels/values, slicer action/readback | Generalized country-level Shape Map target when the provider exposes only “Plot area”; true glyph-ink clipping | **Integrated in PR #64**; 9/9 Contoso Year/Region engineering actions; independent G4 release still blocked |
+| **Remote Desktop Commander** | Remote execution, file/process inspection, controlled Windows tool orchestration on an authorized host | Desktop Bridge data/model API, independent VQS proof, bypass of locked interactive GUI | Operator/infrastructure tool, **not** a runtime dependency inside VQS |
 | **Microsoft WinApp CLI** | Potential future Windows UIA querying/clicking/waits/screenshot wrapper | Guaranteed Power BI country map child exposure or locked-session pointer access | **Not integrated** and not found on Windows host at 2026-10-20 probe |
 | **Independent visual reviewer** | Perceptual composition, text ink/clipping, hierarchy, suspicious whitespace and blank visuals | DAX truth, source identity, safe mutation on its own | Partial evidence/review tooling; G2 independent acceptance blocked |
 
@@ -143,13 +149,14 @@ source/report metadata; the Modeling MCP works on semantic models, not
 PBIR page layout. VQS must verify the actual installed manifest and tool
 versions rather than assume all preview methods exist.
 
-The unmerged P16 native UIA witness calls
+The **merged** P16 native UIA witness calls
 `scripts/windows/contoso_native_uia.ps1` from
 `vqs/powerbi/desktop_uia.py` and verifies `SelectionItemPattern`
 actions and observed DAX-matched values. It can handle supported controls
 even with the workstation locked **when UIA providers permit**. This is not
 authorization to simulate unsupported map clicks on the lock screen.
-See the [P16 implementation and evidence in draft PR #56](https://github.com/analienx/visual-quality-system/pull/56).
+See the [integrated Power BI core PR #64](https://github.com/analienx/visual-quality-system/pull/64)
+and the [native engineering evidence](POWER_BI_CORE_NATIVE_EVIDENCE_2026-10-20.md).
 
 ## 3. End-to-end quality and repair loop
 
@@ -192,11 +199,13 @@ never a substitute for attested source/data.
 For Contoso, P18 reduced four KPI card heights **140 → 108** on a 720-unit
 canvas, removed repeated reporting-year wording and aligned tiles with
 lower panels; P16 showed **9/9 Year/Region** native actions. Remaining gaps:
-independent G2 screenshot review, full native Shape Map country click and
-loaded-file identity independent acceptance. The built-in **Shape Map**
-replaced account-dependent/blank Azure Maps attempts. It does not require
-an Azure Maps trial, but its geography asset may require a public GitHub
-URL and country-level UIA is currently unavailable.
+independent G2 screenshot review, **generalized and independently
+verified** Shape Map country selection, and independent loaded-file
+identity acceptance. The built-in **Shape Map** replaced account-dependent/
+blank Azure Maps attempts. It does not require an Azure Maps trial.
+A one-off U.S. country select/clear was observed with foreground-PID,
+model, DAX and screenshot parity, but does **not** establish a reusable
+country locator or independent G4 approval.
 
 ## 4. Separate acceptance scopes — product policy and implemented contract
 
@@ -236,7 +245,7 @@ must not be silently rewritten while VQS contracts change.
 
 | Location | Responsibility | Release component |
 | --- | --- | --- |
-| `vqs/powerbi/*`, `vqs/pbir.py` | PBIR/TMDL semantics, Desktop PID, report authoring; UIA added by unmerged P16 | **Power BI core** |
+| `vqs/powerbi/*`, `vqs/pbir.py` | PBIR/TMDL semantics, Desktop PID, report authoring; native UIA integrated through #64 | **Power BI core** |
 | `vqs/visual/*`, `vqs/design_rules.py` | Source- and screenshot-grounded visual/design analysis | **Power BI core** |
 | `vqs/repair/*` | Typed allowlisted disposable PBIR repair / verify | **Power BI core** |
 | `vqs/coordinator.py`, `vqs/pipeline.py`, `vqs/evidence.py`, `vqs/run_store.py` | Orchestration, sealed evidence, traceability, roles | Shared foundation |
@@ -267,9 +276,13 @@ personal workstation should not execute untrusted public PR code.
 ## 7. Honest release status (2026-10-20)
 
 **Power BI primary:** source-aware P18 reflow and P16 native Year/Region
-functions are **evidenced in draft PRs**, not merged; **G2 independent image signoff**, Shape Map country
-click **G4**, verified second unrelated PBIP and trusted G6 authority remain
-open. No claim of complete VQS release yet.
+functions are **merged into `main` via PR #64**. The Contoso engineering
+witness includes nine Year/Region actions and a separately guarded one-off
+U.S. Shape Map selection/clear with executed DAX parity. **G2 independent
+visual sign-off, reusable/independently approved G4 interaction parity,
+a second unrelated PBIP, and trusted G6 authority remain blocked.**
+The P19 premium-design auditor (#65) is locally tested but **not merged**.
+No claim of a complete VQS release is made.
 
 **Word optional:** P21 detected 26 broken bookmark links, P22 native
 candidate repaired 26→0 without changing 45 headings or 1,561 table-cell
@@ -279,8 +292,10 @@ G5 and component G6 are blocked. The Windows broad test suite last
 returned 1,647 passed, 10 skipped, **2 failures** (symlink privilege and
 installed MCP parity).
 
-Draft stacked PRs #55–#62 are unmerged at this snapshot; P23 has no
-remote draft PR yet. Always verify live state before planning another run.
+Older stacked draft PRs #55–#62 may remain open even though the selected
+Power BI functionality was integrated separately in #64; the Word candidates
+remain independent and unmerged. No tagged release exists. Verify live
+GitHub status before planning another run.
 
 ## 8. Primary references
 
@@ -289,5 +304,5 @@ remote draft PR yet. Always verify live state before planning another run.
 - [Microsoft UI Automation SelectionItemPattern](https://learn.microsoft.com/en-us/dotnet/api/system.windows.automation.selectionitempattern) — supported native selection patterns.
 - [Microsoft WinApp CLI UI automation](https://github.com/microsoft/WinAppCli/blob/main/docs/ui-automation.md) — prospective adapter only, not currently installed.
 - [Power BI built-in Shape Map](https://learn.microsoft.com/en-us/power-bi/visuals/power-bi-shape-map) — accepted no-Azure-Maps-account design.
-- [P16 native Desktop witness — draft PR #56](https://github.com/analienx/visual-quality-system/pull/56) · [P18 reflow — draft PR #58](https://github.com/analienx/visual-quality-system/pull/58) · [P22/P23 Word work — draft PR #62 and pending P23](https://github.com/analienx/visual-quality-system/pull/62)
+- [Merged Power BI native integration — PR #64](https://github.com/analienx/visual-quality-system/pull/64) · [Power BI evidence](POWER_BI_CORE_NATIVE_EVIDENCE_2026-10-20.md) · [premium candidate #65](https://github.com/analienx/visual-quality-system/issues/65) · [Word draft PR #62](https://github.com/analienx/visual-quality-system/pull/62) · [engineering release notes](RELEASE_NOTES_2026-10-20.md)
 - [Execution blueprint](EXECUTION_ARCHITECTURE.md) · [acceptance matrix](ACCEPTANCE_MATRIX.md) · [integration strategy](INTEGRATION_STRATEGY.md)

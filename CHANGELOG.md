@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased — 2026-10-20 (main branch; pre-alpha, no GitHub Release)
+
+> This is an **engineering integration**, not a production release or an independently accepted Power BI product. See the [readable 20 October engineering release notes](docs/RELEASE_NOTES_2026-10-20.md).
+
+### Integrated in `main`
+
+- **PR #63 (merged):** Power BI becomes VQS's primary product and independently gated `powerbi-core` acceptance scope. Optional Word/DOCX has its own `word-docx` gate; historical `combined` records still work.
+- **PR #64 (merged; `f24660c`):** native Power BI Desktop QA and scoped assurance, including full-page rendered checks, source/model interaction traces, .NET UI Automation for supported controls, and constrained composition repair in disposable candidates.
+- **20 October documentation update:** newcomer-first README, explicit GitHub-versus-Windows execution guidance, status-correct Power BI architecture, and an evidence-linked engineering release note.
+- **Not approved for production:** independent G2 visual review, generalized independent G4 interaction parity, two unrelated PBIP acceptance subjects, and trusted G6 reviewer/owner release authority remain blocked.
+
+### Not merged / not shipped
+
+- **Premium P19 (#65):** design contract, three-perspective perceptual review, and top-three repair recommendations were implemented/tested locally at `8a31cde`. That commit is **not on remote `main`**; `vqs premium` is not yet part of this install. Do not treat local test results as hosted CI, visual acceptance, or a released feature.
+- **Word/DOCX native work:** draft branch/PR sequence (including #62); still independently gated. No Word/DOCX tagged release.
+- **Fabric/web adapter:** deferred (#18).
+
+### Historical development notes
+
+The entries below are preserved as **point-in-time candidate-branch records**. Their `Unreleased` headings and “not merged” labels reflect the status when authored; they are **not current `main` status**. Check the merged PRs and the engineering release note above for current integration truth.
+
+---
+
 ## Unreleased (work/wp02-integration-r2 — R6 E01-E08, draft PR #31, NOT merged)
 
 - R6 trust remediation for issue #22 on the integration candidate
