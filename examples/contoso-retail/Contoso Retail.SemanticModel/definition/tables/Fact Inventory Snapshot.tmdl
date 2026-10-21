@@ -1,0 +1,96 @@
+/// Monthly inventory snapshot fact table at product-store-supplier grain.
+table 'Fact Inventory Snapshot'
+	lineageTag: 5a6c05cd-babd-449f-9311-aa9f67a77a66
+
+	/// Units available at month-end.
+	measure 'Inventory Units On Hand' = SUM ( 'Fact Inventory Snapshot'[Units On Hand] )
+		formatString: #,0
+		displayFolder: Inventory
+		lineageTag: fa019383-914d-48a6-a87e-7073332c0e5c
+
+	/// Carrying value of stock available at month-end.
+	measure 'Inventory Carrying Value' = SUM ( 'Fact Inventory Snapshot'[Inventory Value] )
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Inventory
+		lineageTag: e97b45b1-ba54-4f25-b921-831117aef3db
+
+	/// Count of products with zero available units.
+	measure 'Stockout SKU Count' = CALCULATE ( DISTINCTCOUNT ( 'Fact Inventory Snapshot'[Product Key] ), 'Fact Inventory Snapshot'[Stockout Flag] = 1 )
+		formatString: #,0
+		displayFolder: Inventory
+		lineageTag: 75acb47b-f474-4d15-9eb6-68d81e7611c5
+
+	/// Approximate weeks of cover using current reporting-year demand.
+	measure 'Weeks of Supply' = DIVIDE ( [Inventory Units On Hand], DIVIDE ( [Reporting Year Units], 52 ) )
+		formatString: 0.0
+		displayFolder: Inventory
+		lineageTag: c49d40ad-8ef9-4ee7-9a14-df17079708fa
+
+	column 'Snapshot Date Key'
+		dataType: int64
+		isHidden
+		lineageTag: 09d82524-7cf5-4406-b988-249192165471
+		summarizeBy: none
+		sourceColumn: Snapshot Date Key
+
+	column 'Product Key'
+		dataType: int64
+		isHidden
+		lineageTag: da009cc6-ad06-4b85-a576-03ae8f84a0fe
+		summarizeBy: none
+		sourceColumn: Product Key
+
+	column 'Store Key'
+		dataType: int64
+		isHidden
+		lineageTag: 3fb1f43b-ca94-48bc-b1a2-26dfaef7168c
+		summarizeBy: none
+		sourceColumn: Store Key
+
+	column 'Supplier Key'
+		dataType: int64
+		isHidden
+		lineageTag: 2b55d71d-dbed-47de-8f0d-454bfefe793c
+		summarizeBy: none
+		sourceColumn: Supplier Key
+
+	column 'Units On Hand'
+		dataType: int64
+		isHidden
+		lineageTag: 3169e5fc-4e09-4ca5-87dd-6f01d846ff94
+		summarizeBy: sum
+		sourceColumn: Units On Hand
+
+	column 'Inventory Value'
+		dataType: decimal
+		isHidden
+		formatString: $#,0.00;($#,0.00);$#,0.00
+		lineageTag: 0ff37ccf-18b9-4f22-a869-7240dc972d93
+		summarizeBy: sum
+		sourceColumn: Inventory Value
+
+	column 'Stockout Flag'
+		dataType: int64
+		isHidden
+		lineageTag: f972e3db-91cf-477a-96ba-9ca9321e46e4
+		summarizeBy: none
+		sourceColumn: Stockout Flag
+
+	partition 'Fact Inventory Snapshot' = m
+		mode: import
+		source =
+				let
+					Months = List.Generate(() => #date(2023, 1, 1), each _ <= #date(2025, 12, 1), each Date.AddMonths(_, 1)),
+					Rows = List.Combine(List.Transform(Months, (d as date) => List.Combine(List.Transform({1..5}, (s as number) => List.Transform({1..8}, (p as number) =>
+						let
+							Units = Number.Mod(Date.Month(d) * 3 + p * 7 + s * 5, 42),
+							UnitCost = {779, 666, 479, 448, 125, 171, 137, 90}{p - 1}
+						in
+							[#"Snapshot Date Key" = Date.Year(d) * 10000 + Date.Month(d) * 100 + 28, #"Product Key" = p, #"Store Key" = s, #"Supplier Key" = Number.Mod(p - 1, 4) + 1, #"Units On Hand" = Units, #"Inventory Value" = Number.Round(Units * UnitCost, 2), #"Stockout Flag" = if Units = 0 then 1 else 0]
+					))))),
+					Source = Table.FromRecords(Rows, type table [#"Snapshot Date Key" = Int64.Type, #"Product Key" = Int64.Type, #"Store Key" = Int64.Type, #"Supplier Key" = Int64.Type, #"Units On Hand" = Int64.Type, #"Inventory Value" = Currency.Type, #"Stockout Flag" = Int64.Type])
+				in
+					Source
+
+	annotation PBI_ResultType = Table
+
