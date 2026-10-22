@@ -69,27 +69,11 @@ Power BI source files can be valid while the delivered report still has a clippe
 | **Observe** | Populated Power BI Desktop captures, Modeling MCP live DAX probes, supported Windows UI Automation interaction witnesses | Needs a real authorized Windows/Power BI session |
 | **Verify** | Source hashes, per-page image digests, measured report-only crops when possible, sealed review bundles | No self-awarded aesthetic or production approval |
 
-### A Power BI-first architecture
+### One engine, two execution environments
 
-```mermaid
-flowchart LR
-  A["PBIP · PBIR · TMDL<br/>Report + semantic model"] --> B["VQS core<br/>triage · measure · premium"]
-  B --> C["Disposable candidate<br/>typed, reversible repairs"]
-  C --> D["Real Desktop evidence<br/>pixels · DAX · UIA"]
-  D --> E["Verified review bundle<br/>source + image hashes"]
-  E -. "independent review" .-> F["Scoped release decision"]
-  E -. "proved defect only" .-> C
-  classDef src fill:#EAF2FF,stroke:#7296D5,color:#1C406B
-  classDef core fill:#2455A0,stroke:#15417F,color:#fff
-  classDef native fill:#E5F5F6,stroke:#58A6AD,color:#194A50
-  classDef gate fill:#E5F3E9,stroke:#66AA85,color:#225940
-  class A src
-  class B,C core
-  class D,E native
-  class F gate
-```
+<a href="docs/ARCHITECTURE.md"><img src="docs/diagrams/product-flow.svg" width="100%" alt="VQS Power BI workflow: read PBIP source, diagnose issues, observe Desktop, seal evidence, independently decide"></a>
 
-GitHub Actions runs reproducible source checks; an authenticated Windows Power BI Desktop session is required for real rendered and interactive evidence. [Full architecture and boundaries](docs/ARCHITECTURE.md).
+**GitHub/Python** runs source checks. **Windows Power BI Desktop** supplies populated DAX, real screenshots and supported native interactions. An independent reviewer—not a model or CI job—makes the scoped release decision. See the [two-diagram architecture](docs/ARCHITECTURE.md) for the execution boundary and the optional Word/WinApp CLI distinction.
 
 ## Get started
 
