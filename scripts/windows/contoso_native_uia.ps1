@@ -259,6 +259,36 @@ if ($Action -eq 'year') {
         }
     }
 }
+# A completed Year action must leave the slicer COLLAPSED as well as at the
+# requested value. Otherwise the last All restoration leaves a dropdown over
+# the KPI and creates misleading 'post repair' screenshots. Rebind after UI
+# redraw rather than relying on the previous stale ExpandCollapsePattern.
+if ($Action -eq 'year') {
+    $collapsed = $false
+    for ($attempt = 0; $attempt -lt 6; $attempt++) {
+        try {
+            $currentReport = Find-Exact $window 'Power BI Report' ([System.Windows.Automation.ControlType]::Group)
+            $currentYear = Find-Exact $currentReport 'Year' ([System.Windows.Automation.ControlType]::ComboBox)
+            $currentExpand = $currentYear.GetCurrentPattern(
+                [System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+            if ($currentExpand.Current.ExpandCollapseState -eq
+                [System.Windows.Automation.ExpandCollapseState]::Expanded) {
+                $currentExpand.Collapse()
+            }
+            if ($currentExpand.Current.ExpandCollapseState -eq
+                [System.Windows.Automation.ExpandCollapseState]::Collapsed) {
+                $collapsed = $true
+                break
+            }
+        } catch {
+            # Power BI may temporarily replace the accessible slicer subtree.
+        }
+        Start-Sleep -Milliseconds 200
+    }
+    if (-not $collapsed) {
+        throw 'Year action changed selection but did not restore collapsed UI state'
+    }
+}
 # Power BI redraws its accessibility subtree asynchronously. Reacquire
 # elements for readback; never repeat the selection itself on a transient miss.
 $observed = $null

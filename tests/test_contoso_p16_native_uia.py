@@ -189,3 +189,22 @@ def test_minimized_desktop_diagnosis_never_silently_restores_window():
     assert "BoundingRectangle.IsEmpty" in adapter
     assert "target Desktop window is minimized/unrendered" in adapter
     assert "SetWindowVisualState([System.Windows.Automation.WindowVisualState]::Normal)" not in adapter
+
+
+def test_native_year_action_restores_collapsed_slicer_after_value_change():
+    """Visible dropdown state is part of a clean before/after screenshot."""
+    from pathlib import Path
+
+    native = (Path(__file__).resolve().parents[1] /
+              "scripts/windows/contoso_native_uia.ps1").read_text(
+                  encoding="utf-8")
+    begin = native.index("# A completed Year action must leave the slicer")
+    end = native.index("# Power BI redraws its accessibility subtree", begin)
+    cleanup = native[begin:end]
+    assert "if ($Action -eq 'year')" in cleanup
+    assert "Find-Exact $currentReport 'Year'" in cleanup
+    assert "$currentExpand.Collapse()" in cleanup
+    assert "$collapsed = $true" in cleanup
+    assert "if (-not $collapsed)" in cleanup
+    assert "did not restore collapsed UI state" in cleanup
+    assert begin < native.index("$observed = $null", end)
