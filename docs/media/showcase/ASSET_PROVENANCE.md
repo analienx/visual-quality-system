@@ -1,25 +1,29 @@
 # Public showcase provenance
 
-**Reproducible checked-in source:** [Contoso Retail.pbip](../../../examples/contoso-retail/Contoso%20Retail.pbip) · [full five-page demo and refresh instructions](../../../examples/contoso-retail/README.md). All screenshots were rendered from the exact report-source SHA-256 below; the committed semantic model generates fictional data internally. The images are now continuously checked against that PBIP by `tests/test_public_showcase_example.py`.
+**Actual checked-in report:** [Contoso Retail.pbip](../../../examples/contoso-retail/Contoso%20Retail.pbip) · [reproduction and refresh instructions](../../../examples/contoso-retail/README.md).
 
-These are **resized illustrative previews** of a fictional Contoso Retail Power BI sample, not raw runtime-evidence files or the VQS application UI. They were derived from five independently verified report-only canvases captured on 21 October 2026 from a disposable PBIP. The source/report digest is `0e94efc38bd1ec852e4e079afb13b626ec586d5a9506ea607f691dfffa60c847`. Full-resolution PNGs, Desktop chrome, **binary model caches**, private customer data and machine-local paths are deliberately **not published**. The self-contained fictional TMDL semantic model **is** published alongside its exact PBIR report.
+**All five previews were regenerated from the corrected, source-identical PBIP on 22 October 2026**, using fresh native Power BI Desktop captures with populated fictional semantic data. Report source SHA-256: `37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca`. The TMDL model remains identical; the two measure bindings in the customer table are unchanged. Only the visual presentation labels were shortened to make the last row and total fully readable.
 
-Published assets have no user-identifying data; the images show fictional demo business aggregates, regions, categories and branded sample stores. They are examples of reports inspected with VQS, not screenshots of a VQS graphical interface and not independent design acceptance.
+The five original 3915 × 2394 Desktop captures were each measured and cropped to the report-only canvas at x=0, y=334, width=3072, height=1728, then resized to 1600 × 900 WebP preview. All private raw native Desktop PNGs, per-process identifiers, semantic model caches and machine paths remain outside Git. These illustrations are not release acceptance certificates or a VQS application interface.
 
-| Screenshot | SHA-256 of public preview | Size |
-| --- | --- | ---: |
-| [Executive overview](executive-overview.webp) | `10586733fb3ca6ef12a9edb8a35e9f20658efe79923b534601b9ae210b217d5a` | 72 KiB |
-| [Deep-dive insights](deep-dive-map.webp) | `abb11c8eac46a151c778ec9aa0991261c09b88e711b730150733edffa78685eb` | 67 KiB |
-| [Products and brands](products-brands.webp) | `043c9a6f070d5c9907554a205788b9f2b2baf89a99ea5622b24e39e7e76e7d9f` | 80 KiB |
-| [Stores and customers](stores-customers.webp) | `d2764e713c77f1c81d753e4f55d95b44a881e86bf0344f65e7fdfcfa44812a72` | 71 KiB |
-| [Markets and drivers](markets-drivers.webp) | `fcc644f50278818711c8c2be5a26b554ad41feab595617c21eee74a06aaeec17` | 58 KiB |
+| Native page | Preview | Public WebP SHA-256 | Size |
+| --- | --- | --- | ---: |
+| Executive overview | [executive-overview.webp](executive-overview.webp) | `772c675561c63a2545166d992afa97f238575f2efab4e9020685a9b8f737baf3` | 54 KiB |
+| Products & brands | [products-brands.webp](products-brands.webp) | `75ac73745b2bb598f0562dae180650ddfdf9a8af6f8915b4f9f87d823254bd55` | 66 KiB |
+| Stores & customers | [stores-customers.webp](stores-customers.webp) | `4c0f0ee28832d9a8edafd6cd1fde76a73a322e955660a32fc759333c6ea7e191` | 58 KiB |
+| Markets & drivers | [markets-drivers.webp](markets-drivers.webp) | `d9a4be5c749e1e3e9d878e548cec97c191188a6b6d9193b80a952845b4d758c6` | 49 KiB |
+| Deep-dive insights | [deep-dive-map.webp](deep-dive-map.webp) | `8153b03b3e350d4040540c2f2a880b17457c1fdd8b59a7b2882df19accd8b635` | 54 KiB |
 
-Individual source-canvas digests and page IDs (for custody audit):
+## Per-page render custody
 
-- **Executive_overview**: `0b2bcb862101f430bc9d9758b8abc13f3b20bbdf26e680bddfc793c2ea5e7940` — Hero dashboard: time trend, regional sales and KPI signals.
-- **d9bc3b8f90439bcc**: `e4224d0e86293a1d24cb2f79d0cb81350237b417aa309b852476ca055bac7198` — No-sign-in country Shape Map, channel donut and regional sales.
-- **Products_brands**: `796bdb09790230364a295de5af2e385b82d8ec2f393f8b17c20d5491c881f387` — Ranked sales bars, category matrix and margin action list.
-- **Stores_customers**: `d050e7108efb322854b4e31b50fa0ea2bb073b0c466d48d02b6fe729f35f0f97` — Customer segmentation, store sales and two analytical tables.
-- **Markets_drivers**: `8310195cc43505d62bb93dca7e344bc308de2fb93138ca98cc0efa0931531517` — Waterfall, sales mix and margin contributions.
+The hashes below are SHA-256 of the **cropped report-only RGB pixel bytes** before WebP compression (not hashes of PNG container files). Original raw PNG hashes are retained in the private acceptance ledger.
 
-Full source-bound evidence transport and independent G2/G6 approval remain separate. See [release notes](../../RELEASE_NOTES_2026-10-21.md).
+- **Executive_overview**: `d2f52fd2fcb1e9d44a7262a15d10e3062dca7b2a9f6ae896cd6e836f9105a9fb` — Time trend, KPI signals and regional results.
+- **Products_brands**: `df7fa02484c240e54c5be12ade5a7017ca4df4b5f57a9c6e88f8196c68e5c302` — Ranked products, category matrix and margin actions.
+- **Stores_customers**: `7e962f5b91672252cd0b87cc14ef6647dd1aaee842e655440c3dfde9302d8042` — Readable customer segments, store sales, and two data matrices.
+- **Markets_drivers**: `86053f62c46efebdaf36bde3c46798a7d991427c6c47cc67be23453516075f37` — Waterfall, channel sales and margin contributions.
+- **d9bc3b8f90439bcc**: `63cad35eec9190725166d4b2856f7b1756acca27d1eededc07c487764f7cfb23` — No-sign-in Shape Map, channel donut and regional sales.
+
+All content is self-generated fictional Contoso data. The visible data in the updated Stores & customers screenshot was independently checked on Desktop: Corporate, Consumer, Small Business and Total fit without scrollbars. Visual review remains separate from G4 interaction coverage and owner-controlled G6 release authorization.
+
+The associated source digest and public files are asserted by `tests/test_public_showcase_example.py`.
