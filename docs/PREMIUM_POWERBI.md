@@ -39,3 +39,20 @@ The `top_three` array lists at most three grounded, priority-ordered recommendat
 5. Only an independent verifier/owner can approve G2/G4/G6. Word/DOCX never blocks the Power BI-only scope.
 
 Source-based heuristics cannot perceive attractiveness, text clipping, actual semantic answers, or whether a chart deserves to exist. Those stay explicitly unverified until appropriate evidence arrives.
+
+
+## Rendered matrix and table acceptance
+
+The opt-in `vqs review-images` reviewer now evaluates a seventh explicit
+`table_matrix_overflow` check in the same verified-canvas pass. It inspects
+truncated/overlapping row labels and totals, clipped columns, and scrollbars
+that hide required content. Scrollbars in intentionally scrollable tables are
+not automatically defects. A page with no grid is explicitly reported as not
+applicable in the check detail; this does not imply any grid was inspected.
+
+Example: the Contoso Stores & customers matrix previously displayed long
+semantic measure names, forcing scrolling despite `growToFit` and compact
+text. The PBIR fixture now sets visual-only captions `Sales` and `GM %`
+while keeping both original measure `queryRef`/`nativeQueryRef` bindings.
+The source edit and image-review result are not a substitute for a fresh,
+populated Power BI Desktop render and independent G2/G4/G6 acceptance.

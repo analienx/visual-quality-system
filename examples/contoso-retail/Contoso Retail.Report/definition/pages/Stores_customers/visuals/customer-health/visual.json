@@ -28,6 +28,7 @@
               },
               "queryRef": "Dim Customer.Segment",
               "nativeQueryRef": "Segment",
+              "displayName": "Segment",
               "active": true
             }
           ]
@@ -46,7 +47,8 @@
                 }
               },
               "queryRef": "Fact Sales.Reporting Year Sales",
-              "nativeQueryRef": "Reporting Year Sales"
+              "nativeQueryRef": "Reporting Year Sales",
+              "displayName": "Sales"
             },
             {
               "field": {
@@ -60,7 +62,8 @@
                 }
               },
               "queryRef": "Fact Sales.Reporting Year GM %",
-              "nativeQueryRef": "Reporting Year GM %"
+              "nativeQueryRef": "Reporting Year GM %",
+              "displayName": "GM %"
             }
           ]
         }

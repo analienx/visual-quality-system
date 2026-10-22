@@ -76,7 +76,7 @@ def test_muse_tool_disabled_provenance_bound_review(tmp_path, monkeypatch):
         reviewer_id=reviewer.reviewer_id, fixer_id="distinct-fixer")
     assert reviewed["visual"] == "fail"
     assert reviewed["tally"]["fail"] == 1
-    assert reviewed["tally"]["pass"] == 5
+    assert reviewed["tally"]["pass"] == len(CHECKS) - 1
     assert reviewed["observations"][0]["detail"]["image_sha256"] == sha
     assert len(invoked) == 1
 
@@ -160,8 +160,32 @@ def test_advisory_cli_can_use_independent_provider_without_release_claim(
     assert captured["advisory"] is True
     assert captured["release_authority"] is False
     assert captured["visual"] == "fail"
-    assert len(captured["observations"]) == 6
+    assert len(captured["observations"]) == len(CHECKS)
     assert json.loads(output.read_text())["visual"] == "fail"
     assert os.getenv("VQS_ALLOW_VISION_UPLOAD") != "1"
     assert cli.main(["review-images", str(bundle), "--allow-remote-images",
                      "--out", str(output)]) == 2
+
+
+def test_matrix_overflow_is_a_distinct_blocking_visible_defect():
+    """A concrete unreadable matrix cannot be buried in generic legibility."""
+    response = _payload("stores", "a" * 64)
+    for check in response["checks"]:
+        if check["check"] == "table_matrix_overflow":
+            check["verdict"] = "fail"
+            check["detail"] = (
+                "The Small Business matrix row is clipped above Total; "
+                "horizontal and vertical scrollbars obscure the last values."
+            )
+    obs = _validate_result(response, "stores", "a" * 64)
+    assert len(obs) == len(CHECKS)
+    assert next(row for row in obs
+                if row["check"] == "table_matrix_overflow")["verdict"] == "fail"
+
+
+def test_matrix_overflow_prompt_is_required_and_context_aware():
+    from vqs.review import muse
+    assert "table_matrix_overflow" in muse.CHECKS
+    assert "scrollbars" in muse._PROMPT
+    assert "A scrollbar is not automatically a defect" in muse._PROMPT
+    assert "no table or matrix on page" in muse._PROMPT

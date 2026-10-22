@@ -20,6 +20,7 @@ from .port import ReviewError
 
 CHECKS = (
     "text_clipping",
+    "table_matrix_overflow",
     "visual_overlap",
     "text_legibility",
     "spacing_alignment",
@@ -52,10 +53,18 @@ _PROMPT = """Review ONLY the ATTACHED Power BI report-only screenshot.
 The caller verifies the source image and attaches its SHA-256 outside
 the model. Do not repeat or invent page IDs or image hashes.
 Return a JSON object matching the supplied schema exactly, with exactly
-six observations, one for each of: {checks}.
+seven observations, one for each of: {checks}.
 Each detail must contain a concrete visible location and concise reason.
 Assess clipped labels/KPIs, unintended overlaps, readability,
 alignment/spacing, missing or malformed visual content, and visual hierarchy.
+For table_matrix_overflow, explicitly inspect every visible table/matrix:
+look for horizontal/vertical scrollbars, obscured column headers, truncated
+or overlapping row labels/values, missing visible last rows or totals.
+A scrollbar is not automatically a defect for legitimately scrollable data:
+FAIL when required rows/totals are visibly cut off or the table is
+unreadable. BLOCKED if the screenshot cannot establish completeness.
+If there are no table or matrix visuals, report PASS explicitly as
+'not applicable: no table or matrix on page'; never invent content.
 Use FAIL only for a defect you can actually see. Use BLOCKED if you cannot
 determine whether a check is satisfied. Use PASS only for the visible check
 on this rendered image, never for semantic correctness, slicer states,
