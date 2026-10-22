@@ -1,0 +1,6 @@
+flowchart LR
+  A["PBIP / PBIR / TMDL"] --> B["VQS source diagnostics + premium intent"]
+  B --> C["Actual Desktop + DAX + native UIA"]
+  C --> D["Sealed, source-bound evidence"]
+  D --> E["Independent scoped decision"]
+  D -. optional candidate-only typed repair .-> B

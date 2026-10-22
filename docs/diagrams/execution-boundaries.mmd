@@ -1,0 +1,15 @@
+flowchart TB
+  subgraph CI["Portable · GitHub Actions / Python"]
+    S["PBIR/TMDL parsing, rules, premium, typed validation"]
+  end
+  subgraph WIN["Authorized Windows · Power BI Desktop"]
+    M["Modeling MCP · live DAX"]
+    B["Desktop Bridge · native pixels"]
+    U[".NET UIA · real interactions"]
+    W["WinApp CLI · optional diagnostics"] -.-> U
+  end
+  S --> E["Source-bound evidence / hashes"]
+  M --> E
+  B --> E
+  U --> E
+  E --> R["Independent reviewer / scoped release authority"]
