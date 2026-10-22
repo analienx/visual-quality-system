@@ -15,7 +15,7 @@ EXAMPLE = REPO / "examples" / "contoso-retail"
 REPORT = EXAMPLE / "Contoso Retail.Report"
 MODEL = EXAMPLE / "Contoso Retail.SemanticModel"
 GALLERY = REPO / "docs" / "media" / "showcase"
-EXPECTED_REPORT = "0e94efc38bd1ec852e4e079afb13b626ec586d5a9506ea607f691dfffa60c847"
+EXPECTED_REPORT = "37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca"
 EXPECTED_MODEL = "30040bd3b229fc8507d30cf58e30d393b5b65e9317b2159f3066772aa715ae3f"
 PAGES = {
     "Executive_overview": "executive-overview.webp",
