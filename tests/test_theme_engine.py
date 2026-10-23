@@ -715,3 +715,47 @@ def test_registered_theme_avoids_pinned_cli_unknown_report_groups() -> None:
     # Pinned Microsoft 0.5.0 author CLI rejects the report-level groups
     # which Power BI Desktop Oct-2026 schema otherwise permits.
     assert set(theme["visualStyles"]["*"]["*"]) == {"background"}
+
+
+def test_supported_vco_on_otherwise_unsupported_visual(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    custom = _visual("dc", "decompositionTreeVisual", {},
+                     {"background": [{"properties": {
+                         "color": _color("#FFFFFF")}}],
+                      "title": [{"properties": {
+                          "fontColor": _color("#111111")}}]})
+    _write(_visual_path(report, "dc"), custom)
+    plan = build_plan(report, "dark", load_palette("dark", None))
+    colors = [c for c in plan["changes"] if c["visual"] == "dc"]
+    assert {c["role"] for c in colors} == {"surface", "foreground"}
+    apply_theme(report, "dark", load_palette("dark", None), tmp_path / "dark")
+    cand = _read(_visual_path(tmp_path / "dark/Demo.Report", "dc"))
+    vco = cand["visual"]["visualContainerObjects"]
+    assert vco["background"][0]["properties"]["color"]["solid"]["color"][
+        "expr"]["Literal"]["Value"] == "'#111C2E'"
+
+
+def test_waterfall_sentiment_preserved_and_matrix_gridline_tinted(
+        tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    fall = _visual("fall", "waterfallChart", {
+        "sentimentColors": [{"properties": {
+            "increaseFill": _color("#22C55E"),
+            "decreaseFill": _color("#BE123C"),
+            "totalFill": _color("#94A3B8")}}]})
+    _write(_visual_path(report, "fall"), fall)
+    matrix = _visual("matrix", "pivotTable", {
+        "grid": [{"properties": {
+            "gridHorizontalColor": _color("#DDE0E6")}}]})
+    _write(_visual_path(report, "matrix"), matrix)
+    plan = build_plan(report, "dark", load_palette("dark", None))
+    fall_colors = [x for x in plan["occurrences"]
+                   if x["visual"] == "fall" and x["role"] in
+                   ("increaseFill", "decreaseFill", "totalFill")]
+    assert len(fall_colors) == 3
+    assert all(x["classification"] == "preserved" for x in fall_colors)
+    assert any(x["visual"] == "matrix" and x["role"] == "gridline"
+               and x["new"] == "#334155" for x in plan["changes"])
+    apply_theme(report, "dark", load_palette("dark", None), tmp_path / "dark")
+    result = _read(_visual_path(tmp_path / "dark/Demo.Report", "fall"))
+    assert result == fall

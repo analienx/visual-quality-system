@@ -515,6 +515,8 @@ def role_for(path: list[Any], visual_type: str, file_kind: str) -> str | None:
             return "outline"
         return "foreground"
     # charts and generic visuals
+    if group_l == "grid" and "color" in prop:
+        return "gridline"
     if group_l in ("categoryaxis", "valueaxis"):
         if "gridline" in prop:
             return "gridline"
@@ -595,6 +597,7 @@ _COLOR_KEYS = frozenset({
     "lineColor", "borderColor", "gridlineColor", "markerColor", "strokeColor",
     "foregroundColor", "inputBoxColor", "checkboxAndApplyColor",
     "negativeColor", "positiveColor", "neutralColor",
+    "dataLabelColor", "gridHorizontalColor", "gridVerticalColor",
 })
 
 
@@ -804,6 +807,19 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
                         "detail": "dataPoint hex not in source dataColors; "
                                   "preserved with warning"})
         return
+    # Waterfall increase/decrease/total encode business polarity: preserve
+    # exact source colors instead of silently reassigning category semantics.
+    _unused_container, source_group = _group_of(path)
+    source_prop = _property_of(path)
+    if (file_kind == "visual" and visual_type == "waterfallChart"
+            and source_group.lower() == "sentimentcolors"
+            and source_prop in ("increaseFill", "decreaseFill", "totalFill")):
+        out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
+                    "pointer": _pointer(path), "_path": list(path),
+                    "old": hex_value, "new": None, "role": source_prop,
+                    "classification": "preserved",
+                    "detail": "waterfall business-polarity fill intentionally preserved"})
+        return
     if not _format_color_leaf(path, file_kind):
         out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
                     "pointer": _pointer(path), "_path": list(path),
@@ -811,8 +827,9 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
                     "classification": "unknown",
                     "detail": "unrecognized PBIR appearance path; preserved"})
         return
-    if file_kind == "visual" and visual_type and \
-            visual_type not in SUPPORTED_TYPES:
+    if (file_kind == "visual" and visual_type
+            and visual_type not in SUPPORTED_TYPES
+            and path[:2] != ["visual", "visualContainerObjects"]):
         out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
                     "pointer": _pointer(path), "_path": list(path),
                     "old": hex_value, "new": None, "role": None,
