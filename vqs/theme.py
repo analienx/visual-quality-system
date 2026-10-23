@@ -482,7 +482,7 @@ def role_for(path: list[Any], visual_type: str, file_kind: str) -> str | None:
             return "selection" if "back" in prop else "selectionForeground"
     if vtype in TABLE_TYPES:
         if group_l == "grid" and prop in (
-                "gridHorizontalColor", "gridVerticalColor"):
+                "gridhorizontalcolor", "gridverticalcolor"):
             return "gridline"
         if group_l == "columnheaders":
             return "tableHeader" if "back" in prop else "tableHeaderForeground"
