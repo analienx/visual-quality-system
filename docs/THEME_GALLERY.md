@@ -21,15 +21,79 @@ outside Git; both public and original SHA-256 hashes are in manifests.
 
 [![Slate Lavender executive overview](images/themes/slate-lavender/executive-overview.png)](images/themes/slate-lavender/executive-overview.png)
 
-## View every captured page
+## All five report pages per theme
 
-| Page | Executive Blue Light | Executive Blue Dark | Graphite Mint | Warm Basalt | Slate Lavender |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| Executive overview | [View PNG](images/themes/light/executive-overview.png) | [View PNG](images/themes/blue-dark/executive-overview.png) | [View PNG](images/themes/graphite-mint/executive-overview.png) | [View PNG](images/themes/warm-basalt/executive-overview.png) | [View PNG](images/themes/slate-lavender/executive-overview.png) |
-| Products & brands | [View PNG](images/themes/light/products-and-brands.png) | [View PNG](images/themes/blue-dark/products-and-brands.png) | [View PNG](images/themes/graphite-mint/products-and-brands.png) | [View PNG](images/themes/warm-basalt/products-and-brands.png) | [View PNG](images/themes/slate-lavender/products-and-brands.png) |
-| Stores & customers | [View PNG](images/themes/light/stores-and-customers.png) | [View PNG](images/themes/blue-dark/stores-and-customers.png) | [View PNG](images/themes/graphite-mint/stores-and-customers.png) | [View PNG](images/themes/warm-basalt/stores-and-customers.png) | [View PNG](images/themes/slate-lavender/stores-and-customers.png) |
-| Markets & drivers | [View PNG](images/themes/light/markets-and-drivers.png) | [View PNG](images/themes/blue-dark/markets-and-drivers.png) | [View PNG](images/themes/graphite-mint/markets-and-drivers.png) | [View PNG](images/themes/warm-basalt/markets-and-drivers.png) | [View PNG](images/themes/slate-lavender/markets-and-drivers.png) |
-| Deep-dive insights | [View PNG](images/themes/light/deep-dive-insights.png) | [View PNG](images/themes/blue-dark/deep-dive-insights.png) | [View PNG](images/themes/graphite-mint/deep-dive-insights.png) | [View PNG](images/themes/warm-basalt/deep-dive-insights.png) | [View PNG](images/themes/slate-lavender/deep-dive-insights.png) |
+Each theme is represented by its actual Executive, Product, Store, Market and Deep-dive pages. Click a preview for the full public-resolution native capture.
+
+### Executive Blue · Light
+
+| **Executive overview** | **Products & brands** |
+| :--- | :--- |
+| [![Executive Blue · Light — Executive overview](images/themes/light/executive-overview.png)](images/themes/light/executive-overview.png) | [![Executive Blue · Light — Products & brands](images/themes/light/products-and-brands.png)](images/themes/light/products-and-brands.png) |
+
+| **Stores & customers** | **Markets & drivers** |
+| :--- | :--- |
+| [![Executive Blue · Light — Stores & customers](images/themes/light/stores-and-customers.png)](images/themes/light/stores-and-customers.png) | [![Executive Blue · Light — Markets & drivers](images/themes/light/markets-and-drivers.png)](images/themes/light/markets-and-drivers.png) |
+
+**Deep-dive insights**
+
+[![Executive Blue · Light — Deep-dive insights](images/themes/light/deep-dive-insights.png)](images/themes/light/deep-dive-insights.png)
+
+### Executive Blue · Dark
+
+| **Executive overview** | **Products & brands** |
+| :--- | :--- |
+| [![Executive Blue · Dark — Executive overview](images/themes/blue-dark/executive-overview.png)](images/themes/blue-dark/executive-overview.png) | [![Executive Blue · Dark — Products & brands](images/themes/blue-dark/products-and-brands.png)](images/themes/blue-dark/products-and-brands.png) |
+
+| **Stores & customers** | **Markets & drivers** |
+| :--- | :--- |
+| [![Executive Blue · Dark — Stores & customers](images/themes/blue-dark/stores-and-customers.png)](images/themes/blue-dark/stores-and-customers.png) | [![Executive Blue · Dark — Markets & drivers](images/themes/blue-dark/markets-and-drivers.png)](images/themes/blue-dark/markets-and-drivers.png) |
+
+**Deep-dive insights**
+
+[![Executive Blue · Dark — Deep-dive insights](images/themes/blue-dark/deep-dive-insights.png)](images/themes/blue-dark/deep-dive-insights.png)
+
+### Graphite Mint
+
+| **Executive overview** | **Products & brands** |
+| :--- | :--- |
+| [![Graphite Mint — Executive overview](images/themes/graphite-mint/executive-overview.png)](images/themes/graphite-mint/executive-overview.png) | [![Graphite Mint — Products & brands](images/themes/graphite-mint/products-and-brands.png)](images/themes/graphite-mint/products-and-brands.png) |
+
+| **Stores & customers** | **Markets & drivers** |
+| :--- | :--- |
+| [![Graphite Mint — Stores & customers](images/themes/graphite-mint/stores-and-customers.png)](images/themes/graphite-mint/stores-and-customers.png) | [![Graphite Mint — Markets & drivers](images/themes/graphite-mint/markets-and-drivers.png)](images/themes/graphite-mint/markets-and-drivers.png) |
+
+**Deep-dive insights**
+
+[![Graphite Mint — Deep-dive insights](images/themes/graphite-mint/deep-dive-insights.png)](images/themes/graphite-mint/deep-dive-insights.png)
+
+### Warm Basalt
+
+| **Executive overview** | **Products & brands** |
+| :--- | :--- |
+| [![Warm Basalt — Executive overview](images/themes/warm-basalt/executive-overview.png)](images/themes/warm-basalt/executive-overview.png) | [![Warm Basalt — Products & brands](images/themes/warm-basalt/products-and-brands.png)](images/themes/warm-basalt/products-and-brands.png) |
+
+| **Stores & customers** | **Markets & drivers** |
+| :--- | :--- |
+| [![Warm Basalt — Stores & customers](images/themes/warm-basalt/stores-and-customers.png)](images/themes/warm-basalt/stores-and-customers.png) | [![Warm Basalt — Markets & drivers](images/themes/warm-basalt/markets-and-drivers.png)](images/themes/warm-basalt/markets-and-drivers.png) |
+
+**Deep-dive insights**
+
+[![Warm Basalt — Deep-dive insights](images/themes/warm-basalt/deep-dive-insights.png)](images/themes/warm-basalt/deep-dive-insights.png)
+
+### Slate Lavender
+
+| **Executive overview** | **Products & brands** |
+| :--- | :--- |
+| [![Slate Lavender — Executive overview](images/themes/slate-lavender/executive-overview.png)](images/themes/slate-lavender/executive-overview.png) | [![Slate Lavender — Products & brands](images/themes/slate-lavender/products-and-brands.png)](images/themes/slate-lavender/products-and-brands.png) |
+
+| **Stores & customers** | **Markets & drivers** |
+| :--- | :--- |
+| [![Slate Lavender — Stores & customers](images/themes/slate-lavender/stores-and-customers.png)](images/themes/slate-lavender/stores-and-customers.png) | [![Slate Lavender — Markets & drivers](images/themes/slate-lavender/markets-and-drivers.png)](images/themes/slate-lavender/markets-and-drivers.png) |
+
+**Deep-dive insights**
+
+[![Slate Lavender — Deep-dive insights](images/themes/slate-lavender/deep-dive-insights.png)](images/themes/slate-lavender/deep-dive-insights.png)
 
 ## Select a palette
 
@@ -49,6 +113,23 @@ vqs theme audit ./candidate-graphite
 ```
 
 Custom palette JSON is also supported using `--palette`.
+
+## Chart colors: categorical series, gradients and semantic overrides
+
+The applied palette defines at least eight data-series colors for line,
+bar, column, donut and other supported charts. Existing explicitly
+formatted chart line/marker colors map to deterministic series positions
+or registered source-theme palette indices. Numeric measure-driven
+bar/column and shape-map ramps recolor their **min/max stops** from the
+selected preset's semantic gradient tokens while retaining the original
+measure, numeric thresholds, selectors and conditional structure.
+Waterfall increase/decrease/total and true business-rule conditional
+colors are intentionally protected from automatic recoloring.
+
+**Version boundary:** the public screenshots currently have candidate source
+revision 1a5f4ca. The enhanced chart-color changes were added in a later
+code revision and must be **re-captured from a validated new candidate**
+before claiming that their new pixels are already pictured below.
 
 ## Filter-pane, slicer and dropdown behavior
 

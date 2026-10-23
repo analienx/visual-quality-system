@@ -137,30 +137,51 @@ Read the [user guide](docs/USER_GUIDE.md), [CLI reference](docs/CLI.md), [accept
 
 ---
 
-### Adaptive report themes — five native colorways
+### Adaptive Power BI themes — full report showcases
 
-Theme the report **and its slicers/filter pane** with built-in Light/Dark
-presets, while preserving the source and semantic model. These previews
-are genuine Desktop captures of fictional Contoso data, resized for GitHub.
+Five selectable Light/Dark alternatives, with **three different real report
+pages per theme** below. Each preview is a genuine synthetic Contoso report
+capture from Power BI Desktop; for all five pages and full provenance see
+the [interactive comparison gallery](docs/THEME_GALLERY.md).
 
-| Executive Blue Light | Executive Blue Dark |
-| :--- | :--- |
-| [![Executive Blue Light actual Desktop preview](docs/images/themes/light/executive-overview.png)](docs/THEME_GALLERY.md) | [![Executive Blue Dark actual Desktop preview](docs/images/themes/blue-dark/executive-overview.png)](docs/THEME_GALLERY.md) |
+**Executive Blue · Light**
 
-| Graphite Mint | Warm Basalt |
-| :--- | :--- |
-| [![Graphite Mint actual Desktop preview](docs/images/themes/graphite-mint/executive-overview.png)](docs/THEME_GALLERY.md) | [![Warm Basalt actual Desktop preview](docs/images/themes/warm-basalt/executive-overview.png)](docs/THEME_GALLERY.md) |
+| Executive overview | Products & brands | Deep-dive insights |
+| :--- | :--- | :--- |
+| [![Executive Blue · Light — Executive overview](docs/images/themes/light/executive-overview.png)](docs/THEME_GALLERY.md) | [![Executive Blue · Light — Products & brands](docs/images/themes/light/products-and-brands.png)](docs/THEME_GALLERY.md) | [![Executive Blue · Light — Deep-dive insights](docs/images/themes/light/deep-dive-insights.png)](docs/THEME_GALLERY.md) |
+
+**Executive Blue · Dark**
+
+| Executive overview | Products & brands | Deep-dive insights |
+| :--- | :--- | :--- |
+| [![Executive Blue · Dark — Executive overview](docs/images/themes/blue-dark/executive-overview.png)](docs/THEME_GALLERY.md) | [![Executive Blue · Dark — Products & brands](docs/images/themes/blue-dark/products-and-brands.png)](docs/THEME_GALLERY.md) | [![Executive Blue · Dark — Deep-dive insights](docs/images/themes/blue-dark/deep-dive-insights.png)](docs/THEME_GALLERY.md) |
+
+**Graphite Mint**
+
+| Executive overview | Products & brands | Deep-dive insights |
+| :--- | :--- | :--- |
+| [![Graphite Mint — Executive overview](docs/images/themes/graphite-mint/executive-overview.png)](docs/THEME_GALLERY.md) | [![Graphite Mint — Products & brands](docs/images/themes/graphite-mint/products-and-brands.png)](docs/THEME_GALLERY.md) | [![Graphite Mint — Deep-dive insights](docs/images/themes/graphite-mint/deep-dive-insights.png)](docs/THEME_GALLERY.md) |
+
+**Warm Basalt**
+
+| Executive overview | Products & brands | Deep-dive insights |
+| :--- | :--- | :--- |
+| [![Warm Basalt — Executive overview](docs/images/themes/warm-basalt/executive-overview.png)](docs/THEME_GALLERY.md) | [![Warm Basalt — Products & brands](docs/images/themes/warm-basalt/products-and-brands.png)](docs/THEME_GALLERY.md) | [![Warm Basalt — Deep-dive insights](docs/images/themes/warm-basalt/deep-dive-insights.png)](docs/THEME_GALLERY.md) |
 
 **Slate Lavender**
 
-[![Slate Lavender actual Desktop preview](docs/images/themes/slate-lavender/executive-overview.png)](docs/THEME_GALLERY.md)
+| Executive overview | Products & brands | Deep-dive insights |
+| :--- | :--- | :--- |
+| [![Slate Lavender — Executive overview](docs/images/themes/slate-lavender/executive-overview.png)](docs/THEME_GALLERY.md) | [![Slate Lavender — Products & brands](docs/images/themes/slate-lavender/products-and-brands.png)](docs/THEME_GALLERY.md) | [![Slate Lavender — Deep-dive insights](docs/images/themes/slate-lavender/deep-dive-insights.png)](docs/THEME_GALLERY.md) |
 
-[Browse **all 25 report-page previews**](docs/THEME_GALLERY.md) and [CLI/safety guidance](docs/THEME_ENGINE.md). Expanded dropdown and filter flyout states still need separate G2 review.
+The VQS palette also controls categorical chart series, numeric
+bar/column/shape-map gradient stops and compatible slicer/filter-pane
+surfaces. Data-bound business thresholds and positive/negative semantics
+remain protected. The registered screenshot candidates predate the latest
+chart-gradient change and will be re-captured before final release.
 
-```console
-vqs theme presets
-vqs theme apply REPORT --mode dark --palette-preset graphite-mint --candidate-root ./candidate-graphite
-```
+[See all **25 five-theme native previews**](docs/THEME_GALLERY.md) ·
+[Theme CLI, safe adaptation and audit](docs/THEME_ENGINE.md)
 
 **Power BI is the primary product.** Word/DOCX assurance is a separate optional component. Source diagnosis is local by default; remote image review needs explicit consent. Never commit private screenshots, `.pbi` caches, ABF files or business report data.
 
