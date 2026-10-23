@@ -886,12 +886,12 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
                     "detail": f"unsupported visual type {visual_type!r}"})
         return
     role = role_for(path, visual_type, file_kind)
-    if file_kind == "page" and _group_of(path)[1] == "filterCard":
-        if ctx.get("_filterState") == "Applied":
-            role = {"backgroundColor": "selection",
-                    "foregroundColor": "selectionForeground",
-                    "borderColor": "accent",
-                    "inputBoxColor": "slicerBackground"}.get(_property_of(path))
+    if (file_kind == "page" and _group_of(path)[1] == "filterCard"
+            and ctx.get("_filterState") == "Applied"):
+        role = {"backgroundColor": "selection",
+                "foregroundColor": "selectionForeground",
+                "borderColor": "accent",
+                "inputBoxColor": "slicerBackground"}.get(_property_of(path))
     if role is None:
         out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
                     "pointer": _pointer(path), "_path": list(path),

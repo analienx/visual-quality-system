@@ -1,13 +1,18 @@
 """Theme UX and report filter chrome regression cases (GH-hosted tests)."""
-from pathlib import Path
 import json
+from pathlib import Path
 
 import pytest
 
 from test_theme_engine import _color, _read, _visual_path, _write, build_report
+
 from vqs.cli import main
 from vqs.theme import (
-    ThemeError, apply_theme, audit_candidate, load_palette, palette_presets,
+    ThemeError,
+    apply_theme,
+    audit_candidate,
+    load_palette,
+    palette_presets,
     source_digest,
 )
 
