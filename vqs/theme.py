@@ -183,8 +183,8 @@ def load_palette(mode: str, palette_path: Path | None) -> dict[str, Any]:
         section: Any = raw
         if isinstance(raw.get("modes"), dict):
             section = raw["modes"].get(mode, {})
-        elif isinstance(raw.get(mode), dict):
-            section = raw[mode]
+        elif "light" in raw or "dark" in raw:
+            section = raw.get(mode, {})
         if not isinstance(section, dict):
             raise ThemeError(f"palette section for mode {mode!r} must be an object")
         allowed_roles = set(base)
