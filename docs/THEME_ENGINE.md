@@ -46,6 +46,27 @@ already-applied candidate is a no-op (empty plan, stable theme
 filename). Applying light after dark (or the reverse) re-derives every
 literal from its path role, so two-way conversion round-trips.
 
+## Built-in palette selection
+
+The installed VQS package includes five named colorway choices:
+
+- executive-blue (Light or existing Dark)
+- graphite-mint (Dark override; Light inherits default)
+- warm-basalt (Dark override; Light inherits default)
+- slate-lavender (Dark override; Light inherits default)
+
+Use the same choices after packaging/installing, with no dependency on
+the source repository's examples directory:
+
+    vqs theme presets
+    vqs theme preview REPORT --mode dark --palette-preset graphite-mint --out plan.json
+    vqs theme apply REPORT --mode dark --palette-preset graphite-mint --candidate-root ./candidates/graphite
+    vqs theme audit ./candidates/graphite
+
+Explicit custom JSON is still supported using --palette but cannot be used
+simultaneously with --palette-preset. Same source/mode/preset yields exactly
+the same palette hash and candidate source-level changes.
+
 ## Palette format
 
 One JSON file can carry both modes; a flat object is also accepted and
@@ -146,3 +167,18 @@ candidate, this engine styles the actual page outspace and canvas explicitly
 and does not emit those rejected report-global defaults. Therefore filter-pane
 chrome is NOT certified dark/light in this version, and must be checked in
 native Desktop. This known limitation is not concealed as full visual coverage.
+
+
+## Filter pane and dropdown chrome
+
+The filter pane is now styled with page-level PBIR objects (outspacePane and
+filterCard), not with rejected theme-level visualStyles groups. Every page
+gets compatible background, label, outline, search/input and apply colors,
+with distinct Available/Applied filter-card selectors. Existing report/page/
+visual filter definitions, their values, bindings and applied selection
+are NOT touched; only visual presentation properties are changed.
+Supported slicer items, header and searchBox properties are themed.
+
+Note that no structural validation can certify an opened dropdown
+flyout or filter pane render: such states require native Power BI Desktop
+screen captures and review. See docs/THEME_GALLERY.md.

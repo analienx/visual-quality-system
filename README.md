@@ -140,3 +140,15 @@ Read the [user guide](docs/USER_GUIDE.md), [CLI reference](docs/CLI.md), [accept
 **Power BI is the primary product.** Word/DOCX assurance is a separate optional component. Source diagnosis is local by default; remote image review needs explicit consent. Never commit private screenshots, `.pbi` caches, ABF files or business report data.
 
 <sub>Apache-2.0 · Version `0.0.1a0` · Engineering preview · [Security and contribution rules](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)</sub>
+
+
+### Adaptive report themes
+
+Choose among five Light/Dark colorways with a built-in preset, including
+Graphite Mint, Warm Basalt and Slate Lavender. The candidate-only engine
+also styles slicer search boxes and report filter panes with distinct
+Applied/Available filter cards. See
+[theme gallery and validation boundaries](docs/THEME_GALLERY.md) and
+[CLI details](docs/THEME_ENGINE.md). Native screenshot evidence is tracked
+separately from schema validation; no synthetic images are passed off as
+Power BI screenshots.

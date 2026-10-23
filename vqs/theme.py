@@ -9,6 +9,7 @@ role and in a text-on-accent role maps to different targets.
 from __future__ import annotations
 
 import hashlib
+import importlib.resources
 import json
 import os
 import re
@@ -69,6 +70,27 @@ _DARK: dict[str, Any] = {
 BUILTIN_PALETTES: dict[str, dict[str, dict[str, Any]]] = {
     "executive-blue": {"light": _LIGHT, "dark": _DARK},
 }
+PALETTE_PRESETS = ("executive-blue", "graphite-mint",
+                   "warm-basalt", "slate-lavender")
+
+
+def palette_presets() -> tuple[str, ...]:
+    return PALETTE_PRESETS
+
+
+def _preset_override(preset: str, mode: str) -> dict[str, Any]:
+    if preset == "executive-blue":
+        return {}
+    resource = importlib.resources.files("vqs").joinpath(
+        "palettes", f"dark-{preset}.json")
+    try:
+        doc = json.loads(resource.read_text(encoding="utf-8"))
+    except (OSError, ValueError, ModuleNotFoundError) as exc:
+        raise ThemeError(f"packaged palette preset {preset!r} unavailable") from exc
+    if not isinstance(doc, dict) or not isinstance(doc.get(mode, {}), dict):
+        raise ThemeError("invalid bundled palette preset")
+    return doc.get(mode, {})
+
 
 SUPPORTED_TYPES = frozenset({
     "slicer", "filterSlicer", "card",
@@ -167,12 +189,18 @@ def palette_contrast_check(palette: dict[str, Any]) -> list[dict[str, Any]]:
     return violations
 
 
-def load_palette(mode: str, palette_path: Path | None) -> dict[str, Any]:
+def load_palette(mode: str, palette_path: Path | None,
+                 preset: str = "executive-blue") -> dict[str, Any]:
     """Resolve the effective palette for ``mode`` (builtin + custom merge)."""
     if mode not in ("light", "dark"):
         raise ThemeError(f"mode must be light or dark, not {mode!r}")
+    if preset not in PALETTE_PRESETS:
+        raise ThemeError("unknown preset: " + preset)
+    if palette_path is not None and preset != "executive-blue":
+        raise ThemeError("cannot combine --palette and --palette-preset")
     base = BUILTIN_PALETTES["executive-blue"][mode]
     palette: dict[str, Any] = json.loads(json.dumps(base))
+    palette.update(_preset_override(preset, mode))
     if palette_path is not None:
         try:
             raw = json.loads(Path(palette_path).read_text(encoding="utf-8-sig"))
@@ -444,7 +472,16 @@ def role_for(path: list[Any], visual_type: str, file_kind: str) -> str | None:
         if group in ("background", "outspace", "wallpaper"):
             return "canvas"
         if group == "outspacePane":
-            return "surface"
+            return {"backgroundColor": "surfaceElevated",
+                    "foregroundColor": "foreground",
+                    "borderColor": "outline",
+                    "checkboxAndApplyColor": "accent",
+                    "inputBoxColor": "slicerBackground"}.get(_property_of(path))
+        if group == "filterCard":
+            return {"backgroundColor": "surface",
+                    "foregroundColor": "foreground",
+                    "borderColor": "outline",
+                    "inputBoxColor": "slicerBackground"}.get(_property_of(path))
         return None
     prop = _property_of(path).lower()
     container, group = _group_of(path)
@@ -608,7 +645,8 @@ def _format_color_leaf(path: list[Any], kind: str) -> bool:
     """Admit only a full PBIR appearance literal, never query/filter metadata."""
     if kind == "page":
         start = ["objects"]
-        groups = {"background", "outspace", "wallpaper", "outspacePane"}
+        groups = {"background", "outspace", "wallpaper",
+                  "outspacePane", "filterCard"}
     elif kind == "visual":
         start = ["visual"]
         groups = None
@@ -659,7 +697,13 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
         for index, child in enumerate(node):
             child_scoped = scoped or _entry_scoped(child)
             child_dyn = dynamic or _subtree_has(child, "FillRule")
-            _walk_doc(child, [*path, index], ctx, out, palette, source_colors,
+            child_ctx = ctx
+            if path == ["objects", "filterCard"] and isinstance(child, dict):
+                selector = child.get("selector")
+                if isinstance(selector, dict) and selector.get("id") in (
+                        "Applied", "Available"):
+                    child_ctx = {**ctx, "_filterState": selector["id"]}
+            _walk_doc(child, [*path, index], child_ctx, out, palette, source_colors,
                       dynamic=child_dyn, scoped=child_scoped)
         return
     if not isinstance(node, str):
@@ -840,6 +884,12 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
                     "detail": f"unsupported visual type {visual_type!r}"})
         return
     role = role_for(path, visual_type, file_kind)
+    if file_kind == "page" and _group_of(path)[1] == "filterCard":
+        if ctx.get("_filterState") == "Applied":
+            role = {"backgroundColor": "selection",
+                    "foregroundColor": "selectionForeground",
+                    "borderColor": "accent",
+                    "inputBoxColor": "slicerBackground"}.get(_property_of(path))
     if role is None:
         out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
                     "pointer": _pointer(path), "_path": list(path),
@@ -1009,6 +1059,80 @@ def _synthesized_changes(report_dir: Path, palette: dict[str, Any]) -> list[dict
                     add(page_file, ctx, ["objects", "background", 0, "properties", "color"],
                         "canvas", _inline_color(str(palette["canvas"])),
                         "explicit page background missing color")
+        # Filters are distinct from report filter *definitions*. Only page
+        # appearance objects are inserted/updated; never filterConfig.
+        pane_roles = {"backgroundColor": "surfaceElevated",
+                      "foregroundColor": "foreground",
+                      "borderColor": "outline",
+                      "checkboxAndApplyColor": "accent",
+                      "inputBoxColor": "slicerBackground"}
+        pane_entries = objects.get("outspacePane")
+        if pane_entries is None:
+            add(page_file, ctx, ["objects", "outspacePane"], "surfaceElevated",
+                [{"properties": {k: _inline_color(str(palette[r]))
+                                 for k, r in pane_roles.items()}}],
+                "filter pane background, text, border, input and apply controls")
+        elif isinstance(pane_entries, list):
+            for i, entry in enumerate(pane_entries):
+                if not isinstance(entry, dict) or entry.get("selector"):
+                    continue
+                props = entry.get("properties")
+                if not isinstance(props, dict):
+                    continue
+                for k, r in pane_roles.items():
+                    if k not in props:
+                        add(page_file, ctx, ["objects", "outspacePane",
+                                            i, "properties", k], r,
+                            _inline_color(str(palette[r])),
+                            "fill missing pane appearance property")
+        card_states = {
+            "Available": {"backgroundColor": "surface",
+                          "foregroundColor": "foreground",
+                          "borderColor": "outline",
+                          "inputBoxColor": "slicerBackground"},
+            "Applied": {"backgroundColor": "selection",
+                        "foregroundColor": "selectionForeground",
+                        "borderColor": "accent",
+                        "inputBoxColor": "slicerBackground"},
+        }
+        card_entries = objects.get("filterCard")
+        if card_entries is None:
+            cards = [{"selector": {"id": state},
+                      "properties": {k: _inline_color(str(palette[role]))
+                                     for k, role in properties.items()}}
+                     for state, properties in card_states.items()]
+            add(page_file, ctx, ["objects", "filterCard"], "surface", cards,
+                "distinct Available and Applied filter-card appearance")
+        elif isinstance(card_entries, list):
+            existing_states = {
+                entry.get("selector", {}).get("id")
+                for entry in card_entries
+                if isinstance(entry, dict)
+                and isinstance(entry.get("selector"), dict)}
+            for state, properties in card_states.items():
+                if state not in existing_states:
+                    add(page_file, ctx, ["objects", "filterCard", len(card_entries)],
+                        "selection" if state == "Applied" else "surface",
+                        {"selector": {"id": state},
+                         "properties": {k: _inline_color(str(palette[role]))
+                                        for k, role in properties.items()}},
+                        "missing filter card state")
+                    # Only one missing state is supported in a single pass.
+                    break
+            for i, entry in enumerate(card_entries):
+                selector = entry.get("selector") if isinstance(entry, dict) else None
+                state = selector.get("id") if isinstance(selector, dict) else None
+                if state not in card_states:
+                    continue
+                props = entry.get("properties")
+                if not isinstance(props, dict):
+                    continue
+                for k, role in card_states[state].items():
+                    if k not in props:
+                        add(page_file, ctx, ["objects", "filterCard",
+                                            i, "properties", k], role,
+                            _inline_color(str(palette[role])),
+                            "fill missing filter-card state appearance")
         visuals = page_dir / "visuals"
         if not visuals.is_dir():
             continue
@@ -1031,7 +1155,9 @@ def _synthesized_changes(report_dir: Path, palette: dict[str, Any]) -> list[dict
                     "items": {"fontColor": "slicerForeground",
                               "background": "slicerBackground"},
                     "header": {"fontColor": "slicerForeground",
-                               "background": "slicerBackground"}}
+                               "background": "slicerBackground"},
+                    "searchBox": {"background": "slicerBackground",
+                                  "borderColor": "outline"}}
             elif vtype in TABLE_TYPES:
                 targets = {
                     "columnHeaders": {"fontColor": "tableHeaderForeground",
@@ -1060,7 +1186,7 @@ def _synthesized_changes(report_dir: Path, palette: dict[str, Any]) -> list[dict
             for group, props_to_add in targets.items():
                 entries = objects.get(group)
                 if entries is None:
-                    if vtype in SLICER_TYPES and group == "items":
+                    if vtype in SLICER_TYPES and group in ("items", "searchBox"):
                         new_entry = {"properties": {k: _inline_color(str(palette[v]))
                                                      for k, v in props_to_add.items()}}
                         add(visual_file, ctx, ["visual", "objects", group],
@@ -1243,7 +1369,14 @@ def _set_path(doc: Any, path: list[Any], value: Any) -> None:
     node = doc
     for step in path[:-1]:
         node = node[step]
-    node[path[-1]] = value
+    last = path[-1]
+    if isinstance(node, list) and isinstance(last, int) and last == len(node):
+        # Only synthesize a missing trailing filter-card state, never splice.
+        if path[:2] != ["objects", "filterCard"]:
+            raise ThemeError("list-append forbidden outside filter cards")
+        node.append(value)
+    else:
+        node[last] = value
 
 
 def _overlaps(first: Path, second: Path) -> bool:

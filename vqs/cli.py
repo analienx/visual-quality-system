@@ -765,10 +765,17 @@ def _theme(args: argparse.Namespace) -> int:
         inspect_report,
         load_palette,
         palette_contrast_check,
+        palette_presets,
         preview_plan,
     )
 
     try:
+        if args.theme_action == "presets":
+            _write_theme_out(args.out, {"status": "pass",
+                "presets": list(palette_presets()),
+                "default": "executive-blue",
+                "modes": ["light", "dark"]})
+            return 0
         if args.theme_action == "inspect":
             payload = inspect_report(args.report)
             _write_theme_out(args.out, payload)
@@ -777,7 +784,7 @@ def _theme(args: argparse.Namespace) -> int:
             payload = audit_candidate(args.candidate)
             _write_theme_out(args.out, payload)
             return {"pass": 0, "fail": 1, "unknown": 2}[payload["status"]]
-        palette = load_palette(args.mode, args.palette)
+        palette = load_palette(args.mode, args.palette, args.palette_preset)
         violations = palette_contrast_check(palette)
         if violations:
             payload = {"status": "blocked", "command": args.theme_action,
@@ -788,11 +795,15 @@ def _theme(args: argparse.Namespace) -> int:
             return 2
         if args.theme_action == "preview":
             payload = preview_plan(args.report, args.mode, palette)
+            payload["palettePreset"] = (args.palette_preset if args.palette is None
+                                        else "custom")
             _write_theme_out(args.out, payload)
             return 0
         if args.theme_action == "apply":
             payload = apply_theme(args.report, args.mode, palette,
                                   args.candidate_root)
+            payload["palettePreset"] = (args.palette_preset if args.palette is None
+                                        else "custom")
             print(json.dumps(payload, indent=2, ensure_ascii=False))
             return 0
         print(json.dumps({"status": "blocked",
@@ -822,18 +833,31 @@ def main(argv: list[str] | None = None) -> int:
     theme_cmd = commands.add_parser(
         "theme", help="Adaptive Light/Dark theme engine (candidate-only)")
     theme_actions = theme_cmd.add_subparsers(dest="theme_action", required=True)
+    theme_presets = theme_actions.add_parser(
+        "presets", help="List packaged Light/Dark palettes")
+    theme_presets.add_argument("--out", type=Path, default=None)
     theme_inspect = theme_actions.add_parser("inspect", help="Classify every color occurrence")
     theme_inspect.add_argument("report", type=Path, help="*.Report folder or .pbip")
     theme_inspect.add_argument("--out", type=Path, default=None)
     theme_preview = theme_actions.add_parser("preview", help="Read-only re-theme plan")
     theme_preview.add_argument("report", type=Path, help="*.Report folder or .pbip")
     theme_preview.add_argument("--mode", choices=("light", "dark"), required=True)
-    theme_preview.add_argument("--palette", type=Path, default=None)
+    palette_preview = theme_preview.add_mutually_exclusive_group()
+    palette_preview.add_argument("--palette", type=Path, default=None)
+    palette_preview.add_argument("--palette-preset",
+                                 choices=("executive-blue", "graphite-mint",
+                                          "warm-basalt", "slate-lavender"),
+                                 default="executive-blue")
     theme_preview.add_argument("--out", type=Path, default=None)
     theme_apply = theme_actions.add_parser("apply", help="Write a themed candidate project")
     theme_apply.add_argument("report", type=Path, help="*.Report folder or .pbip")
     theme_apply.add_argument("--mode", choices=("light", "dark"), required=True)
-    theme_apply.add_argument("--palette", type=Path, default=None)
+    palette_apply = theme_apply.add_mutually_exclusive_group()
+    palette_apply.add_argument("--palette", type=Path, default=None)
+    palette_apply.add_argument("--palette-preset",
+                               choices=("executive-blue", "graphite-mint",
+                                        "warm-basalt", "slate-lavender"),
+                               default="executive-blue")
     theme_apply.add_argument("--candidate-root", type=Path, required=True)
     theme_audit = theme_actions.add_parser("audit", help="Audit a themed candidate")
     theme_audit.add_argument("candidate", type=Path, help="Candidate project, .pbip, or *.Report")

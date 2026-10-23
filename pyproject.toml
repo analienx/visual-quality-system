@@ -22,6 +22,9 @@ vqs-mcp = "vqs.mcp.server:main"
 [tool.setuptools.packages.find]
 include = ["vqs*"]
 
+[tool.setuptools.package-data]
+vqs = ["palettes/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
