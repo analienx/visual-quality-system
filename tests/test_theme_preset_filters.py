@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 
 import pytest
-
 from test_theme_engine import _color, _read, _visual_path, _write, build_report
+
 from vqs.cli import main
 from vqs.theme import (
     ThemeError,
