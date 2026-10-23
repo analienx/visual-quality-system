@@ -1,0 +1,58 @@
+{
+  "schema": "vqs.theme.gallery-capture/1",
+  "themePreset": "graphite-mint",
+  "report": "Contoso Retail",
+  "provenance": {
+    "sourceReport": "examples/contoso-retail/Contoso Retail.pbip",
+    "candidateGitSha": "1a5f4cac96b82820f1dd2670eae00a748a921a6d",
+    "candidateGithubHostedArtifact": "themed-contoso-colorways-windows-latest",
+    "candidateGithubHostedRun": 39977461272,
+    "captureHost": "Power BI Desktop via Microsoft powerbi-report-author 0.5.0",
+    "model": "synthetic internal Power Query M partitions, processed Full via official Modeling MCP",
+    "captureDate": "2026-10-23",
+    "scale": 2,
+    "note": "Actual native Power BI captures, not fabricated/mockup. Slicer dropdown closed; not native G2/G6 signoff."
+  },
+  "files": [
+    {
+      "page": "Executive overview",
+      "file": "executive-overview.png",
+      "sha256": "2a18eef8545cb3e57ea8ce0dca8adfd00bba7f08e8fa9d05839717b25ca3e87e",
+      "width": 3915,
+      "height": 2394,
+      "bytes": 353497
+    },
+    {
+      "page": "Products & brands",
+      "file": "products-and-brands.png",
+      "sha256": "b8412f09d1fc9f0d44148d4b70a78fa201c09acc9a946e4cd9a32f371611f7fc",
+      "width": 3915,
+      "height": 2394,
+      "bytes": 420353
+    },
+    {
+      "page": "Stores & customers",
+      "file": "stores-and-customers.png",
+      "sha256": "7c6d82518377779b9dd81926a2bfbad95c77a5471e506324da698e8df74e51bd",
+      "width": 3915,
+      "height": 2394,
+      "bytes": 369763
+    },
+    {
+      "page": "Markets & drivers",
+      "file": "markets-and-drivers.png",
+      "sha256": "be3ccb984a33404661057c5236148037ca3d05411348d0b934146b8b81a63126",
+      "width": 3915,
+      "height": 2394,
+      "bytes": 326443
+    },
+    {
+      "page": "Deep-dive insights",
+      "file": "deep-dive-insights.png",
+      "sha256": "96117a01a8757abc2a4e0b480efc3c3565ead1f4ea5893fac572aac580b9446b",
+      "width": 3915,
+      "height": 2394,
+      "bytes": 480303
+    }
+  ]
+}

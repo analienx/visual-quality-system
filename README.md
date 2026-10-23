@@ -137,12 +137,11 @@ Read the [user guide](docs/USER_GUIDE.md), [CLI reference](docs/CLI.md), [accept
 
 ---
 
-**Power BI is the primary product.** Word/DOCX assurance is a separate optional component. Source diagnosis is local by default; remote image review needs explicit consent. Never commit private screenshots, `.pbi` caches, ABF files or business report data.
+### Adaptive report themes[![Actual Graphite Mint Contoso Retail Power BI Desktop executive overview](docs/images/themes/graphite-mint/executive-overview.png)](docs/THEME_GALLERY.md)
 
-<sub>Apache-2.0 · Version `0.0.1a0` · Engineering preview · [Security and contribution rules](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)</sub>
-
-
-### Adaptive report themes
+*Genuine five-page Contoso Retail Desktop captures with locally generated
+synthetic data. See the full [theme gallery](docs/THEME_GALLERY.md), provenance
+manifest and still-pending native captures for the other colorways.*
 
 Choose among five Light/Dark colorways with a built-in preset, including
 Graphite Mint, Warm Basalt and Slate Lavender. The candidate-only engine
@@ -152,3 +151,7 @@ Applied/Available filter cards. See
 [CLI details](docs/THEME_ENGINE.md). Native screenshot evidence is tracked
 separately from schema validation; no synthetic images are passed off as
 Power BI screenshots.
+
+**Power BI is the primary product.** Word/DOCX assurance is a separate optional component. Source diagnosis is local by default; remote image review needs explicit consent. Never commit private screenshots, `.pbi` caches, ABF files or business report data.
+
+<sub>Apache-2.0 · Version `0.0.1a0` · Engineering preview · [Security and contribution rules](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)</sub>

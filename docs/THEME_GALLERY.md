@@ -1,64 +1,90 @@
-# Theme gallery — five real Power BI colorways
+# Theme gallery — five selectable Power BI colorways
 
-The gallery will be generated from **actual Contoso Retail PBIP candidates**.
-These are the five selectable themes:
+VQS can apply a light corporate theme or four selectable dark themes to a
+Power BI PBIP report without modifying the source semantic model or filters.
 
-| Preset | Mode | Design intent | Palette source |
+| Preset | Mode | Palette | Screenshot evidence |
 | --- | --- | --- | --- |
-| executive-blue | light | Clean corporate default | built-in |
-| executive-blue | dark | Existing cool navy | built-in |
-| graphite-mint | dark | Neutral graphite + restrained jade | bundled |
-| warm-basalt | dark | Warm charcoal + gold | bundled |
-| slate-lavender | dark | Soft slate + violet | bundled |
+| executive-blue | light | Original corporate light | Native capture pending |
+| executive-blue | dark | Original navy dark | Native capture pending |
+| graphite-mint | dark | Charcoal and restrained mint | **5 real captured pages** |
+| warm-basalt | dark | Warm charcoal and gold | Native capture blocked |
+| slate-lavender | dark | Soft slate and violet | Native capture pending |
 
-## Preview and choose
+## Actual Desktop screenshots — Graphite Mint
 
-Use the packaged preset registry (available in installed VQS wheels):
+All images below are **real Power BI Desktop screenshots**, not AI-generated
+dashboard illustrations or unpopulated report shells. Captured from the actual
+synthetic Contoso Retail PBIP after refreshing its locally generated Power Query
+data, at 2× capture scale. The model contains invented public-demo records.
 
-```sh
+Source: [candidate commit 1a5f4ca](https://github.com/analienx/visual-quality-system/commit/1a5f4cac96b82820f1dd2670eae00a748a921a6d);
+[Microsoft authoring workflow](https://github.com/analienx/visual-quality-system/actions/runs/39977461272).
+See [image manifest](images/themes/graphite-mint/manifest.json) for dimensions,
+SHA-256 digests and capture method.
+
+### Executive overview
+
+[![Graphite Mint — Executive overview](images/themes/graphite-mint/executive-overview.png)](images/themes/graphite-mint/executive-overview.png)
+
+### Products & brands
+
+[![Graphite Mint — Products & brands](images/themes/graphite-mint/products-and-brands.png)](images/themes/graphite-mint/products-and-brands.png)
+
+### Stores & customers
+
+[![Graphite Mint — Stores & customers](images/themes/graphite-mint/stores-and-customers.png)](images/themes/graphite-mint/stores-and-customers.png)
+
+### Markets & drivers
+
+[![Graphite Mint — Markets & drivers](images/themes/graphite-mint/markets-and-drivers.png)](images/themes/graphite-mint/markets-and-drivers.png)
+
+### Deep-dive insights
+
+[![Graphite Mint — Deep-dive insights](images/themes/graphite-mint/deep-dive-insights.png)](images/themes/graphite-mint/deep-dive-insights.png)
+
+## Select any built-in theme
+
+```console
 vqs theme presets
 vqs theme preview "Contoso Retail.pbip" --mode dark --palette-preset graphite-mint --out theme-plan.json
-vqs theme apply "Contoso Retail.pbip" --mode dark --palette-preset graphite-mint --candidate-root ./output/graphite
-vqs theme audit ./output/graphite
+vqs theme apply "Contoso Retail.pbip" --mode dark --palette-preset graphite-mint --candidate-root ./candidates/graphite
+vqs theme audit ./candidates/graphite
 ```
 
-Use `--palette path/to/colors.json` for custom colors instead of
-`--palette-preset`. The original report and semantic model are unchanged.
+Change `--palette-preset` to `executive-blue`, `warm-basalt` or
+`slate-lavender`. The default Light mode is available as
+`--mode light --palette-preset executive-blue`. Custom JSON with `--palette`
+remains supported. All five selected themes passed official Microsoft authoring
+validation in GitHub-hosted Windows and Linux CI at commit `1a5f4ca`.
 
-## Report screenshots
+## Filters and dropdowns
 
-**Native Power BI Desktop render gallery is awaiting exact-candidate
-captures and human review.** No palette mockups or generated dashboard
-images are presented as real Power BI screenshot evidence. Once captures
-are available, each colorway must show the same five Contoso pages at a
-fixed viewport and zoom. Filters-pane and slicer-dropdown states must be
-captured and assessed separately, with applied/available card colors
-visible. The screenshots will be published only when they are actual
-captured demo renders with recorded digest, Desktop build and user
-approval. Static authoring success does not substitute for that check.
+VQS themes page-level `objects.outspacePane` and `objects.filterCard`:
+filter-pane backgrounds, text, borders and text inputs; distinct Applied
+and Available filter states. It also themes supported slicer item/header and
+`searchBox` colors. This avoids incompatible global filter-pane visualStyles
+groups rejected by the pinned authoring CLI.
 
-The continuous-integration authoring workflow exports all five
-theme candidate projects as GitHub artifacts, covering schema validity
-and source/model invariants. Use those exact candidates as the source
-of native Desktop captures. Do not commit personal or customer reports,
-data, token caches or raw bridge logs.
+These source-level appearance changes preserve all DAX, report filters,
+bindings and slicer selections. **Closed dropdowns and the filter pane are
+visible in the captured screenshots, but expanded dropdown/flyout states have
+not been independently validated** and must not be implied as verified.
 
-## Filters and slicer styling
+## Remaining capture gate
 
-Page-level `objects.outspacePane` now controls the filter pane chrome
-(background, foreground, input, border, apply action) and
-`objects.filterCard` applies distinct appearance to `Applied` and
-`Available` state selectors. This is intentionally **page level**:
-the pinned Microsoft authoring CLI rejects global theme
-`visualStyles["*"]["*"].filterCard` and `outspacePane`, despite them
-being allowed by the current Microsoft theme JSON schema.
+The GH-hosted candidate artifacts exist for all five options and validate
+successfully. Native Power BI Desktop screenshots for the other four themes
+are **not** present. Warm Basalt was opened in its own Desktop instance and
+its isolated synthetic model processed, but Microsoft's official screenshot
+command returned `HOST_UNAVAILABLE` afterwards. Under the local authoring
+skill's terminal rule, we did not bypass the host or substitute illustrative
+screenshots. Blue Light/Dark and Slate Lavender remain pending native capture.
 
-Slicer items/header/searchBox colors are written only using supported
-PBIR properties. Filter definitions, query selections and bookmarks are
-not changed. Unsupported native dropdown popover pixels and report
-filter flyouts remain a visual acceptance question until Desktop
-screenshots demonstrate behavior.
+This gallery does **not** assert final visual G2 acceptance of all themes.
+The PR stays draft until the remaining real Desktop captures and a same-page
+side-by-side review have been completed. The underlying validated PBIP projects
+are attached as GitHub Actions artifacts, not published screenshots.
 
-References: Microsoft filter-pane metadata
-https://learn.microsoft.com/en-us/power-bi/create-reports/power-bi-report-filter
-and pinned local Power BI authoring skill filter-pane reference.
+See [theme engine CLI documentation](THEME_ENGINE.md) and
+[palette design rationale](THEME_COLORWAYS.md).
