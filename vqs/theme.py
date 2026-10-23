@@ -13,6 +13,7 @@ import json
 import os
 import re
 import shutil
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -452,13 +453,13 @@ def role_for(path: list[Any], visual_type: str, file_kind: str) -> str | None:
         return "dataColors"
     if vtype in SLICER_TYPES:
         if group_l == "header":
-            return "slicerBackground" if "back" in prop else "foreground"
+            return "slicerBackground" if "back" in prop else "slicerForeground"
         if group_l == "items":
             if "back" in prop:
                 return "slicerBackground"
             if "selection" in prop:
                 return "selection"
-            return "foreground"
+            return "slicerForeground"
         if group_l == "selection":
             return "selection"
     if vtype in TABLE_TYPES:
@@ -488,7 +489,8 @@ def role_for(path: list[Any], visual_type: str, file_kind: str) -> str | None:
         if group_l in ("line", "outline"):
             return "outline"
         if group_l in ("text",):
-            return "accentForeground" if "back" in prop else "foreground"
+            # Shape text sits on the accent fill, not the canvas/surface.
+            return "surfaceElevated" if "back" in prop else "accentForeground"
         if "fill" in prop:
             return "accent"
         if "line" in prop or "border" in prop:
@@ -516,16 +518,25 @@ def role_for(path: list[Any], visual_type: str, file_kind: str) -> str | None:
     return None
 
 
+def _expand_short_hex(text: str) -> str:
+    digits = text.strip().lstrip("#")
+    return "#" + "".join(ch * 2 for ch in digits).upper()
+
+
 def _extract_hex(value: str) -> str | None:
-    """Hex from a PBIR literal (``'#RRGGBB'``) or plain ``#RRGGBB`` string."""
+    """Hex from a PBIR literal; ``#RGB`` expands to ``#RRGGBB``."""
     text = value.strip()
     if len(text) >= 2 and text[0] == "'" and text[-1] == "'":
         text = text[1:-1].strip()
     if _valid_hex(text):
         return _norm_hex(text)
+    if re.fullmatch(r"#[0-9A-Fa-f]{3}", text):
+        return _expand_short_hex(text)
     match = HEX_RE.search(value)
     if match and _is_full_hex(match.group(0)):
         return _norm_hex(match.group(0))
+    if match and re.fullmatch(r"#[0-9A-Fa-f]{3}", match.group(0)):
+        return _expand_short_hex(match.group(0))
     return None
 
 
@@ -611,6 +622,15 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
                         "classification": "supported-enum",
                         "detail": "Azure Maps defaultStyle enum"})
         return
+    odd_hex = re.search(r"#[0-9A-Fa-f]+\b", node)
+    if (odd_hex and len(odd_hex.group(0)) not in (4, 7, 9)
+            and _is_colorish(path)):
+        out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
+                    "pointer": _pointer(path), "_path": list(path),
+                    "old": node, "new": None, "role": None,
+                    "classification": "unknown",
+                    "detail": "non-standard hex length cannot be resolved safely"})
+        return
     if re.search(r"#[0-9A-Fa-f]{8}\b", node) and _is_colorish(path):
         out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
                     "pointer": _pointer(path), "_path": list(path),
@@ -637,6 +657,16 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
                     "old": hex_value, "new": None, "role": None,
                     "classification": "not_applicable",
                     "detail": "registered theme superseded by compiled theme"})
+        return
+    if file_kind in ("bookmark", "shared"):
+        detail = ("bookmark snapshot preserved; not re-themed"
+                  if file_kind == "bookmark" else
+                  "shared base theme not re-themed; candidate compiles "
+                  "its own registered theme")
+        out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
+                    "pointer": _pointer(path), "_path": list(path),
+                    "old": hex_value, "new": None, "role": None,
+                    "classification": "not_applicable", "detail": detail})
         return
     if not _is_colorish(path):
         out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
@@ -742,6 +772,20 @@ def inventory(report_dir: Path, palette: dict[str, Any] | None = None,
                           "kind": "theme", "_mode": mode}))
         except ValueError:
             pass
+    bookmarks_root = report_dir / "definition" / "bookmarks"
+    if bookmarks_root.is_dir():
+        for bookmark_file in sorted(bookmarks_root.glob("*.bookmark.json")):
+            docs.append(("bookmark", bookmark_file,
+                         {"file": bookmark_file.relative_to(report_dir).as_posix(),
+                          "page": "", "visual": "", "visualType": "",
+                          "kind": "bookmark", "_mode": mode}))
+    shared_root = report_dir / "StaticResources" / "SharedResources"
+    if shared_root.is_dir():
+        for shared_file in sorted(shared_root.rglob("*.json")):
+            docs.append(("shared", shared_file,
+                         {"file": shared_file.relative_to(report_dir).as_posix(),
+                          "page": "", "visual": "", "visualType": "",
+                          "kind": "shared", "_mode": mode}))
     if pages_root.is_dir():
         for page_dir in sorted(p for p in pages_root.iterdir() if p.is_dir()):
             page_file = page_dir / "page.json"
@@ -837,10 +881,12 @@ def build_plan(report: str | Path, mode: str,
         (digest + palette_canonical(palette) + mode).encode("utf-8")
     ).hexdigest()[:12]
     theme_name = f"VQSAdaptive-{mode}-{suffix}.json"
-    # Idempotence: an already-applied source keeps its theme filename.
-    _doc, existing_file = _registered_theme(report_dir)
+    # Idempotence only when the existing compiled theme already equals
+    # this palette's compilation; a palette-only change recompiles.
+    existing_doc, existing_file = _registered_theme(report_dir)
     existing_name = existing_file.name if existing_file is not None else ""
-    if existing_name.startswith(f"VQSAdaptive-{mode}-") and not changes:
+    if (existing_name.startswith(f"VQSAdaptive-{mode}-")
+            and existing_doc == compile_theme(palette, mode, existing_name)):
         theme_name = existing_name
     return {"schema": SCHEMA_VERSION, "mode": mode,
             "sourceDigest": digest,
@@ -876,9 +922,9 @@ def compile_theme(palette: dict[str, Any], mode: str,
     p = palette
     slicer_style = {
         "items": [{"background": _solid(str(p["slicerBackground"])),
-                   "fontColor": _solid(str(p["foreground"]))}],
+                   "fontColor": _solid(str(p["slicerForeground"]))}],
         "header": [{"background": _solid(str(p["slicerBackground"])),
-                    "fontColor": _solid(str(p["foreground"]))}],
+                    "fontColor": _solid(str(p["slicerForeground"]))}],
     }
     table_style = {
         "columnHeaders": [{"backColor": _solid(str(p["tableHeader"])),
@@ -1100,9 +1146,9 @@ def apply_theme(report: str | Path, mode: str, palette: dict[str, Any],
         raise ThemeError("source changed while planning; retry")
     parent = cand_root.parent
     parent.mkdir(parents=True, exist_ok=True)
-    tmp_root = parent / f".{cand_root.name}.vqs-theme-tmp"
+    tmp_root = parent / f".{cand_root.name}.vqs-theme-tmp-{uuid.uuid4().hex[:12]}"
     if tmp_root.exists():
-        shutil.rmtree(tmp_root)
+        raise ThemeError(f"temporary candidate root already exists: {tmp_root}")
     tmp_root.mkdir(parents=True)
     try:
         cand_report = tmp_root / report_dir.name
@@ -1134,10 +1180,11 @@ def apply_theme(report: str | Path, mode: str, palette: dict[str, Any],
                 json.dumps(doc, indent=2, ensure_ascii=False) + "\n",
                 encoding="utf-8")
         # Compiled theme + registration (skipped when already applied).
-        _old_doc, old_file = _registered_theme(report_dir)
+        old_doc, old_file = _registered_theme(report_dir)
         old_name = old_file.name if old_file is not None else None
-        already = bool(old_name and old_name.startswith(
-            f"VQSAdaptive-{mode}-") and not plan["changes"])
+        already = bool(
+            old_name and old_name == plan["themeFileName"]
+            and old_doc == compile_theme(palette, mode, str(old_name)))
         theme_name = str(plan["themeFileName"])
         if not already:
             resources = (cand_report / "StaticResources"
@@ -1336,7 +1383,17 @@ def audit_candidate(candidate: str | Path) -> dict[str, Any]:
                           "compared": len(keys), "differences": diffs}
             model_source = _model_source(source_dir)
             cand_model = _model_source(cand_report)
-            if model_source is not None and cand_model is not None:
+            if manifest.get("modelDigest") is not None:
+                if cand_model is None:
+                    invariants["modelDigestEqual"] = False
+                    invariants["status"] = "fail"
+                    invariants["detail"] = "candidate model missing"
+                else:
+                    same = tree_digest(cand_model) == manifest["modelDigest"]
+                    invariants["modelDigestEqual"] = same
+                    if not same:
+                        invariants["status"] = "fail"
+            elif model_source is not None and cand_model is not None:
                 same = tree_digest(model_source) == tree_digest(cand_model)
                 invariants["modelDigestEqual"] = same
                 if not same:
@@ -1344,6 +1401,13 @@ def audit_candidate(candidate: str | Path) -> dict[str, Any]:
         else:
             invariants = {"status": "unknown",
                           "detail": "manifest source no longer present"}
+    if isinstance(palette, dict):
+        theme_doc, _tf = _registered_theme(cand_report)
+        actual_colors = (theme_doc or {}).get("dataColors")
+        expected_colors = palette.get("dataColors")
+        theme_match = actual_colors == expected_colors
+        checks.append({"pair": "registered theme dataColors vs manifest",
+                       "status": "pass" if theme_match else "fail"})
     failed = [c for c in checks if c.get("status") == "fail"]
     unknown = [c for c in checks if c.get("status") == "unknown"]
     if failed or invariants.get("status") == "fail":

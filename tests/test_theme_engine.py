@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -217,7 +218,7 @@ def test_preview_no_writes_and_matches_apply(tmp_path: Path) -> None:
     plan = preview_plan(report, "dark", palette)
     assert _tree_hash(tmp_path / "src") == before
     manifest = apply_theme(report, "dark", palette, tmp_path / "dark")
-    key = lambda items: sorted(  # noqa: E731
+    key = lambda items: sorted(
         (i["file"], i["pointer"], str(i["old"]), str(i["new"]))
         for i in items)
     assert key(plan["changes"]) == key(manifest["changes"])
@@ -361,6 +362,140 @@ def test_unknown_transparent(tmp_path: Path) -> None:
     result = inspect_report(report)
     ghost = [o for o in result["occurrences"] if o["visual"] == "ghost"]
     assert ghost and ghost[0]["classification"] == "unknown"
+
+
+def _visual_path(report: Path, visual: str) -> Path:
+    return (report / "definition" / "pages" / "P1" / "visuals" / visual
+            / "visual.json")
+
+
+def test_shape_text_uses_accent_foreground(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    plan = build_plan(report, "light", load_palette("light", None))
+    badge = [o for o in plan["occurrences"] if o["visual"] == "badge"
+             and o["role"] == "accentForeground"]
+    assert badge and badge[0]["new"] == "#FFFFFF"
+    dark = build_plan(report, "dark", load_palette("dark", None))
+    changed = [c for c in dark["changes"] if c["visual"] == "badge"
+               and c["role"] == "accentForeground"]
+    assert changed and changed[0]["new"] == "#0B1220"
+
+
+def test_slicer_foreground_role_applied(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    palette_file = tmp_path / "pal.json"
+    palette_file.write_text(json.dumps(
+        {"dark": {"slicerForeground": "#E2E8F0",
+                  "slicerBackground": "#111C2E"}}), encoding="utf-8")
+    palette = load_palette("dark", palette_file)
+    plan = build_plan(report, "dark", palette)
+    slicer = [c for c in plan["changes"] if c["visual"] == "slicerx"]
+    assert slicer and all(c["role"] in (
+        "slicerForeground", "slicerBackground") for c in slicer)
+    assert any(c["new"] == "#E2E8F0" for c in slicer)
+
+
+def test_three_digit_hex_classified_and_mapped(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    doc = _read(_visual_path(report, "slicerx"))
+    doc["visual"]["objects"]["header"][0]["properties"]["background"] = \
+        _color("#FFF")
+    _write(_visual_path(report, "slicerx"), doc)
+    result = inspect_report(report)
+    hits = [o for o in result["occurrences"] if o["old"] == "#FFFFFF"
+            and o["visual"] == "slicerx"]
+    assert hits
+    plan = build_plan(report, "dark", load_palette("dark", None))
+    assert any(c["visual"] == "slicerx" and c["new"] == "#111C2E"
+               for c in plan["changes"])
+
+
+def test_bookmark_and_shared_classified(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    _write(report / "definition" / "bookmarks" / "B1.bookmark.json",
+           {"name": "B1", "displayName": "B", "explorationState": {
+               "color": "#123456"}})
+    _write(report / "StaticResources" / "SharedResources" / "BaseThemes"
+           / "CY.json", {"name": "CY", "background": "#ABCDEF"})
+    result = inspect_report(report)
+    kinds = {(o["file"], o["classification"])
+             for o in result["occurrences"]}
+    assert any("bookmarks" in f and c == "not_applicable"
+               for f, c in kinds)
+    assert any("SharedResources" in f and c == "not_applicable"
+               for f, c in kinds)
+
+
+def test_palette_only_change_recompiles_theme(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    apply_theme(report, "dark", load_palette("dark", None), tmp_path / "d1")
+    dark_report = tmp_path / "d1" / "Demo.Report"
+    alt = load_palette("dark", None)
+    alt["dataColors"] = ["#FF0000"] + alt["dataColors"][1:]
+    alt["good"] = "#00AA55"
+    apply_theme(dark_report, "dark", alt, tmp_path / "d2")
+    manifest = _read(tmp_path / "d2" / "theme-manifest.json")
+    theme_doc = _read(tmp_path / "d2" / "Demo.Report" / "StaticResources"
+                      / "RegisteredResources" / manifest["themeFileName"])
+    assert theme_doc["dataColors"][0] == "#FF0000"
+    assert theme_doc["good"] == "#00AA55"
+    assert audit_candidate(tmp_path / "d2")["status"] == "pass"
+
+
+def test_azuremap_enum_supported(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    doc = _visual("mapx", "azureMap", {
+        "mapControls": [{"properties": {
+            "defaultStyle": _lit("'road'")}}]})
+    _write(_visual_path(report, "mapx"), doc)
+    plan = build_plan(report, "dark", load_palette("dark", None))
+    enum_changes = [c for c in plan["changes"]
+                    if c["classification"] == "supported-enum"]
+    assert enum_changes and enum_changes[0]["new"] == "'night'"
+
+
+def test_link_source_blocked(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    target = tmp_path / "outside.json"
+    target.write_text("{}", encoding="utf-8")
+    link = report / "definition" / "pages" / "P1" / "visuals" / "linked.json"
+    try:
+        os.symlink(target, link)
+    except (OSError, NotImplementedError):
+        link.unlink(missing_ok=True)
+        os.link(target, report / "definition" / "pages" / "P1"
+                / "visuals" / "hardlinked.json")
+    rc = main(["theme", "inspect", str(report)])
+    assert rc == 2
+
+
+def test_candidate_dotdot_alias_blocked(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    alias = tmp_path / "dark" / ".." / "src" / "cand"
+    rc = main(["theme", "apply", str(report), "--mode", "dark",
+               "--candidate-root", str(alias)])
+    assert rc == 2
+
+
+def test_cli_happy_paths(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    assert main(["theme", "inspect", str(report),
+                 "--out", str(tmp_path / "inv.json")]) == 0
+    assert main(["theme", "preview", str(report), "--mode", "dark",
+                 "--out", str(tmp_path / "plan.json")]) == 0
+    assert main(["theme", "apply", str(report), "--mode", "dark",
+                 "--candidate-root", str(tmp_path / "dark")]) == 0
+
+
+def test_audit_tamper_fails(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    apply_theme(report, "dark", load_palette("dark", None), tmp_path / "dark")
+    cand = tmp_path / "dark" / "Demo.Report"
+    doc = _read(_visual_path(cand, "chart"))
+    doc["visual"]["visualContainerObjects"]["background"][0][
+        "properties"]["color"] = _color("#FF00FF")
+    _write(_visual_path(cand, "chart"), doc)
+    assert audit_candidate(tmp_path / "dark")["status"] == "fail"
 
 
 def test_scoped_datapoint_preserved(tmp_path: Path) -> None:

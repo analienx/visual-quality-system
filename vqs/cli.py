@@ -760,12 +760,12 @@ def _theme(args: argparse.Namespace) -> int:
     """Adaptive theme engine (issue #80); candidate-only writes."""
     from .theme import (
         ThemeError,
+        apply_theme,
         audit_candidate,
         inspect_report,
         load_palette,
         palette_contrast_check,
         preview_plan,
-        apply_theme,
     )
 
     try:
