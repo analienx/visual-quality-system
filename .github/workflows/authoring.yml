@@ -45,3 +45,19 @@ jobs:
         with:
           name: theme-contoso-real-cli-${{ matrix.os }}
           path: theme-contoso-validation.json
+
+      # Three optional flat dark palettes, real Contoso candidates, not
+      # screenshots. Preserve existing Light/Dark baseline probes unchanged.
+      - run: python scripts/theme_colorways_probe.py theme-colorways-proof.json
+        env:
+          VQS_THEME_COLORWAY_EVIDENCE_ROOT: theme-colorway-candidates
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: themed-contoso-colorways-${{ matrix.os }}
+          path: theme-colorway-candidates/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: theme-colorways-proof-${{ matrix.os }}
+          path: theme-colorways-proof.json
