@@ -71,8 +71,8 @@ BUILTIN_PALETTES: dict[str, dict[str, dict[str, Any]]] = {
 }
 
 SUPPORTED_TYPES = frozenset({
-    "slicer", "filterSlicer", "advancedSlicerVisual", "card",
-    "cardVisual", "multiRowCard", "kpi", "textbox", "shape",
+    "slicer", "filterSlicer", "card",
+    "multiRowCard", "kpi", "textbox", "shape",
     "basicShape", "tableEx", "pivotTable", "barChart", "columnChart",
     "lineChart", "areaChart", "comboChart", "donutChart", "pieChart",
     "scatterChart", "clusteredBarChart", "clusteredColumnChart",
@@ -1037,6 +1037,8 @@ def _synthesized_changes(report_dir: Path, palette: dict[str, Any]) -> list[dict
                 targets = {"categoryAxis": {"labelColor": "mutedForeground"},
                            "valueAxis": {"labelColor": "mutedForeground"},
                            "legend": {"labelColor": "mutedForeground"}}
+            if vtype == "tableEx":
+                targets.pop("rowHeaders", None)
             for group, props_to_add in targets.items():
                 entries = objects.get(group)
                 if entries is None:
@@ -1214,11 +1216,12 @@ def compile_theme(palette: dict[str, Any], mode: str,
             }},
             "slicer": {"*": slicer_style},
             "filterSlicer": {"*": slicer_style},
-            "advancedSlicerVisual": {"*": slicer_style},
-            "tableEx": {"*": table_style},
+            # New card and advanced slicer objects differ from legacy
+            # styling; pinned Microsoft authoring rejects these defaults.
+            "tableEx": {"*": {k: v for k, v in table_style.items()
+                               if k != "rowHeaders"}},
             "pivotTable": {"*": table_style},
             "card": {"*": card_style},
-            "cardVisual": {"*": card_style},
         },
     }
 

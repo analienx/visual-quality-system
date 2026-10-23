@@ -28,11 +28,17 @@ PBIP = REPO / "examples" / "contoso-retail" / "Contoso Retail.pbip"
 
 
 def validate_pbip(pbip: Path) -> dict:
-    command = ["powerbi-report-author", "validate", str(pbip)]
+    import os
+    import shutil
+    binary = shutil.which("powerbi-report-author")
+    if binary is None:
+        raise RuntimeError("Microsoft report authoring CLI is missing")
+    command = (["cmd", "/c", binary] if os.name == "nt" else [binary])
+    command += ["validate", str(pbip)]
     cp = subprocess.run(command, capture_output=True, text=True, timeout=180,
                         check=False)
-    return {"code": cp.returncode, "stdout": cp.stdout[-1800:],
-            "stderr": cp.stderr[-1800:]}
+    return {"code": cp.returncode, "stdout": cp.stdout[-12000:],
+            "stderr": cp.stderr[-3500:]}
 
 
 def main() -> int:

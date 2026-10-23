@@ -699,3 +699,13 @@ def test_custom_visual_forces_partial_appearance_status(tmp_path: Path) -> None:
     assert audit["appearanceCoverageStatus"] == "partial"
     assert audit["status"] == "unknown"
     assert any(c["visual"] == "custom" for c in audit["unresolved"])
+
+def test_unsupported_modern_visual_styles_are_not_advertised() -> None:
+    from vqs.theme import SUPPORTED_TYPES
+    theme = compile_theme(load_palette("dark", None), "dark", "Demo.json")
+    styles = theme["visualStyles"]
+    assert "advancedSlicerVisual" not in styles
+    assert "cardVisual" not in styles
+    assert "rowHeaders" not in styles["tableEx"]["*"]
+    assert "advancedSlicerVisual" not in SUPPORTED_TYPES
+    assert "cardVisual" not in SUPPORTED_TYPES
