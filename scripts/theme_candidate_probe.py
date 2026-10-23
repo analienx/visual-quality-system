@@ -6,6 +6,8 @@ authoritative October 2026 Microsoft report-theme JSON schema.
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -31,8 +33,6 @@ PBIP = REPO / "examples" / "contoso-retail" / "Contoso Retail.pbip"
 
 
 def validate_pbip(pbip: Path) -> dict:
-    import os
-    import shutil
     binary = shutil.which("powerbi-report-author")
     if binary is None:
         raise RuntimeError("Microsoft report authoring CLI is missing")
@@ -58,6 +58,10 @@ def main() -> int:
         source_before = source_digest(REPORT)
         base = validate_pbip(PBIP)
         result["baselineAuthoring"] = base
+        evidence_value = os.environ.get("VQS_THEME_EVIDENCE_ROOT", "").strip()
+        evidence_root = Path(evidence_value).resolve() if evidence_value else None
+        if evidence_root is not None and not evidence_root.is_relative_to(REPO):
+            raise RuntimeError("theme evidence output must be under repository checkout")
         with tempfile.TemporaryDirectory(prefix="vqs-theme-real-") as root:
             root = Path(root)
             for mode in ("light", "dark"):
@@ -95,6 +99,9 @@ def main() -> int:
                     and candidate_pbip is not None
                     and (base["code"] != 0 or author["code"] == 0)
                 )
+                if mode_ok and evidence_root is not None:
+                    evidence_root.mkdir(parents=True, exist_ok=True)
+                    shutil.copytree(candidate_root, evidence_root / mode)
                 result["modes"][mode] = {
                     "pass": mode_ok, "pageBackgrounds": backgrounds,
                     "themeSchemaErrors": issue_text,

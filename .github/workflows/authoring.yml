@@ -33,6 +33,13 @@ jobs:
           path: authoring-real-cli.json
       - run: python -m pip install jsonschema==4.25.1
       - run: python scripts/theme_candidate_probe.py theme-contoso-validation.json
+        env:
+          VQS_THEME_EVIDENCE_ROOT: theme-contoso-candidates
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: themed-contoso-${{ matrix.os }}
+          path: theme-contoso-candidates/
       - uses: actions/upload-artifact@v4
         if: always()
         with:
