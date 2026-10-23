@@ -13,11 +13,13 @@ from vqs.theme import (
     apply_theme,
     audit_candidate,
     build_plan,
+    compile_theme,
     contrast_ratio,
     inspect_report,
     load_palette,
     palette_contrast_check,
     preview_plan,
+    source_digest,
     tree_digest,
 )
 
@@ -403,7 +405,7 @@ def test_three_digit_hex_classified_and_mapped(tmp_path: Path) -> None:
     _write(_visual_path(report, "slicerx"), doc)
     result = inspect_report(report)
     hits = [o for o in result["occurrences"] if o["old"] == "#FFFFFF"
-            and o["visual"] == "slicerx"]
+            and o["visual"] == "slicerx" and "/header/" in o["pointer"]]
     assert hits
     plan = build_plan(report, "dark", load_palette("dark", None))
     assert any(c["visual"] == "slicerx" and c["new"] == "#111C2E"
@@ -431,14 +433,14 @@ def test_palette_only_change_recompiles_theme(tmp_path: Path) -> None:
     apply_theme(report, "dark", load_palette("dark", None), tmp_path / "d1")
     dark_report = tmp_path / "d1" / "Demo.Report"
     alt = load_palette("dark", None)
-    alt["dataColors"] = ["#FF0000"] + alt["dataColors"][1:]
     alt["good"] = "#00AA55"
+    alt["gradientMax"] = "#123456"
     apply_theme(dark_report, "dark", alt, tmp_path / "d2")
     manifest = _read(tmp_path / "d2" / "theme-manifest.json")
     theme_doc = _read(tmp_path / "d2" / "Demo.Report" / "StaticResources"
                       / "RegisteredResources" / manifest["themeFileName"])
-    assert theme_doc["dataColors"][0] == "#FF0000"
     assert theme_doc["good"] == "#00AA55"
+    assert theme_doc["maximum"] == "#123456"
     assert audit_candidate(tmp_path / "d2")["status"] == "pass"
 
 
@@ -496,6 +498,74 @@ def test_audit_tamper_fails(tmp_path: Path) -> None:
         "properties"]["color"] = _color("#FF00FF")
     _write(_visual_path(cand, "chart"), doc)
     assert audit_candidate(tmp_path / "dark")["status"] == "fail"
+
+
+def test_compile_theme_uses_slicer_foreground() -> None:
+    palette_file_palette = load_palette("dark", None)
+    palette_file_palette["slicerForeground"] = "#E2E8F0"
+    doc = compile_theme(palette_file_palette, "dark", "X.json")
+    items = doc["visualStyles"]["slicer"]["*"]["items"][0]
+    assert items["fontColor"]["solid"]["color"] == "#E2E8F0"
+
+
+def test_audit_theme_datacolors_isolated(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    apply_theme(report, "dark", load_palette("dark", None), tmp_path / "dark")
+    cand = tmp_path / "dark" / "Demo.Report"
+    manifest = _read(tmp_path / "dark" / "theme-manifest.json")
+    theme_path = (cand / "StaticResources" / "RegisteredResources"
+                  / manifest["themeFileName"])
+    theme_doc = _read(theme_path)
+    theme_doc["dataColors"] = ["#000000"] + theme_doc["dataColors"][1:]
+    _write(theme_path, theme_doc)
+    manifest["candidateDigest"] = source_digest(cand)
+    _write(tmp_path / "dark" / "theme-manifest.json", manifest)
+    assert audit_candidate(tmp_path / "dark")["status"] == "fail"
+
+
+def test_bookmark_enum_not_rewritten(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    bookmark = report / "definition" / "bookmarks" / "B1.bookmark.json"
+    _write(bookmark, {"name": "B1", "displayName": "B", "objects": {
+        "mapControls": [{"properties": {
+            "defaultStyle": _lit("'road'"), "color": _color("#11223344")}}]}})
+    before = bookmark.read_bytes()
+    plan = build_plan(report, "dark", load_palette("dark", None))
+    assert not any(c["file"].endswith("B1.bookmark.json")
+                   for c in plan["changes"])
+    apply_theme(report, "dark", load_palette("dark", None), tmp_path / "dark")
+    cand_bookmark = (tmp_path / "dark" / "Demo.Report" / "definition"
+                     / "bookmarks" / "B1.bookmark.json")
+    assert cand_bookmark.read_bytes() == before
+
+
+def test_deregistered_candidate_reregisters(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    apply_theme(report, "dark", load_palette("dark", None), tmp_path / "d1")
+    cand = tmp_path / "d1" / "Demo.Report"
+    report_doc = _read(cand / "definition" / "report.json")
+    report_doc["themeCollection"] = {}
+    _write(cand / "definition" / "report.json", report_doc)
+    apply_theme(cand, "dark", load_palette("dark", None), tmp_path / "d2")
+    out_doc = _read(tmp_path / "d2" / "Demo.Report" / "definition"
+                    / "report.json")
+    assert out_doc["themeCollection"]["customTheme"]["name"].startswith(
+        "VQSAdaptive-dark-")
+    assert audit_candidate(tmp_path / "d2")["status"] == "pass"
+
+
+def test_slicer_selection_foreground_distinct(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    doc = _read(_visual_path(report, "slicerx"))
+    doc["visual"]["objects"]["selection"] = [{"properties": {
+        "background": _color("#00FF00"), "fontColor": _color("#FF0000")}}]
+    _write(_visual_path(report, "slicerx"), doc)
+    plan = build_plan(report, "dark", load_palette("dark", None))
+    selection = [c for c in plan["changes"] if c["visual"] == "slicerx"
+                 and c["role"] in ("selection", "selectionForeground")]
+    assert {c["role"] for c in selection} == {
+        "selection", "selectionForeground"}
+    assert len({str(c["new"]) for c in selection}) == 2
 
 
 def test_scoped_datapoint_preserved(tmp_path: Path) -> None:

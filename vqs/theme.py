@@ -335,15 +335,9 @@ def _registered_theme(report_dir: Path) -> tuple[dict[str, Any] | None, Path | N
     custom = (report.get("themeCollection") or {}).get("customTheme") or {}
     name = custom.get("name") if isinstance(custom, dict) else None
     if not isinstance(name, str) or not name:
-        resources = report_dir / "StaticResources" / "RegisteredResources"
-        if resources.is_dir():
-            themes = sorted(resources.glob("*.json"))
-            if themes:
-                name = themes[0].name
-            else:
-                return None, None
-        else:
-            return None, None
+        # No registration: orphan files in RegisteredResources are not
+        # a registered theme and must never satisfy registration checks.
+        return None, None
     theme_file = report_dir / "StaticResources" / "RegisteredResources" / name
     if not theme_file.is_file():
         return None, None
@@ -354,8 +348,25 @@ def _registered_theme(report_dir: Path) -> tuple[dict[str, Any] | None, Path | N
     return (doc if isinstance(doc, dict) else None), theme_file
 
 
-def _source_data_colors(report_dir: Path) -> list[str]:
+def _any_theme_doc(report_dir: Path) -> dict[str, Any] | None:
+    """Registered theme doc, else first orphan theme (data colors only)."""
     doc, _file = _registered_theme(report_dir)
+    if isinstance(doc, dict):
+        return doc
+    resources = report_dir / "StaticResources" / "RegisteredResources"
+    if resources.is_dir():
+        for candidate in sorted(resources.glob("*.json")):
+            try:
+                loaded = _read_json(candidate)
+            except (OSError, ValueError):
+                continue
+            if isinstance(loaded, dict):
+                return loaded
+    return None
+
+
+def _source_data_colors(report_dir: Path) -> list[str]:
+    doc = _any_theme_doc(report_dir)
     if isinstance(doc, dict):
         colors = doc.get("dataColors")
         if isinstance(colors, list):
@@ -458,10 +469,10 @@ def role_for(path: list[Any], visual_type: str, file_kind: str) -> str | None:
             if "back" in prop:
                 return "slicerBackground"
             if "selection" in prop:
-                return "selection"
+                return "selectionForeground" if "font" in prop else "selection"
             return "slicerForeground"
         if group_l == "selection":
-            return "selection"
+            return "selection" if "back" in prop else "selectionForeground"
     if vtype in TABLE_TYPES:
         if group_l == "columnheaders":
             return "tableHeader" if "back" in prop else "tableHeaderForeground"
@@ -601,8 +612,23 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
         return
     file_kind = str(ctx.get("kind", ""))
     visual_type = str(ctx.get("visualType", ""))
-    # Azure Maps basemap enum (not a hex).
-    if _property_of(path).lower() == "defaultstyle":
+    if file_kind in ("bookmark", "shared"):
+        # Never re-themed: every color/enum leaf is explicitly counted.
+        if (re.search(r"#[0-9A-Fa-f]+\b", node)
+                or node.strip().strip("'").lower() == "transparent"
+                or _property_of(path).lower() == "defaultstyle"):
+            detail = ("bookmark snapshot preserved; not re-themed"
+                      if file_kind == "bookmark" else
+                      "shared base theme not re-themed; candidate compiles "
+                      "its own registered theme")
+            out.append({**{k: v for k, v in ctx.items()
+                           if not k.startswith("_")},
+                        "pointer": _pointer(path), "_path": list(path),
+                        "old": node, "new": None, "role": None,
+                        "classification": "not_applicable", "detail": detail})
+        return
+    # Azure Maps basemap enum (not a hex; visual files only).
+    if file_kind == "visual" and _property_of(path).lower() == "defaultstyle":
         enum = node.strip().strip("'").lower()
         if enum in ("road", "night", "grayscale_light", "grayscale_dark",
                     "high_contrast_dark"):
@@ -764,14 +790,17 @@ def inventory(report_dir: Path, palette: dict[str, Any] | None = None,
     pages_root = report_dir / "definition" / "pages"
     docs: list[tuple[str, Path, dict[str, Any]]] = []
     _theme_doc, theme_file = _registered_theme(report_dir)
-    if theme_file is not None and theme_file.is_file():
-        try:
-            docs.append(("theme", theme_file,
-                         {"file": theme_file.relative_to(report_dir).as_posix(),
+    resources_root = report_dir / "StaticResources" / "RegisteredResources"
+    theme_files = (sorted(resources_root.glob("*.json"))
+                   if resources_root.is_dir() else [])
+    if theme_file is not None and theme_file not in theme_files:
+        theme_files.insert(0, theme_file)
+    for each_theme in theme_files:
+        if each_theme.is_file():
+            docs.append(("theme", each_theme,
+                         {"file": each_theme.relative_to(report_dir).as_posix(),
                           "page": "", "visual": "", "visualType": "",
                           "kind": "theme", "_mode": mode}))
-        except ValueError:
-            pass
     bookmarks_root = report_dir / "definition" / "bookmarks"
     if bookmarks_root.is_dir():
         for bookmark_file in sorted(bookmarks_root.glob("*.bookmark.json")):
