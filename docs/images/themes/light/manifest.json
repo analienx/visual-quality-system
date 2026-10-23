@@ -1,0 +1,77 @@
+{
+  "schema": "vqs.theme.gallery-capture/1",
+  "themePreset": "executive-blue",
+  "mode": "light",
+  "report": "Contoso Retail",
+  "provenance": {
+    "sourceReport": "examples/contoso-retail/Contoso Retail.pbip",
+    "candidateGitSha": "1a5f4cac96b82820f1dd2670eae00a748a921a6d",
+    "candidateGithubHostedArtifact": "themed-contoso-windows-latest",
+    "candidateGithubHostedRun": 39977461272,
+    "captureHost": "Power BI Desktop via Microsoft powerbi-report-author 0.5.0",
+    "model": "synthetic internal Power Query M partitions, processed Full via official Modeling MCP",
+    "captureDate": "2026-10-23",
+    "scale": 2,
+    "note": "Native Desktop screenshots; not mockups; expanded dropdown not reviewed; G2/G6 not signed off.",
+    "publicAssetRole": "resized presentation preview from actual native Power BI Desktop capture (not runtime acceptance evidence)",
+    "rawCapture": "original 3915x2394 PNG retained outside Git; check originalCaptureSha256 in each file record",
+    "previewWidth": 1600
+  },
+  "files": [
+    {
+      "page": "Executive overview",
+      "file": "executive-overview.png",
+      "sha256": "0a47b327ed9b41e8aafb56330ab96b1fc4129227b6da4b2ad6f8f74a4b4ca3e5",
+      "width": 1600,
+      "height": 978,
+      "bytes": 224498,
+      "originalCaptureSha256": "68d14f2a1cda2da0fb8008161d7721195a6cd60e06d5dd6a35431fdf46dbcccf",
+      "originalCaptureWidth": 3915,
+      "originalCaptureHeight": 2394
+    },
+    {
+      "page": "Products & brands",
+      "file": "products-and-brands.png",
+      "sha256": "c3d78f699e3eac70836102ff938a1506a7cd28f7f6b754b78f416fce1c38a5bf",
+      "width": 1600,
+      "height": 978,
+      "bytes": 274857,
+      "originalCaptureSha256": "fcaa94882056c31ebb05a04addcb051ded81ecca7b37fcb087b319d74854d0cb",
+      "originalCaptureWidth": 3915,
+      "originalCaptureHeight": 2394
+    },
+    {
+      "page": "Stores & customers",
+      "file": "stores-and-customers.png",
+      "sha256": "0f9eabd84b7e1ab15fef48ca8d6df98e1a3ec4217fbab36c5f76aeb8df2f873c",
+      "width": 1600,
+      "height": 978,
+      "bytes": 243652,
+      "originalCaptureSha256": "4b31d3065563b5a476dfd6487043a2577a48cffcb0c9b8c600d5402f4d9e2408",
+      "originalCaptureWidth": 3915,
+      "originalCaptureHeight": 2394
+    },
+    {
+      "page": "Markets & drivers",
+      "file": "markets-and-drivers.png",
+      "sha256": "7802179c76cd6512406385c26d72e7e90d7075d682e5781493c00e5f1ab8e3ef",
+      "width": 1600,
+      "height": 978,
+      "bytes": 209147,
+      "originalCaptureSha256": "368b87465cf2025e14f9a1411e3d51a760dac4f8082d9ee1d62a68d8d4c087e7",
+      "originalCaptureWidth": 3915,
+      "originalCaptureHeight": 2394
+    },
+    {
+      "page": "Deep-dive insights",
+      "file": "deep-dive-insights.png",
+      "sha256": "a036be3902a8c01ff0f2c65f6c7bd06350c28a03310c7a44e96161bf67b6c41f",
+      "width": 1600,
+      "height": 978,
+      "bytes": 251952,
+      "originalCaptureSha256": "ae6d1725d9a08e62d60ad3bc1fcf3e3cb9efc6c1feb1ce34890bf367b54b568e",
+      "originalCaptureWidth": 3915,
+      "originalCaptureHeight": 2394
+    }
+  ]
+}

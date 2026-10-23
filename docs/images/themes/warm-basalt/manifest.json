@@ -11,48 +11,66 @@
     "model": "synthetic internal Power Query M partitions, processed Full via official Modeling MCP",
     "captureDate": "2026-10-23",
     "scale": 2,
-    "note": "Actual native Power BI Desktop captures, not mockups; expanded dropdown not reviewed; G2/G6 not signed off."
+    "note": "Actual native Power BI Desktop captures, not mockups; expanded dropdown not reviewed; G2/G6 not signed off.",
+    "publicAssetRole": "resized presentation preview from actual native Power BI Desktop capture (not runtime acceptance evidence)",
+    "rawCapture": "original 3915x2394 PNG retained outside Git; check originalCaptureSha256 in each file record",
+    "previewWidth": 1600
   },
   "files": [
     {
       "page": "Executive overview",
       "file": "executive-overview.png",
-      "sha256": "19df5bd4344268c6cb835fb1f82f75194472372b25e74e328684a2bc274c440a",
-      "width": 3915,
-      "height": 2394,
-      "bytes": 352367
+      "sha256": "98b384e89dacabf826433622bc9067ce81d333b6bc3c0680034556cb6af581c8",
+      "width": 1600,
+      "height": 978,
+      "bytes": 242362,
+      "originalCaptureSha256": "19df5bd4344268c6cb835fb1f82f75194472372b25e74e328684a2bc274c440a",
+      "originalCaptureWidth": 3915,
+      "originalCaptureHeight": 2394
     },
     {
       "page": "Products & brands",
       "file": "products-and-brands.png",
-      "sha256": "5ea685682397d9d033adc81b4181410dbcbea6b379c24faf88dd10c06710b6d4",
-      "width": 3915,
-      "height": 2394,
-      "bytes": 425037
+      "sha256": "6c8b95422ffdba7c8260dfed2e06d1ffa9a2b28277c52e43d8245d9780f983b2",
+      "width": 1600,
+      "height": 978,
+      "bytes": 291207,
+      "originalCaptureSha256": "5ea685682397d9d033adc81b4181410dbcbea6b379c24faf88dd10c06710b6d4",
+      "originalCaptureWidth": 3915,
+      "originalCaptureHeight": 2394
     },
     {
       "page": "Stores & customers",
       "file": "stores-and-customers.png",
-      "sha256": "ba17f0919fa396fa82c7ce8afdc24010ae43104e657cc079102a0efa35f0c691",
-      "width": 3915,
-      "height": 2394,
-      "bytes": 369867
+      "sha256": "dc1503d6b5fdcca394e39d8b8670b69e2d691adbb76bbd672a77fea6318e1ea7",
+      "width": 1600,
+      "height": 978,
+      "bytes": 261297,
+      "originalCaptureSha256": "ba17f0919fa396fa82c7ce8afdc24010ae43104e657cc079102a0efa35f0c691",
+      "originalCaptureWidth": 3915,
+      "originalCaptureHeight": 2394
     },
     {
       "page": "Markets & drivers",
       "file": "markets-and-drivers.png",
-      "sha256": "f5d40442bae80b2aa62adfb2735407157ac2f92fa2bc5a1a438ceef4f62209a4",
-      "width": 3915,
-      "height": 2394,
-      "bytes": 325745
+      "sha256": "489f09d429d1c8cf65405ac683b0d55256c8f37621849a575417ab9155169599",
+      "width": 1600,
+      "height": 978,
+      "bytes": 227173,
+      "originalCaptureSha256": "f5d40442bae80b2aa62adfb2735407157ac2f92fa2bc5a1a438ceef4f62209a4",
+      "originalCaptureWidth": 3915,
+      "originalCaptureHeight": 2394
     },
     {
       "page": "Deep-dive insights",
       "file": "deep-dive-insights.png",
-      "sha256": "ae5d2e6c5575af898ed4d37ae0d69e8cb6dbde689decb8c28c87d539991a0506",
-      "width": 3915,
-      "height": 2394,
-      "bytes": 478735
+      "sha256": "f0adbc45288286633f25a692392c0e78bc459313dc29b09f8039bf72913d8014",
+      "width": 1600,
+      "height": 978,
+      "bytes": 263032,
+      "originalCaptureSha256": "ae5d2e6c5575af898ed4d37ae0d69e8cb6dbde689decb8c28c87d539991a0506",
+      "originalCaptureWidth": 3915,
+      "originalCaptureHeight": 2394
     }
   ]
 }

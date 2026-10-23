@@ -1,118 +1,87 @@
-# Theme gallery — five selectable Power BI colorways
+# Power BI Theme Gallery — five colorways
 
-VQS can apply a light corporate theme or four selectable dark themes to a
-Power BI PBIP report without modifying the source semantic model or filters.
+**25 real Contoso report-page screenshot previews, five selectable themes.**
+Every image derives from an actual Power BI Desktop capture of the same
+five-page synthetic Contoso Retail PBIP with locally generated fictional data.
+No UI mockups, customer data or AI-generated dashboards are used. The 1600px
+public previews are resized from original 3915px Desktop captures retained
+outside Git; both public and original SHA-256 hashes are in manifests.
 
-| Preset | Mode | Palette | Screenshot evidence |
-| --- | --- | --- | --- |
-| executive-blue | light | Original corporate light | Native capture pending |
-| executive-blue | dark | Original navy dark | Native capture pending |
-| graphite-mint | dark | Charcoal and restrained mint | **5 real captured pages** |
-| warm-basalt | dark | Warm charcoal and gold | **5 real captured pages** |
-| slate-lavender | dark | Soft slate and violet | Native capture pending |
+## Compare the same report across five themes
 
-## Actual Desktop screenshots — Graphite Mint
+| **Executive Blue Light** | **Executive Blue Dark** |
+| :--- | :--- |
+| [![Executive Blue Light executive overview](images/themes/light/executive-overview.png)](images/themes/light/executive-overview.png) | [![Executive Blue Dark executive overview](images/themes/blue-dark/executive-overview.png)](images/themes/blue-dark/executive-overview.png) |
 
-All images below are **real Power BI Desktop screenshots**, not AI-generated
-dashboard illustrations or unpopulated report shells. Captured from the actual
-synthetic Contoso Retail PBIP after refreshing its locally generated Power Query
-data, at 2× capture scale. The model contains invented public-demo records.
+| **Graphite Mint** | **Warm Basalt** |
+| :--- | :--- |
+| [![Graphite Mint executive overview](images/themes/graphite-mint/executive-overview.png)](images/themes/graphite-mint/executive-overview.png) | [![Warm Basalt executive overview](images/themes/warm-basalt/executive-overview.png)](images/themes/warm-basalt/executive-overview.png) |
 
-Source: [candidate commit 1a5f4ca](https://github.com/analienx/visual-quality-system/commit/1a5f4cac96b82820f1dd2670eae00a748a921a6d);
-[Microsoft authoring workflow](https://github.com/analienx/visual-quality-system/actions/runs/39977461272).
-See [image manifest](images/themes/graphite-mint/manifest.json) for dimensions,
-SHA-256 digests and capture method.
+**Slate Lavender**
 
-### Executive overview
+[![Slate Lavender executive overview](images/themes/slate-lavender/executive-overview.png)](images/themes/slate-lavender/executive-overview.png)
 
-[![Graphite Mint — Executive overview](images/themes/graphite-mint/executive-overview.png)](images/themes/graphite-mint/executive-overview.png)
+## View every captured page
 
-### Products & brands
+| Page | Executive Blue Light | Executive Blue Dark | Graphite Mint | Warm Basalt | Slate Lavender |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| Executive overview | [View PNG](images/themes/light/executive-overview.png) | [View PNG](images/themes/blue-dark/executive-overview.png) | [View PNG](images/themes/graphite-mint/executive-overview.png) | [View PNG](images/themes/warm-basalt/executive-overview.png) | [View PNG](images/themes/slate-lavender/executive-overview.png) |
+| Products & brands | [View PNG](images/themes/light/products-and-brands.png) | [View PNG](images/themes/blue-dark/products-and-brands.png) | [View PNG](images/themes/graphite-mint/products-and-brands.png) | [View PNG](images/themes/warm-basalt/products-and-brands.png) | [View PNG](images/themes/slate-lavender/products-and-brands.png) |
+| Stores & customers | [View PNG](images/themes/light/stores-and-customers.png) | [View PNG](images/themes/blue-dark/stores-and-customers.png) | [View PNG](images/themes/graphite-mint/stores-and-customers.png) | [View PNG](images/themes/warm-basalt/stores-and-customers.png) | [View PNG](images/themes/slate-lavender/stores-and-customers.png) |
+| Markets & drivers | [View PNG](images/themes/light/markets-and-drivers.png) | [View PNG](images/themes/blue-dark/markets-and-drivers.png) | [View PNG](images/themes/graphite-mint/markets-and-drivers.png) | [View PNG](images/themes/warm-basalt/markets-and-drivers.png) | [View PNG](images/themes/slate-lavender/markets-and-drivers.png) |
+| Deep-dive insights | [View PNG](images/themes/light/deep-dive-insights.png) | [View PNG](images/themes/blue-dark/deep-dive-insights.png) | [View PNG](images/themes/graphite-mint/deep-dive-insights.png) | [View PNG](images/themes/warm-basalt/deep-dive-insights.png) | [View PNG](images/themes/slate-lavender/deep-dive-insights.png) |
 
-[![Graphite Mint — Products & brands](images/themes/graphite-mint/products-and-brands.png)](images/themes/graphite-mint/products-and-brands.png)
+## Select a palette
 
-### Stores & customers
-
-[![Graphite Mint — Stores & customers](images/themes/graphite-mint/stores-and-customers.png)](images/themes/graphite-mint/stores-and-customers.png)
-
-### Markets & drivers
-
-[![Graphite Mint — Markets & drivers](images/themes/graphite-mint/markets-and-drivers.png)](images/themes/graphite-mint/markets-and-drivers.png)
-
-### Deep-dive insights
-
-[![Graphite Mint — Deep-dive insights](images/themes/graphite-mint/deep-dive-insights.png)](images/themes/graphite-mint/deep-dive-insights.png)
-
-## Actual Desktop screenshots — Warm Basalt
-
-Genuine five-page Desktop captures from the same synthetic Contoso Retail
-report and GH-hosted candidate source revision as Graphite Mint.
-The first attempt encountered a Desktop host mismatch; a later call to
-the same official capture interface succeeded and returned all five pages.
-See the [Warm Basalt image manifest](images/themes/warm-basalt/manifest.json).
-
-### Executive overview — Warm Basalt
-
-[![Warm Basalt — Executive overview](images/themes/warm-basalt/executive-overview.png)](images/themes/warm-basalt/executive-overview.png)
-
-### Products & brands — Warm Basalt
-
-[![Warm Basalt — Products & brands](images/themes/warm-basalt/products-and-brands.png)](images/themes/warm-basalt/products-and-brands.png)
-
-### Stores & customers — Warm Basalt
-
-[![Warm Basalt — Stores & customers](images/themes/warm-basalt/stores-and-customers.png)](images/themes/warm-basalt/stores-and-customers.png)
-
-### Markets & drivers — Warm Basalt
-
-[![Warm Basalt — Markets & drivers](images/themes/warm-basalt/markets-and-drivers.png)](images/themes/warm-basalt/markets-and-drivers.png)
-
-### Deep-dive insights — Warm Basalt
-
-[![Warm Basalt — Deep-dive insights](images/themes/warm-basalt/deep-dive-insights.png)](images/themes/warm-basalt/deep-dive-insights.png)
-
-## Select any built-in theme
+| Mode | CLI preset | Design |
+| :--- | :--- | :--- |
+| light | `executive-blue` | Bright corporate |
+| dark | `executive-blue` | Deep navy |
+| dark | `graphite-mint` | Graphite / jade |
+| dark | `warm-basalt` | Charcoal / gold |
+| dark | `slate-lavender` | Slate / violet |
 
 ```console
 vqs theme presets
-vqs theme preview "Contoso Retail.pbip" --mode dark --palette-preset graphite-mint --out theme-plan.json
-vqs theme apply "Contoso Retail.pbip" --mode dark --palette-preset graphite-mint --candidate-root ./candidates/graphite
-vqs theme audit ./candidates/graphite
+vqs theme preview REPORT --mode dark --palette-preset graphite-mint --out theme-plan.json
+vqs theme apply REPORT --mode dark --palette-preset graphite-mint --candidate-root ./candidate-graphite
+vqs theme audit ./candidate-graphite
 ```
 
-Change `--palette-preset` to `executive-blue`, `warm-basalt` or
-`slate-lavender`. The default Light mode is available as
-`--mode light --palette-preset executive-blue`. Custom JSON with `--palette`
-remains supported. All five selected themes passed official Microsoft authoring
-validation in GitHub-hosted Windows and Linux CI at commit `1a5f4ca`.
+Custom palette JSON is also supported using `--palette`.
 
-## Filters and dropdowns
+## Filter-pane, slicer and dropdown behavior
 
-VQS themes page-level `objects.outspacePane` and `objects.filterCard`:
-filter-pane backgrounds, text, borders and text inputs; distinct Applied
-and Available filter states. It also themes supported slicer item/header and
-`searchBox` colors. This avoids incompatible global filter-pane visualStyles
-groups rejected by the pinned authoring CLI.
+The image captures show the dark or light report canvas, closed in-report
+slicers, and the native filter pane. The engine styles page-level
+outspacePane and filterCard, including Available/Applied card roles, and
+supported slicer header/items/searchBox colors without modifying
+filter definitions, selectors or the semantic model.
 
-These source-level appearance changes preserve all DAX, report filters,
-bindings and slicer selections. **Closed dropdowns and the filter pane are
-visible in the captured screenshots, but expanded dropdown/flyout states have
-not been independently validated** and must not be implied as verified.
+**The expanded slicer dropdown, selected-card popovers, filter flyouts,
+and user interaction states have not received independent screenshot
+review.** A screenshot with a closed dropdown is not proof of its expanded
+colors or behavior.
 
-## Remaining capture gate
+## Capture provenance and acceptance boundaries
 
-The GH-hosted candidate artifacts exist for all five options and validate
-successfully. Native Desktop screenshots for three themes are still **missing**: Executive
-Blue Light, Executive Blue Dark, and Slate Lavender. Graphite Mint and Warm
-Basalt each have five genuine full-page captures with data and manifests. An
-initial Warm Basalt screenshot attempt returned HOST_UNAVAILABLE; a later
-canonical screenshot capture succeeded. No illustrative image has been
-substituted for native proof.
+These are genuine synthetic-demo presentation previews, not raw G2 runtime
+evidence. Each page was captured via the official Power BI Desktop authoring
+interface after Microsoft Modeling MCP Full processing. Every palette is
+sourced from the identical five-page Contoso report and Git revision
+[1a5f4ca](https://github.com/analienx/visual-quality-system/commit/1a5f4cac96b82820f1dd2670eae00a748a921a6d),
+and passed [official Microsoft authoring validation](https://github.com/analienx/visual-quality-system/actions/runs/39977461272).
 
-This gallery does **not** assert final visual G2 acceptance of all themes.
-The PR stays draft until the remaining real Desktop captures and a same-page
-side-by-side review have been completed. The underlying validated PBIP projects
-are attached as GitHub Actions artifacts, not published screenshots.
+- [Executive Blue Light public-preview and source-capture hash manifest](images/themes/light/manifest.json)
+- [Executive Blue Dark public-preview and source-capture hash manifest](images/themes/blue-dark/manifest.json)
+- [Graphite Mint public-preview and source-capture hash manifest](images/themes/graphite-mint/manifest.json)
+- [Warm Basalt public-preview and source-capture hash manifest](images/themes/warm-basalt/manifest.json)
+- [Slate Lavender public-preview and source-capture hash manifest](images/themes/slate-lavender/manifest.json)
 
-See [theme engine CLI documentation](THEME_ENGINE.md) and
-[palette design rationale](THEME_COLORWAYS.md).
+Structural validity and beautiful captures do not replace G2 independent
+visual acceptance and G6 owner release approval. The PR remains a draft
+until those checks are signed off. These demo screenshots are safe for the
+public project because all report values are generated fictional data.
+
+See [Theme Engine](THEME_ENGINE.md) and
+[Colorway Design Rationale](THEME_COLORWAYS.md).

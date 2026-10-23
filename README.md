@@ -137,22 +137,30 @@ Read the [user guide](docs/USER_GUIDE.md), [CLI reference](docs/CLI.md), [accept
 
 ---
 
-### Adaptive report themes| Graphite Mint — neutral graphite + jade | Warm Basalt — warm charcoal + gold |
-| --- | --- |
-| [![Graphite Mint — native Power BI Desktop Contoso Executive overview](docs/images/themes/graphite-mint/executive-overview.png)](docs/THEME_GALLERY.md) | [![Warm Basalt — native Power BI Desktop Contoso Executive overview](docs/images/themes/warm-basalt/executive-overview.png)](docs/THEME_GALLERY.md) |
+### Adaptive report themes — five native colorways
 
-*Genuine five-page Contoso Retail Desktop captures for both themes with locally generated
-synthetic data. See the full [theme gallery](docs/THEME_GALLERY.md), provenance
-manifest and still-pending native captures for the other colorways.*
+Theme the report **and its slicers/filter pane** with built-in Light/Dark
+presets, while preserving the source and semantic model. These previews
+are genuine Desktop captures of fictional Contoso data, resized for GitHub.
 
-Choose among five Light/Dark colorways with a built-in preset, including
-Graphite Mint, Warm Basalt and Slate Lavender. The candidate-only engine
-also styles slicer search boxes and report filter panes with distinct
-Applied/Available filter cards. See
-[theme gallery and validation boundaries](docs/THEME_GALLERY.md) and
-[CLI details](docs/THEME_ENGINE.md). Native screenshot evidence is tracked
-separately from schema validation; no synthetic images are passed off as
-Power BI screenshots.
+| Executive Blue Light | Executive Blue Dark |
+| :--- | :--- |
+| [![Executive Blue Light actual Desktop preview](docs/images/themes/light/executive-overview.png)](docs/THEME_GALLERY.md) | [![Executive Blue Dark actual Desktop preview](docs/images/themes/blue-dark/executive-overview.png)](docs/THEME_GALLERY.md) |
+
+| Graphite Mint | Warm Basalt |
+| :--- | :--- |
+| [![Graphite Mint actual Desktop preview](docs/images/themes/graphite-mint/executive-overview.png)](docs/THEME_GALLERY.md) | [![Warm Basalt actual Desktop preview](docs/images/themes/warm-basalt/executive-overview.png)](docs/THEME_GALLERY.md) |
+
+**Slate Lavender**
+
+[![Slate Lavender actual Desktop preview](docs/images/themes/slate-lavender/executive-overview.png)](docs/THEME_GALLERY.md)
+
+[Browse **all 25 report-page previews**](docs/THEME_GALLERY.md) and [CLI/safety guidance](docs/THEME_ENGINE.md). Expanded dropdown and filter flyout states still need separate G2 review.
+
+```console
+vqs theme presets
+vqs theme apply REPORT --mode dark --palette-preset graphite-mint --candidate-root ./candidate-graphite
+```
 
 **Power BI is the primary product.** Word/DOCX assurance is a separate optional component. Source diagnosis is local by default; remote image review needs explicit consent. Never commit private screenshots, `.pbi` caches, ABF files or business report data.
 
