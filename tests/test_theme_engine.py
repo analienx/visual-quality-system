@@ -259,7 +259,8 @@ def test_role_collision_same_hex(tmp_path: Path) -> None:
     plan = build_plan(report, "dark", palette)
     by_role = {(c["file"], c["pointer"]): c for c in plan["changes"]}
     canvas = [c for c in plan["changes"] if c["role"] == "canvas"]
-    surface = [c for c in plan["changes"] if c["role"] == "surface"]
+    surface = [c for c in plan["changes"] if c["role"] == "surface"
+               and c["classification"] == "supported"]
     assert canvas and surface
     assert {str(c["old"]) for c in canvas} == {"#FFFFFF"}
     assert {str(c["new"]) for c in canvas} == {"#0B1220"}

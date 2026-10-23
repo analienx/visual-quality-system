@@ -507,6 +507,8 @@ def role_for(path: list[Any], visual_type: str, file_kind: str) -> str | None:
     if group_l == "datapoint":
         return "dataColors"
     if vtype in SLICER_TYPES:
+        if group_l == "searchbox":
+            return "outline" if "border" in prop else "slicerBackground"
         if group_l == "header":
             return "slicerBackground" if "back" in prop else "slicerForeground"
         if group_l == "items":
