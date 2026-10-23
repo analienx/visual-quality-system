@@ -136,3 +136,13 @@ Light and Dark versions of the actual 5-page Contoso PBIP, validates the theme
 against Microsoft's October 2026 report-theme schema, checks each page canvas,
 and invokes the real Microsoft report-authoring validator. This is not a
 substitute for native Power BI Desktop rendering of actual content and slicers.
+
+## Report filter-pane compatibility limit
+
+The October 2026 Microsoft report-theme JSON Schema permits report-wide
+outspacePane/filterCard defaults, but pinned Microsoft authoring CLI 0.5.0
+rejects them as unknown formatting objects. For a validated authoring
+candidate, this engine styles the actual page outspace and canvas explicitly
+and does not emit those rejected report-global defaults. Therefore filter-pane
+chrome is NOT certified dark/light in this version, and must be checked in
+native Desktop. This known limitation is not concealed as full visual coverage.

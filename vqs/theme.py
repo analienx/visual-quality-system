@@ -628,11 +628,9 @@ def _format_color_leaf(path: list[Any], kind: str) -> bool:
     if prop in _COLOR_KEYS:
         return path[-5:] == ["solid", "color", "expr", "Literal", "Value"]
     # textbox rich text: general[].properties.paragraphs[].textRuns[].textStyle.color
-    if (kind == "visual" and prop == "paragraphs"
+    return (kind == "visual" and prop == "paragraphs"
             and "textRuns" in path and "textStyle" in path
-            and path[-2:] == ["textStyle", "color"]):
-        return True
-    return False
+            and path[-2:] == ["textStyle", "color"])
 
 
 def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
@@ -1196,23 +1194,11 @@ def compile_theme(palette: dict[str, Any], mode: str,
             "*": {"*": {
                 "background": [{"color": _solid(str(p["surface"])),
                                 "transparency": 0}],
-                "outspace": [{"color": _solid(str(p["canvas"])),
-                              "transparency": 0}],
-                "outspacePane": [{
-                    "backgroundColor": _solid(str(p["surface"])),
-                    "foregroundColor": _solid(str(p["foreground"])),
-                    "borderColor": _solid(str(p["outline"])),
-                    "inputBoxColor": _solid(str(p["surface"])),
-                    "checkboxAndApplyColor": _solid(str(p["accent"])),
-                }],
-                "filterCard": [
-                    {"$id": "Applied",
-                     "backgroundColor": _solid(str(p["surfaceElevated"])),
-                     "foregroundColor": _solid(str(p["foreground"]))},
-                    {"$id": "Available",
-                     "backgroundColor": _solid(str(p["surface"])),
-                     "foregroundColor": _solid(str(p["foreground"]))},
-                ],
+                # Note: the official Oct-2026 theme schema admits outspace,
+                # outspacePane and filterCard, but Microsoft authoring CLI
+                # 0.5.0 rejects these report-level groups. Canvas/outspace
+                # are explicitly rewritten in page objects. The filter pane
+                # remains a documented Desktop-only coverage limitation.
             }},
             "slicer": {"*": slicer_style},
             "filterSlicer": {"*": slicer_style},

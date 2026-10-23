@@ -709,3 +709,9 @@ def test_unsupported_modern_visual_styles_are_not_advertised() -> None:
     assert "rowHeaders" not in styles["tableEx"]["*"]
     assert "advancedSlicerVisual" not in SUPPORTED_TYPES
     assert "cardVisual" not in SUPPORTED_TYPES
+
+def test_registered_theme_avoids_pinned_cli_unknown_report_groups() -> None:
+    theme = compile_theme(load_palette("dark", None), "dark", "Demo.json")
+    # Pinned Microsoft 0.5.0 author CLI rejects the report-level groups
+    # which Power BI Desktop Oct-2026 schema otherwise permits.
+    assert set(theme["visualStyles"]["*"]["*"]) == {"background"}

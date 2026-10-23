@@ -19,8 +19,11 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from vqs.theme import (
-    THEME_SCHEMA, apply_theme, audit_candidate,
-    load_palette, source_digest,
+    THEME_SCHEMA,
+    apply_theme,
+    audit_candidate,
+    load_palette,
+    source_digest,
 )
 
 REPORT = REPO / "examples" / "contoso-retail" / "Contoso Retail.Report"
@@ -110,7 +113,7 @@ def main() -> int:
                 "status must be independently diagnosed, no fake clean G2.")
         result["status"] = ("pass" if all(
             value["pass"] for value in result["modes"].values()) else "fail")
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - emit safe hosted failure receipt
         result["error"] = f"{type(exc).__name__}: {exc}"
     finally:
         out.parent.mkdir(parents=True, exist_ok=True)
