@@ -137,9 +137,11 @@ Read the [user guide](docs/USER_GUIDE.md), [CLI reference](docs/CLI.md), [accept
 
 ---
 
-### Adaptive report themes[![Actual Graphite Mint Contoso Retail Power BI Desktop executive overview](docs/images/themes/graphite-mint/executive-overview.png)](docs/THEME_GALLERY.md)
+### Adaptive report themes| Graphite Mint — neutral graphite + jade | Warm Basalt — warm charcoal + gold |
+| --- | --- |
+| [![Graphite Mint — native Power BI Desktop Contoso Executive overview](docs/images/themes/graphite-mint/executive-overview.png)](docs/THEME_GALLERY.md) | [![Warm Basalt — native Power BI Desktop Contoso Executive overview](docs/images/themes/warm-basalt/executive-overview.png)](docs/THEME_GALLERY.md) |
 
-*Genuine five-page Contoso Retail Desktop captures with locally generated
+*Genuine five-page Contoso Retail Desktop captures for both themes with locally generated
 synthetic data. See the full [theme gallery](docs/THEME_GALLERY.md), provenance
 manifest and still-pending native captures for the other colorways.*
 

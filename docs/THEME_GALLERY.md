@@ -8,7 +8,7 @@ Power BI PBIP report without modifying the source semantic model or filters.
 | executive-blue | light | Original corporate light | Native capture pending |
 | executive-blue | dark | Original navy dark | Native capture pending |
 | graphite-mint | dark | Charcoal and restrained mint | **5 real captured pages** |
-| warm-basalt | dark | Warm charcoal and gold | Native capture blocked |
+| warm-basalt | dark | Warm charcoal and gold | **5 real captured pages** |
 | slate-lavender | dark | Soft slate and violet | Native capture pending |
 
 ## Actual Desktop screenshots — Graphite Mint
@@ -43,6 +43,34 @@ SHA-256 digests and capture method.
 
 [![Graphite Mint — Deep-dive insights](images/themes/graphite-mint/deep-dive-insights.png)](images/themes/graphite-mint/deep-dive-insights.png)
 
+## Actual Desktop screenshots — Warm Basalt
+
+Genuine five-page Desktop captures from the same synthetic Contoso Retail
+report and GH-hosted candidate source revision as Graphite Mint.
+The first attempt encountered a Desktop host mismatch; a later call to
+the same official capture interface succeeded and returned all five pages.
+See the [Warm Basalt image manifest](images/themes/warm-basalt/manifest.json).
+
+### Executive overview — Warm Basalt
+
+[![Warm Basalt — Executive overview](images/themes/warm-basalt/executive-overview.png)](images/themes/warm-basalt/executive-overview.png)
+
+### Products & brands — Warm Basalt
+
+[![Warm Basalt — Products & brands](images/themes/warm-basalt/products-and-brands.png)](images/themes/warm-basalt/products-and-brands.png)
+
+### Stores & customers — Warm Basalt
+
+[![Warm Basalt — Stores & customers](images/themes/warm-basalt/stores-and-customers.png)](images/themes/warm-basalt/stores-and-customers.png)
+
+### Markets & drivers — Warm Basalt
+
+[![Warm Basalt — Markets & drivers](images/themes/warm-basalt/markets-and-drivers.png)](images/themes/warm-basalt/markets-and-drivers.png)
+
+### Deep-dive insights — Warm Basalt
+
+[![Warm Basalt — Deep-dive insights](images/themes/warm-basalt/deep-dive-insights.png)](images/themes/warm-basalt/deep-dive-insights.png)
+
 ## Select any built-in theme
 
 ```console
@@ -74,12 +102,12 @@ not been independently validated** and must not be implied as verified.
 ## Remaining capture gate
 
 The GH-hosted candidate artifacts exist for all five options and validate
-successfully. Native Power BI Desktop screenshots for the other four themes
-are **not** present. Warm Basalt was opened in its own Desktop instance and
-its isolated synthetic model processed, but Microsoft's official screenshot
-command returned `HOST_UNAVAILABLE` afterwards. Under the local authoring
-skill's terminal rule, we did not bypass the host or substitute illustrative
-screenshots. Blue Light/Dark and Slate Lavender remain pending native capture.
+successfully. Native Desktop screenshots for three themes are still **missing**: Executive
+Blue Light, Executive Blue Dark, and Slate Lavender. Graphite Mint and Warm
+Basalt each have five genuine full-page captures with data and manifests. An
+initial Warm Basalt screenshot attempt returned HOST_UNAVAILABLE; a later
+canonical screenshot capture succeeded. No illustrative image has been
+substituted for native proof.
 
 This gallery does **not** assert final visual G2 acceptance of all themes.
 The PR stays draft until the remaining real Desktop captures and a same-page
