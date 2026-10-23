@@ -506,6 +506,9 @@ def role_for(path: list[Any], visual_type: str, file_kind: str) -> str | None:
     # visual.objects groups
     if group_l == "datapoint":
         return "dataColors"
+    if (vtype in CHART_TYPES and group_l in ("linestyles", "markers")
+            and prop in ("strokecolor", "markercolor", "areacolor")):
+        return "dataColors"
     if vtype in SLICER_TYPES:
         if group_l == "searchbox":
             return "outline" if "border" in prop else "slicerBackground"
@@ -629,6 +632,36 @@ def _entry_scoped(entry: Any) -> bool:
     return "scopeId" in text or "ScopeId" in text
 
 
+def _gradient_stop_role(path: list[Any], visual_type: str,
+                        kind: str) -> str | None:
+    """Recognize only PBIR numeric FillRule *ramp-stop* color literals.
+
+    The Input measure, FillRule condition/predicate, transparency and
+    selector identities are untouched. A conditional Cases.Value is *not*
+    an ordinary color ramp. Map supported chart / shape-map visual scales
+    to the paired semantic gradient palette, not arbitrary blue values.
+    """
+    if kind != "visual" or (visual_type not in CHART_TYPES
+                             and visual_type != "shapeMap"):
+        return None
+    if (len(path) != 16
+            or path[:3] != ["visual", "objects", "dataPoint"]
+            or not isinstance(path[3], int)
+            or path[4:9] != ["properties", "fill", "solid",
+                            "color", "expr"]
+            or path[9:11] != ["FillRule", "FillRule"]
+            or path[11] not in ("linearGradient2", "linearGradient3")
+            or path[13:] != ["color", "Literal", "Value"]):
+        return None
+    stop = path[12]
+    allowed = ("min", "max") if path[11] == "linearGradient2" else (
+        "min", "mid", "max")
+    if stop not in allowed:
+        return None
+    return {"min": "gradientMin", "mid": "gradientCenter",
+            "max": "gradientMax"}[stop]
+
+
 _CLASSIFICATIONS = ("supported", "supported-add", "preserved", "blocked",
                     "unknown", "not_applicable")
 
@@ -640,6 +673,7 @@ _COLOR_KEYS = frozenset({
     "foregroundColor", "inputBoxColor", "checkboxAndApplyColor",
     "negativeColor", "positiveColor", "neutralColor",
     "dataLabelColor", "gridHorizontalColor", "gridVerticalColor",
+    "defaultColor", "areaColor",
 })
 
 
@@ -811,6 +845,21 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
                     "classification": "not_applicable",
                     "detail": "hex outside a color property"})
         return
+    # A numeric gradient's literal stop colors are appearance only.
+    # Theme them without changing the measure, bound or selector. Other
+    # dynamic expressions (Conditional, custom rules) stay untouched.
+    gradient_role = _gradient_stop_role(path, visual_type, file_kind)
+    if gradient_role is not None:
+        out.append({**{k: v for k, v in ctx.items()
+                       if not k.startswith("_")},
+                    "pointer": _pointer(path), "_path": list(path),
+                    "old": hex_value,
+                    "new": (str(palette[gradient_role])
+                            if palette is not None else None),
+                    "role": gradient_role, "classification": "supported",
+                    "detail": "numeric chart FillRule gradient stop only; "
+                              "measure and thresholds preserved"})
+        return
     if dynamic:
         out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
                     "pointer": _pointer(path), "_path": list(path),
@@ -836,6 +885,18 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
                         "classification": "preserved",
                         "detail": "dataPoint with selector scopeId preserved"})
             return
+        if (_property_of(path) == "defaultColor"
+                and _format_color_leaf(path, file_kind)):
+            first_color = (str(palette["dataColors"][0])
+                           if palette is not None else None)
+            out.append({**{k: v for k, v in ctx.items()
+                           if not k.startswith("_")},
+                        "pointer": _pointer(path), "_path": list(path),
+                        "old": hex_value, "new": first_color,
+                        "role": "dataColors[0]",
+                        "classification": "supported",
+                        "detail": "unscoped chart default data color"})
+            return
         if hex_value in source_colors:
             index = source_colors.index(hex_value)
             target_hex = (str(palette["dataColors"][index % len(
@@ -855,6 +916,37 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
                         "classification": "preserved",
                         "detail": "dataPoint hex not in source dataColors; "
                                   "preserved with warning"})
+        return
+    if (file_kind == "visual" and visual_type in CHART_TYPES
+            and group.lower() in ("linestyles", "markers")
+            and _property_of(path) in (
+                "strokeColor", "markerColor", "areaColor")
+            and _format_color_leaf(path, file_kind)):
+        if scoped:
+            out.append({**{k: v for k, v in ctx.items()
+                           if not k.startswith("_")},
+                        "pointer": _pointer(path), "_path": list(path),
+                        "old": hex_value, "new": None, "role": "dataColors",
+                        "classification": "preserved",
+                        "detail": "scoped chart series identity preserved"})
+        else:
+            # Use the registered source-palette index when it exists;
+            # otherwise use the deterministic series slot for that
+            # explicit chart line/marker. No hash/color-similarity logic.
+            index = (source_colors.index(hex_value)
+                     if hex_value in source_colors else
+                     (path[3] if len(path) > 3 and
+                      isinstance(path[3], int) else 0))
+            new_color = (str(palette["dataColors"][
+                index % len(palette["dataColors"])])
+                if palette is not None else None)
+            out.append({**{k: v for k, v in ctx.items()
+                           if not k.startswith("_")},
+                        "pointer": _pointer(path), "_path": list(path),
+                        "old": hex_value, "new": new_color,
+                        "role": f"dataColors[{index}]",
+                        "classification": "supported",
+                        "detail": "chart line/marker series slot recolored"})
         return
     # Waterfall increase/decrease/total encode business polarity: preserve
     # exact source colors instead of silently reassigning category semantics.
