@@ -352,11 +352,13 @@ def test_audit_passes(tmp_path: Path) -> None:
     report = build_report(tmp_path)
     apply_theme(report, "dark", load_palette("dark", None), tmp_path / "dark")
     result = audit_candidate(tmp_path / "dark")
-    assert result["status"] == "pass"
+    assert result["integrityStatus"] == "pass"
+    assert result["appearanceCoverageStatus"] == "partial"
+    assert result["status"] == "unknown"  # deliberate transparent fixture
     assert result["invariants"]["status"] == "pass"
     rc = main(["theme", "audit", str(tmp_path / "dark"),
                "--out", str(tmp_path / "audit.json")])
-    assert rc == 0
+    assert rc == 2
 
 
 def test_unknown_transparent(tmp_path: Path) -> None:
@@ -441,7 +443,7 @@ def test_palette_only_change_recompiles_theme(tmp_path: Path) -> None:
                       / "RegisteredResources" / manifest["themeFileName"])
     assert theme_doc["good"] == "#00AA55"
     assert theme_doc["maximum"] == "#123456"
-    assert audit_candidate(tmp_path / "d2")["status"] == "pass"
+    assert audit_candidate(tmp_path / "d2")["integrityStatus"] == "pass"
 
 
 def test_azuremap_enum_supported(tmp_path: Path) -> None:
@@ -551,7 +553,7 @@ def test_deregistered_candidate_reregisters(tmp_path: Path) -> None:
                     / "report.json")
     assert out_doc["themeCollection"]["customTheme"]["name"].startswith(
         "VQSAdaptive-dark-")
-    assert audit_candidate(tmp_path / "d2")["status"] == "pass"
+    assert audit_candidate(tmp_path / "d2")["integrityStatus"] == "pass"
 
 
 def test_slicer_selection_foreground_distinct(tmp_path: Path) -> None:
@@ -578,3 +580,122 @@ def test_scoped_datapoint_preserved(tmp_path: Path) -> None:
     mapped = [o for o in plan["occurrences"] if o["old"] == "#2563EB"
               and o["classification"] == "supported"]
     assert mapped and mapped[0]["role"].startswith("dataColors[")
+
+
+# Supervisor F01-F05 falsifying tests: GH-hosted execution only.
+def test_dark_synthesizes_missing_page_and_slicer_colors(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    page_file = report / "definition/pages/P1/page.json"
+    page = _read(page_file)
+    del page["objects"]["background"]
+    _write(page_file, page)
+    slicer_file = _visual_path(report, "slicerx")
+    slicer = _read(slicer_file)
+    del slicer["visual"]["objects"]["items"]
+    del slicer["visual"]["objects"]["header"][0]["properties"]["background"]
+    _write(slicer_file, slicer)
+    badge_file = _visual_path(report, "badge")
+    badge = _read(badge_file)
+    badge["visual"]["objects"]["text"][0]["properties"] = {
+        "show": _lit("true")}
+    _write(badge_file, badge)
+    plan = build_plan(report, "dark", load_palette("dark", None))
+    additions = [c for c in plan["changes"]
+                 if c["classification"] == "supported-add"]
+    assert any(c["kind"] == "page" and c["role"] == "canvas"
+               for c in additions)
+    assert any(c["visual"] == "slicerx" for c in additions)
+    assert any(c["visual"] == "badge" and c["role"] == "accentForeground"
+               for c in additions)
+    apply_theme(report, "dark", load_palette("dark", None),
+                tmp_path / "dark")
+    cand = tmp_path / "dark/Demo.Report"
+    assert _page_canvas(cand) == "'#0B1220'"
+    slicer2 = _read(_visual_path(cand, "slicerx"))
+    props = slicer2["visual"]["objects"]["items"][0]["properties"]
+    assert props["background"]["solid"]["color"]["expr"]["Literal"]["Value"] == "'#111C2E'"
+    badge2 = _read(_visual_path(cand, "badge"))
+    text = badge2["visual"]["objects"]["text"][0]["properties"]
+    assert text["fontColor"]["solid"]["color"]["expr"]["Literal"]["Value"] == "'#0B1220'"
+
+
+def test_bypath_missing_model_must_block(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    model = tmp_path / "src/Demo.SemanticModel"
+    import shutil
+    shutil.rmtree(model)
+    from vqs.theme import ThemeError
+    with pytest.raises(ThemeError, match="byPath model is missing"):
+        apply_theme(report, "dark", load_palette("dark", None),
+                    tmp_path / "dark")
+    assert not (tmp_path / "dark").exists()
+
+
+def test_bypath_escapes_project_must_block(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    p = report / "definition.pbir"
+    doc = _read(p)
+    doc["datasetReference"]["byPath"]["path"] = "../../outside.SemanticModel"
+    _write(p, doc)
+    from vqs.theme import ThemeError
+    with pytest.raises(ThemeError, match="escapes project"):
+        apply_theme(report, "dark", load_palette("dark", None),
+                    tmp_path / "dark")
+
+
+def test_byconnection_legal_no_sibling_copy(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    p = report / "definition.pbir"
+    doc = _read(p)
+    doc["datasetReference"] = {"byConnection": {"connectionString": "powerbi://example"}}
+    _write(p, doc)
+    result = apply_theme(report, "dark", load_palette("dark", None),
+                         tmp_path / "dark")
+    assert result["modelDigest"] is None
+
+
+def test_query_and_embedded_hex_are_never_rewritten(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    file = _visual_path(report, "chart")
+    doc = _read(file)
+    doc["visual"]["query"]["backgroundColor"] = "'#FFFFFF'"
+    doc["visual"]["objects"]["labels"][0]["properties"]["color"] = (
+        _color("#111111"))
+    value = doc["visual"]["objects"]["labels"][0]["properties"]["color"][
+        "solid"]["color"]["expr"]["Literal"]
+    value["Value"] = "'prefix #111111 suffix'"
+    _write(file, doc)
+    plan = build_plan(report, "dark", load_palette("dark", None))
+    assert not any(c["visual"] == "chart" and "query" in c["pointer"]
+                   for c in plan["changes"])
+    assert not any(c["visual"] == "chart" and
+                   c["pointer"].endswith("/labels/0/properties/color/solid/color/expr/Literal/Value")
+                   for c in plan["changes"])
+    apply_theme(report, "dark", load_palette("dark", None),
+                tmp_path / "dark")
+    after = _read(_visual_path(tmp_path / "dark/Demo.Report", "chart"))
+    assert after["visual"]["query"]["backgroundColor"] == "'#FFFFFF'"
+    assert after["visual"]["objects"]["labels"][0]["properties"]["color"][
+        "solid"]["color"]["expr"]["Literal"]["Value"] == "'prefix #111111 suffix'"
+
+
+def test_unknown_palette_key_blocked(tmp_path: Path) -> None:
+    path = tmp_path / "palette.json"
+    _write(path, {"dark": {"forground": "#FFFFFF"}})
+    from vqs.theme import ThemeError
+    with pytest.raises(ThemeError, match="unknown palette roles"):
+        load_palette("dark", path)
+
+
+def test_custom_visual_forces_partial_appearance_status(tmp_path: Path) -> None:
+    report = build_report(tmp_path)
+    unknown = _visual("custom", "opaqueExternalCustomVisual", {
+        "labels": [{"properties": {"color": _color("#000000")}}]})
+    _write(_visual_path(report, "custom"), unknown)
+    apply_theme(report, "dark", load_palette("dark", None),
+                tmp_path / "dark")
+    audit = audit_candidate(tmp_path / "dark")
+    assert audit["integrityStatus"] == "pass"
+    assert audit["appearanceCoverageStatus"] == "partial"
+    assert audit["status"] == "unknown"
+    assert any(c["visual"] == "custom" for c in audit["unresolved"])

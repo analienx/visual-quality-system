@@ -23,7 +23,7 @@ vqs theme audit ./candidates/dark --out theme-audit.json
 convention: `0` pass, `1` demonstrated failure (audit), `2` blocked
 (malformed input, unsafe candidate root, or palette contrast failure).
 
-- `inspect` — read-only. Classifies every hex/enum occurrence.
+- `inspect` — read-only. Classifies known PBIR appearance hex/enum leaves; unsupported or ambiguous cases are explicitly reported.
 - `preview` — read-only. Writes only the `--out` plan file. The plan is
   produced by the same planner `apply` uses, so previewed changes are
   exactly the applied changes.
@@ -72,7 +72,7 @@ violating pairs. Unknown, transparent, or dynamic colors are reported
 
 ## Coverage semantics
 
-Every occurrence is classified with file, page, visual, JSON pointer,
+Each discovered PBIR color occurrence is classified with file, page, visual, JSON pointer,
 old/new value, and role:
 
 | Classification | Meaning |
@@ -122,3 +122,17 @@ inside the candidate.
 Delete the candidate project root and its `theme-manifest.json`. The
 original report was never written; no other rollback step exists or is
 needed.
+
+## Separate integrity and appearance acceptance
+
+Candidate audits return integrityStatus (manifest, model/query invariants
+and static palette checks) and appearanceCoverageStatus (complete or partial).
+An unresolved/blocked appearance leaf means overall status: unknown even if
+integrity passes. This deliberately prevents a success claim for custom visuals,
+dynamic transparency or other colors that are not statically resolvable.
+
+On GitHub-hosted CI, scripts/theme_candidate_probe.py creates BOTH
+Light and Dark versions of the actual 5-page Contoso PBIP, validates the theme
+against Microsoft's October 2026 report-theme schema, checks each page canvas,
+and invokes the real Microsoft report-authoring validator. This is not a
+substitute for native Power BI Desktop rendering of actual content and slicers.

@@ -187,6 +187,10 @@ def load_palette(mode: str, palette_path: Path | None) -> dict[str, Any]:
             section = raw[mode]
         if not isinstance(section, dict):
             raise ThemeError(f"palette section for mode {mode!r} must be an object")
+        allowed_roles = set(base)
+        unexpected = set(section) - allowed_roles
+        if unexpected:
+            raise ThemeError("unknown palette roles: " + ", ".join(sorted(unexpected)))
         for key, value in section.items():
             if key == "dataColors":
                 if (not isinstance(value, list) or len(value) < 8
@@ -245,9 +249,12 @@ def resolve_report_dir(report: str | Path) -> Path:
                 if isinstance(artifact, dict):
                     rel = (artifact.get("report") or {}).get("path")
                     if isinstance(rel, str) and rel:
-                        candidate = path.parent / rel
-                        if candidate.is_dir():
+                        candidate = (path.parent / rel).resolve()
+                        if not candidate.is_relative_to(path.parent.resolve()):
+                            raise ThemeError("PBIP report path escapes its project")
+                        if candidate.is_dir() and candidate.name.endswith(".Report"):
                             return candidate
+                        raise ThemeError("PBIP references a missing Report directory")
         siblings = sorted(p for p in path.parent.iterdir()
                           if p.is_dir() and p.name.endswith(".Report"))
         if len(siblings) == 1:
@@ -438,7 +445,7 @@ def role_for(path: list[Any], visual_type: str, file_kind: str) -> str | None:
             return "canvas"
         if group == "outspacePane":
             return "surface"
-        return "canvas"
+        return None
     prop = _property_of(path).lower()
     container, group = _group_of(path)
     group_l = group.lower()
@@ -543,11 +550,8 @@ def _extract_hex(value: str) -> str | None:
         return _norm_hex(text)
     if re.fullmatch(r"#[0-9A-Fa-f]{3}", text):
         return _expand_short_hex(text)
-    match = HEX_RE.search(value)
-    if match and _is_full_hex(match.group(0)):
-        return _norm_hex(match.group(0))
-    if match and re.fullmatch(r"#[0-9A-Fa-f]{3}", match.group(0)):
-        return _expand_short_hex(match.group(0))
+    # Do not convert arbitrary text containing embedded hex (including
+    # query text and rich-text strings): replacing the entire value is unsafe.
     return None
 
 
@@ -581,8 +585,54 @@ def _entry_scoped(entry: Any) -> bool:
     return "scopeId" in text or "ScopeId" in text
 
 
-_CLASSIFICATIONS = ("supported", "preserved", "blocked", "unknown",
-                    "not_applicable")
+_CLASSIFICATIONS = ("supported", "supported-add", "preserved", "blocked",
+                    "unknown", "not_applicable")
+
+_COLOR_KEYS = frozenset({
+    "color", "fill", "fillColor", "background", "backgroundColor",
+    "backColor", "backColorPrimary", "backColorSecondary", "backColorTotal",
+    "fontColor", "fontColorPrimary", "fontColorSecondary", "labelColor",
+    "lineColor", "borderColor", "gridlineColor", "markerColor", "strokeColor",
+    "foregroundColor", "inputBoxColor", "checkboxAndApplyColor",
+    "negativeColor", "positiveColor", "neutralColor",
+})
+
+
+def _format_color_leaf(path: list[Any], kind: str) -> bool:
+    """Admit only a full PBIR appearance literal, never query/filter metadata."""
+    if kind == "page":
+        start = ["objects"]
+        groups = {"background", "outspace", "wallpaper", "outspacePane"}
+    elif kind == "visual":
+        start = ["visual"]
+        groups = None
+    else:
+        return False
+    if path[:len(start)] != start:
+        return False
+    if kind == "visual":
+        if len(path) < 6 or path[1] not in ("objects", "visualContainerObjects"):
+            return False
+        group_offset = 2
+    else:
+        if len(path) < 5 or path[1] not in groups:
+            return False
+        group_offset = 1
+    if (len(path) <= group_offset + 3
+            or not isinstance(path[group_offset+1], int)
+            or path[group_offset+2] != "properties"):
+        return False
+    prop = str(path[group_offset+3])
+    # Only PBIR visual formatting keys, never a parameter/query with "color"
+    # somewhere in a parent name.
+    if prop in _COLOR_KEYS:
+        return path[-5:] == ["solid", "color", "expr", "Literal", "Value"]
+    # textbox rich text: general[].properties.paragraphs[].textRuns[].textStyle.color
+    if (kind == "visual" and prop == "paragraphs"
+            and "textRuns" in path and "textStyle" in path
+            and path[-2:] == ["textStyle", "color"]):
+        return True
+    return False
 
 
 def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
@@ -628,7 +678,10 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
                         "classification": "not_applicable", "detail": detail})
         return
     # Azure Maps basemap enum (not a hex; visual files only).
-    if file_kind == "visual" and _property_of(path).lower() == "defaultstyle":
+    if (file_kind == "visual" and path[:2] == ["visual", "objects"]
+            and len(path) >= 9 and path[2] == "mapControls"
+            and "properties" in path and "defaultStyle" in path
+            and path[-3:] == ["expr", "Literal", "Value"]):
         enum = node.strip().strip("'").lower()
         if enum in ("road", "night", "grayscale_light", "grayscale_dark",
                     "high_contrast_dark"):
@@ -676,6 +729,13 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
         return
     hex_value = _extract_hex(node)
     if hex_value is None:
+        if (re.search(r"#[0-9A-Fa-f]{3,8}\b", node)
+                and _is_colorish(path) and file_kind in ("page", "visual")):
+            out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
+                        "pointer": _pointer(path), "_path": list(path),
+                        "old": node, "new": None, "role": None,
+                        "classification": "unknown",
+                        "detail": "ambiguous embedded hex; not a complete color literal"})
         return
     if file_kind == "theme":
         out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
@@ -745,6 +805,13 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
                         "classification": "preserved",
                         "detail": "dataPoint hex not in source dataColors; "
                                   "preserved with warning"})
+        return
+    if not _format_color_leaf(path, file_kind):
+        out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
+                    "pointer": _pointer(path), "_path": list(path),
+                    "old": hex_value, "new": None, "role": None,
+                    "classification": "unknown",
+                    "detail": "unrecognized PBIR appearance path; preserved"})
         return
     if file_kind == "visual" and visual_type and \
             visual_type not in SUPPORTED_TYPES:
@@ -880,6 +947,134 @@ def inspect_report(report: str | Path) -> dict[str, Any]:
             "occurrences": [_public(item) for item in occurrences]}
 
 
+def _inline_color(hex_color: str) -> dict[str, Any]:
+    """PBIR color expression (different from native theme visualStyles)."""
+    return {"solid": {"color": {"expr": {
+        "Literal": {"Value": f"'{hex_color}'"}}}}}
+
+
+def _synthesized_changes(report_dir: Path, palette: dict[str, Any]) -> list[dict[str, Any]]:
+    """Add absent formatting leaves by proven type/property semantics."""
+    additions: list[dict[str, Any]] = []
+
+    def add(file: Path, ctx: dict[str, str], path: list[Any],
+            role: str, value: Any, reason: str) -> None:
+        additions.append({**ctx, "file": file.relative_to(report_dir).as_posix(),
+                          "pointer": _pointer(path), "_path": path,
+                          "old": None, "new": value, "role": role,
+                          "classification": "supported-add", "detail": reason})
+
+    pages = report_dir / "definition" / "pages"
+    if not pages.is_dir():
+        return additions
+    for page_dir in sorted(p for p in pages.iterdir() if p.is_dir()):
+        page_file = page_dir / "page.json"
+        if not page_file.is_file():
+            continue
+        page = _read_json(page_file)
+        if not isinstance(page, dict):
+            raise ThemeError("invalid page object for color synthesis")
+        objects = page.get("objects") or {}
+        if not isinstance(objects, dict):
+            raise ThemeError("invalid page objects group")
+        ctx = {"page": page_dir.name, "visual": "", "visualType": "", "kind": "page"}
+        background = objects.get("background")
+        if background is None:
+            add(page_file, ctx, ["objects", "background"], "canvas",
+                [{"properties": {"color": _inline_color(str(palette["canvas"]))}}],
+                "explicit canvas required: page theme does not color canvas")
+        elif isinstance(background, list) and background:
+            first = background[0]
+            if isinstance(first, dict) and not first.get("selector"):
+                props = first.get("properties")
+                if isinstance(props, dict) and "color" not in props:
+                    add(page_file, ctx, ["objects", "background", 0, "properties", "color"],
+                        "canvas", _inline_color(str(palette["canvas"])),
+                        "explicit page background missing color")
+        visuals = page_dir / "visuals"
+        if not visuals.is_dir():
+            continue
+        for visual_file in sorted(visuals.glob("*/visual.json")):
+            doc = _read_json(visual_file)
+            visual = doc.get("visual") if isinstance(doc, dict) else None
+            if not isinstance(visual, dict):
+                continue
+            vtype = visual.get("visualType")
+            if not isinstance(vtype, str) or vtype not in SUPPORTED_TYPES:
+                continue
+            objects = visual.get("objects") or {}
+            if not isinstance(objects, dict):
+                continue
+            ctx = {"page": page_dir.name, "visual": visual_file.parent.name,
+                   "visualType": vtype, "kind": "visual"}
+            targets: dict[str, dict[str, str]] = {}
+            if vtype in SLICER_TYPES:
+                targets = {
+                    "items": {"fontColor": "slicerForeground",
+                              "background": "slicerBackground"},
+                    "header": {"fontColor": "slicerForeground",
+                               "background": "slicerBackground"}}
+            elif vtype in TABLE_TYPES:
+                targets = {
+                    "columnHeaders": {"fontColor": "tableHeaderForeground",
+                                      "backColor": "tableHeader"},
+                    "values": {"fontColorPrimary": "foreground",
+                               "fontColorSecondary": "foreground",
+                               "backColorPrimary": "surface",
+                               "backColorSecondary": "rowAlternate"},
+                    "rowHeaders": {"fontColor": "foreground",
+                                   "backColor": "surfaceElevated"},
+                    "rowTotal": {"fontColor": "foreground",
+                                 "backColor": "surfaceElevated"},
+                    "columnTotal": {"fontColor": "foreground",
+                                    "backColor": "surfaceElevated"}}
+            elif vtype in ("shape", "basicShape"):
+                targets = {"text": {"fontColor": "accentForeground"}}
+            elif vtype in ("card", "cardVisual", "multiRowCard", "kpi"):
+                targets = {"labels": {"color": "foreground"},
+                           "categoryLabels": {"color": "mutedForeground"}}
+            elif vtype in CHART_TYPES:
+                targets = {"categoryAxis": {"labelColor": "mutedForeground"},
+                           "valueAxis": {"labelColor": "mutedForeground"},
+                           "legend": {"labelColor": "mutedForeground"}}
+            for group, props_to_add in targets.items():
+                entries = objects.get(group)
+                if entries is None:
+                    if vtype in SLICER_TYPES and group == "items":
+                        new_entry = {"properties": {k: _inline_color(str(palette[v]))
+                                                     for k, v in props_to_add.items()}}
+                        add(visual_file, ctx, ["visual", "objects", group],
+                            "slicerBackground", [new_entry],
+                            "slicer item group synthesized to avoid white dropdown")
+                    continue
+                if not isinstance(entries, list):
+                    continue
+                for index, entry in enumerate(entries):
+                    if not isinstance(entry, dict):
+                        continue
+                    selector = entry.get("selector")
+                    if selector and selector != {"id": "default"}:
+                        continue
+                    props = entry.get("properties")
+                    if not isinstance(props, dict):
+                        continue
+                    if group == "text" and vtype in ("shape", "basicShape"):
+                        show = props.get("show", {}).get("expr", {}).get("Literal", {}).get("Value")
+                        if show not in ("true", "'true'"):
+                            continue
+                    if group == "header" and vtype in SLICER_TYPES:
+                        show = props.get("show", {}).get("expr", {}).get("Literal", {}).get("Value")
+                        if show in ("false", "'false'"):
+                            continue
+                    for prop, role in props_to_add.items():
+                        if prop not in props:
+                            add(visual_file, ctx, ["visual", "objects", group,
+                                                   index, "properties", prop],
+                                role, _inline_color(str(palette[role])),
+                                "explicit group override suppresses theme inheritance")
+    return additions
+
+
 def build_plan(report: str | Path, mode: str,
                palette: dict[str, Any]) -> dict[str, Any]:
     """Shared planner for preview and apply (identical changes)."""
@@ -891,7 +1086,9 @@ def build_plan(report: str | Path, mode: str,
         raise ThemeError(
             "palette contrast check failed: " + json.dumps(violations))
     occurrences = inventory(report_dir, palette=palette, mode=mode)
-    changes: list[dict[str, Any]] = []
+    synthesized = _synthesized_changes(report_dir, palette)
+    changes: list[dict[str, Any]] = list(synthesized)
+    occurrences.extend(synthesized)
     for item in occurrences:
         if item.get("classification") not in ("supported", "supported-enum"):
             continue
@@ -1053,21 +1250,27 @@ def _model_source(report_dir: Path) -> Path | None:
         return None
     try:
         doc = _read_json(pbir)
-    except (OSError, ValueError):
-        return None
-    if not isinstance(doc, dict):
-        return None
-    ref = (doc.get("datasetReference") or {}).get("byPath") or {}
+    except (OSError, ValueError) as exc:
+        raise ThemeError("malformed definition.pbir dataset reference") from exc
+    if not isinstance(doc, dict) or not isinstance(doc.get("datasetReference"), dict):
+        raise ThemeError("definition.pbir missing datasetReference")
+    dataset = doc["datasetReference"]
+    if "byPath" not in dataset:
+        if "byConnection" in dataset:
+            return None
+        raise ThemeError("unknown definition.pbir dataset reference type")
+    ref = dataset["byPath"]
     target = ref.get("path") if isinstance(ref, dict) else None
     if not isinstance(target, str) or not target:
-        return None
+        raise ThemeError("definition.pbir byPath has no valid model path")
     resolved = (report_dir / target).resolve()
     project = report_dir.resolve().parent
-    try:
-        resolved.relative_to(project)
-    except ValueError:
-        return None
-    return resolved if resolved.is_dir() else None
+    if not resolved.is_relative_to(project) or resolved == report_dir.resolve():
+        raise ThemeError("definition.pbir byPath model escapes project")
+    if not resolved.is_dir() or resolved.is_symlink():
+        raise ThemeError(f"definition.pbir byPath model is missing: {target}")
+    _check_no_links(resolved)
+    return resolved
 
 
 def _copy_model(source: Path, dest: Path) -> None:
@@ -1191,18 +1394,35 @@ def apply_theme(report: str | Path, mode: str, palette: dict[str, Any],
             target = cand_report / rel
             doc = _read_json(target)
             for change in changes:
-                raw_old = _get_path(doc, change["_path"])
-                if not isinstance(raw_old, str):
-                    raise ThemeError(
-                        f"precondition failed at {rel}{change['pointer']}")
-                if change["classification"] == "supported-enum":
-                    new_raw = str(change["new"])
+                if change["classification"] == "supported-add":
+                    path_steps = change["_path"]
+                    if path_steps[0] == "objects" and not isinstance(doc.get("objects"), dict):
+                        doc["objects"] = {}
+                    if (path_steps[:2] == ["visual", "objects"]
+                            and not isinstance(doc["visual"].get("objects"), dict)):
+                        doc["visual"]["objects"] = {}
+                    try:
+                        _get_path(doc, path_steps)
+                    except (KeyError, IndexError):
+                        pass
+                    else:
+                        raise ThemeError(f"synthesis path occupied: {rel}{change['pointer']}")
+                    new_raw = change["new"]
                 else:
-                    new_raw = _repr_value(raw_old, str(change["new"]))
-                    if _extract_hex(raw_old) != change["old"]:
+                    raw_old = _get_path(doc, change["_path"])
+                    if not isinstance(raw_old, str):
                         raise ThemeError(
-                            f"precondition failed at {rel}"
-                            f"{change['pointer']}: {raw_old!r}")
+                            f"precondition failed at {rel}{change['pointer']}")
+                    if change["classification"] == "supported-enum":
+                        if raw_old != change["old"]:
+                            raise ThemeError("enum precondition changed")
+                        new_raw = str(change["new"])
+                    else:
+                        new_raw = _repr_value(raw_old, str(change["new"]))
+                        if _extract_hex(raw_old) != change["old"]:
+                            raise ThemeError(
+                                f"precondition failed at {rel}"
+                                f"{change['pointer']}: {raw_old!r}")
                 _set_path(doc, change["_path"], new_raw)
                 change["_applied_new"] = new_raw
             target.write_text(
@@ -1253,6 +1473,10 @@ def apply_theme(report: str | Path, mode: str, palette: dict[str, Any],
                          "theme-manifest.json; the original was never "
                          "written"),
         }
+        manifest["candidateRoot"] = str(cand_root)
+        # Sealed manifest and byte/invariant proofs BEFORE public rename.
+        if _invariant_snapshot(report_dir) != _invariant_snapshot(cand_report):
+            raise ThemeError("nonappearance PBIR invariants changed during apply")
         (tmp_root / "theme-manifest.json").write_text(
             json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8")
@@ -1265,16 +1489,7 @@ def apply_theme(report: str | Path, mode: str, palette: dict[str, Any],
     except BaseException:
         shutil.rmtree(tmp_root, ignore_errors=True)
         raise
-    manifest["candidateRoot"] = str(cand_root)
-    manifest["candidateDigest"] = source_digest(cand_root / report_dir.name)
-    # Refresh the on-disk manifest with final candidate identity.
-    on_disk = cand_root / "theme-manifest.json"
-    stored = _read_json(on_disk)
-    stored["candidateDigest"] = manifest["candidateDigest"]
-    stored["candidateRoot"] = str(cand_root)
-    on_disk.write_text(json.dumps(stored, indent=2, ensure_ascii=False)
-                       + "\n", encoding="utf-8")
-    manifest = stored
+    # The rename is the sole publish step: no writes after it succeeds.
     return manifest
 
 
@@ -1439,13 +1654,20 @@ def audit_candidate(candidate: str | Path) -> dict[str, Any]:
                        "status": "pass" if theme_match else "fail"})
     failed = [c for c in checks if c.get("status") == "fail"]
     unknown = [c for c in checks if c.get("status") == "unknown"]
-    if failed or invariants.get("status") == "fail":
-        status = "fail"
-    elif unknown or invariants.get("status") == "unknown" or manifest is None:
-        status = "unknown"
-    else:
-        status = "pass"
-    return {"schema": SCHEMA_VERSION, "command": "audit", "status": status,
+    integrity = ("fail" if failed or invariants.get("status") == "fail"
+                 else "unknown" if unknown or invariants.get("status") == "unknown"
+                 or manifest is None else "pass")
+    unresolved = [o for o in occurrences
+                  if o.get("classification") in ("blocked", "unknown")]
+    appearance = ("partial" if unresolved else "complete")
+    # Report passes only when appearance is also fully classified.
+    status = (integrity if integrity != "pass"
+              else "unknown" if unresolved else "pass")
+    return {"schema": SCHEMA_VERSION, "command": "audit",
+            "status": status,
+            "integrityStatus": integrity,
+            "appearanceCoverageStatus": appearance,
+            "unresolved": [_public(o) for o in unresolved],
             "candidate": str(cand_report),
             "candidateDigest": source_digest(cand_report),
             "manifestPresent": manifest is not None,
