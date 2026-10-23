@@ -126,10 +126,9 @@ measure, numeric thresholds, selectors and conditional structure.
 Waterfall increase/decrease/total and true business-rule conditional
 colors are intentionally protected from automatic recoloring.
 
-**Version boundary:** the public screenshots currently have candidate source
-revision 1a5f4ca. The enhanced chart-color changes were added in a later
-code revision and must be **re-captured from a validated new candidate**
-before claiming that their new pixels are already pictured below.
+The public screenshot previews **were re-captured after the chart-color
+implementation** on exact candidate revision 92e40b1, so bars, maps and
+numeric gradients visibly follow their chosen semantic palette.
 
 ## Filter-pane, slicer and dropdown behavior
 
@@ -150,8 +149,8 @@ These are genuine synthetic-demo presentation previews, not raw G2 runtime
 evidence. Each page was captured via the official Power BI Desktop authoring
 interface after Microsoft Modeling MCP Full processing. Every palette is
 sourced from the identical five-page Contoso report and Git revision
-[1a5f4ca](https://github.com/analienx/visual-quality-system/commit/1a5f4cac96b82820f1dd2670eae00a748a921a6d),
-and passed [official Microsoft authoring validation](https://github.com/analienx/visual-quality-system/actions/runs/39977461272).
+[92e40b1](https://github.com/analienx/visual-quality-system/commit/92e40b1097bf124c64a257a4db63f1d653e03f58),
+and passed [official Microsoft authoring validation](https://github.com/analienx/visual-quality-system/actions/runs/40038410291).
 
 - [Executive Blue Light public-preview and source-capture hash manifest](images/themes/light/manifest.json)
 - [Executive Blue Dark public-preview and source-capture hash manifest](images/themes/blue-dark/manifest.json)

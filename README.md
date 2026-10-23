@@ -177,8 +177,9 @@ the [interactive comparison gallery](docs/THEME_GALLERY.md).
 The VQS palette also controls categorical chart series, numeric
 bar/column/shape-map gradient stops and compatible slicer/filter-pane
 surfaces. Data-bound business thresholds and positive/negative semantics
-remain protected. The registered screenshot candidates predate the latest
-chart-gradient change and will be re-captured before final release.
+remain protected. All 25 public previews have now been re-captured from the validated
+chart-color implementation; bars, map gradients and explicit line series
+follow the chosen colorway while business conditional rules remain intact.
 
 [See all **25 five-theme native previews**](docs/THEME_GALLERY.md) ·
 [Theme CLI, safe adaptation and audit](docs/THEME_ENGINE.md)
