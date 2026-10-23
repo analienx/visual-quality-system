@@ -748,6 +748,70 @@ def _assurance(args) -> int:
     return 1 if output["verdict"] == "fail" else 2
 
 
+def _write_theme_out(out: Path | None, payload: dict) -> None:
+    text = json.dumps(payload, indent=2, ensure_ascii=False)
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text + "\n", encoding="utf-8")
+    print(text)
+
+
+def _theme(args: argparse.Namespace) -> int:
+    """Adaptive theme engine (issue #80); candidate-only writes."""
+    from .theme import (
+        ThemeError,
+        audit_candidate,
+        inspect_report,
+        load_palette,
+        palette_contrast_check,
+        preview_plan,
+        apply_theme,
+    )
+
+    try:
+        if args.theme_action == "inspect":
+            payload = inspect_report(args.report)
+            _write_theme_out(args.out, payload)
+            return 0
+        if args.theme_action == "audit":
+            payload = audit_candidate(args.candidate)
+            _write_theme_out(args.out, payload)
+            return {"pass": 0, "fail": 1, "unknown": 2}[payload["status"]]
+        palette = load_palette(args.mode, args.palette)
+        violations = palette_contrast_check(palette)
+        if violations:
+            payload = {"status": "blocked", "command": args.theme_action,
+                       "mode": args.mode,
+                       "reason": "palette contrast check failed",
+                       "violations": violations}
+            _write_theme_out(args.out, payload)
+            return 2
+        if args.theme_action == "preview":
+            payload = preview_plan(args.report, args.mode, palette)
+            _write_theme_out(args.out, payload)
+            return 0
+        if args.theme_action == "apply":
+            payload = apply_theme(args.report, args.mode, palette,
+                                  args.candidate_root)
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+            return 0
+        print(json.dumps({"status": "blocked",
+                          "reason": f"unknown theme action {args.theme_action}"}))
+        return 2
+    except (ThemeError, OSError, ValueError, KeyError, TypeError) as exc:
+        payload = {"status": "blocked",
+                   "reason": f"{type(exc).__name__}: {exc}"}
+        out = getattr(args, "out", None)
+        if out is not None:
+            try:
+                _write_theme_out(out, payload)
+            except OSError:
+                print(json.dumps(payload))
+        else:
+            print(json.dumps(payload))
+        return 2
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="vqs", description="Visual Quality System pre-alpha tools")
     parser.add_argument("--version", action="version",
@@ -755,6 +819,25 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     inventory = commands.add_parser("inventory", help="Read PBIR definition and bindings; not design approval")
     inventory.add_argument("report", type=Path, help="Enhanced-format *.Report folder")
+    theme_cmd = commands.add_parser(
+        "theme", help="Adaptive Light/Dark theme engine (candidate-only)")
+    theme_actions = theme_cmd.add_subparsers(dest="theme_action", required=True)
+    theme_inspect = theme_actions.add_parser("inspect", help="Classify every color occurrence")
+    theme_inspect.add_argument("report", type=Path, help="*.Report folder or .pbip")
+    theme_inspect.add_argument("--out", type=Path, default=None)
+    theme_preview = theme_actions.add_parser("preview", help="Read-only re-theme plan")
+    theme_preview.add_argument("report", type=Path, help="*.Report folder or .pbip")
+    theme_preview.add_argument("--mode", choices=("light", "dark"), required=True)
+    theme_preview.add_argument("--palette", type=Path, default=None)
+    theme_preview.add_argument("--out", type=Path, default=None)
+    theme_apply = theme_actions.add_parser("apply", help="Write a themed candidate project")
+    theme_apply.add_argument("report", type=Path, help="*.Report folder or .pbip")
+    theme_apply.add_argument("--mode", choices=("light", "dark"), required=True)
+    theme_apply.add_argument("--palette", type=Path, default=None)
+    theme_apply.add_argument("--candidate-root", type=Path, required=True)
+    theme_audit = theme_actions.add_parser("audit", help="Audit a themed candidate")
+    theme_audit.add_argument("candidate", type=Path, help="Candidate project, .pbip, or *.Report")
+    theme_audit.add_argument("--out", type=Path, default=None)
     triage = commands.add_parser(
         "triage", help="One-command prioritized report diagnosis and repair suggestions")
     triage.add_argument("report", type=Path, help="Enhanced-format *.Report folder")
@@ -1077,6 +1160,8 @@ def main(argv: list[str] | None = None) -> int:
                          help="Write the run envelope JSON here")
     commands.add_parser("mcp", help="Launch the stdio MCP server (tools vqs_*)")
     args = parser.parse_args(argv)
+    if args.command == "theme":
+        return _theme(args)
     if args.command == "triage":
         return _triage(args)
     if args.command == "premium":
