@@ -22,8 +22,13 @@ if str(REPO) not in sys.path:
 
 from scripts.theme_candidate_probe import PBIP, REPORT, validate_pbip
 from vqs.theme import (
-    THEME_SCHEMA, apply_theme, audit_candidate,
-    contrast_ratio, load_palette, palette_contrast_check, source_digest,
+    THEME_SCHEMA,
+    apply_theme,
+    audit_candidate,
+    contrast_ratio,
+    load_palette,
+    palette_contrast_check,
+    source_digest,
 )
 
 FAMILIES = json.loads(
@@ -111,7 +116,7 @@ def main() -> int:
         result["status"] = ("pass" if len(result["verified"]) == 28 and
                             all(x["pass"] for x in result["verified"].values())
                             else "fail")
-    except Exception as error:
+    except (OSError, ValueError, KeyError, RuntimeError, TimeoutError) as error:
         result["error"] = f"{type(error).__name__}: {error}"
     finally:
         OUT.parent.mkdir(parents=True, exist_ok=True)
