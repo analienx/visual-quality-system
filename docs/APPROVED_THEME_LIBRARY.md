@@ -1,79 +1,66 @@
-# Approved VQS theme library — 28 Dark/Light variants
+# Approved Power BI theme library — 14 families, 28 modes
 
-**Approved:** all 14 families in both modes (28 variants). Additive presets; defaults unchanged.
+All fourteen approved families are selectable as actual Power BI report
+theme presets in both Light and Dark, in addition to four legacy presets.
+The three highlighted examples below are **real native Power BI Desktop screenshots**.
+The other eleven are deliberately **color swatches only**, not simulated dashboards.
+The same Contoso source report is used consistently for the real screenshots.
 
-> These 28 SVG previews are **design simulations generated from the actual packaged theme tokens, not real Power BI screenshots**. All sample numbers are fictional. A separate GitHub-hosted job validates 28 actual five-page Contoso PBIP candidates with Microsoft's authoring CLI and schema. Independent screenshots and UX acceptance are separate.
+## Three featured palettes — authentic Power BI Desktop
+
+[**Full gallery · three report pages per mode →**](REAL_THEME_SHOWCASE.md)
+ · [Raw screenshot hashes and candidate digests](images/adaptive-showcase/PROVENANCE.json)
+
+### Sunny Palette
+
+| Light | Dark |
+| :--- | :--- |
+| [![Sunny Palette Light report](images/adaptive-showcase/sunny-palette-light/executive-overview.webp)](REAL_THEME_SHOWCASE.md) | [![Sunny Palette Dark report](images/adaptive-showcase/sunny-palette-dark/executive-overview.webp)](REAL_THEME_SHOWCASE.md) |
+
+### Organic Palette
+
+| Light | Dark |
+| :--- | :--- |
+| [![Organic Palette Light report](images/adaptive-showcase/organic-palette-light/executive-overview.webp)](REAL_THEME_SHOWCASE.md) | [![Organic Palette Dark report](images/adaptive-showcase/organic-palette-dark/executive-overview.webp)](REAL_THEME_SHOWCASE.md) |
+
+### Graphite Red
+
+| Light | Dark |
+| :--- | :--- |
+| [![Graphite Red Light report](images/adaptive-showcase/graphite-red-light/executive-overview.webp)](REAL_THEME_SHOWCASE.md) | [![Graphite Red Dark report](images/adaptive-showcase/graphite-red-dark/executive-overview.webp)](REAL_THEME_SHOWCASE.md) |
+
+## Remaining eleven color families — true palette swatches
+
+Each chip represents a packaged `dataColors` token from its selected mode;
+the canvas/surface/text colors are taken directly from the same palette JSON.
+These are not report screenshots or claims of independent native acceptance.
 
 | Dark | Light |
 | :--- | :--- |
-| **#05 Okabe–Ito Night · Dark** | **#05 Okabe–Ito Night · Light** |
-| [![Okabe–Ito Night Dark token preview](images/approved-themes/okabe-ito-night-dark.svg)](images/approved-themes/okabe-ito-night-dark.svg) | [![Okabe–Ito Night Light token preview](images/approved-themes/okabe-ito-night-light.svg)](images/approved-themes/okabe-ito-night-light.svg) |
+| **#05 Okabe–Ito Night · Dark**<br>![#05 Okabe–Ito Night dark token swatch](images/approved-themes/swatches/okabe-ito-night-dark.svg) | **#05 Okabe–Ito Night · Light**<br>![#05 Okabe–Ito Night light token swatch](images/approved-themes/swatches/okabe-ito-night-light.svg) |
+| **#08 Petrol & Gold · Dark**<br>![#08 Petrol & Gold dark token swatch](images/approved-themes/swatches/petrol-gold-dark.svg) | **#08 Petrol & Gold · Light**<br>![#08 Petrol & Gold light token swatch](images/approved-themes/swatches/petrol-gold-light.svg) |
+| **#09 Indigo Ember · Dark**<br>![#09 Indigo Ember dark token swatch](images/approved-themes/swatches/indigo-ember-dark.svg) | **#09 Indigo Ember · Light**<br>![#09 Indigo Ember light token swatch](images/approved-themes/swatches/indigo-ember-light.svg) |
+| **#12 Arctic Aurora · Dark**<br>![#12 Arctic Aurora dark token swatch](images/approved-themes/swatches/arctic-aurora-dark.svg) | **#12 Arctic Aurora · Light**<br>![#12 Arctic Aurora light token swatch](images/approved-themes/swatches/arctic-aurora-light.svg) |
+| **#14 Mediterranean Terra · Dark**<br>![#14 Mediterranean Terra dark token swatch](images/approved-themes/swatches/mediterranean-terra-dark.svg) | **#14 Mediterranean Terra · Light**<br>![#14 Mediterranean Terra light token swatch](images/approved-themes/swatches/mediterranean-terra-light.svg) |
+| **#15 Saffron & Spruce · Dark**<br>![#15 Saffron & Spruce dark token swatch](images/approved-themes/swatches/saffron-spruce-dark.svg) | **#15 Saffron & Spruce · Light**<br>![#15 Saffron & Spruce light token swatch](images/approved-themes/swatches/saffron-spruce-light.svg) |
+| **#18 Autumn Editorial · Dark**<br>![#18 Autumn Editorial dark token swatch](images/approved-themes/swatches/autumn-editorial-dark.svg) | **#18 Autumn Editorial · Light**<br>![#18 Autumn Editorial light token swatch](images/approved-themes/swatches/autumn-editorial-light.svg) |
+| **#19 Violet Ice · Dark**<br>![#19 Violet Ice dark token swatch](images/approved-themes/swatches/violet-ice-dark.svg) | **#19 Violet Ice · Light**<br>![#19 Violet Ice light token swatch](images/approved-themes/swatches/violet-ice-light.svg) |
+| **#25 Electric Atelier · Dark**<br>![#25 Electric Atelier dark token swatch](images/approved-themes/swatches/electric-atelier-dark.svg) | **#25 Electric Atelier · Light**<br>![#25 Electric Atelier light token swatch](images/approved-themes/swatches/electric-atelier-light.svg) |
+| **#26 Riviera Pop · Dark**<br>![#26 Riviera Pop dark token swatch](images/approved-themes/swatches/riviera-pop-dark.svg) | **#26 Riviera Pop · Light**<br>![#26 Riviera Pop light token swatch](images/approved-themes/swatches/riviera-pop-light.svg) |
+| **#30 Bold Eclectic · Dark**<br>![#30 Bold Eclectic dark token swatch](images/approved-themes/swatches/bold-eclectic-dark.svg) | **#30 Bold Eclectic · Light**<br>![#30 Bold Eclectic light token swatch](images/approved-themes/swatches/bold-eclectic-light.svg) |
 
-| **#08 Petrol & Gold · Dark** | **#08 Petrol & Gold · Light** |
-| [![Petrol & Gold Dark token preview](images/approved-themes/petrol-gold-dark.svg)](images/approved-themes/petrol-gold-dark.svg) | [![Petrol & Gold Light token preview](images/approved-themes/petrol-gold-light.svg)](images/approved-themes/petrol-gold-light.svg) |
+## Apply a palette without altering the source
 
-| **#09 Indigo Ember · Dark** | **#09 Indigo Ember · Light** |
-| [![Indigo Ember Dark token preview](images/approved-themes/indigo-ember-dark.svg)](images/approved-themes/indigo-ember-dark.svg) | [![Indigo Ember Light token preview](images/approved-themes/indigo-ember-light.svg)](images/approved-themes/indigo-ember-light.svg) |
-
-| **#12 Arctic Aurora · Dark** | **#12 Arctic Aurora · Light** |
-| [![Arctic Aurora Dark token preview](images/approved-themes/arctic-aurora-dark.svg)](images/approved-themes/arctic-aurora-dark.svg) | [![Arctic Aurora Light token preview](images/approved-themes/arctic-aurora-light.svg)](images/approved-themes/arctic-aurora-light.svg) |
-
-| **#14 Mediterranean Terra · Dark** | **#14 Mediterranean Terra · Light** |
-| [![Mediterranean Terra Dark token preview](images/approved-themes/mediterranean-terra-dark.svg)](images/approved-themes/mediterranean-terra-dark.svg) | [![Mediterranean Terra Light token preview](images/approved-themes/mediterranean-terra-light.svg)](images/approved-themes/mediterranean-terra-light.svg) |
-
-| **#15 Saffron & Spruce · Dark** | **#15 Saffron & Spruce · Light** |
-| [![Saffron & Spruce Dark token preview](images/approved-themes/saffron-spruce-dark.svg)](images/approved-themes/saffron-spruce-dark.svg) | [![Saffron & Spruce Light token preview](images/approved-themes/saffron-spruce-light.svg)](images/approved-themes/saffron-spruce-light.svg) |
-
-| **#18 Autumn Editorial · Dark** | **#18 Autumn Editorial · Light** |
-| [![Autumn Editorial Dark token preview](images/approved-themes/autumn-editorial-dark.svg)](images/approved-themes/autumn-editorial-dark.svg) | [![Autumn Editorial Light token preview](images/approved-themes/autumn-editorial-light.svg)](images/approved-themes/autumn-editorial-light.svg) |
-
-| **#19 Violet Ice · Dark** | **#19 Violet Ice · Light** |
-| [![Violet Ice Dark token preview](images/approved-themes/violet-ice-dark.svg)](images/approved-themes/violet-ice-dark.svg) | [![Violet Ice Light token preview](images/approved-themes/violet-ice-light.svg)](images/approved-themes/violet-ice-light.svg) |
-
-| **#25 Electric Atelier · Dark** | **#25 Electric Atelier · Light** |
-| [![Electric Atelier Dark token preview](images/approved-themes/electric-atelier-dark.svg)](images/approved-themes/electric-atelier-dark.svg) | [![Electric Atelier Light token preview](images/approved-themes/electric-atelier-light.svg)](images/approved-themes/electric-atelier-light.svg) |
-
-| **#26 Riviera Pop · Dark** | **#26 Riviera Pop · Light** |
-| [![Riviera Pop Dark token preview](images/approved-themes/riviera-pop-dark.svg)](images/approved-themes/riviera-pop-dark.svg) | [![Riviera Pop Light token preview](images/approved-themes/riviera-pop-light.svg)](images/approved-themes/riviera-pop-light.svg) |
-
-| **#30 Bold Eclectic · Dark** | **#30 Bold Eclectic · Light** |
-| [![Bold Eclectic Dark token preview](images/approved-themes/bold-eclectic-dark.svg)](images/approved-themes/bold-eclectic-dark.svg) | [![Bold Eclectic Light token preview](images/approved-themes/bold-eclectic-light.svg)](images/approved-themes/bold-eclectic-light.svg) |
-
-| **#31 Graphite Red · Dark** | **#31 Graphite Red · Light** |
-| [![Graphite Red Dark token preview](images/approved-themes/graphite-red-dark.svg)](images/approved-themes/graphite-red-dark.svg) | [![Graphite Red Light token preview](images/approved-themes/graphite-red-light.svg)](images/approved-themes/graphite-red-light.svg) |
-
-| **#32 Organic Palette · Dark** | **#32 Organic Palette · Light** |
-| [![Organic Palette Dark token preview](images/approved-themes/organic-palette-dark.svg)](images/approved-themes/organic-palette-dark.svg) | [![Organic Palette Light token preview](images/approved-themes/organic-palette-light.svg)](images/approved-themes/organic-palette-light.svg) |
-
-| **#33 Sunny Palette · Dark** | **#33 Sunny Palette · Light** |
-| [![Sunny Palette Dark token preview](images/approved-themes/sunny-palette-dark.svg)](images/approved-themes/sunny-palette-dark.svg) | [![Sunny Palette Light token preview](images/approved-themes/sunny-palette-light.svg)](images/approved-themes/sunny-palette-light.svg) |
-
-## Use as real selectable Power BI presets
-
-```console
+```bash
 vqs theme presets
-vqs theme preview "examples/contoso-retail/Contoso Retail.pbip" --mode dark --palette-preset organic-palette --out organic-plan.json
-vqs theme apply "examples/contoso-retail/Contoso Retail.pbip" --mode light --palette-preset sunny-palette --candidate-root ./sun-candidate
-vqs theme audit ./sun-candidate
+vqs theme preview "examples/contoso-retail/Contoso Retail.pbip" --mode dark --palette-preset sunny-palette --out plan.json
+vqs theme apply "examples/contoso-retail/Contoso Retail.pbip" --mode light --palette-preset organic-palette --candidate-root ./organic-candidate
+vqs theme audit ./organic-candidate
 ```
 
-Each approved palette has source-identical files in `vqs/palettes/` and `examples/theme-palettes/`. See [the approved palette selection manifest](APPROVED_THEME_SELECTION.json).
-
-## Original, independently named color families
-
-**Organic Palette** is a balanced blue, teal, rose and green-based palette
-with independently designed Light/Dark surfaces and ordered chart series.
-**Sunny Palette** is warm amber-led, with deliberately contrasting teal,
-violet, olive, coral and blue series. Both are original VQS design choices:
-no company affiliation, endorsement, official template, or brand claim.
-
-**Graphite Red** uses red highlights with neutral greys for other categories;
-greys still need labels because hue-free categories are not reliably separable.
-Genuine good/bad business meanings are protected from arbitrary remapping.
-
-## Verification and limitations
-
-- Twenty-eight real Contoso PBIPs with five pages each are generated and run through the official native authoring CLI, theme JSON schema, VQS candidate audit and source invariance checks by [the hosted library probe](../scripts/theme_approved_library_probe.py).
-- Every series color meets >=3:1 contrast on the card surface; text/control roles pass VQS palette contrast checks. Categorical hue distinctness and small-label legibility still require native Desktop visual review.
-- The original [five-theme real Desktop screenshot gallery](THEME_GALLERY.md) remains unchanged. Do not conflate this palette SVG gallery with those authenticated native captures.
-- The PR remains draft; user approval authorizes implementation and feature-branch publication, not release merge or G2/G6 certification.
+Candidates are isolated and source-bound. Dynamic business rules are preserved;
+literal category and supported numeric gradient colors are recolored under
+the documented safety registry. See [theme engine](THEME_ENGINE.md) and
+[approval manifest](APPROVED_THEME_SELECTION.json).
+Native screenshots do not prove interaction-state styling or independent release
+approval; those remain separate review gates.

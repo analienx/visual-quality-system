@@ -128,6 +128,18 @@ in `definition/report.json` (`themeCollection.customTheme` +
 `resourcePackages`). The previous candidate theme file is removed only
 inside the candidate.
 
+## Native text-contrast completion
+
+Where a chart exposes a visible native legend (including donut/waterfall
+examples and supported measure-bound gradient bars), supported
+`legend.labelColor` is explicitly set rather than relying on a too-dim
+built-in default. Shown visual subtitles without `fontColor` receive the
+palette's contrast-safe muted text. This changes only appearance:
+labels, measures, legend membership, titles, conditions and selectors remain
+unchanged. Native screenshots, not schema validation alone, were used to
+verify the initial dark-mode regression. Other, unsupported control states
+remain blocked pending independent inspection.
+
 ## Limitations
 
 - No Desktop toggle: this is a report authoring/conversion feature.

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="164" viewBox="0 0 820 164">
+<rect width="820" height="164" rx="18" fill="#161F30"/>
+<rect x="12" y="12" width="796" height="140" rx="12" fill="#242E44"/>
+<text x="30" y="48" fill="#F4F6F8" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="650">Electric Atelier</text>
+<text x="30" y="78" fill="#D0D4DC" font-family="Segoe UI,Arial,sans-serif" font-size="15">Dark · actual theme tokens</text>
+<rect x="30" y="100" width="84" height="37" rx="7" fill="#75C4F0"/>
+<rect x="124" y="100" width="84" height="37" rx="7" fill="#F5A58A"/>
+<rect x="218" y="100" width="84" height="37" rx="7" fill="#B39AF3"/>
+<rect x="312" y="100" width="84" height="37" rx="7" fill="#99DBAD"/>
+<rect x="406" y="100" width="84" height="37" rx="7" fill="#EACD69"/>
+<rect x="500" y="100" width="84" height="37" rx="7" fill="#EE91BE"/>
+<rect x="594" y="100" width="84" height="37" rx="7" fill="#83D1CC"/>
+<rect x="688" y="100" width="84" height="37" rx="7" fill="#B9C5E2"/>
+</svg>

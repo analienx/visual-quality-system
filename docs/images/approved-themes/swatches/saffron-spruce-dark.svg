@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="164" viewBox="0 0 820 164">
+<rect width="820" height="164" rx="18" fill="#1C261F"/>
+<rect x="12" y="12" width="796" height="140" rx="12" fill="#29342A"/>
+<text x="30" y="48" fill="#F4F6F8" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="650">Saffron &amp; Spruce</text>
+<text x="30" y="78" fill="#D0D4DC" font-family="Segoe UI,Arial,sans-serif" font-size="15">Dark · actual theme tokens</text>
+<rect x="30" y="100" width="84" height="37" rx="7" fill="#EFC361"/>
+<rect x="124" y="100" width="84" height="37" rx="7" fill="#79BAA0"/>
+<rect x="218" y="100" width="84" height="37" rx="7" fill="#DD8F71"/>
+<rect x="312" y="100" width="84" height="37" rx="7" fill="#AAC885"/>
+<rect x="406" y="100" width="84" height="37" rx="7" fill="#B5A6DA"/>
+<rect x="500" y="100" width="84" height="37" rx="7" fill="#80BFD7"/>
+<rect x="594" y="100" width="84" height="37" rx="7" fill="#D69DBD"/>
+<rect x="688" y="100" width="84" height="37" rx="7" fill="#CEC2A5"/>
+</svg>

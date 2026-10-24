@@ -18,13 +18,22 @@ remain valid for the code already in main.
   evidence, and supported numerical `linearGradient2/3` color stops.
   Bound business measures, filter selections, conditional thresholds and
   positive/negative meaning remain unchanged.
-- Hosted CI, R6 and Microsoft official authoring validation for the exact
-  feature head `db41011db7cd84452244f7e1e25e69aac45fb8e4` **passed**
-  on 24 October 2026. Microsoft authoring validated **28 generated five-page
-  Contoso PBIP candidates**; it does not evaluate pixels.
-- [28 token-accurate design simulations](APPROVED_THEME_LIBRARY.md)
-  and [25 genuine existing Desktop captures](THEME_GALLERY.md) are
-  clearly separated, with provenance. The latter are *older colorways*.
+- CI, R6 and official Microsoft report-authoring validation all **passed**
+  at implementation commit `b113f77ba60e5215fc59cddc11994f1702aa56c1`.
+  GitHub validated **28 five-page Contoso PBIP candidates** (140 page
+  definitions); structural validation alone does not certify pixels.
+- A [curated real Power BI Desktop showcase](REAL_THEME_SHOWCASE.md) captures
+  all five native pages for **Sunny, Organic and Graphite Red**, in both modes
+  (30 genuine native page captures). The public gallery embeds three
+  representative report pages per mode (18 resized WebP images), and the
+  [capture provenance](images/adaptive-showcase/PROVENANCE.json) records
+  raw/public SHA-256, candidate/model/source identities and the exact code
+  used. The remaining 11 family pairs are [token-only color swatches](APPROVED_THEME_LIBRARY.md),
+  not invented report screenshots. The earlier five-colorway
+  [native gallery](THEME_GALLERY.md) is retained separately.
+- Verified native Sunny Dark subtitle and chart-legend appearance, after
+  correction for implicit low-contrast text; guarded wildcard chart fills
+  follow selected tokens while waterfall business semantics remain intact.
 
 ## Finite remaining acceptance gates
 

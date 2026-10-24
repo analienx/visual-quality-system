@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="164" viewBox="0 0 820 164">
+<rect width="820" height="164" rx="18" fill="#F1F1FB"/>
+<rect x="12" y="12" width="796" height="140" rx="12" fill="#FFFFFF"/>
+<text x="30" y="48" fill="#1F2834" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="650">Indigo Ember</text>
+<text x="30" y="78" fill="#4A5563" font-family="Segoe UI,Arial,sans-serif" font-size="15">Light · actual theme tokens</text>
+<rect x="30" y="100" width="84" height="37" rx="7" fill="#888EDE"/>
+<rect x="124" y="100" width="84" height="37" rx="7" fill="#C08256"/>
+<rect x="218" y="100" width="84" height="37" rx="7" fill="#539A8D"/>
+<rect x="312" y="100" width="84" height="37" rx="7" fill="#BC7F9D"/>
+<rect x="406" y="100" width="84" height="37" rx="7" fill="#8B9459"/>
+<rect x="500" y="100" width="84" height="37" rx="7" fill="#6F9AB4"/>
+<rect x="594" y="100" width="84" height="37" rx="7" fill="#A98B6E"/>
+<rect x="688" y="100" width="84" height="37" rx="7" fill="#8193B2"/>
+</svg>

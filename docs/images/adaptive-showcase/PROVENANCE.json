@@ -1,0 +1,416 @@
+{
+  "schema": "vqs.public-theme-showcase/1",
+  "authoringHead": "b113f77ba60e5215fc59cddc11994f1702aa56c1",
+  "source": "five-page synthetic Contoso Retail PBIP, exact GH-hosted candidate artifact",
+  "captureHost": "Microsoft Power BI Desktop via Microsoft Power BI Report Author CLI, all-pages native PNG",
+  "modes": {
+    "sunny-palette-light": {
+      "sourceDigest": "37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca",
+      "candidateDigest": "c935e4a330453a446759934884d657d63f618f43fef4d6cd931c10e306b02789",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "paletteHash": "ea9c5d8bf61b1ab52e42310391e12d23fc6d633a017805f59e18ba9b101ef40b",
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/sunny-palette-light/executive-overview.webp",
+          "captureSha256": "e115b78443440fdd5065b99a6d907757f5d7bc19d120b24ea1aac7fdb2032aa3",
+          "webpSha256": "d28c31597949621a0a966598856a404d702c421f09f901229b0f907f08a1f38c",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/sunny-palette-light/products-and-brands.webp",
+          "captureSha256": "6f71631f76b2b66d9129d08fc44daad455902d5d6e1d98e68943814dd54ca294",
+          "webpSha256": "1e93424f21e0bdcdf5016f34d5ebce8bc3d2c3673fb4172daba792922c9d1719",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Deep-dive insights",
+          "file": "docs/images/adaptive-showcase/sunny-palette-light/deep-dive-insights.webp",
+          "captureSha256": "1f886766be2a2b552e72759879e6dcc48526a1db1924f4eea1f832e957811ede",
+          "webpSha256": "6e4f2ffae7e85bf06f451ad674aa529a0b0d70a2c453034df873e13d9958823c",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "sunny-palette-dark": {
+      "sourceDigest": "37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca",
+      "candidateDigest": "092a3cb5552ff39e525da8a1930ae26a1f8bc23977a9289d89266dffdb7a54ee",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "paletteHash": "b31ff65ba1f679f74ce727b85eee277d8eb99e07ec28cd9cd3e836a2cc2c15d0",
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/sunny-palette-dark/executive-overview.webp",
+          "captureSha256": "8aaeede64b86fff9f36164b94f810c63eb3cfedbc955e37939eb857f572b1217",
+          "webpSha256": "cdf8a061af2b36ecebf4be0b7d92deefd5230ec84d8b45f0295240f8561dd79a",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/sunny-palette-dark/products-and-brands.webp",
+          "captureSha256": "46e693e7a1059bda04b559296159cdc0b05be63048b87ab4125509e5f616dc12",
+          "webpSha256": "97b02c8daf6d7b744ab881ed10b84a92e6599456ae32357d192e503adfe1f31d",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Deep-dive insights",
+          "file": "docs/images/adaptive-showcase/sunny-palette-dark/deep-dive-insights.webp",
+          "captureSha256": "28da7c3285592e1cce1115bd93cb6d52a51e6bb924ee92faf7629c3ba1bdcabf",
+          "webpSha256": "68d82c0df3fa2426ee6e9dca259624c623810aecac4401be51d86272d0c27d3b",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "organic-palette-light": {
+      "sourceDigest": "37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca",
+      "candidateDigest": "aeaf182743386706b7721938de82ace8257007250346b25a84b9f376c84d773c",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "paletteHash": "7253375f411bf8c63449bc4dfe61f770ec10922c493260997f41f5ed15601bce",
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/organic-palette-light/executive-overview.webp",
+          "captureSha256": "8314d057c99f7bdbec70aa553aad5bb91d914cd683b897c76cd5604dd18bd832",
+          "webpSha256": "e90adff711d4665d2cdc50325eeed7a1f91a4075729a577cad6f21ca5562e147",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/organic-palette-light/products-and-brands.webp",
+          "captureSha256": "43ed8286e4102fefa3ac2a863463d940c16f62f9b1d3dff5b5b62c127443ecfa",
+          "webpSha256": "3d6508501e16b30fb414d86cf92889ac9b5693a3e67f019c0d359b548c3bcab4",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Deep-dive insights",
+          "file": "docs/images/adaptive-showcase/organic-palette-light/deep-dive-insights.webp",
+          "captureSha256": "64c8568f86ac249a6537abefc827ba42f652054345622295c419b15047af5107",
+          "webpSha256": "578af4af5cdf3f0b051aff0159c18f80822d8e82c4d96a7c2f08c7e713b6cff5",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "organic-palette-dark": {
+      "sourceDigest": "37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca",
+      "candidateDigest": "86565e3dfe29420d4e059521cb9659b1e0e34d0c7e8b11127f5aea5e8ea7fa6c",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "paletteHash": "c4d2effdf6aa97b55f20c1c2dc43fba379d2dc446611733b59282f70ef52dd1f",
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/organic-palette-dark/executive-overview.webp",
+          "captureSha256": "37e827fde189b473c31be7e30e1c15815103f678764123704cec794640915392",
+          "webpSha256": "f9b6bbca4e00a72cdd8c84d66f3473354deac62e76965c9a05776d4a749018f2",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/organic-palette-dark/products-and-brands.webp",
+          "captureSha256": "29104ff8c084a34fef56d450f0d1679158e4f3e9711583b900dec07354391668",
+          "webpSha256": "9cf24618ce1b52a689b20b73334d4fa6e8351bf9d5b5077f9cf814ecc014ab1b",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Deep-dive insights",
+          "file": "docs/images/adaptive-showcase/organic-palette-dark/deep-dive-insights.webp",
+          "captureSha256": "5a8d7942af9afd8357ae2ee39b40845bc1d14a5646976926ec7ab05109d14f4a",
+          "webpSha256": "8a1acf853d2623031c2caef6765ffa46062234e1efc6dbd607f405be80b3c901",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "graphite-red-light": {
+      "sourceDigest": "37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca",
+      "candidateDigest": "70cf4cfae6341fdabd6a9af7eafe28b87642a907c692e41d71fcd3a8238b6403",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "paletteHash": "588d55a8ba24559c3c0705d2a07b7a48321fa44133c7c225ac64d0db2a0bc3ed",
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/graphite-red-light/executive-overview.webp",
+          "captureSha256": "7c4cd4d0292760d8a1a5a92778b49fc526927223ef8c4092f07838d1b3e4f266",
+          "webpSha256": "2a85b122c7705696d391e61548dd4b57e774ed09a358b395d212736496315a38",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/graphite-red-light/products-and-brands.webp",
+          "captureSha256": "9742e480a0e3bc73e9ddc5549488ccdee8da517a2c5997ef6b425ae7503c4b2c",
+          "webpSha256": "c776aa450f063a4ea64b3ad89cdd9e20e3ed33dce76aa9b9b47faaf7966c18cc",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Deep-dive insights",
+          "file": "docs/images/adaptive-showcase/graphite-red-light/deep-dive-insights.webp",
+          "captureSha256": "f9d9a3b5c6b91a769bbd8cec8cdd34b3c05913bed9560e66a7a2112d81ce5a5c",
+          "webpSha256": "567d837197a9ba87a57d77e581d91e22551aed16b1d6b82304f3fa5dd64f4528",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "graphite-red-dark": {
+      "sourceDigest": "37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca",
+      "candidateDigest": "10a71d82c7751432359a0b7042ecddfaca8641705863ba26c2118f9cdf7de63d",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "paletteHash": "b3eaf25464d36f3e16706d021d4b069cbce71e1bcaa5e80df21ebb5f1a54da02",
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/graphite-red-dark/executive-overview.webp",
+          "captureSha256": "b9e78170fa355bf842d3d5a9379d2fcdc56b64e8c4cf57b267cb590af0b2f7f1",
+          "webpSha256": "1b075f543b66aed5709647bfbcfcdbc1ba14f9a5e34e7fc1d2afa33e6205633c",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/graphite-red-dark/products-and-brands.webp",
+          "captureSha256": "63a567e7e5bd616f48dfac399e34cb57f381b66000f042876fbcb49bf582c644",
+          "webpSha256": "af1a60f3a9bacfe959810bf516df0011b492dbaa666015864f3d09a8f369f690",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Deep-dive insights",
+          "file": "docs/images/adaptive-showcase/graphite-red-dark/deep-dive-insights.webp",
+          "captureSha256": "98a1d62951245148b021b7c8a9dbda4b2a0f8fc2002c193ed59f598d4b69e256",
+          "webpSha256": "fbf689140aa4bd0e8fb5ed46227879553f8933bbbf9d601f87bc79a3ca3fd592",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    }
+  }
+}
