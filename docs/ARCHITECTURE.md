@@ -1,7 +1,7 @@
 # Visual Quality System · Architecture
 
 **Power BI-first. One engine, two execution environments, one independent verdict.**
-Updated **22 October 2026** · [Product README](../README.md) · [Release evidence](RELEASE_NOTES_2026-10-21.md) · [Acceptance gates](ACCEPTANCE_MATRIX.md)
+Updated **24 October 2026** · [Product README](../README.md) · [Documentation hub](README.md) · [Theme candidate gallery](REAL_THEME_SHOWCASE.md) · [Release evidence](RELEASE_NOTES_2026-10-21.md) · [Acceptance gates](ACCEPTANCE_MATRIX.md)
 
 VQS is a **quality and safe-repair engine**, not an alternative Power BI report authoring application. It compares PBIP/PBIR/TMDL source facts, a populated semantic model and real Power BI Desktop behavior. It reports **pass**, **fail** or **blocked** against a defined scope; missing evidence never becomes a pass. The current version is an **engineering preview**, not an independently certified release.
 
