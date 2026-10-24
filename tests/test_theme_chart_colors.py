@@ -206,3 +206,62 @@ def test_real_contoso_wildcard_channel_fill_follows_theme(
     assert selected["properties"]["fill"]["solid"]["color"]["expr"] == (
         _literal(palette["dataColors"][0]))
     assert audit_candidate(candidate)["integrityStatus"] == "pass"
+
+
+@pytest.mark.parametrize("mode", ("light", "dark"))
+def test_real_contoso_dark_secondary_legend_and_subtitle(
+        tmp_path: Path, mode: str) -> None:
+    """Native evidence: waterfall description and donut legend readable."""
+    palette = load_palette(mode, None, "sunny-palette")
+    plan = build_plan(CONTOSO, mode, palette)
+    waterfall = "b1c2d3e4f5061728394a"
+    donut = "sales-by-channel"
+    required = [c for c in plan["changes"]
+                if c["visual"] == waterfall
+                and "/subTitle/0/properties/fontColor" in c["pointer"]]
+    assert len(required) == 1
+    assert required[0]["new"]["solid"]["color"]["expr"] == _literal(
+        palette["mutedForeground"])
+    legend = [c for c in plan["changes"]
+              if c["visual"] == donut
+              and c["pointer"] == "/visual/objects/legend"]
+    assert len(legend) == 1
+    cand = tmp_path / mode
+    apply_theme(CONTOSO, mode, palette, cand)
+    wf = _read(cand / "Contoso Retail.Report/definition/pages/"
+               "Markets_drivers/visuals" / waterfall / "visual.json")
+    dn = _read(cand / "Contoso Retail.Report/definition/pages/"
+               "d9bc3b8f90439bcc/visuals" / donut / "visual.json")
+    props = wf["visual"]["visualContainerObjects"]["subTitle"][0]["properties"]
+    assert props["fontColor"]["solid"]["color"]["expr"] == _literal(
+        palette["mutedForeground"])
+    assert props["show"]["expr"]["Literal"]["Value"] == "true"
+    assert dn["visual"]["objects"]["legend"][0]["properties"][
+        "labelColor"]["solid"]["color"]["expr"] == _literal(
+            palette["mutedForeground"])
+    assert audit_candidate(cand)["integrityStatus"] == "pass"
+
+
+def test_real_contoso_numeric_gradient_legend_contrast_is_explicit(
+        tmp_path: Path) -> None:
+    """Native dark bar scales rendered low-contrast automatic legend captions."""
+    palette = load_palette("dark", None, "sunny-palette")
+    source = (CONTOSO / "definition/pages/Products_brands/visuals"
+              / "6eef7fa2804207db6a94/visual.json")
+    original = _read(source)
+    assert "FillRule" in json.dumps(original["visual"]["objects"]["dataPoint"])
+    assert "legend" not in original["visual"]["objects"]
+    plan = build_plan(CONTOSO, "dark", palette)
+    found = [c for c in plan["changes"]
+             if c["visual"] == "6eef7fa2804207db6a94"
+             and c["pointer"] == "/visual/objects/legend"]
+    assert len(found) == 1
+    dest = tmp_path / "candidate"
+    apply_theme(CONTOSO, "dark", palette, dest)
+    updated = _read(dest / "Contoso Retail.Report/definition/pages/"
+                    "Products_brands/visuals/6eef7fa2804207db6a94/visual.json")
+    assert updated["visual"]["objects"]["legend"][0]["properties"][
+        "labelColor"]["solid"]["color"]["expr"] == _literal(
+            palette["mutedForeground"])
+    assert updated["visual"]["query"] == original["visual"]["query"]
+    assert audit_candidate(dest)["integrityStatus"] == "pass"

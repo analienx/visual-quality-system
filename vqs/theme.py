@@ -1326,6 +1326,42 @@ def _synthesized_changes(report_dir: Path, palette: dict[str, Any]) -> list[dict
                            "legend": {"labelColor": "mutedForeground"}}
             if vtype == "tableEx":
                 targets.pop("rowHeaders", None)
+            # The supported Microsoft chart legend labelColor defaults can
+            # render nearly black over dark surfaces when left implicit.
+            # Only the two built-in visual types with observed native
+            # legends get missing appearance overrides; show/selection stays.
+            chrome = visual.get("visualContainerObjects") or {}
+            has_numeric_legend = (
+                vtype in ("clusteredBarChart", "clusteredColumnChart")
+                and _subtree_has(objects.get("dataPoint", []), "FillRule"))
+            if ((vtype in ("donutChart", "waterfallChart")
+                 or has_numeric_legend)
+                    and chrome.get("title") and not objects.get("legend")):
+                add(visual_file, ctx, ["visual", "objects", "legend"],
+                    "mutedForeground",
+                    [{"properties": {"labelColor": _inline_color(
+                        str(palette["mutedForeground"]))}}],
+                    "explicit built-in chart legend text for dark/light")
+            # A shown native VCO subtitle may lack an explicit fontColor,
+            # even while the title is correctly themed. Add color alone,
+            # never modify subtitle wording/visibility or geometry.
+            subtitle_entries = chrome.get("subTitle")
+            if isinstance(subtitle_entries, list):
+                for index, entry in enumerate(subtitle_entries):
+                    if not isinstance(entry, dict) or entry.get("selector"):
+                        continue
+                    properties = entry.get("properties")
+                    if not isinstance(properties, dict) or "fontColor" in properties:
+                        continue
+                    show = properties.get("show", {}).get("expr", {}).get(
+                        "Literal", {}).get("Value")
+                    if show not in ("true", "'true'"):
+                        continue
+                    add(visual_file, ctx, [
+                        "visual", "visualContainerObjects", "subTitle", index,
+                        "properties", "fontColor"], "mutedForeground",
+                        _inline_color(str(palette["mutedForeground"])),
+                        "shown subtitle needs a surface-contrasting explicit color")
             for group, props_to_add in targets.items():
                 entries = objects.get(group)
                 if entries is None:
