@@ -67,7 +67,7 @@ def test_embedded_model_matches_the_rendered_fixture_and_has_no_external_sources
     assert "*.abf" in ignore and "**/.pbi/" in ignore
 
 
-def test_all_five_readme_images_match_public_provenance():
+def test_all_five_historical_images_remain_source_matched_and_navigable():
     root_readme = (REPO / "README.md").read_text(encoding="utf-8")
     example_readme = (EXAMPLE / "README.md").read_text(encoding="utf-8")
     provenance = (GALLERY / "ASSET_PROVENANCE.md").read_text(encoding="utf-8")
@@ -75,6 +75,11 @@ def test_all_five_readme_images_match_public_provenance():
     assert EXPECTED_REPORT in example_readme
     assert EXPECTED_MODEL in example_readme
     assert "Contoso%20Retail.pbip" in provenance
+    # The current README promotes three authentic Light/Dark themes instead
+    # of re-embedding the original five-page legacy gallery. Preserve all
+    # historical assets, source hashes and a clear link to that gallery.
+    assert "docs/THEME_GALLERY.md" in root_readme
+    assert "docs/REAL_THEME_SHOWCASE.md" in root_readme
     for page_id, filename in PAGES.items():
         asset = GALLERY / filename
         assert asset.is_file()
@@ -82,5 +87,5 @@ def test_all_five_readme_images_match_public_provenance():
         assert body[:4] == b"RIFF" and body[8:12] == b"WEBP"
         assert len(body) < 150_000
         assert sha256(body).hexdigest() in provenance
-        assert filename in root_readme and filename in example_readme
+        assert filename in example_readme
         assert page_id in provenance

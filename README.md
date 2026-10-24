@@ -20,7 +20,7 @@
 ## Real Power BI showcase
 
 **Three distinctive palette families. Two modes each. Real, populated Power BI Desktop renders.**
-All screenshots come from generated candidates of the same five-page [fictional Contoso Retail PBIP](examples/contoso-retail/README.md); none is a simulated dashboard or an AI-generated illustration.
+All screenshots come from generated candidates of the same five-page [fictional Contoso Retail PBIP](examples/contoso-retail/README.md) ([open the exact source report](examples/contoso-retail/Contoso%20Retail.pbip)); none is a simulated dashboard or an AI-generated illustration.
 
 
 ### Sunny Palette
