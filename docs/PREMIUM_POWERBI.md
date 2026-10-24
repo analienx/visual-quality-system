@@ -30,6 +30,25 @@ The `top_three` array lists at most three grounded, priority-ordered recommendat
 
 `vqs assurance` carries the same source preflight as an advisory subsection next to independent rendered pixel measurements; it cannot elevate a G2/G4/G6 status. The existing `vqs review-images` uses an opt-in, image-capable reviewer on a hash-verified full-page capture; no model judgment alone approves a release.
 
+## Categorical colors and visually similar bars
+
+VQS now identifies two related but distinct source risks:
+
+- **`color.palette_series_collision`** — the registered report theme
+  declares near-indistinguishable `dataColors`. Reports the exact weakest
+  index pairs, normal CIELAB ΔE76, approximate protan/deutan/tritan distances,
+  and affected chart/page IDs. It is **not proof** all colors were drawn.
+- **`color.numeric_gradient_category_ambiguity`** — a numeric
+  measure-bound `FillRule` colors categorical bars. Similar measured
+  values legitimately produce similar shades, but may make category identity
+  hard to scan. This is *low-priority review advice*, never permission to
+  discard a quantitative encoding or change the business measure.
+
+The first-two-series readability screen is stricter because two thin lines
+can merge visually at normal dashboard viewing sizes. The actual pixel-level
+legibility still needs populated Desktop evidence, particularly for
+color-vision deficiencies. Neither rule modifies any source.
+
 ## 4. The safe improvement loop
 
 1. Generate/edit contract and use `vqs triage` plus `vqs premium` to identify concrete work.

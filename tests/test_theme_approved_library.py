@@ -91,14 +91,28 @@ def test_contoso_has_native_appearance_and_chart_ramp_edits(
     assert not any("/Conditional/" in c["pointer"] for c in changes)
 
 
-def test_graphite_red_has_no_other_chromatic_chart_series() -> None:
+def test_graphite_red_does_not_enforce_monochrome_chart_series() -> None:
+    # Regression: the old test *required* nearly identical greys, causing
+    # visually indistinguishable series in real Power BI Desktop screenshots.
     for mode in MODES:
         colors = load_palette(mode, None, "graphite-red")["dataColors"]
+        chromatic_support = []
         for color in colors[1:]:
-            r, g, b = (int(color[i:i + 2], 16) for i in (1, 3, 5))
-            assert max(r, g, b) - min(r, g, b) <= 22
-    # Business status colors are separate; changing green to red for a
-    # positive KPI would be a false semantic claim.
+            red, green, blue = (int(color[i:i + 2], 16) for i in (1, 3, 5))
+            if max(red,green,blue)-min(red,green,blue) > 40:
+                chromatic_support.append(color)
+        assert len(chromatic_support) >= 3
+
+
+@pytest.mark.parametrize("slug", SLUGS)
+@pytest.mark.parametrize("mode", MODES)
+def test_each_approved_palette_passes_categorical_distinction(
+        slug: str, mode: str) -> None:
+    from vqs.series_readability import categorical_series_findings
+    p = load_palette(mode, None, slug)
+    assert categorical_series_findings(p["dataColors"]) == [],(slug,mode)
+    # Exact first-two-series pair has stricter limits: thin line charts.
+    assert p["dataColors"][0] != p["dataColors"][1]
 
 
 def test_generic_palette_identity_contains_no_corporate_claims() -> None:
@@ -145,3 +159,20 @@ def test_existing_baselines_unchanged() -> None:
     assert load_palette("dark", None, "graphite-mint")["canvas"] == "#17191C"
     assert load_palette("dark", None, "warm-basalt")["canvas"] == "#1A1A19"
     assert load_palette("dark", None, "slate-lavender")["canvas"] == "#191A21"
+
+
+def test_bad_approved_preset_is_rejected_when_loaded(monkeypatch) -> None:
+    from vqs import theme
+
+    original = theme._preset_override
+
+    def replaced(name: str, mode: str) -> dict:
+        data = original(name, mode)
+        if name == "graphite-red" and mode == "dark":
+            data["dataColors"] = ["#777777", "#787878", "#797979", "#7A7A7A",
+                                  "#7B7B7B", "#7C7C7C", "#7D7D7D", "#7E7E7E"]
+        return data
+
+    monkeypatch.setattr(theme, "_preset_override", replaced)
+    with pytest.raises(theme.ThemeError, match="insufficiently distinguishable"):
+        theme.load_palette("dark", None, "graphite-red")

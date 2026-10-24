@@ -18,6 +18,8 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from .series_readability import categorical_series_findings
+
 SCHEMA_VERSION = "vqs.theme/1"
 THEME_SCHEMA = (
     "https://raw.githubusercontent.com/microsoft/powerbi-desktop-samples/"
@@ -267,6 +269,15 @@ def load_palette(mode: str, palette_path: Path | None,
             or not all(_valid_hex(item) for item in colors)):
         raise ThemeError("palette dataColors must be >=8 #RRGGBB hex strings")
     palette["dataColors"] = [_norm_hex(str(item)) for item in colors]
+    # New approved presets must pass the categorical perceptual screen when
+    # loaded, not only in test fixtures. Legacy palettes retain compatibility;
+    # arbitrary imported customer palettes are analyzed via vqs premium.
+    if preset in PALETTE_PRESETS[4:] and palette_path is None:
+        weaknesses = categorical_series_findings(palette["dataColors"][:8])
+        if weaknesses:
+            raise ThemeError(
+                "approved preset categorical series are insufficiently "
+                "distinguishable: " + json.dumps(weaknesses[:3]))
     for role in REQUIRED_ROLES:
         if role != "dataColors":
             palette[role] = _norm_hex(str(palette[role]))

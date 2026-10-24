@@ -35,6 +35,24 @@ remain valid for the code already in main.
   correction for implicit low-contrast text; guarded wildcard chart fills
   follow selected tokens while waterfall business semantics remain intact.
 
+## Categorical readability remediation — follow-up
+
+The 24 October native image critique exposed poorly separated line and
+categorical series. **All 28 approved mode dictionaries have been rebuilt**,
+and an accidentally enforced Graphite Red monochrome test was removed.
+A new CIELAB plus approximate color-vision screening check is applied to
+each eight-color approved mode, and the existing `vqs premium` command
+surfaces weak theme series and ambiguous numeric-gradient-on-category charts
+as explicitly **advisory** findings. Continuous numeric ramps and
+conditional business good/bad colors are not converted into arbitrary
+categorical colors.
+
+**Capture integrity:** earlier native screenshots and associated gallery
+manifests are genuine historical evidence from implementation revision
+`b113f77`, but **must be recaptured and replaced** for any visual claim
+about the remediated palettes. Do not interpret a new code commit or schema
+PASS as an updated native screenshot.
+
 ## Finite remaining acceptance gates
 
 1. **G2 native appearances:** capture and independently review both modes

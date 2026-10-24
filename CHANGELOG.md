@@ -23,6 +23,15 @@ rendering commit are recorded in the
 The homepage and [documentation landing page](docs/README.md) were simplified
 for first-time users and independent reviewers.
 
+**24 October categorical readability correction:** a visual review exposed
+weak separation across many bar/line series. Removed an erroneous test that
+*required Graphite Red to remain nearly monochromatic*; re-optimized all
+28 categorical eight-color sets, preserving each first accent and numeric/
+business encodings. Added tested CIELAB and approximate color-vision
+simulations, required new-preset load-time validation, and two read-only
+`vqs premium` source-risk findings. All prior six-mode screenshots are
+**superseded until recaptured against the corrected theme revision**.
+
 **Quality boundary:** 134 focused local regression tests, Microsoft
 authoring validation and source audit were green during preparation.
 GitHub CI checks and independent visual/interaction G2/G4 review remain

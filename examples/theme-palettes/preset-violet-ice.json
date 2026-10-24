@@ -21,13 +21,13 @@
     "tooltipForeground": "#221D2D",
     "dataColors": [
       "#BBA4F5",
-      "#82CDE1",
-      "#E8AFD0",
-      "#9BCDB4",
+      "#94CDDB",
+      "#D69DBD",
+      "#AFE4C4",
       "#E6C590",
-      "#93ADEA",
-      "#B7D389",
-      "#E3A0A8"
+      "#759AD1",
+      "#ACD175",
+      "#FB9898"
     ],
     "good": "#8CCFB7",
     "neutral": "#EAC37B",
@@ -58,13 +58,13 @@
     "tooltipForeground": "#FFFFFF",
     "dataColors": [
       "#9987C9",
-      "#6199A8",
-      "#AC829A",
-      "#749986",
-      "#A28C66",
-      "#798EC0",
-      "#819561",
-      "#BB838A"
+      "#337F80",
+      "#B0819B",
+      "#7C9979",
+      "#BD8154",
+      "#2B5F82",
+      "#71822B",
+      "#9D3449"
     ],
     "good": "#177D57",
     "neutral": "#A77422",

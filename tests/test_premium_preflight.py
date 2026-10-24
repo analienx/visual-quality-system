@@ -132,3 +132,44 @@ def test_cli_reports_findings_without_granting_release(tmp_path, capsys):
     assert result["status"] == "findings"
     assert any(f["rule"] == "spacing.peer_gutters" for f in result["top_three"])
     assert "G2/G4/G6" in " ".join(result["known_limits"])
+
+
+def test_series_collision_is_reported_with_true_theme_source(
+        tmp_path: Path) -> None:
+    report = _report(tmp_path)
+    theme_name = "CollisionTest.json"
+    definition = report / "definition/report.json"
+    metadata = json.loads(definition.read_text(encoding="utf-8"))
+    metadata.setdefault("themeCollection", {})["customTheme"] = {
+        "name": theme_name, "type": "RegisteredResources"}
+    definition.write_text(json.dumps(metadata), encoding="utf-8")
+    resource_dir = report / "StaticResources/RegisteredResources"
+    resource_dir.mkdir(parents=True, exist_ok=True)
+    (resource_dir / theme_name).write_text(json.dumps({
+        "dataColors": ["#777777", "#797979", "#828282", "#848484",
+                       "#898989", "#8A8A8A", "#909090", "#919191"]}),
+        encoding="utf-8")
+    visual = report / "definition/pages/P1/visuals/cardx/visual.json"
+    v = json.loads(visual.read_text(encoding="utf-8"))
+    v["visual"]["visualType"] = "lineChart"
+    visual.write_text(json.dumps(v), encoding="utf-8")
+    result = audit(str(report))
+    risk = next(f for f in result["findings"]
+                if f["rule"] == "color.palette_series_collision")
+    assert risk["page_id"] == "P1"
+    assert risk["importance"] == "high"
+    assert risk["evidence"]["scope"] == (
+        "candidate theme palette, not rendered pixels")
+    assert risk["evidence"]["worst_pairs"]
+
+
+def test_numeric_category_gradients_are_advisory_not_semantic_overrides() -> None:
+    report = (Path(__file__).parents[1]
+              / "examples/contoso-retail/Contoso Retail.Report")
+    result = audit(str(report))
+    risks = [f for f in result["findings"]
+             if f["rule"] == "color.numeric_gradient_category_ambiguity"]
+    assert risks
+    assert all(f["importance"] == "low" for f in risks)
+    assert all(f["evidence"]["rendered_distinction"] == "not verified"
+               for f in risks)

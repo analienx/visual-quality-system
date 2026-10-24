@@ -15,6 +15,7 @@ from statistics import median
 from typing import Any
 
 from .pbir import report_context
+from .series_readability import categorical_series_findings
 from .triage import _report_input
 
 SCHEMA = "vqs.premium-design/1"
@@ -112,6 +113,102 @@ def _explicit_title_size(v: Mapping[str, Any]) -> float | None:
     return None
 
 
+
+def _static_color_risks(report_dir: Path, context: Mapping[str, Any]) -> list[dict]:
+    """Source-proven theme pair collisions and numeric-vs-category ambiguity.
+
+    A report theme specifies *possible* colors; it does not prove that they
+    were rendered by any given chart. Findings are therefore explicit
+    risk/advisory observations, not image-verified failures.
+    """
+    issues: list[dict] = []
+    report_file = report_dir / "definition/report.json"
+    try:
+        metadata = json.loads(report_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return issues
+    custom = metadata.get("themeCollection", {}).get("customTheme", {})
+    name = custom.get("name") if isinstance(custom, dict) else None
+    if isinstance(name, str) and name.endswith(".json") and Path(name).name == name:
+        theme_file = report_dir / "StaticResources/RegisteredResources" / name
+        if theme_file.is_file() and not theme_file.is_symlink():
+            try:
+                payload = json.loads(theme_file.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                payload = {}
+            colors = payload.get("dataColors") if isinstance(payload, dict) else None
+            if (isinstance(colors, list) and len(colors) >= 2
+                    and all(isinstance(c, str) and len(c) == 7 for c in colors)):
+                try:
+                    weak = categorical_series_findings(colors[:8])
+                except ValueError:
+                    weak = []
+                if weak:
+                    # Surface a real page/chart locus, but don't assert all
+                    # 8 series are simultaneously used or rendered.
+                    charts = [
+                        (page["id"], visual["visual_id"])
+                        for page in context["pages"]
+                        for visual in page["visuals"]
+                        if visual["visual_type"].casefold() in {
+                            "linechart", "areachart", "clusteredbarchart",
+                            "clusteredcolumnchart", "donutchart", "piechart"}]
+                    if charts:
+                        first_page = charts[0][0]
+                        issues.append({
+                            "rule":"color.palette_series_collision",
+                            "importance":"high",
+                            "page_id":first_page,
+                            "visual_ids":[v for page,v in charts if page==first_page],
+                            "evidence":{
+                                "scope":"candidate theme palette, not rendered pixels",
+                                "theme":name,
+                                "pair_count":len(weak),
+                                "worst_pairs":weak[:4]},
+                            "recommendation":
+                                "Choose meaningfully separated categorical series colors "
+                                "and check two-series lines and clustered bars in native "
+                                "Power BI Desktop, including color-vision simulations. "
+                                "Do not change measure-bound business colors."})
+    # A measure-driven continuous gradient used on named categories can make
+    # neighboring bars look almost identical. This is a documented encoding
+    # ambiguity, not proof of an incorrect business rule. Never rewrite it.
+    for page in context["pages"]:
+        flagged=[]
+        visual_root=report_dir/"definition/pages"/page["id"]/"visuals"
+        for visual in page["visuals"]:
+            if visual["visual_type"].casefold() not in {
+                    "clusteredbarchart","clusteredcolumnchart",
+                    "stackedbarchart","stackedcolumnchart"}:
+                continue
+            src=visual_root/visual["visual_id"]/"visual.json"
+            try:
+                data=json.loads(src.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            entries=data.get("visual",{}).get("objects",{}).get("dataPoint",[])
+            if (isinstance(entries,list) and any(
+                    isinstance(e,dict)
+                    and "FillRule" in json.dumps(e.get("properties",{}))
+                    and "linearGradient" in json.dumps(e.get("properties",{}))
+                    for e in entries)):
+                flagged.append(visual["visual_id"])
+        if flagged:
+            issues.append({
+                "rule":"color.numeric_gradient_category_ambiguity",
+                "importance":"low", "page_id":page["id"],
+                "visual_ids":flagged,
+                "evidence":{"source":"explicit measure-bound numeric FillRule",
+                            "rendered_distinction":"not verified",
+                            "affected_visuals":len(flagged)},
+                "recommendation":
+                    "Review the rendered quantitative legend and the near-equal "
+                    "category bars. Preserve the numeric-gradient semantics if "
+                    "color intentionally encodes magnitude; when categories "
+                    "require distinct identification, choose an owner-approved "
+                    "categorical encoding in a separate source edit."})
+    return issues
+
 def audit(source: str, *, contract: Mapping[str, Any] | None = None) -> dict[str, Any]:
     report, _model = _report_input(source, None)
     context = report_context(Path(report))
@@ -194,6 +291,7 @@ def audit(source: str, *, contract: Mapping[str, Any] | None = None) -> dict[str
                                               else round(focal_box[2] * focal_box[3], 1),
                                               "peer_median_area": median(comparable) if comparable else None},
                                  "recommendation": "Give the owner-declared focal visual clearer prominence; verify the reading path in a fresh full-page render."})
+    findings.extend(_static_color_risks(Path(report), context))
     findings.sort(key=lambda f: ({"high": 0, "medium": 1, "low": 2}[f["importance"]],
                                  f["page_id"], f["rule"], f["visual_ids"]))
     return {"schema": "vqs.premium-preflight/1", "source_sha256": context["source_sha256"],

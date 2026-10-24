@@ -128,6 +128,30 @@ in `definition/report.json` (`themeCollection.customTheme` +
 `resourcePackages`). The previous candidate theme file is removed only
 inside the candidate.
 
+## Categorical chart readability — 24 October corrective gate
+
+The 14 approved families have **28 genuinely regenerated eight-series
+categorical palettes**, with each family retaining its established first accent
+and Light/Dark surface character. Color selection is now tested *against
+other series*, not only the chart background. All 28 palettes must pass a
+deterministic source-level color-separation screen with CIELAB ΔE76 minimum
+24 for any pair (43 for the first two, commonly used by paired line charts),
+plus separate approximate severe protan/deutan/tritan screening thresholds
+of 9 (19 for the first two). These are **screening thresholds** and not
+medical claims, a complete accessibility guarantee or G2 native acceptance.
+
+A bad approved preset fails when loaded; a custom/customer PBIP remains
+supported. For existing reports, `vqs premium REPORT --format json` emits
+`color.palette_series_collision` when a registered theme declares weak
+categorical pairs in the presence of chart visuals. It marks these as
+**source-proven palette risks, not witnessed pixels**. Another advisory,
+`color.numeric_gradient_category_ambiguity`, flags numeric measure-driven
+gradients on categorical bar/column charts, whose visually similar bars may
+be *intentional quantitative encodings*. This does **not** remove or
+reclassify a `FillRule`, replace DAX, or invert good/bad semantics.
+Independently compare genuine native Power BI screenshots when judging
+whether the original encoding meets business needs.
+
 ## Native text-contrast completion
 
 Where a chart exposes a visible native legend (including donut/waterfall
