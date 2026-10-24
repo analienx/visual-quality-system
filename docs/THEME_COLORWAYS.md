@@ -2,7 +2,10 @@
 
 **Status:** design alternatives only. Do not substitute color swatches, JSON
 schemas or hosted candidates for native Power BI Desktop screenshot acceptance.
-Original `executive-blue` Light and Dark defaults are unchanged.
+The white/light preset and all surface, text and filter-pane tokens are
+unchanged. Executive Blue Dark plus the other three Dark presets now
+have independent *chart-category* colors and numeric ramps. See
+[researched chart color choices](CHART_COLOR_DESIGN.md).
 
 ## Why these palettes
 
@@ -26,9 +29,9 @@ elevation, a single sparing accent, and eight softer chart series.
 Graphite Mint is the preferred *first native candidate*, not an imposed new
 default. Its accents are less saturated and the neutral layers provide
 separation with minimal outlines. Use color only to mark selection,
-categorical difference or business meaning. Keep measure-bound red/green
-semantics, waterfall polarity colors, dynamic `FillRule` and manual selectors
-unchanged.
+categorical difference or business meaning. Keep measure-bound red/green business conditions, waterfall polarity and
+manual selectors untouched. **Numeric FillRule stop colors change**
+without changing the bound measure, thresholds or expressions.
 
 Contrast self-checks (WCAG relative luminance) ensure foreground on canvas,
 surface and elevated, muted label on surface, selection contrast, tooltip

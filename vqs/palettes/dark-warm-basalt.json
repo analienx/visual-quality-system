@@ -20,20 +20,20 @@
     "tooltip": "#F5F3EA",
     "tooltipForeground": "#242321",
     "dataColors": [
-      "#9EC8B9",
-      "#E4BB7E",
-      "#9EACD4",
-      "#DDA0A0",
-      "#C3C58A",
-      "#84B7C8",
-      "#BDA9C9",
-      "#D6A48C"
+      "#E1B37C",
+      "#79BBAE",
+      "#D58C70",
+      "#BAD083",
+      "#93B7CF",
+      "#D8A1B9",
+      "#CABCA3",
+      "#B2A1CA"
     ],
     "good": "#9EC8B9",
     "neutral": "#E4BB7E",
     "bad": "#DDA0A0",
-    "gradientMin": "#554636",
-    "gradientCenter": "#B9945E",
-    "gradientMax": "#F0D2A0"
+    "gradientMin": "#866D52",
+    "gradientCenter": "#C4A075",
+    "gradientMax": "#E9CEA3"
   }
 }

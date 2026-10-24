@@ -61,11 +61,16 @@ _DARK: dict[str, Any] = {
     "slicerForeground": "#F1F5F9", "tableHeader": "#1E3A5F",
     "tableHeaderForeground": "#F1F5F9", "rowAlternate": "#16233A",
     "tooltip": "#F1F5F9", "tooltipForeground": "#0B1220",
-    "dataColors": ["#60A5FA", "#22D3EE", "#34D399", "#FBBF24",
-                   "#FB7185", "#A78BFA", "#2DD4BF", "#F472B6"],
+    # IBM Carbon-inspired dark categorical ordering; use differentiated
+    # hues while preserving soft, legible chrome. Values are an adaptation,
+    # not a claim that IBM published this exact color combination.
+    "dataColors": ["#78A9FF", "#3DDBD9", "#BE95FF", "#FFB784",
+                   "#FF7EB6", "#A7F0BA", "#F1C21B", "#82CFFF"],
     "good": "#34D399", "neutral": "#FBBF24", "bad": "#FB7185",
-    "gradientMin": "#1E3A5F", "gradientCenter": "#2563EB",
-    "gradientMax": "#93C5FD",
+    # Increasing luminance for numeric gradients; never map categories to
+    # a sequential ramp, and never change conditional red/green rules.
+    "gradientMin": "#46688D", "gradientCenter": "#76A9D8",
+    "gradientMax": "#C5E0F7",
 }
 BUILTIN_PALETTES: dict[str, dict[str, dict[str, Any]]] = {
     "executive-blue": {"light": _LIGHT, "dark": _DARK},

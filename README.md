@@ -139,6 +139,13 @@ Read the [user guide](docs/USER_GUIDE.md), [CLI reference](docs/CLI.md), [accept
 
 ### Adaptive Power BI themes — full report showcases
 
+[**Chart-color redesign:** researched independent categorical/ramp
+palettes are implemented for each dark colorway.](docs/CHART_COLOR_DESIGN.md)
+*The archived report thumbnails reflect the earlier chart palette
+until new native Desktop captures pass review.*
+
+
+
 Five selectable Light/Dark alternatives, with **three different real report
 pages per theme** below. Each preview is a genuine synthetic Contoso report
 capture from Power BI Desktop; for all five pages and full provenance see

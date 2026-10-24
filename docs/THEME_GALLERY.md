@@ -7,6 +7,13 @@ No UI mockups, customer data or AI-generated dashboards are used. The 1600px
 public previews are resized from original 3915px Desktop captures retained
 outside Git; both public and original SHA-256 hashes are in manifests.
 
+*Chart palette redesign notice:* the gallery thumbnails originally
+captured at revision `92e40b1` display the **previous** series palettes;
+they must not be used as design evidence for the new curated scheme.
+New candidates and refreshed native captures are required before
+publishing the redesigned chart colors. Source choices and contrast
+checks: [Chart Color Design](CHART_COLOR_DESIGN.md).
+
 ## Compare the same report across five themes
 
 | **Executive Blue Light** | **Executive Blue Dark** |
