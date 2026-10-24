@@ -137,7 +137,8 @@ other series*, not only the chart background. All 28 palettes must pass a
 deterministic source-level color-separation screen with CIELAB ΔE76 minimum
 24 for any pair (43 for the first two, commonly used by paired line charts),
 plus separate approximate severe protan/deutan/tritan screening thresholds
-of 9 (19 for the first two). These are **screening thresholds** and not
+of 9 (19 for the first two). The Machado matrices act on **linearized
+sRGB**, not gamma-encoded RGB, before the CIELAB comparison. These are **screening thresholds** and not
 medical claims, a complete accessibility guarantee or G2 native acceptance.
 
 A bad approved preset fails when loaded; a custom/customer PBIP remains

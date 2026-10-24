@@ -3,8 +3,8 @@
 WCAG contrast is measured against the chart surface separately. CIELAB
 distances here are screening heuristics, not a substitute for a native
 screenshot or human color-vision assessment. The matrices approximate severe
-common color-vision deficiencies (Machado 2009, severity 1), sRGB-encoded
-input; never market them as a medically accurate personal visual simulation.
+common color-vision deficiencies (Machado 2009, severity 1), on
+properly linearized sRGB; never equate them to an individual's perception.
 """
 from __future__ import annotations
 
@@ -30,14 +30,17 @@ def lab(color: str, vision: str = "normal") -> tuple[float, float, float]:
             not color.startswith("#") or
             any(c not in "0123456789abcdefABCDEF" for c in color[1:])):
         raise ValueError("expected #RRGGBB")
-    rgb = tuple(int(color[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    encoded = tuple(int(color[i:i + 2], 16) / 255 for i in (1, 3, 5))
+    def linear(x: float) -> float:
+        return x / 12.92 if x <= .04045 else ((x+.055)/1.055)**2.4
+    rgb = tuple(linear(v) for v in encoded)
+    # Machado matrices operate on LINEAR-light RGB, not gamma-encoded sRGB.
+    # The older gamma-space approximation overstates some CVD distances.
     if vision != "normal":
         m = MATRICES[vision]
         rgb = tuple(max(0., min(1., sum(a*b for a,b in zip(row,rgb))))
                     for row in m)
-    def linear(x: float) -> float:
-        return x / 12.92 if x <= .04045 else ((x+.055)/1.055)**2.4
-    red,green,blue = (linear(v) for v in rgb)
+    red,green,blue = rgb
     x = (.4124564*red+.3575761*green+.1804375*blue)/.95047
     y = .2126729*red+.7151522*green+.072175*blue
     z = (.0193339*red+.119192*green+.9503041*blue)/1.08883
