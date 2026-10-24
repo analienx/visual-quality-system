@@ -1,12 +1,14 @@
 # Native Power BI Desktop theme gallery
 
 **Three selected palettes, six modes, 18 genuine Power BI Desktop report screenshots.**
-Every image comes from the same GitHub-hosted generated Contoso PBIP candidate
-after an isolated local model refresh and native all-pages screenshot capture.
-Original PNGs remain private; public WebP files are only resized.
+Each Light/Dark mode comes from its own GitHub-generated candidate of the
+same synthetic Contoso PBIP source. Each was refreshed in an isolated native
+Power BI Desktop instance and captured across all five report pages.
+Original full-window PNGs remain private; public WebP previews are cropped
+to the report canvas and downscaled, without removing any report visuals.
 No invented dashboards, synthetic diagram screenshots, or image AI.
 
-Theme-engine capture code: [`b113f77ba6`](https://github.com/analienx/visual-quality-system/commit/b113f77ba60e5215fc59cddc11994f1702aa56c1).
+Theme-engine capture code: [`91344a5c5f`](https://github.com/analienx/visual-quality-system/commit/91344a5c5ff1d2db68e5857dc3055a31d805b81a).
 [SHA-256 provenance](images/adaptive-showcase/PROVENANCE.json) ·
 [See all colorway swatches](APPROVED_THEME_LIBRARY.md) ·
 [Source Contoso PBIP](../examples/contoso-retail/Contoso%20Retail.pbip)

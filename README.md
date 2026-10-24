@@ -89,7 +89,7 @@ vqs theme audit ./organic-candidate
 
 ### Beyond a pretty screenshot
 
-VQS provides an explicit `vqs premium` design contract for hierarchy, spacing and quality review, rather than claiming to know that a screenshot is attractive from source JSON alone. The bundled Contoso Retail report includes charts, tables, slicers and a **no-sign-in Shape Map**.
+VQS provides an explicit `vqs premium` design contract for hierarchy, spacing and quality review, rather than claiming to know that a screenshot is attractive from source JSON alone. The engine now checks categorical-series separation (normal and approximate color-vision distances), and premium preflight flags weak theme palettes and ambiguous categorical charts driven by numeric gradients—without tampering with business semantics. The final featured examples above are authentic recaptures from the color-corrected theme revision. The bundled Contoso Retail report includes charts, tables, slicers and a **no-sign-in Shape Map**.
 
 The distinct Corporate Spend subject has documented Azure Maps sign-in and schema-compatibility limitations; it is **not** presented as a fully certified cross-report success. Likewise, static authoring validation across **28 approved new Dark/Light modes** is not a claim that all 28 were independently rendered and visually signed off. Real interaction states and the `powerbi-core` release G2/G4/G6 acceptance remain separately gated.
 

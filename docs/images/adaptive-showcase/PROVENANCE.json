@@ -1,14 +1,14 @@
 {
   "schema": "vqs.public-theme-showcase/1",
-  "authoringHead": "b113f77ba60e5215fc59cddc11994f1702aa56c1",
+  "authoringHead": "91344a5c5ff1d2db68e5857dc3055a31d805b81a",
   "source": "five-page synthetic Contoso Retail PBIP, exact GH-hosted candidate artifact",
   "captureHost": "Microsoft Power BI Desktop via Microsoft Power BI Report Author CLI, all-pages native PNG",
   "modes": {
     "sunny-palette-light": {
       "sourceDigest": "37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca",
-      "candidateDigest": "c935e4a330453a446759934884d657d63f618f43fef4d6cd931c10e306b02789",
+      "candidateDigest": "c96c3dcf762732d0f2329d865c717408e6e8dfedf51fda341f846021923a7648",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "ea9c5d8bf61b1ab52e42310391e12d23fc6d633a017805f59e18ba9b101ef40b",
+      "paletteHash": "6bcb88a09fb2c94edfb4ece683162af899f2b768d17bb7ee484718d187f7e6a4",
       "screenshots": [
         {
           "page": "Executive overview",
@@ -74,9 +74,9 @@
     },
     "sunny-palette-dark": {
       "sourceDigest": "37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca",
-      "candidateDigest": "092a3cb5552ff39e525da8a1930ae26a1f8bc23977a9289d89266dffdb7a54ee",
+      "candidateDigest": "a48d040b351e427e91a3a77a6e3b4abd7f8fe3e6192cf67b4c89d34168eb06e0",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "b31ff65ba1f679f74ce727b85eee277d8eb99e07ec28cd9cd3e836a2cc2c15d0",
+      "paletteHash": "284afa30564f75987fdc8b070213028910abc49afa4d7a0eeeed12a6dbdac160",
       "screenshots": [
         {
           "page": "Executive overview",
@@ -121,7 +121,7 @@
         {
           "page": "Deep-dive insights",
           "file": "docs/images/adaptive-showcase/sunny-palette-dark/deep-dive-insights.webp",
-          "captureSha256": "28da7c3285592e1cce1115bd93cb6d52a51e6bb924ee92faf7629c3ba1bdcabf",
+          "captureSha256": "1d537dba537d9125bdc1fe92973a46a28fd024ec3cb956b99d3e33d2cb2928d4",
           "webpSha256": "68d82c0df3fa2426ee6e9dca259624c623810aecac4401be51d86272d0c27d3b",
           "captureDimensions": [
             3915,
@@ -142,15 +142,15 @@
     },
     "organic-palette-light": {
       "sourceDigest": "37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca",
-      "candidateDigest": "aeaf182743386706b7721938de82ace8257007250346b25a84b9f376c84d773c",
+      "candidateDigest": "832cc158291590211f4603a0beeff7445bfebddd42b8207b9ebc32ef33721f65",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "7253375f411bf8c63449bc4dfe61f770ec10922c493260997f41f5ed15601bce",
+      "paletteHash": "1e858a39784f1f3341c5a8206e95e3f52d94f47b7300189c81c22a29584f4d20",
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/organic-palette-light/executive-overview.webp",
-          "captureSha256": "8314d057c99f7bdbec70aa553aad5bb91d914cd683b897c76cd5604dd18bd832",
-          "webpSha256": "e90adff711d4665d2cdc50325eeed7a1f91a4075729a577cad6f21ca5562e147",
+          "captureSha256": "451217c3c37b521ac7b68107166e7aac5e6738c21f6af657c751791e7ed43afa",
+          "webpSha256": "c1fbc4ddd150ab4ef158d7123db401ba01631336ffc72a773a9d45d891d744c2",
           "captureDimensions": [
             3915,
             2394
@@ -189,8 +189,8 @@
         {
           "page": "Deep-dive insights",
           "file": "docs/images/adaptive-showcase/organic-palette-light/deep-dive-insights.webp",
-          "captureSha256": "64c8568f86ac249a6537abefc827ba42f652054345622295c419b15047af5107",
-          "webpSha256": "578af4af5cdf3f0b051aff0159c18f80822d8e82c4d96a7c2f08c7e713b6cff5",
+          "captureSha256": "ebc45837519516e0dba52edef39a53aa9967746fd85e29eeec6e432e0b15a390",
+          "webpSha256": "78580c81cc423935e7be98e026d1e3b9edec84746f5461235c29700efd33cef3",
           "captureDimensions": [
             3915,
             2394
@@ -210,9 +210,9 @@
     },
     "organic-palette-dark": {
       "sourceDigest": "37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca",
-      "candidateDigest": "86565e3dfe29420d4e059521cb9659b1e0e34d0c7e8b11127f5aea5e8ea7fa6c",
+      "candidateDigest": "9f999f1d04e8f923a4b14ae7a87f02abb590cc022cd3c4c10b1612f465d1dae6",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "c4d2effdf6aa97b55f20c1c2dc43fba379d2dc446611733b59282f70ef52dd1f",
+      "paletteHash": "7e9c63f7f0f1f6ab27cdc8f594aac5ba2b12397628da80394c88cc4807e96719",
       "screenshots": [
         {
           "page": "Executive overview",
@@ -257,8 +257,8 @@
         {
           "page": "Deep-dive insights",
           "file": "docs/images/adaptive-showcase/organic-palette-dark/deep-dive-insights.webp",
-          "captureSha256": "5a8d7942af9afd8357ae2ee39b40845bc1d14a5646976926ec7ab05109d14f4a",
-          "webpSha256": "8a1acf853d2623031c2caef6765ffa46062234e1efc6dbd607f405be80b3c901",
+          "captureSha256": "c6abf7b517521ada624aa7fd31baa5e54beafeeccd226c695815437b3ba441d8",
+          "webpSha256": "4601d11d88485eb57bcd794d9538ad6134b1941e3eb92aff43eacb8dcf0c70ce",
           "captureDimensions": [
             3915,
             2394
@@ -278,15 +278,15 @@
     },
     "graphite-red-light": {
       "sourceDigest": "37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca",
-      "candidateDigest": "70cf4cfae6341fdabd6a9af7eafe28b87642a907c692e41d71fcd3a8238b6403",
+      "candidateDigest": "0d48772fda30f5f7208c728943d4f7dfe6bca1a36d8a1a39e6a6e57bbee029d3",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "588d55a8ba24559c3c0705d2a07b7a48321fa44133c7c225ac64d0db2a0bc3ed",
+      "paletteHash": "f20ec2a316b35f706790cfb9c1886c2e20486841536d2573b748656d757e918b",
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/graphite-red-light/executive-overview.webp",
-          "captureSha256": "7c4cd4d0292760d8a1a5a92778b49fc526927223ef8c4092f07838d1b3e4f266",
-          "webpSha256": "2a85b122c7705696d391e61548dd4b57e774ed09a358b395d212736496315a38",
+          "captureSha256": "a1da806671b6658d8e8a3338bb1a31e30dcb52bff4789ba52c9f5f8e966d54bf",
+          "webpSha256": "b26f3e094c203640e6f1695267e2b75a712b2dfa3fd53706e2d214a7419b6900",
           "captureDimensions": [
             3915,
             2394
@@ -325,8 +325,8 @@
         {
           "page": "Deep-dive insights",
           "file": "docs/images/adaptive-showcase/graphite-red-light/deep-dive-insights.webp",
-          "captureSha256": "f9d9a3b5c6b91a769bbd8cec8cdd34b3c05913bed9560e66a7a2112d81ce5a5c",
-          "webpSha256": "567d837197a9ba87a57d77e581d91e22551aed16b1d6b82304f3fa5dd64f4528",
+          "captureSha256": "f73ebb05ee107822a73e060809cd6322d52f376861ada955872647d7404d5509",
+          "webpSha256": "49e3117af0196f0398ebb41431be2297ba840121f73a8d7ed266bc1b73834fd2",
           "captureDimensions": [
             3915,
             2394
@@ -346,15 +346,15 @@
     },
     "graphite-red-dark": {
       "sourceDigest": "37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca",
-      "candidateDigest": "10a71d82c7751432359a0b7042ecddfaca8641705863ba26c2118f9cdf7de63d",
+      "candidateDigest": "7939962f0084935037c976a5d18bf8ede48c7fa661d0840ed5a641670c167d70",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "b3eaf25464d36f3e16706d021d4b069cbce71e1bcaa5e80df21ebb5f1a54da02",
+      "paletteHash": "374d4eadbc36819a6bea53e4d412051f491642d9a5e0bd7842aeb2fc123f2e62",
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/graphite-red-dark/executive-overview.webp",
-          "captureSha256": "b9e78170fa355bf842d3d5a9379d2fcdc56b64e8c4cf57b267cb590af0b2f7f1",
-          "webpSha256": "1b075f543b66aed5709647bfbcfcdbc1ba14f9a5e34e7fc1d2afa33e6205633c",
+          "captureSha256": "5f3c967e1658b77fd5869dfc9550d9795616cda57532f7fba58da23f03899907",
+          "webpSha256": "b31c41e8a1273f568039f94ae9cbe2c0c00c77998093797da650f0af4bf08685",
           "captureDimensions": [
             3915,
             2394
@@ -393,8 +393,8 @@
         {
           "page": "Deep-dive insights",
           "file": "docs/images/adaptive-showcase/graphite-red-dark/deep-dive-insights.webp",
-          "captureSha256": "98a1d62951245148b021b7c8a9dbda4b2a0f8fc2002c193ed59f598d4b69e256",
-          "webpSha256": "fbf689140aa4bd0e8fb5ed46227879553f8933bbbf9d601f87bc79a3ca3fd592",
+          "captureSha256": "a73c490a7d0e8ec9a7c5d57cfcde1baab5083f2cceefc4e31bd3502c5bc1f489",
+          "webpSha256": "4174ed9612571fd1f514c6470616f46cbec352f934297afa39234e506e203903",
           "captureDimensions": [
             3915,
             2394

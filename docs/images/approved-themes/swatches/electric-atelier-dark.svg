@@ -5,10 +5,10 @@
 <text x="30" y="78" fill="#D0D4DC" font-family="Segoe UI,Arial,sans-serif" font-size="15">Dark · actual theme tokens</text>
 <rect x="30" y="100" width="84" height="37" rx="7" fill="#75C4F0"/>
 <rect x="124" y="100" width="84" height="37" rx="7" fill="#F5A58A"/>
-<rect x="218" y="100" width="84" height="37" rx="7" fill="#B39AF3"/>
+<rect x="218" y="100" width="84" height="37" rx="7" fill="#AC98FB"/>
 <rect x="312" y="100" width="84" height="37" rx="7" fill="#99DBAD"/>
 <rect x="406" y="100" width="84" height="37" rx="7" fill="#EACD69"/>
-<rect x="500" y="100" width="84" height="37" rx="7" fill="#EE91BE"/>
-<rect x="594" y="100" width="84" height="37" rx="7" fill="#83D1CC"/>
-<rect x="688" y="100" width="84" height="37" rx="7" fill="#B9C5E2"/>
+<rect x="500" y="100" width="84" height="37" rx="7" fill="#EB84AD"/>
+<rect x="594" y="100" width="84" height="37" rx="7" fill="#84EBEB"/>
+<rect x="688" y="100" width="84" height="37" rx="7" fill="#838B93"/>
 </svg>

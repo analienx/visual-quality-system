@@ -4,11 +4,11 @@
 <text x="30" y="48" fill="#1F2834" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="650">Bold Eclectic</text>
 <text x="30" y="78" fill="#4A5563" font-family="Segoe UI,Arial,sans-serif" font-size="15">Light · actual theme tokens</text>
 <rect x="30" y="100" width="84" height="37" rx="7" fill="#4B98C8"/>
-<rect x="124" y="100" width="84" height="37" rx="7" fill="#BD8154"/>
-<rect x="218" y="100" width="84" height="37" rx="7" fill="#6E9F5A"/>
-<rect x="312" y="100" width="84" height="37" rx="7" fill="#B37DC2"/>
-<rect x="406" y="100" width="84" height="37" rx="7" fill="#D2729D"/>
-<rect x="500" y="100" width="84" height="37" rx="7" fill="#509E96"/>
+<rect x="124" y="100" width="84" height="37" rx="7" fill="#BE8160"/>
+<rect x="218" y="100" width="84" height="37" rx="7" fill="#349D5E"/>
+<rect x="312" y="100" width="84" height="37" rx="7" fill="#7851AB"/>
+<rect x="406" y="100" width="84" height="37" rx="7" fill="#D1759A"/>
+<rect x="500" y="100" width="84" height="37" rx="7" fill="#759B7E"/>
 <rect x="594" y="100" width="84" height="37" rx="7" fill="#AA9240"/>
-<rect x="688" y="100" width="84" height="37" rx="7" fill="#8B92AD"/>
+<rect x="688" y="100" width="84" height="37" rx="7" fill="#717982"/>
 </svg>

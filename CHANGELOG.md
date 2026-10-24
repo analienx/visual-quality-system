@@ -30,8 +30,10 @@ weak separation across many bar/line series. Removed an erroneous test that
 business encodings. Added tested CIELAB and approximate color-vision
 simulations (Machado matrices applied in linear-light RGB), required
 new-preset load-time validation, and two read-only
-`vqs premium` source-risk findings. All prior six-mode screenshots are
-**superseded until recaptured against the corrected theme revision**.
+`vqs premium` source-risk findings. Native full-page captures for all six
+showcased Light/Dark modes, plus the three-page public gallery per mode and
+the other 22 palette swatches, have been **regenerated from the GitHub-hosted
+`91344a5` artifacts**, with new SHA-256 provenance.
 
 **Quality boundary:** 134 focused local regression tests, Microsoft
 authoring validation and source audit were green during preparation.

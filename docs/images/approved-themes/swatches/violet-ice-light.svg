@@ -4,11 +4,11 @@
 <text x="30" y="48" fill="#1F2834" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="650">Violet Ice</text>
 <text x="30" y="78" fill="#4A5563" font-family="Segoe UI,Arial,sans-serif" font-size="15">Light · actual theme tokens</text>
 <rect x="30" y="100" width="84" height="37" rx="7" fill="#9987C9"/>
-<rect x="124" y="100" width="84" height="37" rx="7" fill="#6199A8"/>
-<rect x="218" y="100" width="84" height="37" rx="7" fill="#AC829A"/>
-<rect x="312" y="100" width="84" height="37" rx="7" fill="#749986"/>
-<rect x="406" y="100" width="84" height="37" rx="7" fill="#A28C66"/>
-<rect x="500" y="100" width="84" height="37" rx="7" fill="#798EC0"/>
-<rect x="594" y="100" width="84" height="37" rx="7" fill="#819561"/>
-<rect x="688" y="100" width="84" height="37" rx="7" fill="#BB838A"/>
+<rect x="124" y="100" width="84" height="37" rx="7" fill="#337F80"/>
+<rect x="218" y="100" width="84" height="37" rx="7" fill="#B0819B"/>
+<rect x="312" y="100" width="84" height="37" rx="7" fill="#7C9979"/>
+<rect x="406" y="100" width="84" height="37" rx="7" fill="#BD8154"/>
+<rect x="500" y="100" width="84" height="37" rx="7" fill="#2B5F82"/>
+<rect x="594" y="100" width="84" height="37" rx="7" fill="#71822B"/>
+<rect x="688" y="100" width="84" height="37" rx="7" fill="#9D3449"/>
 </svg>

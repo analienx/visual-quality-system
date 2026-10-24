@@ -4,11 +4,11 @@
 <text x="30" y="48" fill="#1F2834" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="650">Arctic Aurora</text>
 <text x="30" y="78" fill="#4A5563" font-family="Segoe UI,Arial,sans-serif" font-size="15">Light · actual theme tokens</text>
 <rect x="30" y="100" width="84" height="37" rx="7" fill="#58A09C"/>
-<rect x="124" y="100" width="84" height="37" rx="7" fill="#7F92BC"/>
-<rect x="218" y="100" width="84" height="37" rx="7" fill="#A781BC"/>
-<rect x="312" y="100" width="84" height="37" rx="7" fill="#A18D57"/>
-<rect x="406" y="100" width="84" height="37" rx="7" fill="#759B7E"/>
-<rect x="500" y="100" width="84" height="37" rx="7" fill="#BC859A"/>
-<rect x="594" y="100" width="84" height="37" rx="7" fill="#6897B9"/>
-<rect x="688" y="100" width="84" height="37" rx="7" fill="#8B9399"/>
+<rect x="124" y="100" width="84" height="37" rx="7" fill="#345E9D"/>
+<rect x="218" y="100" width="84" height="37" rx="7" fill="#9A85D1"/>
+<rect x="312" y="100" width="84" height="37" rx="7" fill="#A68D62"/>
+<rect x="406" y="100" width="84" height="37" rx="7" fill="#2B823D"/>
+<rect x="500" y="100" width="84" height="37" rx="7" fill="#D17588"/>
+<rect x="594" y="100" width="84" height="37" rx="7" fill="#7F92BC"/>
+<rect x="688" y="100" width="84" height="37" rx="7" fill="#646B72"/>
 </svg>

@@ -19,9 +19,9 @@ remain valid for the code already in main.
   Bound business measures, filter selections, conditional thresholds and
   positive/negative meaning remain unchanged.
 - CI, R6 and official Microsoft report-authoring validation all **passed**
-  at implementation commit `b113f77ba60e5215fc59cddc11994f1702aa56c1`.
-  GitHub validated **28 five-page Contoso PBIP candidates** (140 page
-  definitions); structural validation alone does not certify pixels.
+  for final categorical-quality code commit `91344a5c5ff1d2db68e5857dc3055a31d805b81a`.
+  GitHub regenerated and validated **28 five-page Contoso PBIP candidates**
+  (140 page definitions); structural validation alone does not certify pixels.
 - A [curated real Power BI Desktop showcase](REAL_THEME_SHOWCASE.md) captures
   all five native pages for **Sunny, Organic and Graphite Red**, in both modes
   (30 genuine native page captures). The public gallery embeds three
@@ -47,11 +47,14 @@ as explicitly **advisory** findings. Continuous numeric ramps and
 conditional business good/bad colors are not converted into arbitrary
 categorical colors.
 
-**Capture integrity:** earlier native screenshots and associated gallery
-manifests are genuine historical evidence from implementation revision
-`b113f77`, but **must be recaptured and replaced** for any visual claim
-about the remediated palettes. Do not interpret a new code commit or schema
-PASS as an updated native screenshot.
+**Capture integrity:** all six featured Light/Dark modes were recaptured
+from the GitHub-hosted **`91344a5`** candidate artifact after refreshing
+their isolated Desktop models. The public WebP gallery (18 representative
+pages) and all 22 token swatches have been regenerated from these final
+palette dictionaries. The [SHA-256 provenance](images/adaptive-showcase/PROVENANCE.json)
+binds the exact full-resolution source captures, public report-only crops,
+palette hashes and candidate/model digests to that revision. Earlier
+`b113f77` screenshot derivatives were replaced, not relabeled.
 
 ## Finite remaining acceptance gates
 
