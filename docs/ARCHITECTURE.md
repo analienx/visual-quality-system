@@ -47,6 +47,7 @@ VQS is a **quality and safe-repair engine**, not an alternative Power BI report 
 | \`vqs/pbir.py\`, \`vqs/powerbi/*\` | PBIR/TMDL source identity, report facts, typed modeling/authoring adapters and Desktop-bound probes |
 | \`vqs/visual/*\`, \`vqs/design_rules.py\`, \`vqs/premium.py\` | Report-page geometry, verified report-only crop where provable, deterministic and premium design findings |
 | \`vqs/repair/*\` | Allowlisted, reversible candidate repair and validation |
+| VQS theme engine (`vqs/theme.py`, `vqs/palettes/*`) | 18 family identifiers (four legacy + 14 approved), deterministic Light/Dark PBIP candidate theming, chart/ramp/filter appearance and source-bound audit; native interactive validation stays a separate G2 gate |
 | \`vqs/capture.py\`, \`vqs/evidence.py\`, \`vqs/review/*\` | Native capture, manifests, hashes, private review bundles and image review interfaces |
 | \`vqs/acceptance.py\`, \`vqs/components.py\` | Distinct Power BI and Word scopes, fail-closed G0–G6 and independently authorized promotion |
 | \`vqs/document/*\` | **Optional Word/DOCX component**, separately gated; native Word/TOC draft work is not merged as a Power BI prerequisite |

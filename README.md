@@ -141,7 +141,20 @@ Read the [user guide](docs/USER_GUIDE.md), [CLI reference](docs/CLI.md), [accept
 
 **Fourteen newly approved families, each with distinct Dark and Light tokens:** Okabe–Ito Night, Petrol & Gold, Indigo Ember, Arctic Aurora, Mediterranean Terra, Saffron & Spruce, Autumn Editorial, Violet Ice, Electric Atelier, Riviera Pop, Bold Eclectic, Graphite Red, Organic Palette, and Sunny Palette.
 
-**[View all 28 palette design previews →](docs/APPROVED_THEME_LIBRARY.md)** · [Approved palette selection](docs/APPROVED_THEME_SELECTION.json) · [Theme CLI](docs/THEME_ENGINE.md)
+**[View all 28 palette design previews →](docs/APPROVED_THEME_LIBRARY.md)** · [Approved palette selection](docs/APPROVED_THEME_SELECTION.json) · [Theme CLI](docs/THEME_ENGINE.md) · [Theme release-candidate notes](docs/RELEASE_NOTES_THEME_2026-10-24.md)
+
+Try a source-preserving preview and candidate of the included synthetic Contoso report:
+
+```bash
+vqs theme presets
+vqs theme preview "examples/contoso-retail/Contoso Retail.pbip" --mode dark --palette-preset organic-palette --out theme-plan.json
+vqs theme apply "examples/contoso-retail/Contoso Retail.pbip" --mode light --palette-preset sunny-palette --candidate-root ./sunny-candidate
+vqs theme audit ./sunny-candidate
+```
+
+The **14 new families add 28 mode combinations** to the original four
+families. The source report is not modified, and no theme candidate is
+automatically published to Fabric or merged into the example.
 
 These new previews are **token-accurate design simulations, not Power BI screenshots**. Microsoft-hosted native authoring validates actual five-page report candidates separately. The following five-theme gallery still contains genuinely captured Power BI Desktop evidence for the original colorways.
 
@@ -154,8 +167,8 @@ the researched chart palettes; the white/light theme remains unchanged.*
 
 
 
-Five selectable Light/Dark alternatives, with **three different real report
-pages per theme** below. Each preview is a genuine synthetic Contoso report
+Five **previously captured** colorways, with **three different real report
+pages per colorway** below (separate from the 28 new simulation previews). Each preview is a genuine synthetic Contoso report
 capture from Power BI Desktop; for all five pages and full provenance see
 the [interactive comparison gallery](docs/THEME_GALLERY.md).
 

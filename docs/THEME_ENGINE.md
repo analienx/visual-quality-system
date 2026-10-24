@@ -48,12 +48,22 @@ literal from its path role, so two-way conversion round-trips.
 
 ## Built-in palette selection
 
-The installed VQS package includes five named colorway choices:
+The installed VQS package includes **18 selectable preset families**:
+**four backward-compatible legacy families** plus the **14 newly approved
+families**, each available in Dark and Light (28 new modes). The legacy
+families preserve their existing default and fallback behavior:
 
-- executive-blue (Light or existing Dark)
-- graphite-mint (Dark override; Light inherits default)
-- warm-basalt (Dark override; Light inherits default)
-- slate-lavender (Dark override; Light inherits default)
+- `executive-blue` — existing Light and Dark
+- `graphite-mint` — existing Dark override; Light inherits the default
+- `warm-basalt` — existing Dark override; Light inherits the default
+- `slate-lavender` — existing Dark override; Light inherits the default
+
+The 14 approved additional families are `okabe-ito-night`, `petrol-gold`,
+`indigo-ember`, `arctic-aurora`, `mediterranean-terra`,
+`saffron-spruce`, `autumn-editorial`, `violet-ice`,
+`electric-atelier`, `riviera-pop`, `bold-eclectic`, `graphite-red`,
+`organic-palette`, and `sunny-palette`. See the
+[approved 28-mode library](APPROVED_THEME_LIBRARY.md).
 
 Use the same choices after packaging/installing, with no dependency on
 the source repository's examples directory:
@@ -100,7 +110,7 @@ old/new value, and role:
 | --- | --- |
 | `supported` | Literal hex at a registry path; rewritten to the role color. |
 | `supported-enum` | Azure Maps `defaultStyle`: light → `road`, dark → `night` (only when the property exists). |
-| `preserved` | `ThemeDataColor` references, `FillRule`/conditional/dynamic expressions, scoped `dataPoint` fills, and data-point hexes outside the source `dataColors` — kept byte-identical, with a warning and exact path. Data-point fills matching a source `dataColors` index map by that index. |
+| `preserved` | `ThemeDataColor` references, conditional/dynamic predicate structures, scoped `dataPoint` fills and data-point hexes outside source `dataColors` — kept unchanged with an exact-path warning. Data-point colors matching source `dataColors` map by stable series index. The **literal color stops** of supported `FillRule.linearGradient2/3` numeric ramps are safely recolored; their bound measures, thresholds and predicates remain unchanged. |
 | `blocked` | Color on an unsupported/custom visual type, with exact path. |
 | `unknown` | Transparent or alpha-channel colors; effective color cannot be resolved statically. |
 | `not_applicable` | Hex outside a color property, and the superseded registered theme file. |
@@ -126,10 +136,11 @@ inside the candidate.
   darken the report canvas.
 - No image pixels: static images, embedded SVGs, and opaque custom
   visuals are not recolored; unsupported visual types are `blocked`.
-- No dynamic rules: conditional formatting, `FillRule`s, dynamic
-  expressions, and scoped data-point colors are preserved, not
-  restyled. Business meaning (for example red = overspend) is never
-  inverted.
+- No changes to dynamic business logic: conditional expressions, `FillRule`
+  measures, thresholds/predicates and scoped data-point semantics remain
+  unchanged. Only supported **literal numeric gradient color stops**
+  (`linearGradient2/3`) can be restyled. Business meaning (for example
+  red = overspend) is never inverted.
 - Static proof only: schema-shaped output and WCAG ratios are not
   Desktop rendering, data, or design acceptance. Affected pages still
   need native render review per the acceptance matrix.
@@ -164,10 +175,11 @@ The October 2026 Microsoft report-theme JSON Schema permits report-wide
 outspacePane/filterCard defaults, but pinned Microsoft authoring CLI 0.5.0
 rejects them as unknown formatting objects. For a validated authoring
 candidate, this engine styles the actual page outspace and canvas explicitly
-and does not emit those rejected report-global defaults. Therefore filter-pane
-chrome is NOT certified dark/light in this version, and must be checked in
-native Desktop. This known limitation is not concealed as full visual coverage.
-
+and does not emit those rejected report-global defaults. Instead, page-level PBIR
+`outspacePane` and `filterCard` objects are styled as described below.
+Schema validation confirms their structure, **not** the rendered open filter
+flyout, search, selection or dropdown states; native Desktop review remains
+required.
 
 ## Filter pane and dropdown chrome
 
