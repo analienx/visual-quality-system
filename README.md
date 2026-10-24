@@ -141,8 +141,8 @@ Read the [user guide](docs/USER_GUIDE.md), [CLI reference](docs/CLI.md), [accept
 
 [**Chart-color redesign:** researched independent categorical/ramp
 palettes are implemented for each dark colorway.](docs/CHART_COLOR_DESIGN.md)
-*The archived report thumbnails reflect the earlier chart palette
-until new native Desktop captures pass review.*
+*The four dark colorways show recaptured native Desktop evidence for
+the researched chart palettes; the white/light theme remains unchanged.*
 
 
 

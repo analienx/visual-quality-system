@@ -7,12 +7,12 @@ No UI mockups, customer data or AI-generated dashboards are used. The 1600px
 public previews are resized from original 3915px Desktop captures retained
 outside Git; both public and original SHA-256 hashes are in manifests.
 
-*Chart palette redesign notice:* the gallery thumbnails originally
-captured at revision `92e40b1` display the **previous** series palettes;
-they must not be used as design evidence for the new curated scheme.
-New candidates and refreshed native captures are required before
-publishing the redesigned chart colors. Source choices and contrast
-checks: [Chart Color Design](CHART_COLOR_DESIGN.md).
+The four dark-theme previews have now been recaptured from the researched
+color scheme at candidate revision `9f9fb98`, after Full synthetic
+model processing and official native Desktop screenshots. The light/white
+theme was intentionally unchanged and retains its original manifest.
+[Chart palette design rationale](CHART_COLOR_DESIGN.md) and independent
+G2 interaction/review limitations remain available.
 
 ## Compare the same report across five themes
 
@@ -133,9 +133,10 @@ measure, numeric thresholds, selectors and conditional structure.
 Waterfall increase/decrease/total and true business-rule conditional
 colors are intentionally protected from automatic recoloring.
 
-The public screenshot previews **were re-captured after the chart-color
-implementation** on exact candidate revision 92e40b1, so bars, maps and
-numeric gradients visibly follow their chosen semantic palette.
+The four dark-theme screenshots were newly captured at candidate source
+revision 9f9fb98 and show distinct theme-specific category palettes and
+value gradients. The white/light captures are unchanged at revision
+92e40b1; both sources are recorded in the individual image manifests.
 
 ## Filter-pane, slicer and dropdown behavior
 
@@ -154,10 +155,12 @@ colors or behavior.
 
 These are genuine synthetic-demo presentation previews, not raw G2 runtime
 evidence. Each page was captured via the official Power BI Desktop authoring
-interface after Microsoft Modeling MCP Full processing. Every palette is
-sourced from the identical five-page Contoso report and Git revision
-[92e40b1](https://github.com/analienx/visual-quality-system/commit/92e40b1097bf124c64a257a4db63f1d653e03f58),
-and passed [official Microsoft authoring validation](https://github.com/analienx/visual-quality-system/actions/runs/40038410291).
+interface after Microsoft Modeling MCP Full processing. Every palette originates in the same five-page synthetic Contoso report.
+The unchanged white/light captures trace to revision
+[92e40b1](https://github.com/analienx/visual-quality-system/commit/92e40b1097bf124c64a257a4db63f1d653e03f58).
+The four recolored dark themes trace to
+[9f9fb98](https://github.com/analienx/visual-quality-system/commit/9f9fb9820d88007a71181acae3a35743bb26ccb8),
+which [passed official Microsoft authoring on Linux and Windows](https://github.com/analienx/visual-quality-system/actions/runs/40077405016).
 
 - [Executive Blue Light public-preview and source-capture hash manifest](images/themes/light/manifest.json)
 - [Executive Blue Dark public-preview and source-capture hash manifest](images/themes/blue-dark/manifest.json)
