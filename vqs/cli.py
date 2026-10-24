@@ -824,6 +824,8 @@ def _theme(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from .theme import palette_presets
+
     parser = argparse.ArgumentParser(prog="vqs", description="Visual Quality System pre-alpha tools")
     parser.add_argument("--version", action="version",
                         version=f"vqs {package_version() or 'unknown'}")
@@ -845,8 +847,7 @@ def main(argv: list[str] | None = None) -> int:
     palette_preview = theme_preview.add_mutually_exclusive_group()
     palette_preview.add_argument("--palette", type=Path, default=None)
     palette_preview.add_argument("--palette-preset",
-                                 choices=("executive-blue", "graphite-mint",
-                                          "warm-basalt", "slate-lavender"),
+                                 choices=palette_presets(),
                                  default="executive-blue")
     theme_preview.add_argument("--out", type=Path, default=None)
     theme_apply = theme_actions.add_parser("apply", help="Write a themed candidate project")
@@ -855,8 +856,7 @@ def main(argv: list[str] | None = None) -> int:
     palette_apply = theme_apply.add_mutually_exclusive_group()
     palette_apply.add_argument("--palette", type=Path, default=None)
     palette_apply.add_argument("--palette-preset",
-                               choices=("executive-blue", "graphite-mint",
-                                        "warm-basalt", "slate-lavender"),
+                               choices=palette_presets(),
                                default="executive-blue")
     theme_apply.add_argument("--candidate-root", type=Path, required=True)
     theme_audit = theme_actions.add_parser("audit", help="Audit a themed candidate")

@@ -17,14 +17,26 @@ from vqs.theme import (
 
 
 def test_bundled_presets_match_reviewed_examples() -> None:
-    assert palette_presets() == ("executive-blue", "graphite-mint",
-                                "warm-basalt", "slate-lavender")
-    root = Path(__file__).resolve().parents[1] / "examples/theme-palettes"
-    for name in palette_presets()[1:]:
-        actual = load_palette("dark", None, name)
-        expected = load_palette("dark", root / f"dark-{name}.json")
-        assert actual == expected
+    legacy = ("executive-blue", "graphite-mint",
+              "warm-basalt", "slate-lavender")
+    presets = palette_presets()
+    assert presets[:len(legacy)] == legacy  # backward-compatible order
+    root = Path(__file__).resolve().parents[1]
+    manifest = json.loads(
+        (root / "docs/APPROVED_THEME_SELECTION.json").read_text(encoding="utf-8"))
+    approved = tuple(p["slug"] for p in manifest["presets"])
+    assert len(approved) == 14
+    assert presets[len(legacy):] == approved
+    examples = root / "examples/theme-palettes"
+    for name in legacy[1:]:
+        assert load_palette("dark", None, name) == load_palette(
+            "dark", examples / f"dark-{name}.json")
         assert load_palette("light", None, name) == load_palette("light", None)
+    for name in approved:
+        source = examples / f"preset-{name}.json"
+        for mode in ("dark", "light"):
+            assert load_palette(mode, None, name) == load_palette(
+                mode, source)
 
 
 def test_theme_presets_cli_and_invalid_combinations(tmp_path: Path, capsys) -> None:

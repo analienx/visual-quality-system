@@ -1,0 +1,153 @@
+{
+  "schema": "vqs.approved-theme-library/1",
+  "status": "user-approved",
+  "originalSelectionCount": 28,
+  "presets": [
+    {
+      "number": "05",
+      "slug": "okabe-ito-night",
+      "title": "Okabe\u2013Ito Night",
+      "modes": [
+        "dark",
+        "light"
+      ],
+      "resource": "vqs/palettes/preset-okabe-ito-night.json"
+    },
+    {
+      "number": "08",
+      "slug": "petrol-gold",
+      "title": "Petrol & Gold",
+      "modes": [
+        "dark",
+        "light"
+      ],
+      "resource": "vqs/palettes/preset-petrol-gold.json"
+    },
+    {
+      "number": "09",
+      "slug": "indigo-ember",
+      "title": "Indigo Ember",
+      "modes": [
+        "dark",
+        "light"
+      ],
+      "resource": "vqs/palettes/preset-indigo-ember.json"
+    },
+    {
+      "number": "12",
+      "slug": "arctic-aurora",
+      "title": "Arctic Aurora",
+      "modes": [
+        "dark",
+        "light"
+      ],
+      "resource": "vqs/palettes/preset-arctic-aurora.json"
+    },
+    {
+      "number": "14",
+      "slug": "mediterranean-terra",
+      "title": "Mediterranean Terra",
+      "modes": [
+        "dark",
+        "light"
+      ],
+      "resource": "vqs/palettes/preset-mediterranean-terra.json"
+    },
+    {
+      "number": "15",
+      "slug": "saffron-spruce",
+      "title": "Saffron & Spruce",
+      "modes": [
+        "dark",
+        "light"
+      ],
+      "resource": "vqs/palettes/preset-saffron-spruce.json"
+    },
+    {
+      "number": "18",
+      "slug": "autumn-editorial",
+      "title": "Autumn Editorial",
+      "modes": [
+        "dark",
+        "light"
+      ],
+      "resource": "vqs/palettes/preset-autumn-editorial.json"
+    },
+    {
+      "number": "19",
+      "slug": "violet-ice",
+      "title": "Violet Ice",
+      "modes": [
+        "dark",
+        "light"
+      ],
+      "resource": "vqs/palettes/preset-violet-ice.json"
+    },
+    {
+      "number": "25",
+      "slug": "electric-atelier",
+      "title": "Electric Atelier",
+      "modes": [
+        "dark",
+        "light"
+      ],
+      "resource": "vqs/palettes/preset-electric-atelier.json"
+    },
+    {
+      "number": "26",
+      "slug": "riviera-pop",
+      "title": "Riviera Pop",
+      "modes": [
+        "dark",
+        "light"
+      ],
+      "resource": "vqs/palettes/preset-riviera-pop.json"
+    },
+    {
+      "number": "30",
+      "slug": "bold-eclectic",
+      "title": "Bold Eclectic",
+      "modes": [
+        "dark",
+        "light"
+      ],
+      "resource": "vqs/palettes/preset-bold-eclectic.json"
+    },
+    {
+      "number": "31",
+      "slug": "graphite-red",
+      "title": "Graphite Red",
+      "modes": [
+        "dark",
+        "light"
+      ],
+      "resource": "vqs/palettes/preset-graphite-red.json"
+    },
+    {
+      "number": "32",
+      "slug": "organic-palette",
+      "title": "Organic Palette",
+      "modes": [
+        "dark",
+        "light"
+      ],
+      "resource": "vqs/palettes/preset-organic-palette.json"
+    },
+    {
+      "number": "33",
+      "slug": "sunny-palette",
+      "title": "Sunny Palette",
+      "modes": [
+        "dark",
+        "light"
+      ],
+      "resource": "vqs/palettes/preset-sunny-palette.json"
+    }
+  ],
+  "designProvenance": {
+    "status": "independent original VQS palette adaptations",
+    "corporateAffiliation": "none",
+    "seriesColorRule": "theme-specific distinct category hues",
+    "numericValueRule": "ordered separate luminance ramp; business semantics preserved"
+  }
+}

@@ -76,7 +76,22 @@ BUILTIN_PALETTES: dict[str, dict[str, dict[str, Any]]] = {
     "executive-blue": {"light": _LIGHT, "dark": _DARK},
 }
 PALETTE_PRESETS = ("executive-blue", "graphite-mint",
-                   "warm-basalt", "slate-lavender")
+                   "warm-basalt", "slate-lavender",
+                   "okabe-ito-night",
+                   "petrol-gold",
+                   "indigo-ember",
+                   "arctic-aurora",
+                   "mediterranean-terra",
+                   "saffron-spruce",
+                   "autumn-editorial",
+                   "violet-ice",
+                   "electric-atelier",
+                   "riviera-pop",
+                   "bold-eclectic",
+                   "graphite-red",
+                   "organic-palette",
+                   "sunny-palette",
+)
 
 
 def palette_presets() -> tuple[str, ...]:
@@ -86,8 +101,13 @@ def palette_presets() -> tuple[str, ...]:
 def _preset_override(preset: str, mode: str) -> dict[str, Any]:
     if preset == "executive-blue":
         return {}
+    # Existing dark-only colorways remain backwards compatible. Newly
+    # approved dual-mode families are packaged as self-contained resources.
+    filename = (f"dark-{preset}.json" if preset in (
+        "graphite-mint", "warm-basalt", "slate-lavender")
+        else f"preset-{preset}.json")
     resource = importlib.resources.files("vqs").joinpath(
-        "palettes", f"dark-{preset}.json")
+        "palettes", filename)
     try:
         doc = json.loads(resource.read_text(encoding="utf-8"))
     except (OSError, ValueError, ModuleNotFoundError) as exc:

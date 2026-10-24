@@ -137,6 +137,14 @@ Read the [user guide](docs/USER_GUIDE.md), [CLI reference](docs/CLI.md), [accept
 
 ---
 
+### Approved Light/Dark palette library — 28 selectable modes
+
+**Fourteen newly approved families, each with distinct Dark and Light tokens:** Okabe–Ito Night, Petrol & Gold, Indigo Ember, Arctic Aurora, Mediterranean Terra, Saffron & Spruce, Autumn Editorial, Violet Ice, Electric Atelier, Riviera Pop, Bold Eclectic, Graphite Red, Organic Palette, and Sunny Palette.
+
+**[View all 28 palette design previews →](docs/APPROVED_THEME_LIBRARY.md)** · [Approved palette selection](docs/APPROVED_THEME_SELECTION.json) · [Theme CLI](docs/THEME_ENGINE.md)
+
+These new previews are **token-accurate design simulations, not Power BI screenshots**. Microsoft-hosted native authoring validates actual five-page report candidates separately. The following five-theme gallery still contains genuinely captured Power BI Desktop evidence for the original colorways.
+
 ### Adaptive Power BI themes — full report showcases
 
 [**Chart-color redesign:** researched independent categorical/ramp
