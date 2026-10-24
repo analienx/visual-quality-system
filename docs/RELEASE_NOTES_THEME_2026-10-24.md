@@ -1,0 +1,60 @@
+# Adaptive Power BI themes · release candidate · 24 October 2026
+
+**Status: PR [#81](https://github.com/analienx/visual-quality-system/pull/81)
+remains DRAFT and unmerged.** These are engineering candidate notes,
+**not** a production release, independent G2 visual signoff or G6 merge approval.
+The previous [21 October Power BI core notes](RELEASE_NOTES_2026-10-21.md)
+remain valid for the code already in main.
+
+## What is ready
+
+- 14 **new approved** palette families × paired Dark/Light = **28** modes.
+  They supplement four legacy families, giving 18 selectable identifiers
+  without breaking the original default behavior.
+- Reversible `vqs theme inspect/preview/apply/audit`, candidate confinement
+  and manifest/source/model integrity invariants.
+- Report/page/filter-card/slicer appearance plus deterministic categorical
+  chart series, the unscoped wildcard chart fills observed in actual Desktop
+  evidence, and supported numerical `linearGradient2/3` color stops.
+  Bound business measures, filter selections, conditional thresholds and
+  positive/negative meaning remain unchanged.
+- CI, R6 and official Microsoft report-authoring validation all **passed**
+  at implementation commit `b113f77ba60e5215fc59cddc11994f1702aa56c1`.
+  GitHub validated **28 five-page Contoso PBIP candidates** (140 page
+  definitions); structural validation alone does not certify pixels.
+- A [curated real Power BI Desktop showcase](REAL_THEME_SHOWCASE.md) captures
+  all five native pages for **Sunny, Organic and Graphite Red**, in both modes
+  (30 genuine native page captures). The public gallery embeds three
+  representative report pages per mode (18 resized WebP images), and the
+  [capture provenance](images/adaptive-showcase/PROVENANCE.json) records
+  raw/public SHA-256, candidate/model/source identities and the exact code
+  used. The remaining 11 family pairs are [token-only color swatches](APPROVED_THEME_LIBRARY.md),
+  not invented report screenshots. The earlier five-colorway
+  [native gallery](THEME_GALLERY.md) is retained separately.
+- Verified native Sunny Dark subtitle and chart-legend appearance, after
+  correction for implicit low-contrast text; guarded wildcard chart fills
+  follow selected tokens while waterfall business semantics remain intact.
+
+## Finite remaining acceptance gates
+
+1. **G2 native appearances:** capture and independently review both modes
+   of representative new presets (especially Organic Palette, Sunny Palette
+   and Graphite Red), then cover remaining themes to the approved extent.
+   Check actual category differentiation, text, legends, density, gradients,
+   card padding and map behavior—not just token contrast.
+2. **G2 interactions:** verify expanded slicer dropdown, search, filter pane
+   (Available/Applied) and selection states in actual Power BI Desktop.
+3. **G6 release signoff:** separate owner approval after independent evidence
+   review; PR must stay draft/unmerged until then.
+
+**Known limits:** An official report-theme schema pass is not a Desktop pixel
+pass; embedded images and opaque/custom visuals are not magically recolored.
+Microsoft's pinned authoring validator rejects some global filter-pane theme
+defaults, so the candidate applies supported page-level properties instead.
+Real flyout styling still needs native review. Azure Maps sign-in limitations
+of the separate Corporate Spend sample are not repaired by theme changes.
+
+**Source integrity:** No company affiliation is asserted for the original
+generic Organic Palette or Sunny Palette. Rewriting a feature branch and
+deleting older Actions runs removes reachable advertised names but cannot
+guarantee GitHub server-side garbage collection of unreachable commits.

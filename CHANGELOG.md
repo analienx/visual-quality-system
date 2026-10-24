@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased candidate — 2026-10-24 (draft PR #81; NOT on main)
+
+**Adaptive Power BI report themes:** 14 newly approved palette families in paired
+Light and Dark modes (28 new variants), additive to four unchanged legacy
+presets. Bounded `vqs theme inspect/preview/apply/audit` safely generates
+new PBIP candidates without altering source reports, semantic bindings or
+business meaning. Native Desktop review identified and corrected two
+appearance defects: a hardcoded unscoped chart wildcard fill and low-contrast
+automatic legend/subtitle text. The existing supported chart and numeric
+gradient handling, source/model invariance checks and rollback remain intact.
+
+**Verifiable public showcase:** 30 actual populated Desktop page captures
+from the six featured Sunny/Organic/Graphite Red Light/Dark candidates,
+with 18 cropped WebP previews published in the
+[real gallery](docs/REAL_THEME_SHOWCASE.md). The other 11 families appear as
+22 original token-color swatches in the
+[approved library](docs/APPROVED_THEME_LIBRARY.md)—not claimed as native
+report screenshots. Hashes, candidate/model/source identity and exact
+rendering commit are recorded in the
+[public gallery manifest](docs/images/adaptive-showcase/PROVENANCE.json).
+The homepage and [documentation landing page](docs/README.md) were simplified
+for first-time users and independent reviewers.
+
+**Quality boundary:** 134 focused local regression tests, Microsoft
+authoring validation and source audit were green during preparation.
+GitHub CI checks and independent visual/interaction G2/G4 review remain
+separate from production signoff. Draft PR #81 **must not merge** without
+the separate owner G6 approval. [Theme release-candidate record](docs/RELEASE_NOTES_THEME_2026-10-24.md).
+
 ## Unreleased — 2026-10-21 (main branch; Power BI engineering preview, no GitHub Release)
 
 > This is an **engineering integration**, not a production release or an independently accepted Power BI product. See the [21 October Power BI engineering evidence and release-candidate notes](docs/RELEASE_NOTES_2026-10-21.md).
