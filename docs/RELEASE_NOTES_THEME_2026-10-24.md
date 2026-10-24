@@ -14,7 +14,8 @@ remain valid for the code already in main.
 - Reversible `vqs theme inspect/preview/apply/audit`, candidate confinement
   and manifest/source/model integrity invariants.
 - Report/page/filter-card/slicer appearance plus deterministic categorical
-  chart series and supported numerical `linearGradient2/3` color stops.
+  chart series, the unscoped wildcard chart fills observed in actual Desktop
+  evidence, and supported numerical `linearGradient2/3` color stops.
   Bound business measures, filter selections, conditional thresholds and
   positive/negative meaning remain unchanged.
 - Hosted CI, R6 and Microsoft official authoring validation for the exact

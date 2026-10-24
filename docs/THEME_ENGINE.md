@@ -110,7 +110,7 @@ old/new value, and role:
 | --- | --- |
 | `supported` | Literal hex at a registry path; rewritten to the role color. |
 | `supported-enum` | Azure Maps `defaultStyle`: light → `road`, dark → `night` (only when the property exists). |
-| `preserved` | `ThemeDataColor` references, conditional/dynamic predicate structures, scoped `dataPoint` fills and data-point hexes outside source `dataColors` — kept unchanged with an exact-path warning. Data-point colors matching source `dataColors` map by stable series index. The **literal color stops** of supported `FillRule.linearGradient2/3` numeric ramps are safely recolored; their bound measures, thresholds and predicates remain unchanged. |
+| `preserved` | `ThemeDataColor` references, conditional/dynamic predicate structures, scoped `dataPoint` fills and data-point hexes outside source `dataColors` — kept unchanged with an exact-path warning. Data-point colors matching source `dataColors` map by stable series index. An unscoped chart `dataViewWildcard` fill (`matchingOption: 1`) maps to the first palette series color even when its old hardcoded hex is not in source `dataColors`; scoped business colors remain preserved. The **literal color stops** of supported `FillRule.linearGradient2/3` numeric ramps are safely recolored; their bound measures, thresholds and predicates remain unchanged. |
 | `blocked` | Color on an unsupported/custom visual type, with exact path. |
 | `unknown` | Transparent or alpha-channel colors; effective color cannot be resolved statically. |
 | `not_applicable` | Hex outside a color property, and the superseded registered theme file. |

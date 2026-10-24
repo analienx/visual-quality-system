@@ -759,6 +759,16 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
             child_scoped = scoped or _entry_scoped(child)
             child_dyn = dynamic or _subtree_has(child, "FillRule")
             child_ctx = ctx
+            # A dataViewWildcard selector applies one chart fill to all
+            # categories. It is not a bound scopeId or business color rule.
+            # See the actual Contoso "How sales are delivered" bar chart.
+            if (path == ["visual", "objects", "dataPoint"]
+                    and isinstance(child, dict)):
+                selector = child.get("selector")
+                if (isinstance(selector, dict)
+                        and selector.get("data") == [
+                            {"dataViewWildcard": {"matchingOption": 1}}]):
+                    child_ctx = {**ctx, "_globalDataPointWildcard": True}
             if path == ["objects", "filterCard"] and isinstance(child, dict):
                 selector = child.get("selector")
                 if isinstance(selector, dict) and selector.get("id") in (
@@ -921,6 +931,20 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
                         "role": "dataColors[0]",
                         "classification": "supported",
                         "detail": "unscoped chart default data color"})
+            return
+        if (ctx.get("_globalDataPointWildcard")
+                and file_kind == "visual"
+                and visual_type in CHART_TYPES
+                and _property_of(path) == "fill"
+                and _format_color_leaf(path, file_kind)):
+            first_color = (str(palette["dataColors"][0])
+                           if palette is not None else None)
+            out.append({**{k: v for k, v in ctx.items()
+                           if not k.startswith("_")},
+                        "pointer": _pointer(path), "_path": list(path),
+                        "old": hex_value, "new": first_color,
+                        "role": "dataColors[0]", "classification": "supported",
+                        "detail": "unscoped wildcard chart fill recolored"})
             return
         if hex_value in source_colors:
             index = source_colors.index(hex_value)

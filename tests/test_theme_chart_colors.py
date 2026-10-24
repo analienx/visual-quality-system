@@ -173,3 +173,36 @@ def test_two_explicit_chart_line_series_receive_distinct_theme_colors(
             "expr"]["Literal"]["Value"] == f"'{palette['dataColors'][i]}'"
     assert before["visual"]["objects"]["lineStyles"] == doc[
         "visual"]["objects"]["lineStyles"]
+
+
+@pytest.mark.parametrize("mode", ("light", "dark"))
+def test_real_contoso_wildcard_channel_fill_follows_theme(
+        tmp_path: Path, mode: str) -> None:
+    """Native-capture regression: bright default channel bars must retheme."""
+    source = (CONTOSO / "definition/pages/Markets_drivers/visuals"
+              / "channel-mix-bar/visual.json")
+    original = _read(source)
+    old = original["visual"]["objects"]["dataPoint"][1]
+    assert old["selector"] == {
+        "data": [{"dataViewWildcard": {"matchingOption": 1}}]}
+    assert old["properties"]["fill"]["solid"]["color"]["expr"] == (
+        _literal("#4F7CFF"))
+    palette = load_palette(mode, None, "organic-palette")
+    plan = build_plan(CONTOSO, mode, palette)
+    updates = [change for change in plan["changes"]
+               if change["visual"] == "channel-mix-bar"
+               and change["role"] == "dataColors[0]"
+               and "/dataPoint/1/properties/fill/" in change["pointer"]]
+    assert len(updates) == 1
+    assert updates[0]["old"] == "#4F7CFF"
+    assert updates[0]["new"] == palette["dataColors"][0]
+    candidate = tmp_path / ("candidate-" + mode)
+    apply_theme(CONTOSO, mode, palette, candidate)
+    revised = _read(candidate / "Contoso Retail.Report"
+                    / "definition/pages/Markets_drivers/visuals"
+                    / "channel-mix-bar/visual.json")
+    selected = revised["visual"]["objects"]["dataPoint"][1]
+    assert selected["selector"] == old["selector"]
+    assert selected["properties"]["fill"]["solid"]["color"]["expr"] == (
+        _literal(palette["dataColors"][0]))
+    assert audit_candidate(candidate)["integrityStatus"] == "pass"
