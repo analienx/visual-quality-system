@@ -47,11 +47,12 @@ def test_real_contoso_numeric_color_ramps_follow_preset(preset: str) -> None:
     plan = build_plan(CONTOSO, "dark", palette)
     changes = [c for c in plan["changes"]
                if c["role"] in ("gradientMin", "gradientMax")]
-    assert len(changes) >= 6  # bar/column plus Shape Map live examples
+    assert len(changes) >= 2  # Shape Map stays quantitative; bars now identify categories
     assert {"gradientMin", "gradientMax"} <= {c["role"] for c in changes}
     assert all(c["new"] == palette[c["role"]] for c in changes)
     assert any(c["visualType"] == "shapeMap" for c in changes)
-    assert any(c["visualType"] == "clusteredColumnChart" for c in changes)
+    # Clustered categories now have explicit, distinct scoped colors.
+    # Shape Map retains its genuine quantitative gradient.
     assert all("/dataPoint/" in c["pointer"] and
                "/FillRule/FillRule/linearGradient2/" in c["pointer"]
                for c in changes)
@@ -242,26 +243,59 @@ def test_real_contoso_dark_secondary_legend_and_subtitle(
     assert audit_candidate(cand)["integrityStatus"] == "pass"
 
 
-def test_real_contoso_numeric_gradient_legend_contrast_is_explicit(
+def test_real_contoso_categorical_brand_bars_are_distinct(
         tmp_path: Path) -> None:
-    """Native dark bar scales rendered low-contrast automatic legend captions."""
+    """Explicit brand selector colors survive candidate generation intact."""
     palette = load_palette("dark", None, "sunny-palette")
     source = (CONTOSO / "definition/pages/Products_brands/visuals"
               / "6eef7fa2804207db6a94/visual.json")
     original = _read(source)
-    assert "FillRule" in json.dumps(original["visual"]["objects"]["dataPoint"])
-    assert "legend" not in original["visual"]["objects"]
-    plan = build_plan(CONTOSO, "dark", palette)
-    found = [c for c in plan["changes"]
-             if c["visual"] == "6eef7fa2804207db6a94"
-             and c["pointer"] == "/visual/objects/legend"]
-    assert len(found) == 1
+    original_points = original["visual"]["objects"]["dataPoint"]
+    assert "FillRule" not in json.dumps(original_points)
+    assert len(original_points) == 6  # five brands plus default
+    indexes = [x["properties"]["fill"]["solid"]["color"]["expr"][
+        "ThemeDataColor"]["ColorId"] for x in original_points[1:]]
+    assert indexes == [2, 3, 4, 5, 6]  # Power BI reserves IDs 0/1 for theme chrome
+    assert all("scopeId" in x["selector"]["data"][0]
+               for x in original_points[1:])
     dest = tmp_path / "candidate"
     apply_theme(CONTOSO, "dark", palette, dest)
     updated = _read(dest / "Contoso Retail.Report/definition/pages/"
                     "Products_brands/visuals/6eef7fa2804207db6a94/visual.json")
-    assert updated["visual"]["objects"]["legend"][0]["properties"][
-        "labelColor"]["solid"]["color"]["expr"] == _literal(
-            palette["mutedForeground"])
+    assert updated["visual"]["objects"]["dataPoint"] == original_points
     assert updated["visual"]["query"] == original["visual"]["query"]
+    assert audit_candidate(dest)["integrityStatus"] == "pass"
+
+
+@pytest.mark.parametrize("mode", ("light", "dark"))
+def test_graphite_red_positive_status_uses_blue_without_changing_logic(
+        tmp_path: Path, mode: str) -> None:
+    """A red/graphite editorial style must never contain green status fills."""
+    palette = load_palette(mode, None, "graphite-red")
+    plan = build_plan(CONTOSO, mode, palette)
+    changes = [c for c in plan["changes"] if c["role"] == "good"]
+    assert len(changes) == 2
+    assert {c["old"] for c in changes} == {"#047857", "#22C55E"}
+    assert {c["new"] for c in changes} == {palette["good"]}
+    dest = tmp_path / mode
+    apply_theme(CONTOSO, mode, palette, dest)
+    base = dest / "Contoso Retail.Report/definition/pages"
+    target = _read(base / "Executive_overview/visuals/"
+                   "cd368855f0cc75592aed/visual.json")
+    source = _read(CONTOSO / "definition/pages/Executive_overview/visuals/"
+                   "cd368855f0cc75592aed/visual.json")
+    color_cases = target["visual"]["objects"]["dataPoint"][1]["properties"][
+        "fill"]["solid"]["color"]["expr"]["Conditional"]["Cases"]
+    old_cases = source["visual"]["objects"]["dataPoint"][1]["properties"][
+        "fill"]["solid"]["color"]["expr"]["Conditional"]["Cases"]
+    assert [c["Condition"] for c in color_cases] == [
+        c["Condition"] for c in old_cases]
+    assert color_cases[0]["Value"]["Literal"]["Value"] == (
+        "'" + palette["good"] + "'")
+    assert color_cases[1]["Value"] == old_cases[1]["Value"]
+    waterfall = _read(base / "Markets_drivers/visuals/"
+                      "b1c2d3e4f5061728394a/visual.json")
+    increase = waterfall["visual"]["objects"]["sentimentColors"][0][
+        "properties"]["increaseFill"]["solid"]["color"]["expr"]["Literal"]["Value"]
+    assert increase == "'" + palette["good"] + "'"
     assert audit_candidate(dest)["integrityStatus"] == "pass"

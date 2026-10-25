@@ -83,11 +83,11 @@ def test_contoso_has_native_appearance_and_chart_ramp_edits(
     plan = build_plan(REPORT, mode, palette)
     changes = [c for c in plan["changes"]
                if c.get("role") in ("gradientMin", "gradientMax")]
-    assert len(changes) >= 6
+    assert len(changes) >= 2  # Shape Map numeric ramp remains; other bars are categorical
     assert all(c["new"] == palette[c["role"]] for c in changes)
     assert any(c["visualType"] == "shapeMap" for c in changes)
-    assert any(c["visualType"] == "clusteredColumnChart"
-               for c in changes)
+    # The remaining numerical gradient is on the Shape Map;
+    # categorical bars now use per-category identity colors.
     assert not any("/Conditional/" in c["pointer"] for c in changes)
 
 

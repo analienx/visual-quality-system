@@ -163,9 +163,32 @@ def test_series_collision_is_reported_with_true_theme_source(
     assert risk["evidence"]["worst_pairs"]
 
 
-def test_numeric_category_gradients_are_advisory_not_semantic_overrides() -> None:
-    report = (Path(__file__).parents[1]
+def test_numeric_category_gradients_are_advisory_not_semantic_overrides(
+        tmp_path: Path) -> None:
+    # Sample categorical bars are now identity-colored; build a real
+    # measure-bound gradient fixture to verify future arbitrary reports.
+    report = tmp_path / "Contoso Retail.Report"
+    source = (Path(__file__).parents[1]
               / "examples/contoso-retail/Contoso Retail.Report")
+    shutil.copytree(source, report)
+    model = source.parent / "Contoso Retail.SemanticModel"
+    shutil.copytree(model, tmp_path / model.name)
+    path = (report / "definition/pages/Executive_overview/visuals/"
+            "364c01f845a43686f504/visual.json")
+    visual = json.loads(path.read_text(encoding="utf-8"))
+    visual["visual"]["objects"]["dataPoint"] = [{
+        "properties": {"fill": {"solid": {"color": {"expr": {
+            "FillRule": {
+                "Input": {"Measure": {"Expression": {
+                    "SourceRef": {"Entity": "Fact Sales"}},
+                    "Property": "Reporting Year Sales"}},
+                "FillRule": {"linearGradient2": {
+                    "min": {"color": {"Literal": {"Value": "'#52698F'"}}},
+                    "max": {"color": {"Literal": {"Value": "'#4F7CFF'"}}}
+                }}
+            }}}}}}
+    }]
+    path.write_text(json.dumps(visual), encoding="utf-8")
     result = audit(str(report))
     risks = [f for f in result["findings"]
              if f["rule"] == "color.numeric_gradient_category_ambiguity"]

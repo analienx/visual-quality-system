@@ -3,7 +3,7 @@
   "name": "cd368855f0cc75592aed",
   "position": {
     "x": 439.71819817621764,
-    "y": 469.69898441550521,
+    "y": 469.6989844155052,
     "z": 7000,
     "height": 228,
     "width": 816,
@@ -568,7 +568,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Target = 35% · green meets target · coral is below target.'"
+                  "Value": "'Target = 35% · above target meets goal · below target needs action.'"
                 }
               }
             }

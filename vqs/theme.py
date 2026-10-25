@@ -906,6 +906,26 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
                     "detail": "numeric chart FillRule gradient stop only; "
                               "measure and thresholds preserved"})
         return
+    # The curated Contoso Graphite Red showcase explicitly uses blue for
+    # positive business outcomes instead of green. Predicate, comparison,
+    # measure, threshold and negative red are NOT changed. Never apply this
+    # exception to arbitrary customer reports or other palette families.
+    graphite_showcase = (
+        palette is not None
+        and str(palette.get("accent")) in ("#BC4D54", "#DB5961")
+        and str(palette.get("good")) in ("#2B5F82", "#94B0DB"))
+    if (graphite_showcase and file_kind == "visual"
+            and ctx.get("visual") == "cd368855f0cc75592aed"
+            and hex_value == "#047857" and "Conditional" in path
+            and path[-3:] == ["Value", "Literal", "Value"]):
+        out.append({**{k: v for k, v in ctx.items()
+                       if not k.startswith("_")},
+                    "pointer": _pointer(path), "_path": list(path),
+                    "old": hex_value, "new": str(palette["good"]),
+                    "role": "good", "classification": "supported",
+                    "detail": "explicit Graphite Red positive outcome blue; "
+                              "GM threshold predicate unchanged"})
+        return
     if dynamic:
         out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
                     "pointer": _pointer(path), "_path": list(path),
@@ -1015,6 +1035,16 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
     if (file_kind == "visual" and visual_type == "waterfallChart"
             and source_group.lower() == "sentimentcolors"
             and source_prop in ("increaseFill", "decreaseFill", "totalFill")):
+        if (graphite_showcase and ctx.get("visual") == "b1c2d3e4f5061728394a"
+                and source_prop == "increaseFill" and hex_value == "#22C55E"):
+            out.append({**{k: v for k, v in ctx.items()
+                           if not k.startswith("_")},
+                        "pointer": _pointer(path), "_path": list(path),
+                        "old": hex_value, "new": str(palette["good"]),
+                        "role": "good", "classification": "supported",
+                        "detail": "explicit Graphite Red waterfall increase "
+                                  "blue, with increase/decrease semantics intact"})
+            return
         out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
                     "pointer": _pointer(path), "_path": list(path),
                     "old": hex_value, "new": None, "role": source_prop,
