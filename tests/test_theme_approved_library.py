@@ -197,3 +197,31 @@ def test_graphite_red_has_no_green_semantic_or_category_colors(
         hue, saturation, _ = colorsys.rgb_to_hsv(red, green, blue)
         assert not (77 <= hue * 360 <= 178 and saturation > .14), (
             mode, color)
+
+
+@pytest.mark.parametrize("slug", SLUGS)
+@pytest.mark.parametrize("mode", ("light", "dark"))
+def test_each_approved_family_has_themed_navigation_controls(
+        slug: str, mode: str) -> None:
+    from vqs.theme import palette_contrast_check
+    palette = load_palette(mode, None, slug)
+    assert palette["slicerBackground"] != palette["surface"], (slug, mode)
+    assert palette["selection"] != palette["slicerBackground"], (slug, mode)
+    assert palette_contrast_check(palette) == [], (slug, mode)
+    assert palette["slicerForeground"] != palette["slicerBackground"]
+
+
+def test_inspired_original_reference_colors_are_preserved_in_usable_roles() -> None:
+    organic_light = load_palette("light", None, "organic-palette")
+    organic_dark = load_palette("dark", None, "organic-palette")
+    sunny_light = load_palette("light", None, "sunny-palette")
+    sunny_dark = load_palette("dark", None, "sunny-palette")
+    assert organic_light["dataColors"][:2] == ["#1B4298", "#E20177"]
+    assert organic_dark["selection"] == "#54B948"
+    assert organic_dark["tooltip"] == "#009DDC"
+    assert sunny_light["selection"] == "#F7941E"
+    assert sunny_light["tooltip"] == "#FCC89B"
+    assert sunny_dark["accent"] == "#F7941E"
+    assert sunny_dark["tableHeader"] == "#F7941E"
+    assert sunny_light["dataColors"][0] == "#B65B0A"
+    assert sunny_dark["dataColors"][0] == "#F7941E"

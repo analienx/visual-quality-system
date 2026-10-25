@@ -63,7 +63,7 @@ def test_brand_inspired_primary_color_roles_remain_recognizable(
     organic = load_palette(mode, None, "organic-palette")
     sunny = load_palette(mode, None, "sunny-palette")
     assert organic["dataColors"][0] in {"#1B4298", "#F47A9A"}
-    assert sunny["dataColors"][0] in {"#B65B0A", "#FFB14F"}
+    assert sunny["dataColors"][0] in {"#B65B0A", "#F7941E"}
     # Organic retains blue/pink/green/sky-blue vocabulary; Sunny's
     # orange and complementary neutrals remain separate from analytics colors.
     assert organic["dataColors"][1] != organic["dataColors"][2]
