@@ -15,7 +15,7 @@ gradient handling, source/model invariance checks and rollback remain intact.
 from ten featured Sunny, Organic, Graphite Red, Indigo Ember, and Petrol & Gold Light/Dark candidates,
 with 30 cropped WebP previews published in the
 [real gallery](docs/REAL_THEME_SHOWCASE.md). The other 9 families appear as
-22 original token-color swatches in the
+18 original token-color swatches in the
 [approved library](docs/APPROVED_THEME_LIBRARY.md)—not claimed as native
 report screenshots. Hashes, candidate/model/source identity and exact
 rendering commit are recorded in the
@@ -33,13 +33,28 @@ new-preset load-time validation, and two read-only
 `vqs premium` source-risk findings. Native full-page captures for all ten
 showcased Light/Dark modes, plus the three-page public gallery per mode and
 the other 18 palette swatches, have been **regenerated from the GitHub-hosted
-`a2bd366` artifacts**, with new SHA-256 provenance.
+`dddae21` artifacts**, with new SHA-256 provenance.
 
-**Quality boundary:** 134 focused local regression tests, Microsoft
+**Quality boundary:** full GitHub CI, Microsoft
 authoring validation and source audit were green during preparation.
 GitHub CI checks and independent visual/interaction G2/G4 review remain
 separate from production signoff. Draft PR #81 **must not merge** without
 the separate owner G6 approval. [Theme release-candidate record](docs/RELEASE_NOTES_THEME_2026-10-24.md).
+
+**25 October category-level QA correction:** Existing theme-wide color
+separation missed the real Electronics/Sports & Outdoors pair and a flat
+Retail/Online wildcard. QVS premium now resolves PBIR scoped category names
+and active ThemeDataColor assignments, emits HIGH severity findings
+`color.category_series_collision` and
+`color.category_wildcard_shared_fill`, and records exact RGB/distance/page/
+visual evidence. The 28-mode Microsoft authoring job and its separately
+invocable pre-capture gate require **zero** such findings before publishing
+a screenshot-ready candidate. Rebalanced all 28 category ramps while
+retaining the Organic blue/pink/green/sky-blue and Sunny orange/grey
+visual vocabularies. Source-bound `dddae21` candidates passed
+28/28 with zero category collisions before real Desktop recapture.
+The published 5-family gallery now contains 50 native page captures,
+30 downscaled public screenshots and 18 swatches.
 
 ## Unreleased — 2026-10-21 (main branch; Power BI engineering preview, no GitHub Release)
 

@@ -19,7 +19,7 @@ remain valid for the code already in main.
   Bound business measures, filter selections, conditional thresholds and
   positive/negative meaning remain unchanged.
 - CI, R6 and official Microsoft report-authoring validation all **passed**
-  for the final positive-color and categorical-quality code commit `a2bd3662be9974714eba9fb889137349752cd1df`.
+  for the latest chart-assignment-quality implementation commit `dddae21fa2fa1ccee59361715a68d8ede1e3914c`.
   GitHub regenerated and validated **28 five-page Contoso PBIP candidates**
   (140 page definitions); structural validation alone does not certify pixels.
 - A [curated real Power BI Desktop showcase](REAL_THEME_SHOWCASE.md) captures
@@ -48,13 +48,39 @@ conditional business good/bad colors are not converted into arbitrary
 categorical colors.
 
 **Capture integrity:** all ten featured Light/Dark modes were recaptured
-from the GitHub-hosted **`a2bd366`** candidate artifact after refreshing
-their isolated Desktop models. The public WebP gallery (18 representative
-pages) and all 22 token swatches have been regenerated from these final
+from the GitHub-hosted **`dddae21`** candidate artifact after refreshing
+their isolated Desktop models. The public WebP gallery (30 representative
+pages) and all 18 token swatches have been regenerated from these final
 palette dictionaries. The [SHA-256 provenance](images/adaptive-showcase/PROVENANCE.json)
 binds the exact full-resolution source captures, public report-only crops,
 palette hashes and candidate/model digests to that revision. Earlier
 `b113f77` screenshot derivatives were replaced, not relabeled.
+
+## 25 October category-level pre-capture QA gate
+
+The previous palette-level check missed actual in-chart collisions:
+Organic Light assigned Electronics `#1B4298` and Sports & Outdoors
+`#177DAD`, only 39.53 ΔE76 apart. A shared literal wildcard fill
+also assigned Retail and Online the same blue. Both problems have
+been fixed in the source and QVS itself.
+
+`vqs premium` now resolves the report's **actual category names and
+native color assignments**, issuing high-priority
+`color.category_series_collision` and
+`color.category_wildcard_shared_fill` findings before rendering.
+All 28 generated source-bound theme candidates must pass the updated
+`scripts/theme_approved_library_probe.py` step and a separate
+`scripts/theme_gallery_color_gate.py` verification **before** any
+Desktop screenshot is used as gallery evidence. The exact `dddae21`
+GitHub-hosted candidate set passed 28/28 with no reported collisions,
+confirmed by the independent local pre-capture command.
+
+Color optimization now keeps Sunny's orange/grey-led design and Organic's
+blue/pink/green/sky-blue visual identity. These generic themes are neither
+affiliated with nor advertised by external companies. The source PBIP
+preserves quantitative and business-status encodings: the country
+Shape Map retains its measure-bound gradient, and Graphite Red
+positive/negative semantics remain blue/red respectively.
 
 ## Finite remaining acceptance gates
 
@@ -98,5 +124,5 @@ results remain intact. The generic chart caption is color-neutral.
 Five selected families now have ten Light/Dark live Desktop modes, 50 private
 native full-page captures and 30 public report-only WebP previews; the other
 nine families have 18 paired color swatches. Hash provenance binds these
-images to GitHub-generated candidates from implementation commit `a2bd3662be9974714eba9fb889137349752cd1df`.
+images to GitHub-generated candidates from implementation commit `dddae21fa2fa1ccee59361715a68d8ede1e3914c`.
 Independent G2/G4/G6 release approval remains separate.

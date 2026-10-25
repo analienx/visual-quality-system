@@ -5,10 +5,10 @@
 <text x="30" y="78" fill="#4A5563" font-family="Segoe UI,Arial,sans-serif" font-size="15">Light · actual theme tokens</text>
 <rect x="30" y="100" width="84" height="37" rx="7" fill="#9987C9"/>
 <rect x="124" y="100" width="84" height="37" rx="7" fill="#337F80"/>
-<rect x="218" y="100" width="84" height="37" rx="7" fill="#B0819B"/>
-<rect x="312" y="100" width="84" height="37" rx="7" fill="#7C9979"/>
-<rect x="406" y="100" width="84" height="37" rx="7" fill="#BD8154"/>
-<rect x="500" y="100" width="84" height="37" rx="7" fill="#2B5F82"/>
-<rect x="594" y="100" width="84" height="37" rx="7" fill="#71822B"/>
-<rect x="688" y="100" width="84" height="37" rx="7" fill="#9D3449"/>
+<rect x="218" y="100" width="84" height="37" rx="7" fill="#8C3B47"/>
+<rect x="312" y="100" width="84" height="37" rx="7" fill="#A48E5B"/>
+<rect x="406" y="100" width="84" height="37" rx="7" fill="#C95508"/>
+<rect x="500" y="100" width="84" height="37" rx="7" fill="#1D2787"/>
+<rect x="594" y="100" width="84" height="37" rx="7" fill="#23A430"/>
+<rect x="688" y="100" width="84" height="37" rx="7" fill="#C22940"/>
 </svg>

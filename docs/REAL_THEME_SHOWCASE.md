@@ -6,7 +6,7 @@ and was refreshed in an isolated Power BI Desktop session before native page cap
 Original PNGs remain private; public WebP files crop only Desktop chrome and downscale.
 No invented dashboards, synthetic diagram screenshots, or image AI.
 
-Theme-engine capture code: [`a2bd3662be`](https://github.com/analienx/visual-quality-system/commit/a2bd3662be9974714eba9fb889137349752cd1df).
+Theme-engine capture code: [`dddae21fa2`](https://github.com/analienx/visual-quality-system/commit/dddae21fa2fa1ccee59361715a68d8ede1e3914c).
 [SHA-256 provenance](images/adaptive-showcase/PROVENANCE.json) ·
 [See all colorway swatches](APPROVED_THEME_LIBRARY.md) ·
 [Source Contoso PBIP](../examples/contoso-retail/Contoso%20Retail.pbip)

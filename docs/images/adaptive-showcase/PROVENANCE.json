@@ -1,20 +1,20 @@
 {
   "schema": "vqs.public-theme-showcase/1",
-  "authoringHead": "a2bd3662be9974714eba9fb889137349752cd1df",
+  "authoringHead": "dddae21fa2fa1ccee59361715a68d8ede1e3914c",
   "source": "five-page synthetic Contoso Retail PBIP, exact GH-hosted candidate artifact",
   "captureHost": "Microsoft Power BI Desktop via Microsoft Power BI Report Author CLI, all-pages native PNG",
   "modes": {
     "sunny-palette-light": {
-      "sourceDigest": "aa691da7a2cf7ba563b33b815f61d901d0daf898baeaa94be72d6c39055cc6e2",
-      "candidateDigest": "8565343611da3da0a546cf6d8625612c2d08cf3b54587f4c92d98496fb65e221",
+      "sourceDigest": "5e17d3df30446d21cd9d4071a732e9fb90a9e8844bc9645ffc8debee93d72c27",
+      "candidateDigest": "3c10af8ba024658a1a1f3ff123eab6b48ad0c8b174b46b5fa59c3daaf8ce2b76",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "6bcb88a09fb2c94edfb4ece683162af899f2b768d17bb7ee484718d187f7e6a4",
+      "paletteHash": "a39737b6edcd878ae6c55c2b790155bb7ab3fe7b167e37fe2832a7e60391ceea",
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/sunny-palette-light/executive-overview.webp",
-          "captureSha256": "d0f27d7b060dbe8656d34bbe3a076833b4216708666efdb84df3d228952388b2",
-          "webpSha256": "34f72bf8c26898d9c23680192a6be1e97381a315381c766dfa2e15ab7949b5be",
+          "captureSha256": "744a71bbb52063ac981a4cd4561a3b60c377c1813ee9c50e5fad6f908ba069fb",
+          "webpSha256": "b9dd2cfeb7f0b3a73d795edc7527baf511f20926573c15d824e042392040da49",
           "captureDimensions": [
             3915,
             2394
@@ -33,8 +33,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/sunny-palette-light/products-and-brands.webp",
-          "captureSha256": "7dee58ca00275799aac990c87aa79febb254ddd31a1fe25b20601896f95b79e8",
-          "webpSha256": "31b05913fc946fbff95c417ba1f2afda8be13c9612eade3026782b137377fd34",
+          "captureSha256": "d180bcdf8475a40d7ab76ea1e8ecb4285b0e0067e8d7398117e74c2965ca4761",
+          "webpSha256": "b1521460fe37cb47c98518b810d359f6deed725b20a020c2f9a10c43e40e2076",
           "captureDimensions": [
             3915,
             2394
@@ -53,8 +53,8 @@
         {
           "page": "Deep-dive insights",
           "file": "docs/images/adaptive-showcase/sunny-palette-light/deep-dive-insights.webp",
-          "captureSha256": "36a2f19ead3db68393b49e39bbfcad1fbf80089512ae36697a046002b3836f63",
-          "webpSha256": "2fda0a5d5af4a53caabfe3e6206d70486b6abcb4c3faaf4194f9f159eb078ed0",
+          "captureSha256": "552d02265479c18ea130f60ddfa4dcde39eb53958d729a0dc8173c1cbbd543f1",
+          "webpSha256": "8c0a9d3bb5334858927740b3381e7ce0b839c74fcc1ab6d9bcefd0bfbd7ea314",
           "captureDimensions": [
             3915,
             2394
@@ -73,16 +73,16 @@
       ]
     },
     "sunny-palette-dark": {
-      "sourceDigest": "aa691da7a2cf7ba563b33b815f61d901d0daf898baeaa94be72d6c39055cc6e2",
-      "candidateDigest": "6c5b03ebc632e3e272fabc7a032bad2bc9f4ca0634f77995723bccea5b884dad",
+      "sourceDigest": "5e17d3df30446d21cd9d4071a732e9fb90a9e8844bc9645ffc8debee93d72c27",
+      "candidateDigest": "d2321f074d928e938d1528db026923912b6bb3097af8dce6e849ecda2ad89499",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "284afa30564f75987fdc8b070213028910abc49afa4d7a0eeeed12a6dbdac160",
+      "paletteHash": "4bb0ccbdac5dd5140d6fbdc45bdfa8881971d019345e25913267faa1b638e2bd",
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/sunny-palette-dark/executive-overview.webp",
-          "captureSha256": "f313572905608fc1523d3e8ca4dc09f1e154bc55dcc06f5dfd31d20466ce9c7c",
-          "webpSha256": "7198a57c293dbf35e16695b223d505f8baba9b1913576933f3d68cdf03b195c9",
+          "captureSha256": "f188506b9e23ebf9f3e7d3a2d7fc126f73aab0203a162d26e73b38cc6e4ff588",
+          "webpSha256": "7877ba24b30a014be1784f68a60ff6cc406dacfaeac1425f700c72b5823fcbbd",
           "captureDimensions": [
             3915,
             2394
@@ -101,8 +101,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/sunny-palette-dark/products-and-brands.webp",
-          "captureSha256": "a6de129f249b9758acf8d943cf4ca6872480ee928ca16d0a02614f706d1534b9",
-          "webpSha256": "bf23354d0ae0a7798eb2d296f0c985c48743b4ec397aaa1c70ad5fdf713e47a4",
+          "captureSha256": "9969fc439b86098e434a29d10cf6eca005f901b8346b5cc01364acfdaae79c6a",
+          "webpSha256": "409aa9df61f926ad980282c3061644fa259fd4daf472e5f1fe88c00e6c6a20b2",
           "captureDimensions": [
             3915,
             2394
@@ -121,8 +121,8 @@
         {
           "page": "Deep-dive insights",
           "file": "docs/images/adaptive-showcase/sunny-palette-dark/deep-dive-insights.webp",
-          "captureSha256": "570d716a95a037dbf6812d4cf5e074a0b5a28ff45bb5090c2adca8954b2dcad1",
-          "webpSha256": "36a29cfc808d21c552e69d78c70d6fd686778a9df90a2cde93edd181afcbca3f",
+          "captureSha256": "b731ed6892961e7d8aa5db2fc156fed5ca956dc419ec15eb28143c0e0a64d6e0",
+          "webpSha256": "5ecfb2373e9824d462746dc0f5af28e4974b24f0951e1367245a8b7f9864614e",
           "captureDimensions": [
             3915,
             2394
@@ -141,16 +141,16 @@
       ]
     },
     "organic-palette-light": {
-      "sourceDigest": "aa691da7a2cf7ba563b33b815f61d901d0daf898baeaa94be72d6c39055cc6e2",
-      "candidateDigest": "f6d01aa6a65fd041503319d893e912256f6abe04fe4b091b0a7874cb85880912",
+      "sourceDigest": "5e17d3df30446d21cd9d4071a732e9fb90a9e8844bc9645ffc8debee93d72c27",
+      "candidateDigest": "9f6bc97b9d659eb6979025ad27638f083116a83b1b3f7e16b7123e1590135f9c",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "1e858a39784f1f3341c5a8206e95e3f52d94f47b7300189c81c22a29584f4d20",
+      "paletteHash": "e057d753ce87c68d8d47bdfcd31d12dd0fcb466af8bf60335cea1796c9a4bb9f",
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/organic-palette-light/executive-overview.webp",
-          "captureSha256": "68586793ee90394792b819058c59dfc6b457c0292ec288c894cbdba7eb38fc8d",
-          "webpSha256": "78f394dfc5948b89e8b75a51ec3f48b8ad76d65620e5fb656a4dfa28891a15d1",
+          "captureSha256": "b6d5a4695d7187a6aaf256836ccc02d1659dc951ccd1a22cf0cf894907033614",
+          "webpSha256": "d792086f2ff1f2e2faba52843812062b382e938feab202161451efc2141782ba",
           "captureDimensions": [
             3915,
             2394
@@ -169,8 +169,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/organic-palette-light/products-and-brands.webp",
-          "captureSha256": "0969535754f2e71eaf86675553e29c2eb17fa6686a985c0077253534f096c6e9",
-          "webpSha256": "1c0805fee6364d0d347c7ae445fef4606306a98ec07e80bf4e115c7b1f77cf1e",
+          "captureSha256": "7c542ba991631bbc0b3e6227a1d9f674a1025bc92c088bf8d13460eeb485fd16",
+          "webpSha256": "d3ddf926abaa3d0d640356f4d36fcb4bf10f88931b84825db444177d05166248",
           "captureDimensions": [
             3915,
             2394
@@ -189,8 +189,8 @@
         {
           "page": "Deep-dive insights",
           "file": "docs/images/adaptive-showcase/organic-palette-light/deep-dive-insights.webp",
-          "captureSha256": "ebc45837519516e0dba52edef39a53aa9967746fd85e29eeec6e432e0b15a390",
-          "webpSha256": "78580c81cc423935e7be98e026d1e3b9edec84746f5461235c29700efd33cef3",
+          "captureSha256": "7ca931bdf632f19454d52478ca615a491f8e3d890b9abba0382037c37b0a176c",
+          "webpSha256": "35284baef537fc54f7a1b2fe1156d6a6692fd614d30271802346068158fd1c05",
           "captureDimensions": [
             3915,
             2394
@@ -209,16 +209,16 @@
       ]
     },
     "organic-palette-dark": {
-      "sourceDigest": "aa691da7a2cf7ba563b33b815f61d901d0daf898baeaa94be72d6c39055cc6e2",
-      "candidateDigest": "b0b61c4fb259214f3ace459c4de0b4af63a0597b59dbf2688abaf4e2279d4a58",
+      "sourceDigest": "5e17d3df30446d21cd9d4071a732e9fb90a9e8844bc9645ffc8debee93d72c27",
+      "candidateDigest": "a095dedba490b02c7bc84fdb64616f94f1860613fb9ee23fb4bb384795725e2f",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "7e9c63f7f0f1f6ab27cdc8f594aac5ba2b12397628da80394c88cc4807e96719",
+      "paletteHash": "00667e0237052f9957556ab674edd7d875859620e56700c020dff13485f68820",
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/organic-palette-dark/executive-overview.webp",
-          "captureSha256": "a14fc08e20c96d402ffd45223b3ba064f0ecbc1efd2a68c7738021e8e498913c",
-          "webpSha256": "bf524839d7b13ff05d0892eb97a4206ef486273e6c7df5295536375637cf9f62",
+          "captureSha256": "f62cafbf9f1bd4644eadd5df9661622942e38a2b589e84fedb91edbe08ab2a26",
+          "webpSha256": "eef81b7540f531375e4a32a77e6915fe20383d0891e972433d588c5d64b7c9a9",
           "captureDimensions": [
             3915,
             2394
@@ -237,8 +237,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/organic-palette-dark/products-and-brands.webp",
-          "captureSha256": "2ee19d2da3347b33426504ea3316eb7a0c0bb8ef2499a8f9bfad853dcb8aaf22",
-          "webpSha256": "c1fad6464b4754ab60ead603b18cf30f466888034ba80a3cd6057b7776b898cd",
+          "captureSha256": "93646b462b9bf6d6922630a66288d8a5fe1f6c2b4d669061a45db12ff42e8fbc",
+          "webpSha256": "19e12662fac6868c76ce66d8d2baba11502dbd3329ab06c3816c04b7f6b3143a",
           "captureDimensions": [
             3915,
             2394
@@ -257,8 +257,8 @@
         {
           "page": "Deep-dive insights",
           "file": "docs/images/adaptive-showcase/organic-palette-dark/deep-dive-insights.webp",
-          "captureSha256": "5a8d7942af9afd8357ae2ee39b40845bc1d14a5646976926ec7ab05109d14f4a",
-          "webpSha256": "8a1acf853d2623031c2caef6765ffa46062234e1efc6dbd607f405be80b3c901",
+          "captureSha256": "3d6be5aa3d233bdb84f5b9907298532e3ef55eab8bff30792edfac6f347c0aa9",
+          "webpSha256": "9cfd2c33485c6bcc0cd16da9ee2b5123e73ba2bac0bd0524c89fc9d09dd9d7d9",
           "captureDimensions": [
             3915,
             2394
@@ -277,16 +277,16 @@
       ]
     },
     "graphite-red-light": {
-      "sourceDigest": "aa691da7a2cf7ba563b33b815f61d901d0daf898baeaa94be72d6c39055cc6e2",
-      "candidateDigest": "164abe4bad7e57c4751eb6ab6da13c87a03cffabf99af4ad703b55b015c9b3f0",
+      "sourceDigest": "5e17d3df30446d21cd9d4071a732e9fb90a9e8844bc9645ffc8debee93d72c27",
+      "candidateDigest": "45c030f290c156394fc9531d5aebb9b8f4496d10fb35bd74adf64ed26f99146f",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "39e37e232e59ac7bf86f8bce5e25c113e70d6208e61a49a09a262367023c3e95",
+      "paletteHash": "09ef617fc100b5f75ae1b767eda2df31cee4629d50a6e621b06c27484ba16131",
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/graphite-red-light/executive-overview.webp",
-          "captureSha256": "12eafdac1eff116102d64514bc2e931b578a6de6ab21988356a6a7a8d8c564c0",
-          "webpSha256": "e3b9010ea6210d1fde830396877149251ca1dbfe9ef1fb58c09c58f76ad82785",
+          "captureSha256": "d13f64028abbdcb8e23e8d9b899aeb13fddd5d40acd37fb32f372e660c22af76",
+          "webpSha256": "44d9f8e9c398fd393e463ec51a8c42c9f25c91d623a4f63de684141369395f4b",
           "captureDimensions": [
             3915,
             2394
@@ -305,8 +305,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/graphite-red-light/products-and-brands.webp",
-          "captureSha256": "e04787c589d155b448dd20b509c4b07b67626938edd2c20787d311126196e4e5",
-          "webpSha256": "bf9af7ce02a42a148bb3ebe725fcfe038414771f1823a892a4042ce0e42f9c7b",
+          "captureSha256": "2f713cc516f427ee26148f313f8bc03963d172b2336efb2ef9cbf9d066795fd1",
+          "webpSha256": "f710f083172d026d79ee7771c0d42361b63b84759ded0763ca227624471009a7",
           "captureDimensions": [
             3915,
             2394
@@ -325,8 +325,8 @@
         {
           "page": "Deep-dive insights",
           "file": "docs/images/adaptive-showcase/graphite-red-light/deep-dive-insights.webp",
-          "captureSha256": "05b1f7c43e9f4c479059ef41f8fe456c399f4595b396f90b98cffd18a530aaee",
-          "webpSha256": "21d7fa0bd1b317b9da3f868fb6138cefaef87fe8b14303c1955f0b7624f54d51",
+          "captureSha256": "2df22dc74b018d5a886a8593c949caccf110159e6abb73ef490da1b293b52df0",
+          "webpSha256": "a933c15d057f045bbe97eb5eb573a0e4441897e58761d0646bf4a68fb57cf685",
           "captureDimensions": [
             3915,
             2394
@@ -345,16 +345,16 @@
       ]
     },
     "graphite-red-dark": {
-      "sourceDigest": "aa691da7a2cf7ba563b33b815f61d901d0daf898baeaa94be72d6c39055cc6e2",
-      "candidateDigest": "6b2b9afec9cd2a4cc05df82bf52b6869d7d1cc4dcaf1632518b3868d948e39b1",
+      "sourceDigest": "5e17d3df30446d21cd9d4071a732e9fb90a9e8844bc9645ffc8debee93d72c27",
+      "candidateDigest": "de577bd495939d6af4fee9c1716cf5a40648bf1942374964b11c34ab86c7b238",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "1388aef433634867c84696c263f4cd35a6cf89664055dac6cfc101fc4af713f0",
+      "paletteHash": "2859b2bc85e159a7b9f992dd76da12ede45d012cd2002b83313f37f756323f0e",
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/graphite-red-dark/executive-overview.webp",
-          "captureSha256": "9576e8c0e95be1f0021aa863501d837d9ab9fbff49145d9e0b394f544416f876",
-          "webpSha256": "eaa01a6efecbc233fbd63f6e49c555032fdef1776215fb89d8e215d8691326e2",
+          "captureSha256": "621ad6293e767e4ad86887eeec5fba67c2ac2a51063ed8e213dcdcbca1461309",
+          "webpSha256": "f03aa1d041695428fe1ca6622091bc94e1daa717920027b033b287d7e53bdc03",
           "captureDimensions": [
             3915,
             2394
@@ -373,8 +373,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/graphite-red-dark/products-and-brands.webp",
-          "captureSha256": "57b7a4c114338aabde7f2f88692fbd19cd4ea3b97da178c8b3c10e721603454d",
-          "webpSha256": "9f59c8d92ba9865ed69f5a271d7e644c279b4e83d0c5a1a8e1c5b133ec05e4a2",
+          "captureSha256": "313ed4444966c855264b369eca7d1fe2795e7d092f27493bd7964ae6efaa9743",
+          "webpSha256": "6c86a0e5bb0a55ad696aea92a00ead664b70d85e44e6cdfd832eb49c34b54ab0",
           "captureDimensions": [
             3915,
             2394
@@ -393,8 +393,8 @@
         {
           "page": "Deep-dive insights",
           "file": "docs/images/adaptive-showcase/graphite-red-dark/deep-dive-insights.webp",
-          "captureSha256": "1dcd1f8af184b8904d4c5cac3765883958c14f563521b64d844e0739cc463ae2",
-          "webpSha256": "f1e4b614e46a11e822258031fa829782ffe70245efef094e28f72ff9576399b4",
+          "captureSha256": "661a383b226b1b232be717410f0a1f031fde7b2977d54d2e0d5f689c23ba8340",
+          "webpSha256": "692bd52a19ad6bdc95678e272f717e9c2c205d2e3c16ba675d8a5b6d7cd519ad",
           "captureDimensions": [
             3915,
             2394
@@ -413,10 +413,10 @@
       ]
     },
     "indigo-ember-light": {
-      "sourceDigest": "aa691da7a2cf7ba563b33b815f61d901d0daf898baeaa94be72d6c39055cc6e2",
-      "candidateDigest": "7cccf8e7b5b899dcb59887464f183c96ca11dcd0f6cc26c855fb96d0692790e7",
+      "sourceDigest": "5e17d3df30446d21cd9d4071a732e9fb90a9e8844bc9645ffc8debee93d72c27",
+      "candidateDigest": "dc5d954fc1fddc291069af18b9bfc88b126394bdb9f5e6baaa5cd7f17cf94070",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "d87d0be6bfee8db62fe2c3d24165efc310c57bb6b760c41634fad24cf8c4cbdf",
+      "paletteHash": "4fcb3df6aa3391ddb41dce533f85ab75125ebabb5e7f8a365b545f1ce29a05d4",
       "screenshots": [
         {
           "page": "Executive overview",
@@ -441,8 +441,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/indigo-ember-light/products-and-brands.webp",
-          "captureSha256": "37c5b08fb28d945bf5c31ab94caf5e23cb7b3c04c540a8a6befdac56a8051ce1",
-          "webpSha256": "3ee23a15c1d447fd04e1945a3ac5831e8be4c7c5e4ed9e1b90e6dbc7b6818ca3",
+          "captureSha256": "b60eeeb0d60e3859495f1e80a7c2179f74f923ef11969cdbd8e9ef4e08cdb403",
+          "webpSha256": "ba5895867cdcea386f6d74b20d9934a0cb536f7ebecf272d68b024c83e2f8b04",
           "captureDimensions": [
             3915,
             2394
@@ -481,10 +481,10 @@
       ]
     },
     "indigo-ember-dark": {
-      "sourceDigest": "aa691da7a2cf7ba563b33b815f61d901d0daf898baeaa94be72d6c39055cc6e2",
-      "candidateDigest": "d99d42d59200a044d7bd7851d0bbd69abb3014a1892de206ddd7e1865f521dde",
+      "sourceDigest": "5e17d3df30446d21cd9d4071a732e9fb90a9e8844bc9645ffc8debee93d72c27",
+      "candidateDigest": "8b5bfe34538a71a3fdfe8e94d56657fdf2fe7638d0f7fdb09304b68738ddef23",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "02bb06406e964c3dade1b10d26a523eda5e6d28e101cbbd90bffdfa8dfce0da2",
+      "paletteHash": "cf51cc41d359256723629034d680312fb165d2917c4da3e28e7d5da0d529b52b",
       "screenshots": [
         {
           "page": "Executive overview",
@@ -509,8 +509,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/indigo-ember-dark/products-and-brands.webp",
-          "captureSha256": "58fe93c8f013da3484dd333ea57f0a00d038024878080ad0ce033f2ade3cb69c",
-          "webpSha256": "a0b1a5ff533d11d1896a4faff347901f24340b3ca71e60a3aa122b8da162ec57",
+          "captureSha256": "2056b2c23605d98dfcc193cc30c07c3e8273de765e2a429a125f1786004b7cf1",
+          "webpSha256": "3678ba8be78a9d50c5e961143eff7359d6e8a2e8273ed6353b75ce6ab3cabe61",
           "captureDimensions": [
             3915,
             2394
@@ -549,16 +549,16 @@
       ]
     },
     "petrol-gold-light": {
-      "sourceDigest": "aa691da7a2cf7ba563b33b815f61d901d0daf898baeaa94be72d6c39055cc6e2",
-      "candidateDigest": "8514c196b593edb90d2d279f8499baeada7b137dd70fd867b9dc3d10bb5f8a9c",
+      "sourceDigest": "5e17d3df30446d21cd9d4071a732e9fb90a9e8844bc9645ffc8debee93d72c27",
+      "candidateDigest": "f4d25463146a2b80fd5af5b50e5c97f1b0beabfc3bd3c6d853810dde166ebb87",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "d136662dfd16b48a89f141e315fd61aee6e65a85e2410588f936a22c06e0e813",
+      "paletteHash": "748e2dec3106aedf180bc0832120b984821952cb392d84735a5a266ff3dbb5be",
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/petrol-gold-light/executive-overview.webp",
-          "captureSha256": "c62bafb157ab18e01554a7b6d78d5b7bd98134a4c67ed3ede2a809c5f36c7d1e",
-          "webpSha256": "8b88115f763eee3b6efe00e7a3df8cdd79087dfbf11ab7b5f3a755933b1fdf9b",
+          "captureSha256": "38b5439e7752f5b54940cc66774156a5f7235b1791325703eb32252805a69ffb",
+          "webpSha256": "313197a94b84b31a9f5a21b62b49fddf983a9d7e3eea99f52b21f05e2df0459b",
           "captureDimensions": [
             3915,
             2394
@@ -577,8 +577,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/petrol-gold-light/products-and-brands.webp",
-          "captureSha256": "35a82bc19b8c5a12559f4c36fb10de3c532458143b2f96ce777f6feb8c8a09e5",
-          "webpSha256": "ca9090db21515719ceee6a351a60f4a5c709b5aa0ce446c5bb5c9a40c87e33bc",
+          "captureSha256": "2da49b8dc2985b6cc3593c39c4941cb388603cf2f0eb955fd13faa9c9456bfe6",
+          "webpSha256": "db15a2e5fa2414fdf29a4905c33d679c53881eeb7c3e5c88cc3b28a665f768d6",
           "captureDimensions": [
             3915,
             2394
@@ -597,8 +597,8 @@
         {
           "page": "Deep-dive insights",
           "file": "docs/images/adaptive-showcase/petrol-gold-light/deep-dive-insights.webp",
-          "captureSha256": "aeafecddaa5efcc969f4ad9c9ecc12210fb0397e0e2f5980938125a25cb97a8f",
-          "webpSha256": "2b29908a063748e5a3c45afde1a16a87904a1127a0da9ebe22e718b10eab9520",
+          "captureSha256": "bf5697e669e9f78ed593923ea093c5bfeea2dc92b150279e9702ea0e84316713",
+          "webpSha256": "5a4a24642d6bcc7f6be0e2674ec5aab145428530d6a49afbb88894f783114886",
           "captureDimensions": [
             3915,
             2394
@@ -617,16 +617,16 @@
       ]
     },
     "petrol-gold-dark": {
-      "sourceDigest": "aa691da7a2cf7ba563b33b815f61d901d0daf898baeaa94be72d6c39055cc6e2",
-      "candidateDigest": "03d4ea700ba881d24c90175a085987a8beee81e4e6e76b7436311a3f4be623f7",
+      "sourceDigest": "5e17d3df30446d21cd9d4071a732e9fb90a9e8844bc9645ffc8debee93d72c27",
+      "candidateDigest": "d0d49cb7bbffdf0005ea866da03c494be8581aff7da62a134a65ce82af060f5e",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "64bda61832765fcde387bd43427d01177ae532c7f4d9468f10414113243ff5bb",
+      "paletteHash": "ca86cdab0e2c46ebed319763ade8e70c9e5729e48753b39196f5603af71a2a03",
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/petrol-gold-dark/executive-overview.webp",
-          "captureSha256": "45175d6ad9679e7b0e01237d14aa009f47e83d1cab0b16865447a8acd736f12b",
-          "webpSha256": "ee39bd4dfa10be850f132ff08e7867c6da603855e1b54ebc4858d55809999cf4",
+          "captureSha256": "fd337fc5cdcf92cfec23929bf0453b1ce3a124f88502e636697753e7de75d093",
+          "webpSha256": "6c3fd13cd81d97d3daa4e313767428efd21dba3bbdb76fafa3b6c702ea351777",
           "captureDimensions": [
             3915,
             2394
@@ -645,8 +645,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/petrol-gold-dark/products-and-brands.webp",
-          "captureSha256": "0c0c533f5076aea46f047bb745cd5ebb534e40fa4b1edc6320a00cb28c2308d7",
-          "webpSha256": "0955842649242774eb963535d2062857df4061befff33e31f5ecb441a5409929",
+          "captureSha256": "82c29495aa6ab1e65d51fb5b2c2940ebb6cc10f0db1270c3f36ca487687578be",
+          "webpSha256": "0c50f19a9501272e0a3d51798362c739ddc819f1b8401e26b49cda44a6b50478",
           "captureDimensions": [
             3915,
             2394

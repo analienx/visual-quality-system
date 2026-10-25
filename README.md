@@ -24,14 +24,14 @@ All screenshots come from generated candidates of the same five-page [fictional 
 
 
 ### Sunny Palette
-Warm amber, teal and coral, with a legible dark business surface.
+Warm orange and restrained grey, with individually distinguishable category colors on both surfaces.
 
 | Light | Dark |
 | :--- | :--- |
 | [![Sunny Palette Light, native Contoso Executive report](docs/images/adaptive-showcase/sunny-palette-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#sunny-palette) | [![Sunny Palette Dark, native Contoso Executive report](docs/images/adaptive-showcase/sunny-palette-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#sunny-palette) |
 
 ### Organic Palette
-Grounded blues and fresh greens across contrasting light and dark.
+Rich blue, vivid pink, green and sky-blue inspired by a contemporary life-sciences identity; contrast-safe Light and Dark.
 
 | Light | Dark |
 | :--- | :--- |
@@ -103,7 +103,7 @@ vqs theme audit ./organic-candidate
 
 ### Beyond a pretty screenshot
 
-VQS provides an explicit `vqs premium` design contract for hierarchy, spacing and quality review, rather than claiming to know that a screenshot is attractive from source JSON alone. The engine now checks categorical-series separation (normal and approximate color-vision distances), and premium preflight flags weak theme palettes and ambiguous categorical charts driven by numeric gradients—without tampering with business semantics. The featured examples are authentic Desktop recaptures of the category-distinct, color-corrected source. The bundled Contoso Retail report includes charts, tables, slicers and a **no-sign-in Shape Map**.
+VQS provides an explicit `vqs premium` design contract for hierarchy, spacing and quality review, rather than claiming to know that a screenshot is attractive from source JSON alone. The engine validates **colors actually assigned to different categories inside each chart**, not merely the theme swatches. This catches near-duplicate Electronics/Sports colors and unscoped Retail/Online wildcard fills as HIGH-severity source findings. The 28-mode GitHub candidate workflow and pre-capture gate refuse to publish a candidate while any such violation remains. Normal and approximate color-vision differences are checked without tampering with numerical gradients or business-status semantics. The featured examples are authentic Desktop recaptures of the category-distinct, color-corrected source. The bundled Contoso Retail report includes charts, tables, slicers and a **no-sign-in Shape Map**.
 
 The distinct Corporate Spend subject has documented Azure Maps sign-in and schema-compatibility limitations; it is **not** presented as a fully certified cross-report success. Likewise, static authoring validation across **28 approved new Dark/Light modes** is not a claim that all 28 were independently rendered and visually signed off. Real interaction states and the `powerbi-core` release G2/G4/G6 acceptance remain separately gated.
 
