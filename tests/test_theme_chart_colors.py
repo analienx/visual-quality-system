@@ -274,8 +274,9 @@ def test_graphite_red_positive_status_uses_blue_without_changing_logic(
     palette = load_palette(mode, None, "graphite-red")
     plan = build_plan(CONTOSO, mode, palette)
     changes = [c for c in plan["changes"] if c["role"] == "good"]
-    assert len(changes) == 2
-    assert {c["old"] for c in changes} == {"#047857", "#22C55E"}
+    assert len(changes) == 3
+    assert {c["old"] for c in changes} == {
+        "#047857", "#22C55E", "#35C9B4"}
     assert {c["new"] for c in changes} == {palette["good"]}
     dest = tmp_path / mode
     apply_theme(CONTOSO, mode, palette, dest)
@@ -298,4 +299,28 @@ def test_graphite_red_positive_status_uses_blue_without_changing_logic(
     increase = waterfall["visual"]["objects"]["sentimentColors"][0][
         "properties"]["increaseFill"]["solid"]["color"]["expr"]["Literal"]["Value"]
     assert increase == "'" + palette["good"] + "'"
+    assert audit_candidate(dest)["integrityStatus"] == "pass"
+
+
+@pytest.mark.parametrize("mode", ("light", "dark"))
+def test_graphite_red_margin_action_list_positive_has_no_green(
+        tmp_path: Path, mode: str) -> None:
+    """Visible conditional cell text obeys no-green Graphite contract."""
+    palette = load_palette(mode, None, "graphite-red")
+    dest = tmp_path / ("graphite-" + mode)
+    apply_theme(CONTOSO, mode, palette, dest)
+    original = _read(CONTOSO / "definition/pages/Products_brands/visuals/"
+                     "product-opportunity/visual.json")
+    target = _read(dest / "Contoso Retail.Report/definition/pages/"
+                   "Products_brands/visuals/product-opportunity/visual.json")
+    source_cases = original["visual"]["objects"]["values"][1]["properties"][
+        "fontColor"]["solid"]["color"]["expr"]["Conditional"]["Cases"]
+    cases = target["visual"]["objects"]["values"][1]["properties"][
+        "fontColor"]["solid"]["color"]["expr"]["Conditional"]["Cases"]
+    assert [case["Condition"] for case in cases] == [
+        case["Condition"] for case in source_cases]
+    assert cases[0]["Value"]["Literal"]["Value"] == (
+        "'" + palette["good"] + "'")
+    assert cases[1]["Value"] == source_cases[1]["Value"]
+    assert "#35C9B4" not in json.dumps(target)
     assert audit_candidate(dest)["integrityStatus"] == "pass"

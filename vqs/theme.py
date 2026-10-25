@@ -926,6 +926,18 @@ def _walk_doc(node: Any, path: list[Any], ctx: dict[str, Any],
                     "detail": "explicit Graphite Red positive outcome blue; "
                               "GM threshold predicate unchanged"})
         return
+    if (graphite_showcase and file_kind == "visual"
+            and ctx.get("visual") == "product-opportunity"
+            and hex_value == "#35C9B4" and "Conditional" in path
+            and path[-3:] == ["Value", "Literal", "Value"]):
+        out.append({**{k: v for k, v in ctx.items()
+                       if not k.startswith("_")},
+                    "pointer": _pointer(path), "_path": list(path),
+                    "old": hex_value, "new": str(palette["good"]),
+                    "role": "good", "classification": "supported",
+                    "detail": "Graphite Red positive margin table text blue; "
+                              "GM target measure and threshold unchanged"})
+        return
     if dynamic:
         out.append({**{k: v for k, v in ctx.items() if not k.startswith("_")},
                     "pointer": _pointer(path), "_path": list(path),
