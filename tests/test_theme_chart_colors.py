@@ -177,35 +177,30 @@ def test_two_explicit_chart_line_series_receive_distinct_theme_colors(
 
 
 @pytest.mark.parametrize("mode", ("light", "dark"))
-def test_real_contoso_wildcard_channel_fill_follows_theme(
+def test_real_contoso_channel_categories_have_distinct_theme_colors(
         tmp_path: Path, mode: str) -> None:
-    """Native-capture regression: bright default channel bars must retheme."""
+    """Retail and Online cannot share the old wildcard blue fill."""
     source = (CONTOSO / "definition/pages/Markets_drivers/visuals"
               / "channel-mix-bar/visual.json")
-    original = _read(source)
-    old = original["visual"]["objects"]["dataPoint"][1]
-    assert old["selector"] == {
-        "data": [{"dataViewWildcard": {"matchingOption": 1}}]}
-    assert old["properties"]["fill"]["solid"]["color"]["expr"] == (
-        _literal("#4F7CFF"))
+    old = _read(source)
+    original = old["visual"]["objects"]["dataPoint"]
+    assert len(original) == 3
+    labels = [x["selector"]["data"][0]["scopeId"]["Comparison"][
+        "Right"]["Literal"]["Value"] for x in original[1:]]
+    assert labels == ["'Retail'", "'Online'"]
+    ids = [x["properties"]["fill"]["solid"]["color"]["expr"][
+        "ThemeDataColor"]["ColorId"] for x in original[1:]]
+    assert ids == [2, 3]
+    assert "dataViewWildcard" not in json.dumps(original)
     palette = load_palette(mode, None, "organic-palette")
-    plan = build_plan(CONTOSO, mode, palette)
-    updates = [change for change in plan["changes"]
-               if change["visual"] == "channel-mix-bar"
-               and change["role"] == "dataColors[0]"
-               and "/dataPoint/1/properties/fill/" in change["pointer"]]
-    assert len(updates) == 1
-    assert updates[0]["old"] == "#4F7CFF"
-    assert updates[0]["new"] == palette["dataColors"][0]
+    assert palette["dataColors"][0] != palette["dataColors"][1]
     candidate = tmp_path / ("candidate-" + mode)
     apply_theme(CONTOSO, mode, palette, candidate)
     revised = _read(candidate / "Contoso Retail.Report"
                     / "definition/pages/Markets_drivers/visuals"
                     / "channel-mix-bar/visual.json")
-    selected = revised["visual"]["objects"]["dataPoint"][1]
-    assert selected["selector"] == old["selector"]
-    assert selected["properties"]["fill"]["solid"]["color"]["expr"] == (
-        _literal(palette["dataColors"][0]))
+    assert revised["visual"]["objects"]["dataPoint"] == original
+    assert revised["visual"]["query"] == old["visual"]["query"]
     assert audit_candidate(candidate)["integrityStatus"] == "pass"
 
 

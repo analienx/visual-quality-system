@@ -75,3 +75,16 @@ text. The PBIR fixture now sets visual-only captions `Sales` and `GM %`
 while keeping both original measure `queryRef`/`nativeQueryRef` bindings.
 The source edit and image-review result are not a substitute for a fresh,
 populated Power BI Desktop render and independent G2/G4/G6 acceptance.
+
+
+### Exact assigned colors take precedence over palette swatches
+
+The new per-visual assignment resolver catches a real reported failure:
+*Electronics* and *Sports & Outdoors* received dark blue and medium blue
+that were only **39.53 ΔE76** apart on Organic Light. Both entries were
+present in a globally valid eight-color palette, so the earlier
+palette-only screen reported no problem. The new **HIGH**-importance
+`color.category_series_collision` finding identifies these exact
+categories and their PBIR visual and blocks the 28-mode authoring/
+screenshot workflow. It also detects exact same-color assignments
+introduced by mistaken `ThemeDataColor` references.

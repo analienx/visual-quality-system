@@ -21,6 +21,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from scripts.theme_candidate_probe import PBIP, REPORT, validate_pbip
+from vqs.premium import audit as premium_audit
 from vqs.theme import (
     THEME_SCHEMA,
     apply_theme,
@@ -75,6 +76,20 @@ def main() -> int:
                     candidate_root = Path(tmp) / name
                     manifest = apply_theme(REPORT, mode, palette, candidate_root)
                     report = candidate_root / REPORT.name
+                    # Hard pre-capture gate: compare the actual PBIR
+                    # category->ThemeDataColor assignments, not just
+                    # distances between unused palette chips.
+                    quality = premium_audit(str(report))
+                    collisions = [
+                        finding for finding in quality["findings"]
+                        if finding["rule"] in ("color.category_series_collision",
+                                                "color.category_wildcard_shared_fill")]
+                    if collisions:
+                        first = collisions[0]
+                        raise RuntimeError(
+                            f"QVS category-color collision in {name}: "
+                            f"{first['page_id']} {first['visual_ids']} "
+                            f"{first['evidence'].get('colliding_pairs', first['evidence'])}")
                     theme_file = (report / "StaticResources"
                                   / "RegisteredResources"
                                   / manifest["themeFileName"])
@@ -102,6 +117,8 @@ def main() -> int:
                         "auditIntegrity": audit["integrityStatus"],
                         "auditAppearance": audit["appearanceCoverageStatus"],
                         "chartColors": palette["dataColors"],
+                        "categoryColorGate": "pass",
+                        "categoryColorCollisions": 0,
                         "numericGradient": [
                             palette[k] for k in
                             ("gradientMin", "gradientCenter", "gradientMax")],

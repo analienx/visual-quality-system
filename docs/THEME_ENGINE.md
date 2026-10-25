@@ -253,3 +253,38 @@ customer reports retain their conditionally formatted business colors.
 The five featured gallery families are Sunny Palette, Organic Palette,
 Graphite Red, Indigo Ember and Petrol & Gold. The remaining nine families
 are displayed as compact palette swatches rather than fabricated screenshots.
+
+
+## Per-visual category identity acceptance gate — 25 October
+
+**A theme palette passing pairwise tests is not enough.** For built-in bar,
+column and line series with explicit `dataPoint.scopeId` category selectors,
+`vqs premium REPORT --format json` now resolves each native
+`ThemeDataColor.ColorId` against that report's *active registered theme*,
+with Microsoft's offset of two. It reports
+`color.category_series_collision` (**HIGH**) with the exact chart ID,
+category names, RGB colors and normal/approximate color-vision CIELAB distances
+whenever two differently named categories receive identical or overly
+similar colors in one chart. A two- or three-category chart requires
+ΔE76 ≥ 50 and approximate simulated distance ≥ 19; charts with more
+categories use the realistic multi-hue bounds 40 and 9 respectively.
+These are heuristic screening thresholds, not visual accessibility certification.
+
+The pre-capture hard gate is now included in the official 28-candidate
+GitHub authoring job. Reviewers may independently run:
+
+```bash
+python scripts/theme_gallery_color_gate.py /path/to/approved-theme-candidates --out category-preflight.json
+```
+
+Any unresolved category-color collision **exits nonzero**, stops the
+candidate before screenshot creation, and records exactly which two category
+assignments failed. Native screenshots are still needed to verify that
+Microsoft Power BI rendered the expected colors. Continuous
+`FillRule` measures and business-status conditions have separate semantics
+and are never incorrectly described as distinct category identities.
+
+The generic **Organic Palette** retains a vivid blue/pink/green/sky-blue
+identity. **Sunny Palette** is anchored in warm orange and restrained grey,
+with clearly contrasted supporting chart colors. Both use original custom
+names and carry no claim of corporate affiliation or sponsorship.
