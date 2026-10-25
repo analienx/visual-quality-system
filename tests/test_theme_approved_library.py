@@ -183,6 +183,7 @@ def test_graphite_red_has_no_green_semantic_or_category_colors(
         mode: str) -> None:
     """Prevent reintroducing the native green bug through preset edits."""
     import colorsys
+
     from vqs.theme import load_palette
 
     palette = load_palette(mode, None, "graphite-red")
