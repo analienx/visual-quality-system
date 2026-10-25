@@ -1,5 +1,7 @@
 # Changelog
 
+**Native line-legend polish:** Fixed implicit black line-series legends on dark theme surfaces by applying the explicit, contrast-checked theme token. New source/visual regressions verify bindings and label-color role stay intact; gallery evidence must be recaptured against the corrected source.
+
 ## Complete approved-theme native gallery — 25 October 2026 (PR #81 draft)
 
 The README now highlights seven curated Power BI theme families instead of

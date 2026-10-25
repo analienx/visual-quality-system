@@ -354,3 +354,36 @@ def test_every_contoso_categorical_chart_has_distinct_native_scope_colors() -> N
             assert comp["ComparisonKind"] == 0
         assert ids == list(range(2, expected + 2)), (rel, ids)
         assert len(set(selectors)) == expected, rel
+
+
+@pytest.mark.parametrize("mode", ("light", "dark"))
+@pytest.mark.parametrize("slug", ("arctic-aurora", "sunny-palette", "organic-palette"))
+def test_native_monthly_line_legend_has_explicit_contrasting_color(
+        tmp_path: Path, mode: str, slug: str) -> None:
+    """A native line-series legend must not inherit unreadable black in dark mode."""
+    from vqs.theme import contrast_ratio
+
+    palette = load_palette(mode, None, slug)
+    source = (CONTOSO / "definition/pages/Executive_overview/visuals/"
+              "28b18a9efa6c5ffe78f9/visual.json")
+    original = _read(source)["visual"]
+    assert original["visualType"] == "lineChart"
+    assert "legend" not in original["objects"]
+    assert contrast_ratio(palette["mutedForeground"], palette["surface"]) >= 4.5
+    plan = build_plan(CONTOSO, mode, palette)
+    findings = [x for x in plan["changes"]
+                if x["visual"] == "28b18a9efa6c5ffe78f9"
+                and x["pointer"] == "/visual/objects/legend"]
+    assert len(findings) == 1, (mode, slug)
+    assert findings[0]["role"] == "mutedForeground"
+    candidate = tmp_path / f"{slug}-{mode}"
+    apply_theme(CONTOSO, mode, palette, candidate)
+    updated = _read(candidate / "Contoso Retail.Report/definition/pages/"
+                    "Executive_overview/visuals/28b18a9efa6c5ffe78f9/visual.json")
+    result = updated["visual"]
+    assert result["objects"]["legend"][0]["properties"][
+        "labelColor"]["solid"]["color"]["expr"] == _literal(
+            palette["mutedForeground"])
+    assert result["query"] == original["query"]
+    assert result["visualType"] == original["visualType"]
+    assert audit_candidate(candidate)["integrityStatus"] == "pass"

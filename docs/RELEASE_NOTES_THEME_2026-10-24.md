@@ -232,3 +232,22 @@ The updated gallery must only show real Power BI Desktop captures
 created after these new gate checks, with report/model/palette and
 capture hashes tied to the correct source. Old gallery hashes are
 not evidence for this revised source.
+
+
+## Native line-chart legend contrast final correction
+
+Independent scrutiny of the complete 28-mode Desktop gallery found a
+remaining dark-mode readability defect: the two-series *Monthly sales*
+line-chart legend inherited Microsoft's very dark default text, even
+when the active palette specified a readable `mutedForeground`.
+The source-safe theme adaptation now adds an explicit PBIR
+`visual.objects.legend[0].properties.labelColor` using that theme token
+for built-in `lineChart` visuals with a title and no existing legend
+entry. It does not change the legend's visibility, measure bindings,
+line colors, axes or DAX.
+
+Six parameterized regression cases cover Organic, Sunny and Arctic Aurora
+Light/Dark, including a minimum 4.5:1 palette token/surface contrast and
+original report/query invariance. The exact Microsoft-authored candidate
+must be opened and inspected in Power BI Desktop before regenerating
+the 140-page screenshot evidence.
