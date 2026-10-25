@@ -1,5 +1,15 @@
 # Adaptive theme engine (issue #80)
 
+## Native gallery verified against current authoring source — 25 October 2026
+
+- **Source:** GitHub authoring commit [6bb62da](https://github.com/analienx/visual-quality-system/commit/6bb62da26d7589dca492571fa5f2ee444e369117) and [workflow run 40224195761](https://github.com/analienx/visual-quality-system/actions/runs/40224195761). All 2,352 downloaded candidate files matched the local candidate set.
+- **Pre-capture QVS:** 28/28 approved Light/Dark modes passed with zero categorical-color findings.
+- **Native Desktop:** 140/140 genuine five-page captures; **364/364** source-specific pixel checks passed (308 charts, 28 closed dropdowns, 28 line legends). Graphite Red had zero suspect green/teal pixels across its ten pages under the documented screening rule.
+- **Publication:** 56 authentic derived WebP previews and 28 palette/control swatches; the provenance file binds source, candidate, model, palette, raw captures and public-image digests.
+- **Boundaries:** open flyouts, broad G2/G4 interactions, unrelated PBIPs and explicit owner G6 promotion are **not approved** by this evidence. PR #81 remains draft and unmerged.
+
+
+
 Apply a paired Light/Dark palette to an existing PBIP/PBIR report. The
 engine updates the registered theme **and** supported inline overrides
 by semantic role. It only ever writes a new candidate; the original
@@ -333,7 +343,7 @@ review remains essential. The published screenshot hashes must
 also pass the ten-mode provenance audit.
 
 
-### All 14 families: repeatable 168-check native gate
+### All 14 families: repeatable 364-check native gate
 
 For the complete curated library, install the optional gallery dependencies
 (`pip install -e ".[gallery,test]"`) and validate the **exact GitHub-generated**
@@ -341,14 +351,15 @@ For the complete curated library, install the optional gallery dependencies
 
 ```bash
 python scripts/theme_gallery_color_gate.py ./approved-candidates --out pre-capture.json
-python scripts/theme_native_category_pixel_gate.py ./approved-candidates --all-approved --out native-168-checks.json
+python scripts/theme_native_category_pixel_gate.py ./approved-candidates --all-approved --out native-364-checks.json
 python scripts/publish_approved_theme_gallery.py ./approved-candidates --authoring-head YOUR_EXACT_40_CHARACTER_GITHUB_SHA
 ```
 
 The first gate checks actual assigned category colors before opening Desktop.
-The second requires **140 chart checks** across all 28 modes (including
+The second requires **308 chart checks** across all 28 modes (including
 seven distinct product subcategory colors) plus **28 native Reporting Year
-dropdown surface checks**, comparing pixels to the exact active palette
+dropdown surface checks** plus **28 line-legend checks**, comparing pixels
+to the exact active palette
 under the report's defined capture layout. It does not infer the appearance
 of open menu flyouts or untested third-party visuals. The last command
 publishes two real screenshot previews per mode, 28 token/control swatches

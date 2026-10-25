@@ -1,11 +1,21 @@
 # Adaptive Power BI themes · release candidate · 24 October 2026
 
-## Current 14-family gallery release candidate — 25 October 2026
+## Native gallery verified against current authoring source — 25 October 2026
 
-**The latest approved engineering candidate is source commit
+- **Source:** GitHub authoring commit [6bb62da](https://github.com/analienx/visual-quality-system/commit/6bb62da26d7589dca492571fa5f2ee444e369117) and [workflow run 40224195761](https://github.com/analienx/visual-quality-system/actions/runs/40224195761). All 2,352 downloaded candidate files matched the local candidate set.
+- **Pre-capture QVS:** 28/28 approved Light/Dark modes passed with zero categorical-color findings.
+- **Native Desktop:** 140/140 genuine five-page captures; **364/364** source-specific pixel checks passed (308 charts, 28 closed dropdowns, 28 line legends). Graphite Red had zero suspect green/teal pixels across its ten pages under the documented screening rule.
+- **Publication:** 56 authentic derived WebP previews and 28 palette/control swatches; the provenance file binds source, candidate, model, palette, raw captures and public-image digests.
+- **Boundaries:** open flyouts, broad G2/G4 interactions, unrelated PBIPs and explicit owner G6 promotion are **not approved** by this evidence. PR #81 remains draft and unmerged.
+
+
+
+## Historical 14-family gallery (source 4987bd7) — 25 October
+
+**The prior gallery engineering candidate used source commit
 `4987bd77f03a0d8a8822861408c62165ff542f69` and gallery publication
 `47086c318f1ec1bde315643752b5ac5edbbb59cc`.** This supersedes the
-historical five-family references below without deleting their audit trail.
+historical five-family references below without deleting their audit trail. The exact-head native evidence is now the 364-check edition documented above.
 
 - All 14 approved themes are available in both Light and Dark: **28 genuine
   Power BI Desktop modes** from one consistent synthetic report.
@@ -58,7 +68,7 @@ and release-owner G6 acceptance are not inferred from these results.
 
 ## Final corrected source and gallery evidence — 25 October
 
-Current approved engineering **candidate**, not a production merge:
+Historical corrected-source **candidate**, not a production merge:
 `587eda95c46770bdffd0c20992506c8bfbb94426`. The official GitHub CI, R6 and Microsoft
 report-authoring probes for this exact source completed successfully.
 The regenerated GitHub artifact contains 28 validated source-bound
@@ -74,7 +84,7 @@ The 35% target and business values remain; regional variance now
 uses distinct native category bars instead of repeating a waterfall
 Increase color (the cumulative Total bar is intentionally absent).
 
-The **final** native gallery was captured only *after* all 28
+An **earlier** native gallery was captured only *after* all 28
 GitHub candidates passed the independent QVS pre-capture gate.
 Five Light/Dark theme pairs, 50 real Desktop pages and 30 public WebP
 previews are source/candidate/model/palette and SHA-256 bound.

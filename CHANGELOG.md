@@ -1,6 +1,16 @@
 # Changelog
 
-**Native line-legend polish:** Fixed implicit black line-series legends on dark theme surfaces by applying the explicit, contrast-checked theme token. New source/visual regressions verify bindings and label-color role stay intact; gallery evidence must be recaptured against the corrected source.
+## Native gallery verified against current authoring source — 25 October 2026
+
+- **Source:** GitHub authoring commit [6bb62da](https://github.com/analienx/visual-quality-system/commit/6bb62da26d7589dca492571fa5f2ee444e369117) and [workflow run 40224195761](https://github.com/analienx/visual-quality-system/actions/runs/40224195761). All 2,352 downloaded candidate files matched the local candidate set.
+- **Pre-capture QVS:** 28/28 approved Light/Dark modes passed with zero categorical-color findings.
+- **Native Desktop:** 140/140 genuine five-page captures; **364/364** source-specific pixel checks passed (308 charts, 28 closed dropdowns, 28 line legends). Graphite Red had zero suspect green/teal pixels across its ten pages under the documented screening rule.
+- **Publication:** 56 authentic derived WebP previews and 28 palette/control swatches; the provenance file binds source, candidate, model, palette, raw captures and public-image digests.
+- **Boundaries:** open flyouts, broad G2/G4 interactions, unrelated PBIPs and explicit owner G6 promotion are **not approved** by this evidence. PR #81 remains draft and unmerged.
+
+
+
+**Native line-legend polish:** Fixed implicit black line-series legends on dark theme surfaces by applying the explicit, contrast-checked theme token. New source/visual regressions verify bindings and label-color role stay intact; the exact-source native recapture is documented above.
 
 ## Complete approved-theme native gallery — 25 October 2026 (PR #81 draft)
 
