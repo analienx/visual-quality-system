@@ -266,8 +266,9 @@ with Microsoft's offset of two. It reports
 category names, RGB colors and normal/approximate color-vision CIELAB distances
 whenever two differently named categories receive identical or overly
 similar colors in one chart. A two- or three-category chart requires
-ΔE76 ≥ 50 and approximate simulated distance ≥ 19; charts with more
-categories use the realistic multi-hue bounds 40 and 9 respectively.
+ΔE76 ≥ 50 and approximate simulated distance ≥ 19; charts with 4–7
+categories now require 45 and 15 respectively. The previous 40/9
+acceptance permitted visible near-collisions and was too permissive.
 These are heuristic screening thresholds, not visual accessibility certification.
 
 The pre-capture hard gate is now included in the official 28-candidate
@@ -288,3 +289,23 @@ The generic **Organic Palette** retains a vivid blue/pink/green/sky-blue
 identity. **Sunny Palette** is anchored in warm orange and restrained grey,
 with clearly contrasted supporting chart colors. Both use original custom
 names and carry no claim of corporate affiliation or sponsorship.
+
+
+### October 25 corrective acceptance revision
+
+A pre-capture gate must also detect `color.category_conditional_shared_status`:
+a wildcard conditional color on a categorical bar chart can color
+multiple independent categories the **same red** when both fall below
+a business threshold. The original Contoso Gross Margin target chart
+demonstrated this failure even though its palette-wide chip distances
+passed. The Contoso example now expresses categorical identities through
+three distinct native fills while retaining the percentage data and
+35% reference line; an explicit mutation regression reproduces the
+old conditional-fill defect and proves QVS flags it.
+
+For 4–7 category charts, distances below **45 CIELAB ΔE76** or
+**15 approximate color-vision ΔE76** are now HIGH-severity errors,
+not silently accepted. These are screening rules; actual pixel
+rendering and independent perceptual review remain required.
+This does not prohibit legitimate status-color encoding in non-category
+business visuals, but it cannot certify that as distinct category colors.

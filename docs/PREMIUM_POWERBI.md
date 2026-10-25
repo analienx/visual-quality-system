@@ -88,3 +88,20 @@ palette-only screen reported no problem. The new **HIGH**-importance
 categories and their PBIR visual and blocks the 28-mode authoring/
 screenshot workflow. It also detects exact same-color assignments
 introduced by mistaken `ThemeDataColor` references.
+
+
+### Full category-source gate tightened after screenshot challenge
+
+**Previously missed:** the native Gross Margin target bars for
+Electronics (33.3%) and Sports & Outdoors (32.9%) were both colored
+identically red, because a measure-bound conditional fill represented
+below-target **status**, not category identity. The owner explicitly
+required distinguishable category bars. The detector must therefore
+include `color.category_conditional_shared_status` alongside per-category
+pair collisions and flat wildcard fills. The underlying 35% reference
+line and business results remain unchanged.
+
+For 4–7-category charts, stronger **45/15** color-distance screening
+replaces the earlier insufficient **40/9**. All seven distinct-category
+assignments must be checked and confirmed against real Desktop pixels;
+a three-category-only screenshot test cannot establish gallery acceptance.

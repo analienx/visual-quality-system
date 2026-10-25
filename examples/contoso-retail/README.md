@@ -37,7 +37,7 @@ The commands are read-only against the sample. For real Power BI Desktop capture
 | Markets & drivers | [Markets & drivers](../../docs/media/showcase/markets-drivers.webp) |
 | Deep-dive insights | [Deep-dive with Shape Map](../../docs/media/showcase/deep-dive-map.webp) |
 
-**Source provenance:** The PBIR report's SHA-256 source digest is `5e17d3df30446d21cd9d4071a732e9fb90a9e8844bc9645ffc8debee93d72c27` — **updated on 25 October** from the 22 October native Desktop source used for all five rendered screenshots. The semantic model's source digest (all TMDL files plus `definition.pbism`, stable sorted paths and NUL delimiters) is `30040bd3b229fc8507d30cf58e30d393b5b65e9317b2159f3066772aa715ae3f`. All 12 M partitions generate their own synthetic data.
+**Source provenance:** The PBIR report's SHA-256 source digest is `e6d4d9613e30ac2d8f668cdd460c24bd834a4bdc485074b9bce37fa560f043a6` — **updated on 25 October** from the 22 October native Desktop source used for all five rendered screenshots. The semantic model's source digest (all TMDL files plus `definition.pbism`, stable sorted paths and NUL delimiters) is `30040bd3b229fc8507d30cf58e30d393b5b65e9317b2159f3066772aa715ae3f`. All 12 M partitions generate their own synthetic data.
 
 The demo intentionally excludes `.pbi/cache.abf`, binary PBIX, full-resolution screenshot evidence, accounts, secrets, and anything tied to a private user filesystem. The installed Desktop rebuilds the cache on its first refresh. The screenshot previews are downscaled derivatives and are **not** a formal independent G2 visual-quality approval.
 
@@ -71,3 +71,26 @@ rather than a single wildcard bar fill. QVS premium now flags flat wildcard
 fills on category charts as a high-priority risk. Conditional target-status
 charts remain exempt because their colors represent business meaning, not
 category identity.
+
+
+### Categorical color identity — target chart correction
+
+The Executive overview gross-margin-versus-35%-target chart now binds
+Electronics, Home & Appliances and Sports & Outdoors to three separate
+native `ThemeDataColor` category identities, rather than the old
+wildcard conditional status red/green encoding. This preserves the
+35% reference line, percentages, query bindings and performance labels,
+while preventing Electronics and Sports & Outdoors from becoming identical
+red bars. The QVS pre-capture gate also flags any future wildcard
+conditional-fill regression on a multi-category chart.
+
+
+### Regional movement presentation
+
+The *Sales movement by region* chart uses a category-colored native
+clustered column comparison. The `Reporting Year Sales Variance` DAX
+measure, `Dim Store.Region` grouping and GM tooltip stay unchanged.
+The previous cumulative waterfall's automatically generated Total bar
+is no longer part of this visual; the net variance is the sum of
+the three regional bars. This deliberate presentation trade-off avoids
+reusing one Increase color for three different named regions.

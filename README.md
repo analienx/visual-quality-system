@@ -38,7 +38,7 @@ Rich blue, vivid pink, green and sky-blue inspired by a contemporary life-scienc
 | [![Organic Palette Light, native Contoso Executive report](docs/images/adaptive-showcase/organic-palette-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#organic-palette) | [![Organic Palette Dark, native Contoso Executive report](docs/images/adaptive-showcase/organic-palette-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#organic-palette) |
 
 ### Graphite Red
-Graphite and red, with steel-blue positive indicators instead of green.
+Graphite and red, with distinct native category colors and no green.
 
 | Light | Dark |
 | :--- | :--- |
@@ -84,7 +84,7 @@ vqs theme apply "examples/contoso-retail/Contoso Retail.pbip" --mode light --pal
 vqs theme audit ./organic-candidate
 ```
 
-`preview` is read-only; `apply` creates a separate candidate and audit manifest. The source PBIP, semantic model, DAX, field bindings and business-measure predicates remain intact; the curated Graphite Red candidate deliberately uses blue for positive outcomes. The generated candidate may need a first-open refresh in Power BI Desktop to populate its local sample model.
+`preview` is read-only; `apply` creates a separate candidate and audit manifest. Generated candidates preserve source PBIP, semantic model, DAX, field bindings and business-measure predicates. The Contoso showcase now encodes product and region categories with distinct colors, while keeping business values and the 35% reference line. The generated candidate may need a first-open refresh in Power BI Desktop to populate its local sample model.
 
 [**Theme engine guide**](docs/THEME_ENGINE.md) · [CLI reference](docs/CLI.md) · [Five-page sample](examples/contoso-retail/README.md)
 
@@ -103,7 +103,7 @@ vqs theme audit ./organic-candidate
 
 ### Beyond a pretty screenshot
 
-VQS provides an explicit `vqs premium` design contract for hierarchy, spacing and quality review, rather than claiming to know that a screenshot is attractive from source JSON alone. The engine validates **colors actually assigned to different categories inside each chart**, not merely the theme swatches. This catches near-duplicate Electronics/Sports colors and unscoped Retail/Online wildcard fills as HIGH-severity source findings. The 28-mode GitHub candidate workflow and pre-capture gate refuse to publish a candidate while any such violation remains. Normal and approximate color-vision differences are checked without tampering with numerical gradients or business-status semantics. The featured examples are authentic Desktop recaptures of the category-distinct, color-corrected source. The bundled Contoso Retail report includes charts, tables, slicers and a **no-sign-in Shape Map**.
+VQS provides an explicit `vqs premium` design contract for hierarchy, spacing and quality review, rather than claiming to know that a screenshot is attractive from source JSON alone. The engine validates **colors actually assigned to different categories inside each chart**, not merely the theme swatches. This catches near-duplicate Electronics/Sports colors and unscoped Retail/Online wildcard fills as HIGH-severity source findings. The 28-mode GitHub candidate workflow and pre-capture gate refuse to publish a candidate while any such violation remains. Normal and approximate color-vision differences are checked without tampering with numerical gradients or business-status semantics. The featured examples are authentic Desktop recaptures of the category-distinct, QVS-gated source. The bundled Contoso Retail report includes charts, tables, slicers and a **no-sign-in Shape Map**.
 
 The distinct Corporate Spend subject has documented Azure Maps sign-in and schema-compatibility limitations; it is **not** presented as a fully certified cross-report success. Likewise, static authoring validation across **28 approved new Dark/Light modes** is not a claim that all 28 were independently rendered and visually signed off. Real interaction states and the `powerbi-core` release G2/G4/G6 acceptance remain separately gated.
 
@@ -121,3 +121,19 @@ The distinct Corporate Spend subject has documented Azure Maps sign-in and schem
 VQS focuses on **Power BI**. Word/DOCX assurance is a separate optional component, not a blocker for a Power BI-only release. Source inspection is local by default; private customer screenshots and caches must not be checked in or uploaded without explicit authorization.
 
 <sub>Apache-2.0 · Engineering preview · [Security & contribution guidance](CONTRIBUTING.md) · [Older five-theme native gallery](docs/THEME_GALLERY.md)</sub>
+
+
+### Category-color acceptance gate
+
+The 25 October screenshot audit exposed a previously missed **identical
+below-target red** for Electronics and Sports & Outdoors, and weak
+seven-category palette pairs. QVS now blocks wildcard conditional
+status colors on categorical bar charts and requires stronger pairwise
+separation (50/19 normal/simulated vision for three categories,
+45/15 for four to seven). The refreshed synthetic Contoso sample uses
+category-specific colors for the GM target and regional variance charts;
+business measures, percentages and the 35% reference line remain.
+A true waterfall total bar was intentionally replaced by a region
+comparison to avoid identical increase colors. This is a
+presentation trade-off, not a change to the underlying DAX.
+Native gallery screenshots are independently source-hash bound.

@@ -126,3 +126,31 @@ native full-page captures and 30 public report-only WebP previews; the other
 nine families have 18 paired color swatches. Hash provenance binds these
 images to GitHub-generated candidates from implementation commit `dddae21fa2fa1ccee59361715a68d8ede1e3914c`.
 Independent G2/G4/G6 release approval remains separate.
+
+
+## 25 October: strengthened category-color gate (second review)
+
+Following a direct user review of the remote gallery, a critical
+visual defect remained: the Gross Margin versus 35% target chart
+displayed Electronics and Sports & Outdoors in exactly the same
+below-target red. The previous detector exempted conditional business
+status fills, so it returned a false sense of category-color
+acceptance. New `color.category_conditional_shared_status` source
+findings and a regression fixture require owners to resolve such
+multi-category status reuse before claiming category identity.
+
+The standard 7-category perceptual acceptance now requires
+CIELAB ΔE76 >= 45 and approximate simulated protan/deutan/tritan
+ΔE76 >= 15 for every in-chart pair (formerly only 40/9).
+Two/three-category charts retain a more stringent 50/19.
+The 28 Light/Dark palette data sets were regenerated within these
+bounds; Graphite Red remains green-free. GM target values and its
+35% reference line remain bound and visible. The prior waterfall
+was changed to a category-colored regional variance comparison;
+its implicit cumulative Total bar is no longer shown. The original
+DAX variance measure and region grouping remain.
+
+The updated gallery must only show real Power BI Desktop captures
+created after these new gate checks, with report/model/palette and
+capture hashes tied to the correct source. Old gallery hashes are
+not evidence for this revised source.

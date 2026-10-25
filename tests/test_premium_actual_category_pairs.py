@@ -95,3 +95,57 @@ def test_uniform_wildcard_fill_is_flagged_but_business_rule_is_not(
     assert risks[0]["visual_ids"] == ["channel-mix-bar"]
     assert risks[0]["evidence"]["categoryDistinctness"] == (
         "not explicitly guaranteed")
+
+
+def test_conditional_status_duplicates_are_detected_in_category_chart(
+        tmp_path: Path) -> None:
+    """Previous target-chart bug: multiple categories evaluate to same red."""
+    out = tmp_path / "conditional"
+    apply_theme(SOURCE, "light",
+                load_palette("light", None, "organic-palette"), out)
+    report = out / SOURCE.name
+    file = (report / "definition/pages/Executive_overview/visuals/"
+            "cd368855f0cc75592aed/visual.json")
+    obj = json.loads(file.read_text(encoding="utf-8"))
+    target = obj["visual"]["objects"]["dataPoint"]
+    target[1]["properties"]["fill"]["solid"]["color"]["expr"] = {
+        "Conditional": {"Cases": [
+            {"Condition": {"Comparison": {"ComparisonKind": 3,
+                "Left": {"Measure": {"Expression": {"SourceRef": {
+                    "Entity": "Fact Sales"}}, "Property": "Reporting Year GM %"}},
+                "Right": {"Literal": {"Value": "0.35D"}}}},
+             "Value": {"Literal": {"Value": "'#BE123C'"}}}]}}
+    target[1]["selector"] = {
+        "data": [{"dataViewWildcard": {"matchingOption": 1}}]}
+    obj["visual"]["objects"]["dataPoint"] = target[:2]
+    file.write_text(json.dumps(obj), encoding="utf-8")
+    failures = [f for f in audit(str(report))["findings"]
+                if f["rule"] == "color.category_conditional_shared_status"]
+    assert len(failures) == 1
+    assert failures[0]["importance"] == "high"
+    assert failures[0]["visual_ids"] == ["cd368855f0cc75592aed"]
+
+
+def test_five_category_near_collision_previous_40_threshold_is_rejected(
+        tmp_path: Path) -> None:
+    """Old 40/9 rule passed this blue/beige pair despite visible closeness."""
+    from vqs.series_readability import distance
+    first, second = "#88A4CD", "#C2B093"
+    assert 40 <= distance(first, second) < 45
+    dest = tmp_path / "near"
+    apply_theme(SOURCE, "dark", load_palette("dark", None, "graphite-red"), dest)
+    report = dest / SOURCE.name
+    file = (report / "definition/pages/Products_brands/visuals/"
+            "6eef7fa2804207db6a94/visual.json")
+    obj = json.loads(file.read_text(encoding="utf-8"))
+    entries = obj["visual"]["objects"]["dataPoint"]
+    for entry, shade in zip(entries[1:3], (first, second)):
+        entry["properties"]["fill"]["solid"]["color"]["expr"] = {
+            "Literal": {"Value": "'" + shade + "'"}}
+    file.write_text(json.dumps(obj), encoding="utf-8")
+    findings = [x for x in audit(str(report))["findings"]
+                if x["rule"] == "color.category_series_collision"
+                and x["visual_ids"] == ["6eef7fa2804207db6a94"]]
+    assert len(findings) == 1
+    assert any(set(x["colors"]) == {first, second}
+               for x in findings[0]["evidence"]["colliding_pairs"])

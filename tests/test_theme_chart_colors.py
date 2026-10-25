@@ -263,37 +263,42 @@ def test_real_contoso_categorical_brand_bars_are_distinct(
 
 
 @pytest.mark.parametrize("mode", ("light", "dark"))
-def test_graphite_red_positive_status_uses_blue_without_changing_logic(
+def test_graphite_red_category_fill_retains_target_and_variance_measure(
         tmp_path: Path, mode: str) -> None:
-    """A red/graphite editorial style must never contain green status fills."""
+    """Distinct category fills plus intact 35% reference-line measure and KPI."""
     palette = load_palette(mode, None, "graphite-red")
     plan = build_plan(CONTOSO, mode, palette)
-    changes = [c for c in plan["changes"] if c["role"] == "good"]
-    assert len(changes) == 3
-    assert {c["old"] for c in changes} == {
-        "#047857", "#22C55E", "#35C9B4"}
-    assert {c["new"] for c in changes} == {palette["good"]}
+    good_changes = [change for change in plan["changes"] if change["role"] == "good"]
+    assert len(good_changes) == 1  # conditional margin action text only
+    assert {change["old"] for change in good_changes} == {"#35C9B4"}
+    assert {change["new"] for change in good_changes} == {palette["good"]}
     dest = tmp_path / mode
     apply_theme(CONTOSO, mode, palette, dest)
     base = dest / "Contoso Retail.Report/definition/pages"
     target = _read(base / "Executive_overview/visuals/"
                    "cd368855f0cc75592aed/visual.json")
-    source = _read(CONTOSO / "definition/pages/Executive_overview/visuals/"
-                   "cd368855f0cc75592aed/visual.json")
-    color_cases = target["visual"]["objects"]["dataPoint"][1]["properties"][
-        "fill"]["solid"]["color"]["expr"]["Conditional"]["Cases"]
-    old_cases = source["visual"]["objects"]["dataPoint"][1]["properties"][
-        "fill"]["solid"]["color"]["expr"]["Conditional"]["Cases"]
-    assert [c["Condition"] for c in color_cases] == [
-        c["Condition"] for c in old_cases]
-    assert color_cases[0]["Value"]["Literal"]["Value"] == (
-        "'" + palette["good"] + "'")
-    assert color_cases[1]["Value"] == old_cases[1]["Value"]
+    original = _read(CONTOSO / "definition/pages/Executive_overview/visuals/"
+                     "cd368855f0cc75592aed/visual.json")
+    colors = target["visual"]["objects"]["dataPoint"]
+    assert len(colors) == 4
+    assert [x["properties"]["fill"]["solid"]["color"]["expr"][
+        "ThemeDataColor"]["ColorId"] for x in colors[1:]] == [2, 3, 4]
+    assert colors == original["visual"]["objects"]["dataPoint"]
+    before_line = original["visual"]["objects"]["xAxisReferenceLine"][0]
+    after_line = target["visual"]["objects"]["xAxisReferenceLine"][0]
+    assert after_line["properties"]["value"] == before_line["properties"]["value"]
+    assert after_line["properties"]["displayName"] == before_line["properties"]["displayName"]
+    assert after_line["properties"]["show"] == before_line["properties"]["show"]
+    assert target["visual"]["query"] == original["visual"]["query"]
     waterfall = _read(base / "Markets_drivers/visuals/"
                       "b1c2d3e4f5061728394a/visual.json")
-    increase = waterfall["visual"]["objects"]["sentimentColors"][0][
-        "properties"]["increaseFill"]["solid"]["color"]["expr"]["Literal"]["Value"]
-    assert increase == "'" + palette["good"] + "'"
+    assert waterfall["visual"]["visualType"] == "clusteredColumnChart"
+    assert "sentimentColors" not in waterfall["visual"]["objects"]
+    region_points = waterfall["visual"]["objects"]["dataPoint"]
+    assert [entry["properties"]["fill"]["solid"]["color"]["expr"][
+        "ThemeDataColor"]["ColorId"] for entry in region_points[1:]] == [2, 3, 4]
+    assert waterfall["visual"]["query"]["queryState"]["Y"]["projections"][0][
+        "field"]["Measure"]["Property"] == "Reporting Year Sales Variance"
     assert audit_candidate(dest)["integrityStatus"] == "pass"
 
 
@@ -325,6 +330,8 @@ def test_every_contoso_categorical_chart_has_distinct_native_scope_colors() -> N
     """Guard seven charts against renewed magnitude gradients/black theme IDs."""
     visual_counts = {
         "Executive_overview/visuals/364c01f845a43686f504": 3,
+        "Executive_overview/visuals/cd368855f0cc75592aed": 3,
+        "Markets_drivers/visuals/b1c2d3e4f5061728394a": 3,
         "Markets_drivers/visuals/c1d2e3f40516273849ab": 3,
         "Markets_drivers/visuals/market-sales-contribution": 3,
         "Products_brands/visuals/2c82531fad7beac43747": 7,

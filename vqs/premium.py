@@ -185,6 +185,7 @@ def _category_collision_risks(
             objects = obj.get("visual", {}).get("objects", {})
             entries = objects.get("dataPoint", [])
             wildcard = []
+            conditional = []
             for entry in entries if isinstance(entries, list) else []:
                 if not isinstance(entry, dict):
                     continue
@@ -193,12 +194,30 @@ def _category_collision_risks(
                     continue
                 expr = entry.get("properties", {}).get("fill", {}).get(
                     "solid", {}).get("color", {}).get("expr", {})
-                # Conditional KPI/business target colors convey polarity,
-                # not category identity. A flat color on a category chart
-                # instead needs review before it can earn visual acceptance.
                 if isinstance(expr, dict) and (
                         "Literal" in expr or "ThemeDataColor" in expr):
                     wildcard.append(entry)
+                # Conditional fills may deliberately group multiple named
+                # product categories by KPI outcome, making same-colored bars.
+                # This is a HIGH category-distinctness *risk*, not proof that
+                # the conditional expression is objectively wrong. The
+                # showcase requires category identity, so it must not pass.
+                if isinstance(expr, dict) and "Conditional" in expr:
+                    conditional.append(entry)
+            if conditional:
+                out.append({
+                    "rule": "color.category_conditional_shared_status",
+                    "importance": "high", "page_id": page["id"],
+                    "visual_ids": [visual["visual_id"]],
+                    "evidence": {
+                        "scope": "category-axis chart with wildcard conditional fill",
+                        "entry_count": len(conditional),
+                        "color_identity": "multiple categories can evaluate to same status"},
+                    "recommendation":
+                        "If distinct category identity is required, encode category "
+                        "with unique fills and retain target/threshold information "
+                        "through reference lines, labels or tooltips. Otherwise "
+                        "declare and review the intentional status-color exception."})
             if wildcard:
                 out.append({
                     "rule":"color.category_wildcard_shared_fill",
@@ -228,11 +247,11 @@ def _category_collision_risks(
                         continue
                     # More stringent than generic palette check: all these
                     # colors are actually assigned together in ONE chart.
-                    # 2–3 series are expected to be unmistakably different;
-                    # larger 5–7 category charts need a realistic multi-hue
-                    # packing bound without manufacturing neon colors.
-                    normal_limit = 50 if len(names) <= 3 else 40
-                    cvd_limit = 19 if len(names) <= 3 else 9
+                    # Multi-category assignments must remain distinguishable.
+                    # The prior 40/9 thresholds let obvious near-matches
+                    # through in 5–7-category charts (observed in gallery).
+                    normal_limit = 50 if len(names) <= 3 else 45
+                    cvd_limit = 19 if len(names) <= 3 else 15
                     violated = (
                         deltas["normal"] < normal_limit
                         or min(deltas[k] for k in
