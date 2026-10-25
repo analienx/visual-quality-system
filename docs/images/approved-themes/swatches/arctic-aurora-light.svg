@@ -1,14 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="820" height="164" viewBox="0 0 820 164">
-<rect width="820" height="164" rx="18" fill="#ECF7FB"/>
-<rect x="12" y="12" width="796" height="140" rx="12" fill="#FFFFFF"/>
-<text x="30" y="48" fill="#1F2834" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="650">Arctic Aurora</text>
-<text x="30" y="78" fill="#4A5563" font-family="Segoe UI,Arial,sans-serif" font-size="15">Light · actual theme tokens</text>
-<rect x="30" y="100" width="84" height="37" rx="7" fill="#58A09C"/>
-<rect x="124" y="100" width="84" height="37" rx="7" fill="#2F5998"/>
-<rect x="218" y="100" width="84" height="37" rx="7" fill="#CA63CF"/>
-<rect x="312" y="100" width="84" height="37" rx="7" fill="#AD8B52"/>
-<rect x="406" y="100" width="84" height="37" rx="7" fill="#267D2F"/>
-<rect x="500" y="100" width="84" height="37" rx="7" fill="#A54554"/>
-<rect x="594" y="100" width="84" height="37" rx="7" fill="#1B29AC"/>
-<rect x="688" y="100" width="84" height="37" rx="7" fill="#646B72"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="204" viewBox="0 0 840 204">
+<rect width="840" height="204" rx="18" fill="#ECF7FB"/>
+<rect x="12" y="12" width="816" height="180" rx="12" fill="#FFFFFF"/>
+<text x="30" y="46" fill="#1F2834" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="600">Arctic Aurora</text>
+<text x="30" y="73" fill="#4A5563" font-family="Segoe UI,Arial,sans-serif" font-size="15">Light · real theme tokens</text>
+<rect x="30" y="91" width="86" height="35" rx="7" fill="#58A09C"/>
+<rect x="126" y="91" width="86" height="35" rx="7" fill="#2F5998"/>
+<rect x="222" y="91" width="86" height="35" rx="7" fill="#CA63CF"/>
+<rect x="318" y="91" width="86" height="35" rx="7" fill="#AD8B52"/>
+<rect x="414" y="91" width="86" height="35" rx="7" fill="#267D2F"/>
+<rect x="510" y="91" width="86" height="35" rx="7" fill="#A54554"/>
+<rect x="606" y="91" width="86" height="35" rx="7" fill="#1B29AC"/>
+<rect x="702" y="91" width="86" height="35" rx="7" fill="#646B72"/>
+<rect x="30" y="145" width="384" height="39" rx="8" fill="#EBF1F0"/>
+<text x="44" y="170" font-family="Segoe UI,Arial,sans-serif" font-size="16" fill="#1F2834">Reporting year   ▾</text>
+<rect x="430" y="145" width="160" height="39" rx="8" fill="#457D7B"/>
+<text x="448" y="170" font-family="Segoe UI,Arial,sans-serif" font-size="16" fill="#FFFFFF">Selected</text>
 </svg>

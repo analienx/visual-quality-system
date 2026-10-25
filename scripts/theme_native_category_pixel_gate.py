@@ -90,13 +90,89 @@ def verify(artifact: Path) -> dict:
             "status":"pass","charts":checks}
 
 
+def verify_all_approved_gallery(artifact: Path) -> dict:
+    """28 modes, five visible charts per mode plus native dropdown rendering.
+
+    Same category thresholds as pre-capture QVS, with pixels taken from
+    exact registered-theme colors; this is scoped to the fictional
+    Contoso report, not a generalized screenshot classifier.
+    """
+    selection=json.loads((ROOT/"docs/APPROVED_THEME_SELECTION.json").read_text(
+        encoding="utf8"))["presets"]
+    assert len(selection)==14
+    assert len(list(artifact.glob("*/Contoso Retail.pbip")))==28
+    expected_source=source_digest(
+        ROOT/"examples/contoso-retail/Contoso Retail.Report")
+    regions=[entry for entry in CHARTS
+             if entry[0] in ("Executive overview","Products & brands")]
+    assert len(regions)==5
+    checks=[]
+    controls=[]
+    for item in selection:
+        for mode in ("light","dark"):
+            slug=item["slug"]
+            key=slug+"-"+mode
+            manifest=json.loads((artifact/key/"theme-manifest.json").read_text(
+                encoding="utf8"))
+            assert manifest["sourceDigest"]==expected_source,key
+            colors=load_palette(mode,None,slug)
+            capture_dir=artifact/"captures"/key
+            assert len(list(capture_dir.glob("*.png")))==5,key
+            for page,chart,region,count in regions:
+                image=capture_dir/(page+".png")
+                with Image.open(image) as im:
+                    assert im.size==CANVAS,(key,page,im.size)
+                    pixels=np.asarray(im.convert("RGB").crop(region),
+                                      dtype=np.int16)
+                found=[]
+                for c in colors["dataColors"][:count]:
+                    rgb=np.array([int(c[i:i+2],16) for i in (1,3,5)])
+                    hits=int(np.count_nonzero(
+                        np.max(np.abs(pixels-rgb),axis=2)<=6))
+                    assert hits>=MIN_MATCHED_PIXELS,(key,chart,c,hits)
+                    found.append(hits)
+                for i in range(count):
+                    for j in range(i+1,count):
+                        a,b=colors["dataColors"][i],colors["dataColors"][j]
+                        n=distance(a,b)
+                        cv=min(distance(a,b,v) for v in
+                               ("protan","deutan","tritan"))
+                        bound=(50,19) if count<=3 else (45,15)
+                        assert n>=bound[0] and cv>=bound[1],(
+                            key,chart,i,j,n,cv)
+                checks.append({"mode":key,"chart":chart,
+                               "categories":count,"minimumPixels":min(found)})
+                print("GALLERY_ALL14_CHART_PASS",key,chart,count,flush=True)
+            # The Reporting Year dropdown must have its own theme's
+            # background, not just a custom palette entry never rendered.
+            with Image.open(capture_dir/"Executive overview.png") as im:
+                control=np.asarray(im.convert("RGB").crop(
+                    (2550,395,3200,480)),dtype=np.int16)
+            c=colors["slicerBackground"]
+            rgb=np.array([int(c[i:i+2],16) for i in (1,3,5)])
+            hits=int(np.count_nonzero(
+                np.max(np.abs(control-rgb),axis=2)<=6))
+            assert hits>=1500,(key,"dropdown surface",c,hits)
+            controls.append({"mode":key,"color":c,"visiblePixels":hits})
+            print("GALLERY_ALL14_DROPDOWN_PASS",key,c,hits,flush=True)
+    assert len(checks)==140 and len(controls)==28
+    return {"schema":"vqs.native-gallery-all14/1",
+            "sourceDigest":expected_source,
+            "modes":28,"categoryChecks":len(checks),
+            "dropdownChecks":len(controls),"checks":168,"status":"pass",
+            "charts":checks,"dropdowns":controls}
+
+
 def main() -> int:
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("artifact",type=Path)
     parser.add_argument("--out",type=Path)
+    parser.add_argument("--all-approved",action="store_true",
+                        help="Verify all 14 families, including native dropdown colors")
     args=parser.parse_args()
     try:
-        result=verify(args.artifact)
+        result=(verify_all_approved_gallery(args.artifact)
+                if args.all_approved else verify(args.artifact))
     except (AssertionError,OSError,ValueError,KeyError) as exc:
         print("CATEGORY_PIXEL_GATE_FAILED",repr(exc),flush=True)
         return 1

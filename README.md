@@ -19,48 +19,79 @@
 
 ## Real Power BI showcase
 
-**Five distinctive palette families. Two modes each. Real, populated Power BI Desktop renders.**
-All screenshots come from generated candidates of the same five-page [fictional Contoso Retail PBIP](examples/contoso-retail/README.md) ([open the exact source report](examples/contoso-retail/Contoso%20Retail.pbip)); none is a simulated dashboard or an AI-generated illustration.
+**Seven curated families on the homepage. All 14 Light/Dark families in the full gallery.**
+These are real, populated Power BI Desktop screenshots captured from one
+fictional Contoso Retail report; none is a simulated dashboard.
+Each screenshot is bound to the generating GitHub candidate and source hash.
 
+**[Explore the complete 14-family native gallery](docs/REAL_THEME_SHOWCASE.md)**
+
+[Open the exact fictional Power BI source report](examples/contoso-retail/Contoso%20Retail.pbip) — the screenshots are taken from validated variants of this PBIP. ·
+[Compare all color and control tokens](docs/APPROVED_THEME_LIBRARY.md) ·
+[View the provenance](docs/images/adaptive-showcase/PROVENANCE.json)
 
 ### Sunny Palette
-Warm orange and restrained grey, with individually distinguishable category colors on both surfaces.
 
-| Light | Dark |
+Amber-orange and charcoal, with soft peach control surfaces.
+
+| Light · actual report | Dark · actual report |
 | :--- | :--- |
-| [![Sunny Palette Light, native Contoso Executive report](docs/images/adaptive-showcase/sunny-palette-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#sunny-palette) | [![Sunny Palette Dark, native Contoso Executive report](docs/images/adaptive-showcase/sunny-palette-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#sunny-palette) |
+| [![Sunny Palette Light real Power BI report](docs/images/adaptive-showcase/sunny-palette-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#sunny-palette) | [![Sunny Palette Dark real Power BI report](docs/images/adaptive-showcase/sunny-palette-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#sunny-palette) |
 
 ### Organic Palette
-Rich blue, vivid pink, green and sky-blue inspired by a contemporary life-sciences identity; contrast-safe Light and Dark.
 
-| Light | Dark |
+Cobalt, vivid magenta, green and cyan with differentiated controls.
+
+| Light · actual report | Dark · actual report |
 | :--- | :--- |
-| [![Organic Palette Light, native Contoso Executive report](docs/images/adaptive-showcase/organic-palette-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#organic-palette) | [![Organic Palette Dark, native Contoso Executive report](docs/images/adaptive-showcase/organic-palette-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#organic-palette) |
+| [![Organic Palette Light real Power BI report](docs/images/adaptive-showcase/organic-palette-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#organic-palette) | [![Organic Palette Dark real Power BI report](docs/images/adaptive-showcase/organic-palette-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#organic-palette) |
 
 ### Graphite Red
-Graphite and red, with distinct native category colors and no green.
 
-| Light | Dark |
+Graphite, ruby and carefully contrasted supporting hues — no green.
+
+| Light · actual report | Dark · actual report |
 | :--- | :--- |
-| [![Graphite Red Light, native Contoso Executive report](docs/images/adaptive-showcase/graphite-red-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#graphite-red) | [![Graphite Red Dark, native Contoso Executive report](docs/images/adaptive-showcase/graphite-red-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#graphite-red) |
+| [![Graphite Red Light real Power BI report](docs/images/adaptive-showcase/graphite-red-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#graphite-red) | [![Graphite Red Dark real Power BI report](docs/images/adaptive-showcase/graphite-red-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#graphite-red) |
 
 ### Indigo Ember
-Refined blue-violet and warm ember, balanced for analytical series contrast.
 
-| Light | Dark |
+Indigo-violet balanced with warm editorial accents.
+
+| Light · actual report | Dark · actual report |
 | :--- | :--- |
-| [![Indigo Ember Light, native Contoso Executive report](docs/images/adaptive-showcase/indigo-ember-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#indigo-ember) | [![Indigo Ember Dark, native Contoso Executive report](docs/images/adaptive-showcase/indigo-ember-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#indigo-ember) |
+| [![Indigo Ember Light real Power BI report](docs/images/adaptive-showcase/indigo-ember-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#indigo-ember) | [![Indigo Ember Dark real Power BI report](docs/images/adaptive-showcase/indigo-ember-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#indigo-ember) |
 
 ### Petrol & Gold
-Petrol blue-green and warm gold, with genuinely distinct supporting bars.
 
-| Light | Dark |
+Petrol and warm gold for a confident executive dashboard.
+
+| Light · actual report | Dark · actual report |
 | :--- | :--- |
-| [![Petrol & Gold Light, native Contoso Executive report](docs/images/adaptive-showcase/petrol-gold-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#petrol--gold) | [![Petrol & Gold Dark, native Contoso Executive report](docs/images/adaptive-showcase/petrol-gold-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#petrol--gold) |
+| [![Petrol & Gold Light real Power BI report](docs/images/adaptive-showcase/petrol-gold-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#petrol-gold) | [![Petrol & Gold Dark real Power BI report](docs/images/adaptive-showcase/petrol-gold-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#petrol-gold) |
 
-**[Explore 30 genuine report screenshots](docs/REAL_THEME_SHOWCASE.md)** · [See provenance and SHA-256 hashes](docs/images/adaptive-showcase/PROVENANCE.json) · [Browse every approved palette](docs/APPROVED_THEME_LIBRARY.md)
+### Riviera Pop
 
-Each featured mode was captured across all five pages in a disposable Desktop instance after refreshing its local model. Three representative pages per mode are published as lightweight WebP previews. The other **9 approved families** are shown as compact color swatches—no pretend report screenshots.
+Expressive seaside color, controlled by a disciplined layout.
+
+| Light · actual report | Dark · actual report |
+| :--- | :--- |
+| [![Riviera Pop Light real Power BI report](docs/images/adaptive-showcase/riviera-pop-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#riviera-pop) | [![Riviera Pop Dark real Power BI report](docs/images/adaptive-showcase/riviera-pop-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#riviera-pop) |
+
+### Okabe–Ito Night
+
+Clear categorical hues and understated interface chrome.
+
+| Light · actual report | Dark · actual report |
+| :--- | :--- |
+| [![Okabe–Ito Night Light real Power BI report](docs/images/adaptive-showcase/okabe-ito-night-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#okabe-ito-night) | [![Okabe–Ito Night Dark real Power BI report](docs/images/adaptive-showcase/okabe-ito-night-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#okabe-ito-night) |
+
+**[See all 14 palettes and 56 authentic report previews](docs/REAL_THEME_SHOWCASE.md)**
+
+The gallery also shows Products & Brands, making all seven subcategory
+colors easy to compare. Each control palette includes themed dropdown,
+filter and selection surfaces. Interactive flyouts remain separately
+reviewable; static screenshots are not interaction certification.
 
 ## Try it
 

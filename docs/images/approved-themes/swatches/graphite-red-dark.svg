@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="204" viewBox="0 0 840 204">
+<rect width="840" height="204" rx="18" fill="#18191B"/>
+<rect x="12" y="12" width="816" height="180" rx="12" fill="#242629"/>
+<text x="30" y="46" fill="#F4F6F8" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="600">Graphite Red</text>
+<text x="30" y="73" fill="#D0D4DC" font-family="Segoe UI,Arial,sans-serif" font-size="15">Dark · real theme tokens</text>
+<rect x="30" y="91" width="86" height="35" rx="7" fill="#DB5961"/>
+<rect x="126" y="91" width="86" height="35" rx="7" fill="#6791BC"/>
+<rect x="222" y="91" width="86" height="35" rx="7" fill="#EED558"/>
+<rect x="318" y="91" width="86" height="35" rx="7" fill="#E3E8CA"/>
+<rect x="414" y="91" width="86" height="35" rx="7" fill="#E699F5"/>
+<rect x="510" y="91" width="86" height="35" rx="7" fill="#AF37EB"/>
+<rect x="606" y="91" width="86" height="35" rx="7" fill="#8C6C2C"/>
+<rect x="702" y="91" width="86" height="35" rx="7" fill="#B856A0"/>
+<rect x="30" y="145" width="384" height="39" rx="8" fill="#412E32"/>
+<text x="44" y="170" font-family="Segoe UI,Arial,sans-serif" font-size="16" fill="#F4F6F8">Reporting year   ▾</text>
+<rect x="430" y="145" width="160" height="39" rx="8" fill="#DB5961"/>
+<text x="448" y="170" font-family="Segoe UI,Arial,sans-serif" font-size="16" fill="#13191F">Selected</text>
+</svg>

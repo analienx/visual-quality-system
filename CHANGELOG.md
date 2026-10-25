@@ -1,5 +1,29 @@
 # Changelog
 
+## Complete approved-theme native gallery — 25 October 2026 (PR #81 draft)
+
+The README now highlights seven curated Power BI theme families instead of
+showing the entire long catalog above the product documentation. A dedicated
+[14-family Desktop gallery](docs/REAL_THEME_SHOWCASE.md) shows **all 28
+Light/Dark variants** with **56 authentic report screenshots** (two
+representative pages per mode), backed by **140 private full-page native
+captures** from the exact GitHub-generated PBIP candidates. The complete
+palette reference includes **28 separate color/control previews**, with
+distinct themed dropdown and selection surfaces.
+
+The generic Organic color direction is anchored in cobalt and vivid magenta
+with green and sky-blue accents; Sunny retains orange, peach and grey
+in its appearance roles. Their categorical data colors were adjusted
+for readability separately from lighter brand-inspired control backgrounds.
+All 28 modes passed source QVS acceptance *before* capture, followed by
+**140 native chart-series pixel checks + 28 dropdown checks**. A single
+unexpected Electric Atelier Dark rendering was discarded and recaptured,
+rather than lowering the screenshot tolerance. All generated public assets
+are hash-bound to source/candidate/model/palette identities.
+
+This is a validated candidate and gallery update; separate G2/G4 interactive
+review and G6 merge approval remain outstanding.
+
 ## Native category-pixel acceptance correction, 25 October 2026 (PR #81, unmerged)
 
 A second native screenshot review found two genuine quality-control gaps:

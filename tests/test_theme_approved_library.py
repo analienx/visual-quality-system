@@ -225,3 +225,19 @@ def test_inspired_original_reference_colors_are_preserved_in_usable_roles() -> N
     assert sunny_dark["tableHeader"] == "#F7941E"
     assert sunny_light["dataColors"][0] == "#B65B0A"
     assert sunny_dark["dataColors"][0] == "#F7941E"
+
+
+def test_navigation_controls_have_distinct_family_hues_and_state_contrast() -> None:
+    for mode in MODES:
+        control_colors = [load_palette(mode, None, slug)["slicerBackground"]
+                          for slug in SLUGS]
+        assert len(set(control_colors)) >= 10
+        for slug in SLUGS:
+            palette = load_palette(mode, None, slug)
+            # Warm official orange has only 2:1 vs a near-white
+            # background, but black selected text passes 7:1; the
+            # applied filter-card outline uses a darker accent.
+            contrast = contrast_ratio(palette["selection"],
+                                      palette["slicerBackground"])
+            required = 2.0 if slug == "sunny-palette" and mode == "light" else 3.0
+            assert contrast >= required

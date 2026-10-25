@@ -6,6 +6,31 @@ remains DRAFT and unmerged.** These are engineering candidate notes,
 The previous [21 October Power BI core notes](RELEASE_NOTES_2026-10-21.md)
 remain valid for the code already in main.
 
+## 14 approved families — refreshed native gallery, 25 October
+
+**Source revision:** `4987bd77f03a0d8a8822861408c62165ff542f69`, with GitHub
+CI, official Power BI authoring and R6 all passing at that revision.
+The 14-family expansion uses that exact 28-mode GitHub authoring
+artifact, with five genuine native Power BI Desktop pages captured per
+mode (**140 private full-page captures**). The homepage shows seven
+curated Light/Dark families; the dedicated complete gallery shows all
+14 with **56 representative real screenshots**, and 28 swatches show
+their actual data and navigation-control colors.
+
+The selection/control palette now varies meaningfully by family in
+Power BI slicers, dropdowns, applied filter cards and supporting
+appearance. The brighter Organic and Sunny identity colors are
+allocated to appropriate chart/control roles while preserving the
+categorical legibility gate. **28/28 QVS source checks and 168/168
+native pixel checks** passed, including all seven subcategory bars
+and themed closed-dropdown surfaces. An anomalous tinted native
+capture was quarantined and retaken rather than accepted.
+
+Generated assets include SHA-256 provenance for all 56 published WebP
+previews and every original native capture. Screenshot proof is limited
+to default report states; open slicer menus, interactive G2/G4
+and release-owner G6 acceptance are not inferred from these results.
+
 ## Final corrected source and gallery evidence — 25 October
 
 Current approved engineering **candidate**, not a production merge:

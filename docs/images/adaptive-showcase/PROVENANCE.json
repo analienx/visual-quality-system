@@ -1,20 +1,30 @@
 {
-  "schema": "vqs.public-theme-showcase/1",
-  "authoringHead": "587eda95c46770bdffd0c20992506c8bfbb94426",
-  "source": "five-page synthetic Contoso Retail PBIP, exact GH-hosted candidate artifact",
-  "captureHost": "Microsoft Power BI Desktop via Microsoft Power BI Report Author CLI, all-pages native PNG",
+  "schema": "vqs.public-theme-showcase/2",
+  "authoringHead": "4987bd77f03a0d8a8822861408c62165ff542f69",
+  "source": "five-page fictional Contoso Retail PBIP; exact GitHub-authored candidates",
+  "captureHost": "Microsoft Power BI Desktop, verified model refresh, native PNG capture",
+  "galleryModes": 28,
+  "displayedPagesPerMode": 2,
+  "rawPagesPerMode": 5,
   "modes": {
     "sunny-palette-light": {
       "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
-      "candidateDigest": "fe8233f364df28156f0f52af7ce105f80c64cf0182c68bf756315476ac54d556",
+      "candidateDigest": "0bbfdea2d0cdfa3f7a0b6ed2c38ae70a157153acb586a3e96e2f7d38966c4de7",
+      "paletteHash": "7ea6984fc25fd236e015eb38b2e22e2c66699b1fd02b5d91c4dc3bfc36aa930f",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "ff762db45b0c29b91fe517c12170e88bf71c01f8d7649e411cd79a5eb8a74585",
+      "rawPageSha256": {
+        "Deep-dive insights": "4bb09c032bfc99f31858e33a2f5b00558faf3a3c976f2baa037a0f9e2b964f42",
+        "Executive overview": "bdcaa6b6e589ccfbdae66a28f2a8e05621da3fcd531e0027e556918624f13c4e",
+        "Markets & drivers": "3109519a50511d8240adedac6fc1adafc8e5bafd1e783e5e0f2399a5a4630f7c",
+        "Products & brands": "5fc842ba77d4fd70011219377c48f184a7a56ae4326013e0ca0c3c1a55adaed8",
+        "Stores & customers": "d34aa4e969eebbf93295cbc256f80c7505f19bc7aa37fa509a6bec740244fe91"
+      },
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/sunny-palette-light/executive-overview.webp",
-          "captureSha256": "9446009f8293c970d40097edb37b54ae8eb499ccf86dfc580126230691f1c4ca",
-          "webpSha256": "74d872540386468948d3f4478ae2a5948d2a96ee55b755805beec6b9f17c8421",
+          "captureSha256": "bdcaa6b6e589ccfbdae66a28f2a8e05621da3fcd531e0027e556918624f13c4e",
+          "webpSha256": "5bfbae765cc5693851c08444997005408c38ecba86d1fd29cbd3880ae26fc0df",
           "captureDimensions": [
             3915,
             2394
@@ -33,28 +43,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/sunny-palette-light/products-and-brands.webp",
-          "captureSha256": "6a9a582019551a75cc8150aee61ca403a7eb774901628f21d605437870b384bf",
-          "webpSha256": "33eb56d904160e4245d593d69197f9f8d602da1855856546e87af5eef2fb7cf5",
-          "captureDimensions": [
-            3915,
-            2394
-          ],
-          "publicCanvasCropBox": [
-            0,
-            264,
-            3315,
-            2140
-          ],
-          "publicDimensions": [
-            1680,
-            951
-          ]
-        },
-        {
-          "page": "Deep-dive insights",
-          "file": "docs/images/adaptive-showcase/sunny-palette-light/deep-dive-insights.webp",
-          "captureSha256": "e5e2281f248a1c707e328bceda720daf3ff3607452daca67e4bcff3412d45263",
-          "webpSha256": "b1d80da6298ecf692d6857e7c1657df23f978545bb7b26a6a76b216566a4ee6c",
+          "captureSha256": "5fc842ba77d4fd70011219377c48f184a7a56ae4326013e0ca0c3c1a55adaed8",
+          "webpSha256": "bb8653e1e73e79a6455d9271f2a7048815849d6d8e1da7e45679a2bfb638501d",
           "captureDimensions": [
             3915,
             2394
@@ -74,15 +64,22 @@
     },
     "sunny-palette-dark": {
       "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
-      "candidateDigest": "09084d7312e4cf7bb51f828ac128f193c6db7e8e5a2b4038860dc14cb85ca351",
+      "candidateDigest": "50d07f6d1cb48642c939c69820d2dc2fd2b5badcbf32ebf08805bda9dbb3cc83",
+      "paletteHash": "31957211c5581da7b2b1cce5285dea8f581b8bb77764e97ea270f80f897c57e8",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "967c0669b8ad8f63a1b8f5d7c453fee869451dd84128bce3c9e45629609c20e1",
+      "rawPageSha256": {
+        "Deep-dive insights": "e9b671976b166218f5f592a4c619e54cedf412039f9ef6fd538f05d2e9b96552",
+        "Executive overview": "8e4147d57f0c5a85aa30da5e99141219e1e31fd89563f12719758e8610fcf477",
+        "Markets & drivers": "0d3256f0ead2f0d9034c71e2612f27a317dd51620a96ce31de685eb9bf38dd4a",
+        "Products & brands": "68187a1c9c1a7f4b25fa004411fb27dbb5faab568081443d643a4db469da95a5",
+        "Stores & customers": "1202681a37c0b90c45f6aea36ac10d5495eb220bea9da52da2d7203f3c239ada"
+      },
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/sunny-palette-dark/executive-overview.webp",
-          "captureSha256": "8f937131b1ee609175930dc9293aca7cc2131a31132a546548a61b401baefe67",
-          "webpSha256": "b6e96c556a8cb511257415a20d70a6a49193b6c560b40ad70876e87fdaa17f6c",
+          "captureSha256": "8e4147d57f0c5a85aa30da5e99141219e1e31fd89563f12719758e8610fcf477",
+          "webpSha256": "717a8d283f7225de9a801a68985c4d6492f75d664b3e8ce688b3839ad5f4e3d8",
           "captureDimensions": [
             3915,
             2394
@@ -101,28 +98,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/sunny-palette-dark/products-and-brands.webp",
-          "captureSha256": "3ba03afd4166e35e48a8741b87722527295bb9b078175c1e7dd5ffca6856053f",
-          "webpSha256": "1751ea2eef0443eaf5494ce36800e27e87b6c71499e041b416b12ae87c1bf10b",
-          "captureDimensions": [
-            3915,
-            2394
-          ],
-          "publicCanvasCropBox": [
-            0,
-            264,
-            3315,
-            2140
-          ],
-          "publicDimensions": [
-            1680,
-            951
-          ]
-        },
-        {
-          "page": "Deep-dive insights",
-          "file": "docs/images/adaptive-showcase/sunny-palette-dark/deep-dive-insights.webp",
-          "captureSha256": "b3efca5ad7e8c10fb7e10559f69541fa770c7c7ee82fbfe1fee6aff156c3f376",
-          "webpSha256": "7bb76d7dc48e7fe4d706438dfec3d559b88a30ae5a8f2d7ffcab1aaf97eab723",
+          "captureSha256": "68187a1c9c1a7f4b25fa004411fb27dbb5faab568081443d643a4db469da95a5",
+          "webpSha256": "1df2a2fad85511dc7ca135fcd13d57cebe8dfc1e5a558a1efdd985f0b2f44438",
           "captureDimensions": [
             3915,
             2394
@@ -142,15 +119,22 @@
     },
     "organic-palette-light": {
       "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
-      "candidateDigest": "091b78f8333c69e991d2767dedce8d001f0e0237bbdbc731e0b966e1578e7e62",
+      "candidateDigest": "5361de6def7b650c8a15493f7f6432b2b0437c2625ade63f364d6fc234d564fb",
+      "paletteHash": "a5db4618cb613189df942277dde1ffb904fc239044a3b6c66a114f325e1fdaf2",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "c2215f30228ca24bb59d8b60254f355e8a590b828d331a4111a26bb3c0faaa44",
+      "rawPageSha256": {
+        "Deep-dive insights": "2d52556a3d2811d9cccb9a4c76f3827eb6f5069071486c02136b32ab981b7c23",
+        "Executive overview": "38e2b1e03774364679d972bbba62dcd475e872c1d7da348bec96e15d9f39cfa3",
+        "Markets & drivers": "0f2b452ac5b596b2294d5b605a50f59a590bca59b14360b5d57d2b29b9180059",
+        "Products & brands": "1949af9f5faf3c6a5ab43aafd53e1e20ab916644e9a689c7f8269a28f6bab46e",
+        "Stores & customers": "de26136097a8d74fb97d67749ade12508fb277652b6029ac037aa45ee1e5217e"
+      },
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/organic-palette-light/executive-overview.webp",
-          "captureSha256": "8717affe1cba746e5f291c8827ba9a59396db98884e517a32691b2acf6c4b5b2",
-          "webpSha256": "50a488790ffe143d401a2e15187eef9d83f192a889187f8f35cc35c4ff962a3c",
+          "captureSha256": "38e2b1e03774364679d972bbba62dcd475e872c1d7da348bec96e15d9f39cfa3",
+          "webpSha256": "c1d862889c58f8b22ce9607f6d0dbafbbcfb8c3ca41c215d877dee2a6d1f0ccd",
           "captureDimensions": [
             3915,
             2394
@@ -169,28 +153,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/organic-palette-light/products-and-brands.webp",
-          "captureSha256": "77a1b91cff1d124ea06e55194076aca8642532a29a78ead8031cdc16ac0d2e6a",
-          "webpSha256": "b3403e812b170a45925aeb926097c0770d3f2c22796e369b2cf851a4e3d55536",
-          "captureDimensions": [
-            3915,
-            2394
-          ],
-          "publicCanvasCropBox": [
-            0,
-            264,
-            3315,
-            2140
-          ],
-          "publicDimensions": [
-            1680,
-            951
-          ]
-        },
-        {
-          "page": "Deep-dive insights",
-          "file": "docs/images/adaptive-showcase/organic-palette-light/deep-dive-insights.webp",
-          "captureSha256": "d66357249c5a870ec1f7ad507f89db747056092be3b7908679703821506e75a6",
-          "webpSha256": "96ed0e07d3dd0c29d4e6512a2b2047393f99aaddea62c3879d633aa1af3a6e5f",
+          "captureSha256": "1949af9f5faf3c6a5ab43aafd53e1e20ab916644e9a689c7f8269a28f6bab46e",
+          "webpSha256": "60893005c2206c80af6812c941b5a9c91b1f6a1b2dfd98a0775e0b2a003257f0",
           "captureDimensions": [
             3915,
             2394
@@ -210,15 +174,22 @@
     },
     "organic-palette-dark": {
       "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
-      "candidateDigest": "81053bacede15b6535dbbee7f613f163884f7f9e8fcfefbf280ea21d665c7311",
+      "candidateDigest": "c4dedbed20f9189cf83fb294ca644c03401f94332040e23acd9e226cfd7cdb38",
+      "paletteHash": "20c7ecaae495d146d2208711e18fbdf4691aa8312d28ecc772499206c4a5c8c8",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "8a923521cbe6275ca87d713d9857536c7839b39d0fbed65d3a07bb7457a8c822",
+      "rawPageSha256": {
+        "Deep-dive insights": "34f4d5d6f3593953467de458f958388da6376b409560a7badbe6047f90e975be",
+        "Executive overview": "152aa9627efb3b32b77a8fceba275a3d91188878ab7a5c19c9f94eef0cb707eb",
+        "Markets & drivers": "a002f2ad509649457dd3dfe137788baaf94fbc6e1aa36ab06bcd1cf7f8b56d43",
+        "Products & brands": "fd08ebfe2834b80d91623cb8c6ceaee7e496e0bed02590bd5f9291355ed79abd",
+        "Stores & customers": "a94c1b0a77b2639e3d6d78c357ad08eb153c36b9d30b4f221637c21f92c79324"
+      },
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/organic-palette-dark/executive-overview.webp",
-          "captureSha256": "c5c26a463e492ada2d426ec4fdbcac22a17ffad6f9597116c8b7e0880ca52b1f",
-          "webpSha256": "ad27476d514af3ebc00c665756635b0c786b4b717cc4485659e329c7ba6c2c2e",
+          "captureSha256": "152aa9627efb3b32b77a8fceba275a3d91188878ab7a5c19c9f94eef0cb707eb",
+          "webpSha256": "3a793642b423b16fe27dfe4b74733aeb11dc0beafff26bfc1d69c952f8e7e478",
           "captureDimensions": [
             3915,
             2394
@@ -237,28 +208,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/organic-palette-dark/products-and-brands.webp",
-          "captureSha256": "d06a6fb2c4495a98bbf393e3ec604414242ae49ff3f3689b81d650889557bd5a",
-          "webpSha256": "4e523033600874d7c250e5c1a3d888c327b9737cf38c258050805d6a6903b487",
-          "captureDimensions": [
-            3915,
-            2394
-          ],
-          "publicCanvasCropBox": [
-            0,
-            264,
-            3315,
-            2140
-          ],
-          "publicDimensions": [
-            1680,
-            951
-          ]
-        },
-        {
-          "page": "Deep-dive insights",
-          "file": "docs/images/adaptive-showcase/organic-palette-dark/deep-dive-insights.webp",
-          "captureSha256": "046949fe636e81c128ab52f9badfa10db682c2014d5cef102ed049be25dfbdaf",
-          "webpSha256": "6db5ca80c8cf8789fe267f8479f8795f92214b721adbdabaa7747c82d4e679f4",
+          "captureSha256": "fd08ebfe2834b80d91623cb8c6ceaee7e496e0bed02590bd5f9291355ed79abd",
+          "webpSha256": "6259ded8e8bb80724b33c680d64ccc2796e1c3e4b4141b7e6d0bcd6025564fa4",
           "captureDimensions": [
             3915,
             2394
@@ -278,15 +229,22 @@
     },
     "graphite-red-light": {
       "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
-      "candidateDigest": "f111ed683edf4bfd1f327295d36b4e2cb3e912554b41614be99c6244e46d8673",
+      "candidateDigest": "64158bb2d26f829f06d7ae9a2c20e1cd5c12a75f8233b731d86b0a9f58537956",
+      "paletteHash": "0cd33cf0c1452251e18fa8272d8030b441fc005aaa9e40d771f839ca21fba034",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "87bedd91d5218e09b7cb2f52440fdf761071197603cbe4264ca415a6249e1fb5",
+      "rawPageSha256": {
+        "Deep-dive insights": "708e64765899e50b542fef506adfb3ab6f1aeef113f131414ece94443c9fa996",
+        "Executive overview": "0c61039dbfb9dcc0a5909b81e00b6c937e83e00bdbe50d4be9bd09ba7d86bcff",
+        "Markets & drivers": "777b9b47b08c73c4b282f6add80317e98a7d79109bade988a8f59be3eeb3d4ad",
+        "Products & brands": "f807d23bad309cd9daf6d13f8d8073c6bfd3f60ba8ce4918ad8a44a25c9df477",
+        "Stores & customers": "605ec30430b87c4c8d72ad9f61afe0adb0694c67e118e50c6b796522cfdef0cf"
+      },
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/graphite-red-light/executive-overview.webp",
-          "captureSha256": "3c596e08f7ee185ee28a3de6d16e83f04eaedd72572ccce09a6fef0be1690fe1",
-          "webpSha256": "fc5c8e9f782ce550413fe2c59136d33f93a38530fef90e9de3d3f0f5bc814bd3",
+          "captureSha256": "0c61039dbfb9dcc0a5909b81e00b6c937e83e00bdbe50d4be9bd09ba7d86bcff",
+          "webpSha256": "06672b87d2f1f1322926352c6cf410ff31aedd37ddfc7d837602c2c5404203a0",
           "captureDimensions": [
             3915,
             2394
@@ -305,28 +263,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/graphite-red-light/products-and-brands.webp",
-          "captureSha256": "00e785a7e33cde692a87b470b7091ac4650060d3f2b0acea9888b3ec3422977f",
-          "webpSha256": "0c7c9deb62c8269a2cbea26e548069bccbf4e92f92429cfafffb24be64b92de1",
-          "captureDimensions": [
-            3915,
-            2394
-          ],
-          "publicCanvasCropBox": [
-            0,
-            264,
-            3315,
-            2140
-          ],
-          "publicDimensions": [
-            1680,
-            951
-          ]
-        },
-        {
-          "page": "Deep-dive insights",
-          "file": "docs/images/adaptive-showcase/graphite-red-light/deep-dive-insights.webp",
-          "captureSha256": "6cb7c419d4104cb11ebb97fd71df414f1a98d9cdac6b4ca7536d9f2897bf8eee",
-          "webpSha256": "2ec4e5b196b8ebfe231c43e948954adfa86b77cc3570167883ddfc18109cdad6",
+          "captureSha256": "f807d23bad309cd9daf6d13f8d8073c6bfd3f60ba8ce4918ad8a44a25c9df477",
+          "webpSha256": "91d4f9275ec45ada1365b7ad3611f0fd101e3b83365bc6cc3a8efbd4850e65d0",
           "captureDimensions": [
             3915,
             2394
@@ -346,15 +284,22 @@
     },
     "graphite-red-dark": {
       "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
-      "candidateDigest": "bd1bb29365b3f0c96b8bd701b90b81eb3b7467ad52059b50a5fb9528d7b66407",
+      "candidateDigest": "97be6285b2d3f56be7d6c00af0220b47a574021b718edc732415bd5d673d9f6a",
+      "paletteHash": "487505280ed56a015fbb83ed9715bcf37a1f05898fed1846b7b8409841fe4874",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "63fd7f266c8a233881bee16807a7497fba3141ce16e6c9a1c44ca1d4a6068b8a",
+      "rawPageSha256": {
+        "Deep-dive insights": "43f86a548b272cf348af4af4f6c10da0fd89e7ae5d32c4ee40acdfd92aa3890f",
+        "Executive overview": "791a79843a51be9e9618fb6b830e4c32bd60d03ffd0f5322a10752683090e04e",
+        "Markets & drivers": "d7b4a89ba55034038055063e7ee31da14d45cee66ce6abddbab83c5b8c1e3c95",
+        "Products & brands": "8ee48b233d56eefa0fb99239cb58bfba9fe664c5a063f5f685ee81308a86bb01",
+        "Stores & customers": "348c67757b899c2a990eadec7bc7d82824a7bf64963a664c3b61df71d7774843"
+      },
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/graphite-red-dark/executive-overview.webp",
-          "captureSha256": "0875c375afc57de9551c4c7554acd41b525fb9b067ff7eadbc6fa18e4cf8bfee",
-          "webpSha256": "815895047c3c5b39a1577afb13e379dad0988f7f9ef3d1f1f17305d257507e27",
+          "captureSha256": "791a79843a51be9e9618fb6b830e4c32bd60d03ffd0f5322a10752683090e04e",
+          "webpSha256": "259277058b964986fdd19e5f6311735aa554076fa17bb6bc64e6f96e26f98ac7",
           "captureDimensions": [
             3915,
             2394
@@ -373,28 +318,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/graphite-red-dark/products-and-brands.webp",
-          "captureSha256": "022fbd19c98ec64fb87d9640a3e9d695f30123454f8e79fa1028199ca5337bf1",
-          "webpSha256": "06590d99ab3b8396e96f7aa9aac19f2971d926e24a97177a012645801e376a71",
-          "captureDimensions": [
-            3915,
-            2394
-          ],
-          "publicCanvasCropBox": [
-            0,
-            264,
-            3315,
-            2140
-          ],
-          "publicDimensions": [
-            1680,
-            951
-          ]
-        },
-        {
-          "page": "Deep-dive insights",
-          "file": "docs/images/adaptive-showcase/graphite-red-dark/deep-dive-insights.webp",
-          "captureSha256": "ed979efe1ee431c92c6ffdccd639737056b7c11c579fcdc04aee8c26617618cc",
-          "webpSha256": "4a40ff6a716ae4ce899eef8a8be7cd7005f9ee937682dfd2a77d7c7ed6dae41f",
+          "captureSha256": "8ee48b233d56eefa0fb99239cb58bfba9fe664c5a063f5f685ee81308a86bb01",
+          "webpSha256": "c2769e655ae8cc00f634c2a9575e04c33c3cbd1cba6a56940d6c1c697eb52a54",
           "captureDimensions": [
             3915,
             2394
@@ -414,15 +339,22 @@
     },
     "indigo-ember-light": {
       "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
-      "candidateDigest": "3660b627b9f628c889fa3b47d9f73077c73d0c247bb15c5fb5159904d65dc406",
+      "candidateDigest": "87e0a724922bff034edcf675b7b6e38d53791d1cb2b64cb44dbc9ee21693e0be",
+      "paletteHash": "f9ccc647b4fc149404d9263cd94121ae03848c999a2f1ab7fed4d291fd5d0291",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "4fcb3df6aa3391ddb41dce533f85ab75125ebabb5e7f8a365b545f1ce29a05d4",
+      "rawPageSha256": {
+        "Deep-dive insights": "02089aaf1c5fd2f22c4dcd9d78ba6f77b5cb0169e975c16dd6d1ef31a041c836",
+        "Executive overview": "0c73c966f4ed80b4572797a34d4556e10839f0c542df1bd819cdbac0c6115c2e",
+        "Markets & drivers": "4724e69224d41d72a7c142c199f33e37e6c3b092857cf1644849961d9e5edede",
+        "Products & brands": "252c354775ba0c67b384d442d2e14cc5896e3bb20968a128c686514943a9c29e",
+        "Stores & customers": "e8c6b69e31f17de88cad5c4673684d35b7a00376a6c8ab38c8920c5af21f59db"
+      },
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/indigo-ember-light/executive-overview.webp",
-          "captureSha256": "71ceec0c8b1295e7529b356f08d7c0e1a64b7979534d41649887386804c71fd7",
-          "webpSha256": "52eb9748273b15d819d41195f7c1e2ca5e4f6f467d1a6a77aecd55bc15c7ec0d",
+          "captureSha256": "0c73c966f4ed80b4572797a34d4556e10839f0c542df1bd819cdbac0c6115c2e",
+          "webpSha256": "88f8626de8875b8c229a88db1fc89d5d87d70652f0caf5f1ef86178c9e4d544c",
           "captureDimensions": [
             3915,
             2394
@@ -441,28 +373,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/indigo-ember-light/products-and-brands.webp",
-          "captureSha256": "b60eeeb0d60e3859495f1e80a7c2179f74f923ef11969cdbd8e9ef4e08cdb403",
-          "webpSha256": "ba5895867cdcea386f6d74b20d9934a0cb536f7ebecf272d68b024c83e2f8b04",
-          "captureDimensions": [
-            3915,
-            2394
-          ],
-          "publicCanvasCropBox": [
-            0,
-            264,
-            3315,
-            2140
-          ],
-          "publicDimensions": [
-            1680,
-            951
-          ]
-        },
-        {
-          "page": "Deep-dive insights",
-          "file": "docs/images/adaptive-showcase/indigo-ember-light/deep-dive-insights.webp",
-          "captureSha256": "31db5b4b6ce24943a6e425ccb4047a30684ca2fab48ca7d513bf9453c2e395b2",
-          "webpSha256": "328e8b003b578ac76b3be21e71bdb74ae64c7f7a9d70b485ac547c070e4aa10f",
+          "captureSha256": "252c354775ba0c67b384d442d2e14cc5896e3bb20968a128c686514943a9c29e",
+          "webpSha256": "b60cdb40f78e6860da7c6710803f89d757fa10978166fcb11cad81c9c0ddb34a",
           "captureDimensions": [
             3915,
             2394
@@ -482,15 +394,22 @@
     },
     "indigo-ember-dark": {
       "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
-      "candidateDigest": "3265d90d5888d674fd00a3cd26e110f2a064abb2c21461f347fb98ac2af44e0b",
+      "candidateDigest": "5c56ddc128cc8867389de5bdc06b34eba02deac76053655e75042f5fa8455226",
+      "paletteHash": "fae4460475cda0d3b4a4b43fc1a67cfa57dd938e0d2628f7ccb894eb71703c16",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "2d6b1c1d41ab632feb3f241c8cc41121b9d1748e4a73a3890d081fdcccd46b1c",
+      "rawPageSha256": {
+        "Deep-dive insights": "924fd9a49a70205efecb1b4fa398db42f510659dd447768a51bcbfcf92747af8",
+        "Executive overview": "1935605678a9074fd080fb53ddc3a2cfb74ca3b3346dd56017182026dcc30e19",
+        "Markets & drivers": "ab5d04f245d74426953f67e1eefbc4f8cf50c912f27a1e7701b6b4ec72e2f71c",
+        "Products & brands": "404d4048fe013929f7d1c3d7b9d5a2042601e1d6ec12e8a428ec3722dde413bf",
+        "Stores & customers": "1b0bdfeabc4eefae83752c558f0c14143284c823fd0858c0b07ca3e77e4e81c2"
+      },
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/indigo-ember-dark/executive-overview.webp",
-          "captureSha256": "23c637559b6b4edaee07921c4fcebd9dc9214689a6e2a7eae28e5242f21f653c",
-          "webpSha256": "2d288b4ec26bfb9ea10c482872313ecb16379a93c9a90a0320e5c6302b4048a3",
+          "captureSha256": "1935605678a9074fd080fb53ddc3a2cfb74ca3b3346dd56017182026dcc30e19",
+          "webpSha256": "8b5adad87a49b40be232a7b7b0d8e0e910ad1004d44b1edab10694de13c56a73",
           "captureDimensions": [
             3915,
             2394
@@ -509,28 +428,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/indigo-ember-dark/products-and-brands.webp",
-          "captureSha256": "98bd5ceb3f3724df6c5591cef509d3e155d04fec69c05697adcead41e1de6d2a",
-          "webpSha256": "4ba9e93fbcb6730c8aab7bfc59f96da1a7ffcdb5222de8b86ad4e48c4c70d9ef",
-          "captureDimensions": [
-            3915,
-            2394
-          ],
-          "publicCanvasCropBox": [
-            0,
-            264,
-            3315,
-            2140
-          ],
-          "publicDimensions": [
-            1680,
-            951
-          ]
-        },
-        {
-          "page": "Deep-dive insights",
-          "file": "docs/images/adaptive-showcase/indigo-ember-dark/deep-dive-insights.webp",
-          "captureSha256": "8ad2dc63e672b2ff21b001f73adad2644ab01f0f5d3d8d1a0f6388ae9bfdc343",
-          "webpSha256": "212d94a1f4730f51d6cf3d5d78c98d3f605a5b23ea6ede61a1767bbc1ebb9fbe",
+          "captureSha256": "404d4048fe013929f7d1c3d7b9d5a2042601e1d6ec12e8a428ec3722dde413bf",
+          "webpSha256": "ebdad05dc19c3ed837853d38bc9037e734d3abceec32d79a207e7ac332738341",
           "captureDimensions": [
             3915,
             2394
@@ -550,15 +449,22 @@
     },
     "petrol-gold-light": {
       "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
-      "candidateDigest": "b6560be59c7d7c5128e043eeede6d501a6697ecb98e9726bc2ba8708265246ab",
+      "candidateDigest": "b9cbf040137e484dc54a4ed31f58e96a564c853b81e5d5a51f7967dbe4544275",
+      "paletteHash": "ac438211c5f9845af385a0c32bd83e1b2b2c5e02517e8e77757129d91518ef12",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "8a5ccd8e4bd4790c80b178e457c4dde7335667d1a95d0c04a96ef76d39a56e49",
+      "rawPageSha256": {
+        "Deep-dive insights": "89523e8cf32545937b0bdc5842aa1adf81991cb2d200090767e3fd6e2ff067e4",
+        "Executive overview": "d2713c6beeea7fbdfc054f056af7bda25924c9701e0af7d0f5a56af3d1151cb9",
+        "Markets & drivers": "ac9ed774ecf152bfaf6f8fb75a2a6324879f62d5d69c6f11b90fe00e2027c006",
+        "Products & brands": "31383b38fdf3ed1d90253bec93092fa9e8e50ad9f95d8c8ec8546342c16b10fc",
+        "Stores & customers": "e3a6b2272d2a5ab77beeda8b1f7a372c2c8b9b43478b0091d04783a60e1145fd"
+      },
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/petrol-gold-light/executive-overview.webp",
-          "captureSha256": "d4205fe7dcb53e9e30330f1ab2fdd8cf7f9c2162f1088a13e6a3b420cf85f693",
-          "webpSha256": "987e83f20a2cc0c0c3cef8bed334ec30c8054808b07bab0705b5d8f7c121d99f",
+          "captureSha256": "d2713c6beeea7fbdfc054f056af7bda25924c9701e0af7d0f5a56af3d1151cb9",
+          "webpSha256": "6417010f1eab56f7b4d02bd840ca9e0c480ef1a3c2847f57241f92e6129013e5",
           "captureDimensions": [
             3915,
             2394
@@ -577,28 +483,8 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/petrol-gold-light/products-and-brands.webp",
-          "captureSha256": "aae47df454223e5c617c711de3c0aaa8abc0ad44e5dd74c5219a112be55a1309",
-          "webpSha256": "5618e308c2c1db98ad66671c34864e0ed2d2ee228b195f2a706adf8ade3e40d2",
-          "captureDimensions": [
-            3915,
-            2394
-          ],
-          "publicCanvasCropBox": [
-            0,
-            264,
-            3315,
-            2140
-          ],
-          "publicDimensions": [
-            1680,
-            951
-          ]
-        },
-        {
-          "page": "Deep-dive insights",
-          "file": "docs/images/adaptive-showcase/petrol-gold-light/deep-dive-insights.webp",
-          "captureSha256": "aeafecddaa5efcc969f4ad9c9ecc12210fb0397e0e2f5980938125a25cb97a8f",
-          "webpSha256": "2b29908a063748e5a3c45afde1a16a87904a1127a0da9ebe22e718b10eab9520",
+          "captureSha256": "31383b38fdf3ed1d90253bec93092fa9e8e50ad9f95d8c8ec8546342c16b10fc",
+          "webpSha256": "d53b5773e0ecaa148cedef02e96f87ffc2b2ee8133fddc805f48164569f23f53",
           "captureDimensions": [
             3915,
             2394
@@ -618,15 +504,22 @@
     },
     "petrol-gold-dark": {
       "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
-      "candidateDigest": "7d060b754c4d4b874bc391e231aefb95b21783cbaca78b5c3c51a93b2232e36d",
+      "candidateDigest": "de7dc590f135a36dc41c673c4a65766d8b9b0fbcd534b1288c269de2a450c1d6",
+      "paletteHash": "4927dba1fd9b35ce85e1ffeb54fb3dd980584e26006066fe5e7517ed54a6849a",
       "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
-      "paletteHash": "6f04943c8b96509b47222e662af4597441fa58f48d21b99236e61d664273fd11",
+      "rawPageSha256": {
+        "Deep-dive insights": "8ceb0f311b311d47e36fac0865cd2cb5f7d7a0f5a04e1f85b92380fe69ce00fd",
+        "Executive overview": "53c2fa7892a345631f787066bd258fda06a847117f647eadd8a3f59c2f0ab1c3",
+        "Markets & drivers": "63728cd2adcc8a1f0634526bf2f263181e1dc132a468b0511c7ba9c8bf2028a0",
+        "Products & brands": "80f1b4f1df02c0a1d284597b0f7835a00051f9217f5d410f798eaa2c50d0b2bb",
+        "Stores & customers": "575fea54edd1ac37a470a6ea06d2fee70cfd60f90507e1ead338b75f4738e941"
+      },
       "screenshots": [
         {
           "page": "Executive overview",
           "file": "docs/images/adaptive-showcase/petrol-gold-dark/executive-overview.webp",
-          "captureSha256": "12f6a77abd39fdee18c8333146c4cf79ed2e4c181959d7f4b851d9baa34ee8f2",
-          "webpSha256": "4b56862e4b7878df076f5b0111f3b068434167b9064cca7ee7521c3825428258",
+          "captureSha256": "53c2fa7892a345631f787066bd258fda06a847117f647eadd8a3f59c2f0ab1c3",
+          "webpSha256": "4bce956e0e74a8a57addbd2122f2be7d68454174841e6225c566f2595a2fff50",
           "captureDimensions": [
             3915,
             2394
@@ -645,8 +538,43 @@
         {
           "page": "Products & brands",
           "file": "docs/images/adaptive-showcase/petrol-gold-dark/products-and-brands.webp",
-          "captureSha256": "eeda0d40d9d22a35d22c210c432fd2ff481661652e34a4b9c9f9c66832df61f3",
-          "webpSha256": "c2cd50b0e74e22ccb70e007d7dc5e0b05831b9e4d39ddf7df5e422d7b09463d7",
+          "captureSha256": "80f1b4f1df02c0a1d284597b0f7835a00051f9217f5d410f798eaa2c50d0b2bb",
+          "webpSha256": "4c783ef1913eb0e93a2789c4e3d306a74b7e58ba02066e4dff09face4e936289",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "riviera-pop-light": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "6384838a518b4ef99038cd462efe4eb49478756d52ec6882f10f625acd93b3ce",
+      "paletteHash": "2c4513cf101641045dde83a8f17cbec2538ecae20b202ca1f7198129885dd081",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "18072e1e8d2de8db41718f88ccb6d73b39594da7de088a51d64440cf42523d09",
+        "Executive overview": "fa0dc0ec451a5940821fd6a2431b759543c3ec368546e763d2ccec4a616b5c44",
+        "Markets & drivers": "0b339ee7227cfc8de41f3d13ee482527d33ae29e6770eeeacc9f1f92493bb1d4",
+        "Products & brands": "91e86e88aa48d36dd69f71e4d0820e68800cd22748bc5994e1a02cbeaeef3309",
+        "Stores & customers": "8fd401db06eaf0453d7ea2ba963df03fc8ae7bac53c26ae2e4080540aa3856e9"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/riviera-pop-light/executive-overview.webp",
+          "captureSha256": "fa0dc0ec451a5940821fd6a2431b759543c3ec368546e763d2ccec4a616b5c44",
+          "webpSha256": "9b83fdc0682dea77a1e8fd10ca8b7ddfcff3737c4a57584af861b9ca847ff40c",
           "captureDimensions": [
             3915,
             2394
@@ -663,10 +591,945 @@
           ]
         },
         {
-          "page": "Deep-dive insights",
-          "file": "docs/images/adaptive-showcase/petrol-gold-dark/deep-dive-insights.webp",
-          "captureSha256": "befb7c970964ce7d9ff28b2515ef41a59494c277ee46d875776ba07e1a14c3c4",
-          "webpSha256": "900cc80c9e7b9bf39f4f0f2ebaf9075bc92ca631b3c19082828bcdc77dfe49c9",
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/riviera-pop-light/products-and-brands.webp",
+          "captureSha256": "91e86e88aa48d36dd69f71e4d0820e68800cd22748bc5994e1a02cbeaeef3309",
+          "webpSha256": "3273ff78119b983d8637d2ce43b89649029abd09c068fd3c3a0e2884fc63696c",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "riviera-pop-dark": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "12ff04eb4c647c8ed9ff5c4a5b8c7f5c8f534abfdcde2fce06d38ae51548718d",
+      "paletteHash": "83884541a6966eb836af65fb483f2fb2c5e2f16d4b67da79fcf200b78101e2a3",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "aa1de730dfeb468a51f9ed2dda93cc0dfc235a016af20456fd9da42712d69dc4",
+        "Executive overview": "4204eaefb2af947691829c08b015a657388550716bac8cbbb3b28034854cb62d",
+        "Markets & drivers": "00616931581610358e4e07e0a5848d125851eced472d2b1c228f432584206530",
+        "Products & brands": "e676cc69954eaebe60046b62f30c6b4f8e6b1b3226e654918a4edd68f5b95842",
+        "Stores & customers": "4db7027d6616a6487e9335b40ba7f48391662e1224bd590bb8a472331c1a0244"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/riviera-pop-dark/executive-overview.webp",
+          "captureSha256": "4204eaefb2af947691829c08b015a657388550716bac8cbbb3b28034854cb62d",
+          "webpSha256": "75597676a010b62edd28f7a6fd30cceedc5ee2617908462c60d3b0864b805532",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/riviera-pop-dark/products-and-brands.webp",
+          "captureSha256": "e676cc69954eaebe60046b62f30c6b4f8e6b1b3226e654918a4edd68f5b95842",
+          "webpSha256": "aa39ff2d93ea58c65f5aab5e7b2dbb31760024a7eedbbf3d8383d8a776633917",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "okabe-ito-night-light": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "cc3cf1d85eb0891c65efe1fa7948ad4b6d310c638d8e1189f097e17977280295",
+      "paletteHash": "579e7018bb66c0966101748bbdd01488b85634d0fc31e8b4acc0cb4253932f67",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "ff41552b5a5b405d1a4cd1f4ff008cf18fab3595af3a6dc83efeaea250cf5474",
+        "Executive overview": "da6758e69a351fbd98b82a78b8fe0102d745128eb80034b2852a9a1488828524",
+        "Markets & drivers": "4fbc7320c71ef3b2dc5ba338d4c92e470b428fa67ec4ffeff400453204e3ae90",
+        "Products & brands": "a475b864a90510f9e899d965492ed4b4c0ead2beb93d68da8f875b5e2953882f",
+        "Stores & customers": "f9bea92cb0db3b7cf8c8940800d969c2e8e50d8222a05f5042174e0f1e373d8c"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/okabe-ito-night-light/executive-overview.webp",
+          "captureSha256": "da6758e69a351fbd98b82a78b8fe0102d745128eb80034b2852a9a1488828524",
+          "webpSha256": "d9007d0e3dcb5b09c43b8d5b9941306eaadb5860510ec5b61356638ca1ed469d",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/okabe-ito-night-light/products-and-brands.webp",
+          "captureSha256": "a475b864a90510f9e899d965492ed4b4c0ead2beb93d68da8f875b5e2953882f",
+          "webpSha256": "d246c93b8041022bd749fb16c1a25aa12d4695dbd6dbc40fd24121f6fe7e8ab1",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "okabe-ito-night-dark": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "24eda5b25550811c60ce0d0220674f4b486fb9350887ad3991c5aac5c9383ed8",
+      "paletteHash": "4616435753f091a51b62fa0253409ea0cdf29a4b3e0bf2e73789481142d133df",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "50034f33937e57d464441c9e4dc2507df8e829f665f97f746e07fe4e49c400a1",
+        "Executive overview": "8a781515ea6adc90d7dfbc97adffc84f3fb5b7b06ea1fdae65f31e6a9f4cd6e6",
+        "Markets & drivers": "4d2e0f57c1d377891952ad9eee38711e8f61a58b196ab665cfd5dcd43bb9e79f",
+        "Products & brands": "2aabdc4e00b43e4e07774453471df21bca43725328f47289f550af15896d1b78",
+        "Stores & customers": "6233a74694ddf47b5b931256040ba77ed1308489b4898648f4bf75259e242c99"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/okabe-ito-night-dark/executive-overview.webp",
+          "captureSha256": "8a781515ea6adc90d7dfbc97adffc84f3fb5b7b06ea1fdae65f31e6a9f4cd6e6",
+          "webpSha256": "5416cfb9bb03ace66a84f6d2c6505f6f3adcaa518ab46f173c18035f25c4c906",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/okabe-ito-night-dark/products-and-brands.webp",
+          "captureSha256": "2aabdc4e00b43e4e07774453471df21bca43725328f47289f550af15896d1b78",
+          "webpSha256": "67735d407322e493e6674e8868b0e07721928a5ee890e51f026cf40a6e69fbb1",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "arctic-aurora-light": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "ab50314fe795de65586e5feb5661c86e990e9e6fe05bb1fd965a56abd8def105",
+      "paletteHash": "295b790540531fe08e404bf158a826a0f82317dda9c0d1aad83d03d1d6a5eb36",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "a68bd02b290d25e091d3159b9991b946a34a66f3f004a1758e675ab2d0e53a6b",
+        "Executive overview": "f617c1d865c7f41111cf4e1d429cfb4427602501d56cdd56132cab112bbe0d12",
+        "Markets & drivers": "330bdbfa45783cbd9aaf4eec22853bab82e58494228f2f4c0451e0b3f87f12aa",
+        "Products & brands": "e4fef49c52c4722a1f8e47cfcacb57695892afaa77aae542aadd8f385758d875",
+        "Stores & customers": "9c1756901e7ac911a6826cc9db2b3bdde2fa186f001fb4a2f8cfcf56919b0985"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/arctic-aurora-light/executive-overview.webp",
+          "captureSha256": "f617c1d865c7f41111cf4e1d429cfb4427602501d56cdd56132cab112bbe0d12",
+          "webpSha256": "c83cd7d177c34727a9e375915844bb9df9e1a28ff429f7c2ccc885c2f8da2803",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/arctic-aurora-light/products-and-brands.webp",
+          "captureSha256": "e4fef49c52c4722a1f8e47cfcacb57695892afaa77aae542aadd8f385758d875",
+          "webpSha256": "1de0ae25d1151d3a5c6ea03c3e28a55d0a6af1f539cc274eb9ce04a23eaca60e",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "arctic-aurora-dark": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "0373dbd22f1090f5790685a90a4dc0aa8de39e6063cd450ec6d99a2072e5601e",
+      "paletteHash": "ba7cc9cb1be39e4aeab8b2e0c3ce6f5dca41223577918726e3d467b199a64693",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "eb11adef59390625d28759c5a7a639ce8f1178e607acd06c162792f8d640420d",
+        "Executive overview": "518611e8d21840abf2ff70cfbefadf3900348d94c45295436b7ccb61f53a97af",
+        "Markets & drivers": "4f2ddff4fa17bdb1098d9305b1600ba277ba3789c00ace575517935eb6016371",
+        "Products & brands": "bfa15163bdbf8cee0f4007ec456a38cd33a639114382aa28b4386ac805b91bee",
+        "Stores & customers": "3f995b3e0ab7b1695aa46cddfde4fd3801218d73f87f4b735fd35100cf2ecbe4"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/arctic-aurora-dark/executive-overview.webp",
+          "captureSha256": "518611e8d21840abf2ff70cfbefadf3900348d94c45295436b7ccb61f53a97af",
+          "webpSha256": "5ef66692facf082b17d20c6fa4b6f4b1ecc988c361a64d8be469bbf476aa0809",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/arctic-aurora-dark/products-and-brands.webp",
+          "captureSha256": "bfa15163bdbf8cee0f4007ec456a38cd33a639114382aa28b4386ac805b91bee",
+          "webpSha256": "795585a74fc3adaddf43a8107946063c97a62b8493f79d08e30c6c941c32a2d9",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "mediterranean-terra-light": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "465884e92ef2e3bfa8f5ebab8a036cdc711c802af2549868d7246197013a2b91",
+      "paletteHash": "e0fe0be55958476eed6d8902550a981603b627a8c7346c301648fbfc23562a84",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "6793332cb6049037a65165e1060d791301f142a8e749d19dbf32f851c7324ccd",
+        "Executive overview": "4b1420d575caeae975889cd2fe7a372b7f85be514d144c5bc20e7029ac56e09e",
+        "Markets & drivers": "95e5595bca0b97d89804f946d56bd84f7171536bd4f87733432bb8b3c351af52",
+        "Products & brands": "48fa87da7fa80f1df33537892cd747dfb2cab297c87152902869f87933307b6e",
+        "Stores & customers": "3b308c0e55c7bf2fa20abc67255fa3f5ae3588c90752444ab28c28b0854234af"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/mediterranean-terra-light/executive-overview.webp",
+          "captureSha256": "4b1420d575caeae975889cd2fe7a372b7f85be514d144c5bc20e7029ac56e09e",
+          "webpSha256": "94a5663a77bdd463e9cdc8c841d2442287a5e81f759c430c3de1806811657a22",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/mediterranean-terra-light/products-and-brands.webp",
+          "captureSha256": "48fa87da7fa80f1df33537892cd747dfb2cab297c87152902869f87933307b6e",
+          "webpSha256": "f8010497d717cbc6494a009956d08cf175d24825524031103630e1f8cfd98439",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "mediterranean-terra-dark": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "7ec71a18bc1173e2969cfec6a75dffe55347ccdd8274a66970a4fe9bebcc912a",
+      "paletteHash": "9f9141408df70e086e22d8672016117e37d35a1b3d0da96fb5a3940387293cc0",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "8a9d2f9fb3bbb5f3d3b3d88f51b2c047642733173ac647f681c8db04095fc584",
+        "Executive overview": "417ca0ca3d05cf828f1ad84208b6734cff9faf77f4d564d2f5d13fe3c3109b47",
+        "Markets & drivers": "8a9ff0307572c329d24e60d8c5d3df022b3461dd08e34654fb7f5b2c77d48023",
+        "Products & brands": "16e1a3a6450d1e35454385ccc319971f0330cf92c9ce55e76a2c6f8c4e9a226f",
+        "Stores & customers": "93e71e6dffc1bcc9f58e386778af1cbcb54e53f87cbf9cca07ffe108ede56d88"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/mediterranean-terra-dark/executive-overview.webp",
+          "captureSha256": "417ca0ca3d05cf828f1ad84208b6734cff9faf77f4d564d2f5d13fe3c3109b47",
+          "webpSha256": "71ce793ded2e7c7d9c6c339722ef641c60f83b5485b4602cc36aaf567c109513",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/mediterranean-terra-dark/products-and-brands.webp",
+          "captureSha256": "16e1a3a6450d1e35454385ccc319971f0330cf92c9ce55e76a2c6f8c4e9a226f",
+          "webpSha256": "f675d4d4dab117142d7ee959e5fa843508f411b73f6e496efb822d25a5f340b6",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "saffron-spruce-light": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "c65371b34af32e000c08115ad83d0f4d197d59b8b44179915a08f00a30ff524a",
+      "paletteHash": "b0ee43c8740e3dd1a3a3e42946908518e17944f74865747ca6d1ee7068a9af02",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "7b42bbe62b221ec2fa618b7930071a8a62060b73448acf1119c86c2a5d74c1d4",
+        "Executive overview": "3a5c4bb6f3a5c7d95a4a904b06c723409fee3871520cac1758349aea85d43171",
+        "Markets & drivers": "794c8722559786fbccb09afa60faab9c3480245a0d90d9fd13d8c2473563a53a",
+        "Products & brands": "8e5521209abed209d9ae9abefe5d7e22758d8f65b94429d9a13be93edff2c1c9",
+        "Stores & customers": "541de3e340bf9149b117ac59d7b21fe8d409b6ba46d1f834cece954a38b37456"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/saffron-spruce-light/executive-overview.webp",
+          "captureSha256": "3a5c4bb6f3a5c7d95a4a904b06c723409fee3871520cac1758349aea85d43171",
+          "webpSha256": "c47c3648506daed3411fd3a2adbddc7330e7d2d35d0a1ac96e5cdfae619de28c",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/saffron-spruce-light/products-and-brands.webp",
+          "captureSha256": "8e5521209abed209d9ae9abefe5d7e22758d8f65b94429d9a13be93edff2c1c9",
+          "webpSha256": "a7910e0dd03fc00eb52cc9571cf6f59743d06af0653dcf78405b716c38f7ebf8",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "saffron-spruce-dark": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "6afa97bdca419146a37ef6545e51f758159c0c787b7bf64f702d202639e3dc40",
+      "paletteHash": "0e7a340b3f6198f0ce9311954a416bd92473f5759bd32e02b59503ed045f0e3e",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "31abe7cf63aa9ffb9f4f43b9a6957c63c669a039f9bf4aedf4a944652df2b2a9",
+        "Executive overview": "6bab0d6ad6cb621f14544e1d51b05f5bdc55898765ace6f8919eed51f72e5bd5",
+        "Markets & drivers": "739e548b58ac5fdcfc96dfae53dc235013cf06bcafd2f55efd6c5448b3d1d0e3",
+        "Products & brands": "eb31c4ce5574fa578d40d581878515faa15dd39ae30f134761078c50c906a3ec",
+        "Stores & customers": "19eaa5b7d096ec16ff05fa294deb938bbd8f5c425ce631afdd9bba8ebae5ff0a"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/saffron-spruce-dark/executive-overview.webp",
+          "captureSha256": "6bab0d6ad6cb621f14544e1d51b05f5bdc55898765ace6f8919eed51f72e5bd5",
+          "webpSha256": "57d53ec35e13a77c3d0f3ae39b4881b880caf99a336b1c1033b5e659321e3ced",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/saffron-spruce-dark/products-and-brands.webp",
+          "captureSha256": "eb31c4ce5574fa578d40d581878515faa15dd39ae30f134761078c50c906a3ec",
+          "webpSha256": "5044abd160300864b75e3ee5b68926e3a515eaae2fd59ccbfc7aac75bc27ea05",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "autumn-editorial-light": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "6344b969b1b58d67157457234e1c5e424cc3e86041f0d0be006d8e179cd68cad",
+      "paletteHash": "232cbf6566f370a4ee9a38a08e6c260f69de0a726db9a8eb9e8b7b35962ccf3c",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "00030a7aeb1fc3cb2c120ccbf547bee304f632a2e084205ee2235ee2a8c4a3b2",
+        "Executive overview": "1944f2320a431dec78a6e7784b318172c52c32ff0772361d9f5329a749f4c4d5",
+        "Markets & drivers": "c681ccd706716d83ba0d67566cb40c3b4ff082a9a4770bbc4699c2286d599b68",
+        "Products & brands": "b4274c1ab5f77f7e5f080f246df776f9d67095b7e889437c6f36f2370d118180",
+        "Stores & customers": "23d0a261006ac7d7e1e223442a56e136c0affeb9f2796316ffca58552b76e620"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/autumn-editorial-light/executive-overview.webp",
+          "captureSha256": "1944f2320a431dec78a6e7784b318172c52c32ff0772361d9f5329a749f4c4d5",
+          "webpSha256": "6fcb6b2f39911bc90e2d04dbc96fec7bbf6fae739f0988c2c206bf8994e7906e",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/autumn-editorial-light/products-and-brands.webp",
+          "captureSha256": "b4274c1ab5f77f7e5f080f246df776f9d67095b7e889437c6f36f2370d118180",
+          "webpSha256": "148c7c67f378a7fb6047992900758fe621fbcf170be6afa7568def950c552b0a",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "autumn-editorial-dark": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "bfb0ccce02af86ea3a1f7f9683c78a7eca33b0428e85b16f2eaac7b6510740fa",
+      "paletteHash": "89c92425c17069dce0582b4ac87b7486b7ea8d08a688301b60dd455cc67639f5",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "7d271fb1959f8ec58ea0483536e0ec7ca66948dab57ba4fc274c7b9b94024963",
+        "Executive overview": "164d072cac703661470dc14ad5e7e9109a0b3fc17091ae8e228c0347c6e64990",
+        "Markets & drivers": "96c8e60f0f5e55baaaeb61b91f896a95dddebb701dabc4759c6751b5d83b56bb",
+        "Products & brands": "c89952314ed4d85ca7232713c2b089ca0f628ad9cfa20db4773f31513e153762",
+        "Stores & customers": "d926811cfd2b8f4b3ba9065a6afe96d1b8afba6472e0a57575fe0c221d23db14"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/autumn-editorial-dark/executive-overview.webp",
+          "captureSha256": "164d072cac703661470dc14ad5e7e9109a0b3fc17091ae8e228c0347c6e64990",
+          "webpSha256": "c8487071c810e97e25b20af94b7d5e7c0feb922d7b51a9943738d298e306ef61",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/autumn-editorial-dark/products-and-brands.webp",
+          "captureSha256": "c89952314ed4d85ca7232713c2b089ca0f628ad9cfa20db4773f31513e153762",
+          "webpSha256": "ebd084f646e1a0a830f7af631562285b062da887b150a0041762b29f928cc8bc",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "violet-ice-light": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "a5f6ffac2fcb696f3aceeb99a46234ecdfc4272975495d4347d0bcbfdac1d02a",
+      "paletteHash": "a4caf8f663536caf1899e0e1df6d933bbf864f417e4f467f902a78e543818aef",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "8b67c03660c7f754a845f2e68fda2d4f097aac2d771853c43082fdf4309f2971",
+        "Executive overview": "6c7bd95f4555f56333e6dd9ee033652b7185e56033b9616b8e9e28c36cd05fca",
+        "Markets & drivers": "d15d43535c0ea0ccf52829caf6be552d9ba74db4f41ecc9e6ab2b2e88fa417aa",
+        "Products & brands": "b61587e3830a294f9bdc2daa33ecc347ae0876bc8adab96530c0660ac5032ad0",
+        "Stores & customers": "351c7bad7bc1dc4bd4e30086357f9660cdc9069a893fb5a8a34cbde2acb436f1"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/violet-ice-light/executive-overview.webp",
+          "captureSha256": "6c7bd95f4555f56333e6dd9ee033652b7185e56033b9616b8e9e28c36cd05fca",
+          "webpSha256": "5217adb8c203ccb132765cf5ac32ccbfbcf0b4bd685391cfcb04c60405eab0a0",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/violet-ice-light/products-and-brands.webp",
+          "captureSha256": "b61587e3830a294f9bdc2daa33ecc347ae0876bc8adab96530c0660ac5032ad0",
+          "webpSha256": "8503d3eb0b2e80741f1a595e79839925e28e290106851923e9b880da13ffb722",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "violet-ice-dark": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "07eea567af2694071fd9b0f556e40c997c9715f8d35fcd5fe14fc9878753b8db",
+      "paletteHash": "45df7fee4bb2a6baa3210b8ce66a2a27cc5a5c70cb640c240d02d2c11f063f16",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "0ac2d2d069c16cd88f0f09e30c0107063b36d285819f975ec1e7c77f57e95780",
+        "Executive overview": "66b06feffb77b39ec81fd6acf4ac06cabb21f83651942d3661540a19ff5c9da7",
+        "Markets & drivers": "dc57f4289eed04c5b4ac56e6f4f55b17cc87bffabfe1a7fe22c4c15decc45635",
+        "Products & brands": "3bf5cdef4e25573022ea7ca4473e81910611f7fcf968abe5efe426a186707359",
+        "Stores & customers": "d9b4d4f2d6133a725c2a16fc1124d5e67ff5ce512d260398ea7f2129a96f85e7"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/violet-ice-dark/executive-overview.webp",
+          "captureSha256": "66b06feffb77b39ec81fd6acf4ac06cabb21f83651942d3661540a19ff5c9da7",
+          "webpSha256": "3b8ba215ffd039d1fa4348c57f7c73ef57e210ecb277913099723370cabf41be",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/violet-ice-dark/products-and-brands.webp",
+          "captureSha256": "3bf5cdef4e25573022ea7ca4473e81910611f7fcf968abe5efe426a186707359",
+          "webpSha256": "f7e4ca07f6bdd2c00d562cec88a90f98b796db44112c5a62f3cd8e5f10acdce8",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "electric-atelier-light": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "a81aa4ea14d9e6015f8636aafd57ddbba4079681fff5a62082176b2c01421de3",
+      "paletteHash": "5400a0e993273baa63131be66f11e5a40a977d9ba2a51547d630e958eb0086a3",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "29da8a8140d5778ffdfa7fd139e1155266680888c41e8bf526e9f29510843300",
+        "Executive overview": "de5f53fe880f11b5741f83fa646f699dbfd97774c763b72830c28044e7b0eec3",
+        "Markets & drivers": "8f2ab47c8b7037ecab2d03214b79ae07e2d8e42a573d56843e4e368b8912eec8",
+        "Products & brands": "d1eaa662d53fe212303e709ad9c29c360c84fb8963ad5dd0721f7c13282bd119",
+        "Stores & customers": "e941c086ed405df1aba42bbfb6673272c15b77547f3a28d436a28da3499cf033"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/electric-atelier-light/executive-overview.webp",
+          "captureSha256": "de5f53fe880f11b5741f83fa646f699dbfd97774c763b72830c28044e7b0eec3",
+          "webpSha256": "213e25b30fca7e4fdacb5979b37efa3e85188dd18a81e064d3aceae84f2279a1",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/electric-atelier-light/products-and-brands.webp",
+          "captureSha256": "d1eaa662d53fe212303e709ad9c29c360c84fb8963ad5dd0721f7c13282bd119",
+          "webpSha256": "9b1028e124858f352b6686438c5a6bafd3b60ebede509b269cbf55e5897e5304",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "electric-atelier-dark": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "f630a4d19df23318ad8319983708b804d69b542c3e187d636109b837ad9048a6",
+      "paletteHash": "87c04b4c98cf41847b2600f3e1ccb0c7985eb39db97ba28c32fa2e1bd8a07d6e",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "0ac8ad7ea65bbcbd6dc48090602cc31e78239789c7c796f606ec72509979fe23",
+        "Executive overview": "c79f882d83aacdfe932210f10d9e793fba8fe41c077b3ced228d581849872ee6",
+        "Markets & drivers": "899f71bc71b7f92726f74a09de60dba5e595a7ad779d37b6166aa3f38cbab6db",
+        "Products & brands": "be6818a30d0a735fb4128b32be56ab6f53601e95cf7c81aa4da0347e19b11190",
+        "Stores & customers": "b725a0869aa26a8bed599c9926b000f597b85699fe267b0817abcf5e86901318"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/electric-atelier-dark/executive-overview.webp",
+          "captureSha256": "c79f882d83aacdfe932210f10d9e793fba8fe41c077b3ced228d581849872ee6",
+          "webpSha256": "5c16d3b83e0fb3e6250e3517e45119f88e17350e7eb33ed7ec99f2336a82c00a",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/electric-atelier-dark/products-and-brands.webp",
+          "captureSha256": "be6818a30d0a735fb4128b32be56ab6f53601e95cf7c81aa4da0347e19b11190",
+          "webpSha256": "5726579b997ee4136cced87a16aed558789a9dcc6bbe820abce448cf5bf51a2b",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "bold-eclectic-light": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "c584e60e67aa0e8d8141f5b0a3e439d4d276562d19be8c7c6a029855ee2c5d71",
+      "paletteHash": "1e38ebb4574f15ed07052c1d4960d0b8edce4a7b867fa9796814258ecb085042",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "f595b12a31f76e6dab8fffee95a0dd257bb9e2d00035ff9b9ef428aae4dc9126",
+        "Executive overview": "91ab441ef45390f661114e4ce386bf852448c6207d6125bb345e624c17fed19d",
+        "Markets & drivers": "4887cdd3799eeedd391185b7cf17dd5afc402a74da716d01c0f3410d23229958",
+        "Products & brands": "edefa0579d9e151af394590fdb94f0c800eb21dc4a2e76befe775bdea0d54f74",
+        "Stores & customers": "2e2228a17643ecc59b5b2fe22560ef0e731d29c75cd9300db319061b67139441"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/bold-eclectic-light/executive-overview.webp",
+          "captureSha256": "91ab441ef45390f661114e4ce386bf852448c6207d6125bb345e624c17fed19d",
+          "webpSha256": "2f676e6070b8387edc65814fb1c57de55e2b0932bb13b8905571e4353ccc623f",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/bold-eclectic-light/products-and-brands.webp",
+          "captureSha256": "edefa0579d9e151af394590fdb94f0c800eb21dc4a2e76befe775bdea0d54f74",
+          "webpSha256": "f8f4c78ab4fd2f4e3fc856a478116a154a98e841ca45b2cc87773dd809b040aa",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        }
+      ]
+    },
+    "bold-eclectic-dark": {
+      "sourceDigest": "1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69",
+      "candidateDigest": "015fe51ce98ea54f4a4b29d7708f420166a430182841f20fb5aa9822cc02acbf",
+      "paletteHash": "d019c37cdcba8f8e1b6e3fa57b7d46b5c6b17e2eb0587e0419b7a08c8cb66f4b",
+      "modelDigest": "b206d773ed6eb74c33373193156831e3c128bcfd461629def6968e31ee8da159",
+      "rawPageSha256": {
+        "Deep-dive insights": "a339c7ba6023f9326bdef0b102612771eae0e7a0ec2def6f87c1935c9dd2d90e",
+        "Executive overview": "a24514918f4fd0015a6a47545495c8e24ff1e1aeea534d229d533876bc9da060",
+        "Markets & drivers": "5c642a739a5588af9b8a5b925e247e58e2de02926b7fdf868004538646c12822",
+        "Products & brands": "16289f2c7d9530b79095b26be76543e2a8b2bbf0e711617d0422101f4fe33de3",
+        "Stores & customers": "6e8064572f486bbce04a88964fa1c263ceb748b56bdad03c44243293826e31c7"
+      },
+      "screenshots": [
+        {
+          "page": "Executive overview",
+          "file": "docs/images/adaptive-showcase/bold-eclectic-dark/executive-overview.webp",
+          "captureSha256": "a24514918f4fd0015a6a47545495c8e24ff1e1aeea534d229d533876bc9da060",
+          "webpSha256": "44ae13fee09f3d5345b12dec6869b54e0245a457ce9d36d013e1c254420acd63",
+          "captureDimensions": [
+            3915,
+            2394
+          ],
+          "publicCanvasCropBox": [
+            0,
+            264,
+            3315,
+            2140
+          ],
+          "publicDimensions": [
+            1680,
+            951
+          ]
+        },
+        {
+          "page": "Products & brands",
+          "file": "docs/images/adaptive-showcase/bold-eclectic-dark/products-and-brands.webp",
+          "captureSha256": "16289f2c7d9530b79095b26be76543e2a8b2bbf0e711617d0422101f4fe33de3",
+          "webpSha256": "798162297c0f7cf94ab559a8e2db338e6100fc959501039031ce75c3f3ed48eb",
           "captureDimensions": [
             3915,
             2394
