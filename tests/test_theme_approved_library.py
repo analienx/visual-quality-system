@@ -176,3 +176,23 @@ def test_bad_approved_preset_is_rejected_when_loaded(monkeypatch) -> None:
     monkeypatch.setattr(theme, "_preset_override", replaced)
     with pytest.raises(theme.ThemeError, match="insufficiently distinguishable"):
         theme.load_palette("dark", None, "graphite-red")
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_graphite_red_has_no_green_semantic_or_category_colors(
+        mode: str) -> None:
+    """Prevent reintroducing the native green bug through preset edits."""
+    import colorsys
+    from vqs.theme import load_palette
+
+    palette = load_palette(mode, None, "graphite-red")
+    colors = list(palette["dataColors"])
+    colors.extend(value for value in palette.values()
+                  if isinstance(value, str) and len(value) == 7
+                  and value.startswith("#"))
+    for color in colors:
+        red, green, blue = (int(color[i:i + 2], 16) / 255
+                            for i in (1, 3, 5))
+        hue, saturation, _ = colorsys.rgb_to_hsv(red, green, blue)
+        assert not (77 <= hue * 360 <= 178 and saturation > .14), (
+            mode, color)

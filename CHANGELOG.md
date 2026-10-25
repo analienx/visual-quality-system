@@ -11,10 +11,10 @@ appearance defects: a hardcoded unscoped chart wildcard fill and low-contrast
 automatic legend/subtitle text. The existing supported chart and numeric
 gradient handling, source/model invariance checks and rollback remain intact.
 
-**Verifiable public showcase:** 30 actual populated Desktop page captures
-from the six featured Sunny/Organic/Graphite Red Light/Dark candidates,
-with 18 cropped WebP previews published in the
-[real gallery](docs/REAL_THEME_SHOWCASE.md). The other 11 families appear as
+**Verifiable public showcase:** 50 actual populated Desktop page captures
+from ten featured Sunny, Organic, Graphite Red, Indigo Ember, and Petrol & Gold Light/Dark candidates,
+with 30 cropped WebP previews published in the
+[real gallery](docs/REAL_THEME_SHOWCASE.md). The other 9 families appear as
 22 original token-color swatches in the
 [approved library](docs/APPROVED_THEME_LIBRARY.md)—not claimed as native
 report screenshots. Hashes, candidate/model/source identity and exact
@@ -30,10 +30,10 @@ weak separation across many bar/line series. Removed an erroneous test that
 business encodings. Added tested CIELAB and approximate color-vision
 simulations (Machado matrices applied in linear-light RGB), required
 new-preset load-time validation, and two read-only
-`vqs premium` source-risk findings. Native full-page captures for all six
+`vqs premium` source-risk findings. Native full-page captures for all ten
 showcased Light/Dark modes, plus the three-page public gallery per mode and
-the other 22 palette swatches, have been **regenerated from the GitHub-hosted
-`91344a5` artifacts**, with new SHA-256 provenance.
+the other 18 palette swatches, have been **regenerated from the GitHub-hosted
+`a2bd366` artifacts**, with new SHA-256 provenance.
 
 **Quality boundary:** 134 focused local regression tests, Microsoft
 authoring validation and source audit were green during preparation.
@@ -224,3 +224,15 @@ The entries below are preserved as **point-in-time candidate-branch records**. T
   `status`, `check`, `validate-plan`, `adjudicate-bundle`),
   acceptance core, ledger DAG validator, TMDL parsing with quoted
   identifiers.
+
+
+**25 October native chart clarity completion:** Seven categorical Contoso visuals
+now use native per-category PBIR scope selectors referencing theme series
+colors; these are category identity encodings rather than numerical ramps.
+The genuine country Shape Map remains a quantitative FillRule example.
+Graphite Red's positive bar and waterfall increase use theme-aware blue
+rather than green, with predicates, thresholds, measure bindings and negative
+red unchanged. The label now explains business value without naming a color.
+The public gallery adds Indigo Ember and Petrol & Gold to the original
+three-feature family comparison, for 50 total private native page captures
+and 30 public screenshot derivatives from the new exact-head candidate revision.

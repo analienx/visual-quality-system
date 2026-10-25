@@ -11,7 +11,7 @@ Choose the shortest path for what you want to accomplish. **Power BI is the core
 | Create a source-safe Light/Dark report | [Theme engine](THEME_ENGINE.md), [28-mode palette library](APPROVED_THEME_LIBRARY.md) | [Native report screenshots](REAL_THEME_SHOWCASE.md) |
 | Review the architecture | [Architecture](ARCHITECTURE.md) | [Simplified product flow](diagrams/product-flow.svg) |
 | Run native Power BI checks | [P16 Desktop UIA](VISUAL_QA_V2_P16_NATIVE_DESKTOP_UIA.md), [WinApp CLI policy](WINAPPCLI_POWERBI.md) | [Power BI release gate](https://github.com/analienx/visual-quality-system/issues/16) |
-| Inspect actual screenshots / hashes | [Three-palette native gallery](REAL_THEME_SHOWCASE.md) | [Screenshot provenance](images/adaptive-showcase/PROVENANCE.json) |
+| Inspect actual screenshots / hashes | [Five-palette native gallery](REAL_THEME_SHOWCASE.md) | [Screenshot provenance](images/adaptive-showcase/PROVENANCE.json) |
 | Contribute or review changes | [Contributor guide](../CONTRIBUTING.md), [Changelog](../CHANGELOG.md) | [Release notes](RELEASE_NOTES_2026-10-21.md) |
 
 ## The evidence contract
@@ -22,4 +22,4 @@ Choose the shortest path for what you want to accomplish. **Power BI is the core
 4. **Desktop**: verify populated screenshots, rendered labels and supported interactions against live DAX from the same report.
 5. **Acceptance**: independent reviewer and release owner decide promotion; never self-award G2/G4/G6 acceptance based solely on CI.
 
-The [original five-colorway Desktop gallery](THEME_GALLERY.md) is preserved as historical evidence. The [new 28-mode library](APPROVED_THEME_LIBRARY.md) showcases only three real Light/Dark families, with lighter swatches for the remaining eleven.
+The [original five-colorway Desktop gallery](THEME_GALLERY.md) is preserved as historical evidence. The [new 28-mode library](APPROVED_THEME_LIBRARY.md) showcases five real Light/Dark families, with lighter swatches for the remaining nine.

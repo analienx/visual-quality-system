@@ -2,11 +2,11 @@
 
 All fourteen approved families are selectable as actual Power BI report
 theme presets in both Light and Dark, in addition to four legacy presets.
-The three highlighted examples below are **real native Power BI Desktop screenshots**.
-The other eleven are deliberately **color swatches only**, not simulated dashboards.
+The five highlighted examples below are **real native Power BI Desktop screenshots**.
+The other nine are deliberately **color swatches only**, not simulated dashboards.
 The same Contoso source report is used consistently for the real screenshots.
 
-## Three featured palettes — authentic Power BI Desktop
+## Five featured palettes — authentic Power BI Desktop
 
 [**Full gallery · three report pages per mode →**](REAL_THEME_SHOWCASE.md)
  · [Raw screenshot hashes and candidate digests](images/adaptive-showcase/PROVENANCE.json)
@@ -29,7 +29,19 @@ The same Contoso source report is used consistently for the real screenshots.
 | :--- | :--- |
 | [![Graphite Red Light report](images/adaptive-showcase/graphite-red-light/executive-overview.webp)](REAL_THEME_SHOWCASE.md) | [![Graphite Red Dark report](images/adaptive-showcase/graphite-red-dark/executive-overview.webp)](REAL_THEME_SHOWCASE.md) |
 
-## Remaining eleven color families — true palette swatches
+### Indigo Ember
+
+| Light | Dark |
+| :--- | :--- |
+| [![Indigo Ember Light report](images/adaptive-showcase/indigo-ember-light/executive-overview.webp)](REAL_THEME_SHOWCASE.md) | [![Indigo Ember Dark report](images/adaptive-showcase/indigo-ember-dark/executive-overview.webp)](REAL_THEME_SHOWCASE.md) |
+
+### Petrol & Gold
+
+| Light | Dark |
+| :--- | :--- |
+| [![Petrol & Gold Light report](images/adaptive-showcase/petrol-gold-light/executive-overview.webp)](REAL_THEME_SHOWCASE.md) | [![Petrol & Gold Dark report](images/adaptive-showcase/petrol-gold-dark/executive-overview.webp)](REAL_THEME_SHOWCASE.md) |
+
+## Remaining nine color families — true palette swatches
 
 Each chip represents a packaged `dataColors` token from its selected mode;
 the canvas/surface/text colors are taken directly from the same palette JSON.
@@ -38,8 +50,6 @@ These are not report screenshots or claims of independent native acceptance.
 | Dark | Light |
 | :--- | :--- |
 | **#05 Okabe–Ito Night · Dark**<br>![#05 Okabe–Ito Night dark token swatch](images/approved-themes/swatches/okabe-ito-night-dark.svg) | **#05 Okabe–Ito Night · Light**<br>![#05 Okabe–Ito Night light token swatch](images/approved-themes/swatches/okabe-ito-night-light.svg) |
-| **#08 Petrol & Gold · Dark**<br>![#08 Petrol & Gold dark token swatch](images/approved-themes/swatches/petrol-gold-dark.svg) | **#08 Petrol & Gold · Light**<br>![#08 Petrol & Gold light token swatch](images/approved-themes/swatches/petrol-gold-light.svg) |
-| **#09 Indigo Ember · Dark**<br>![#09 Indigo Ember dark token swatch](images/approved-themes/swatches/indigo-ember-dark.svg) | **#09 Indigo Ember · Light**<br>![#09 Indigo Ember light token swatch](images/approved-themes/swatches/indigo-ember-light.svg) |
 | **#12 Arctic Aurora · Dark**<br>![#12 Arctic Aurora dark token swatch](images/approved-themes/swatches/arctic-aurora-dark.svg) | **#12 Arctic Aurora · Light**<br>![#12 Arctic Aurora light token swatch](images/approved-themes/swatches/arctic-aurora-light.svg) |
 | **#14 Mediterranean Terra · Dark**<br>![#14 Mediterranean Terra dark token swatch](images/approved-themes/swatches/mediterranean-terra-dark.svg) | **#14 Mediterranean Terra · Light**<br>![#14 Mediterranean Terra light token swatch](images/approved-themes/swatches/mediterranean-terra-light.svg) |
 | **#15 Saffron & Spruce · Dark**<br>![#15 Saffron & Spruce dark token swatch](images/approved-themes/swatches/saffron-spruce-dark.svg) | **#15 Saffron & Spruce · Light**<br>![#15 Saffron & Spruce light token swatch](images/approved-themes/swatches/saffron-spruce-light.svg) |

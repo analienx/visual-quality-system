@@ -95,9 +95,9 @@ def test_contoso_chart_ramps_use_distinct_preset_stops(preset: str) -> None:
     plan = build_plan(CONTOSO, "dark", colors)
     changes = [c for c in plan["changes"]
                if c.get("role") in ("gradientMin", "gradientMax")]
-    assert len(changes) >= 6
+    assert len(changes) >= 2  # genuine Shape Map gradient only
     assert all(c["new"] == colors[c["role"]] for c in changes)
     assert any(c.get("visualType") == "shapeMap" for c in changes)
-    assert any(c.get("visualType") == "clusteredColumnChart"
-               for c in changes)
+    # The sample's categorical columns now encode identity using colors;
+    # the Shape Map retains the actual quantitative numeric gradient.
     assert not any("/Conditional/" in c["pointer"] for c in changes)

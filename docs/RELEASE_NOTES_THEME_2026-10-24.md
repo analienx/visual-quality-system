@@ -19,16 +19,16 @@ remain valid for the code already in main.
   Bound business measures, filter selections, conditional thresholds and
   positive/negative meaning remain unchanged.
 - CI, R6 and official Microsoft report-authoring validation all **passed**
-  for final categorical-quality code commit `91344a5c5ff1d2db68e5857dc3055a31d805b81a`.
+  for the final positive-color and categorical-quality code commit `a2bd3662be9974714eba9fb889137349752cd1df`.
   GitHub regenerated and validated **28 five-page Contoso PBIP candidates**
   (140 page definitions); structural validation alone does not certify pixels.
 - A [curated real Power BI Desktop showcase](REAL_THEME_SHOWCASE.md) captures
-  all five native pages for **Sunny, Organic and Graphite Red**, in both modes
-  (30 genuine native page captures). The public gallery embeds three
-  representative report pages per mode (18 resized WebP images), and the
+  all five native pages for **Sunny, Organic, Graphite Red, Indigo Ember and Petrol & Gold**, in both modes
+  (50 genuine native page captures). The public gallery embeds three
+  representative report pages per mode (30 resized WebP images), and the
   [capture provenance](images/adaptive-showcase/PROVENANCE.json) records
   raw/public SHA-256, candidate/model/source identities and the exact code
-  used. The remaining 11 family pairs are [token-only color swatches](APPROVED_THEME_LIBRARY.md),
+  used. The remaining 9 family pairs are [token-only color swatches](APPROVED_THEME_LIBRARY.md),
   not invented report screenshots. The earlier five-colorway
   [native gallery](THEME_GALLERY.md) is retained separately.
 - Verified native Sunny Dark subtitle and chart-legend appearance, after
@@ -47,8 +47,8 @@ as explicitly **advisory** findings. Continuous numeric ramps and
 conditional business good/bad colors are not converted into arbitrary
 categorical colors.
 
-**Capture integrity:** all six featured Light/Dark modes were recaptured
-from the GitHub-hosted **`91344a5`** candidate artifact after refreshing
+**Capture integrity:** all ten featured Light/Dark modes were recaptured
+from the GitHub-hosted **`a2bd366`** candidate artifact after refreshing
 their isolated Desktop models. The public WebP gallery (18 representative
 pages) and all 22 token swatches have been regenerated from these final
 palette dictionaries. The [SHA-256 provenance](images/adaptive-showcase/PROVENANCE.json)
@@ -79,3 +79,24 @@ of the separate Corporate Spend sample are not repaired by theme changes.
 generic Organic Palette or Sunny Palette. Rewriting a feature branch and
 deleting older Actions runs removes reachable advertised names but cannot
 guarantee GitHub server-side garbage collection of unreachable commits.
+
+
+## 25 October: Graphite Red / categorical clarity completion
+
+Seven original synthetic Contoso bar/column report visuals encoded
+categories using very similar numeric-gradient shades. The report now
+explicitly uses PBIR scoped category identities with compiled palette
+series indices (Microsoft theme color IDs start at 2). The value remains
+encoded by bar length and exact data labels. The country Shape Map retains
+the genuine quantitative color ramp.
+
+Graphite Red has no green appearance role, and its original >=35% success,
+waterfall increase and positive margin action-table text use blue while
+negative/below-target still uses red.
+Only the appearance colors change; DAX, thresholds, data bindings and numeric
+results remain intact. The generic chart caption is color-neutral.
+Five selected families now have ten Light/Dark live Desktop modes, 50 private
+native full-page captures and 30 public report-only WebP previews; the other
+nine families have 18 paired color swatches. Hash provenance binds these
+images to GitHub-generated candidates from implementation commit `a2bd3662be9974714eba9fb889137349752cd1df`.
+Independent G2/G4/G6 release approval remains separate.

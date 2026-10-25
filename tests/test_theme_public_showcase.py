@@ -10,11 +10,12 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-FEATURED = ("sunny-palette", "organic-palette", "graphite-red")
+FEATURED = ("sunny-palette", "organic-palette", "graphite-red",
+            "indigo-ember", "petrol-gold")
 PAGES = ("executive-overview", "products-and-brands", "deep-dive-insights")
 
 
-def test_showcase_has_exclusively_six_real_native_source_modes() -> None:
+def test_showcase_has_ten_source_bound_native_modes() -> None:
     manifest = json.loads((ROOT / "docs/images/adaptive-showcase/PROVENANCE.json").read_text(
         encoding="utf-8"))
     expected = {f"{slug}-{mode}" for slug in FEATURED for mode in ("dark", "light")}

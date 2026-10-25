@@ -231,3 +231,25 @@ Supported slicer items, header and searchBox properties are themed.
 Note that no structural validation can certify an opened dropdown
 flyout or filter pane render: such states require native Power BI Desktop
 screen captures and review. See docs/THEME_GALLERY.md.
+
+
+## Five featured families, ten native modes — 25 October
+
+The source Contoso sample encodes **categorical** dimensions with explicit
+per-category `dataPoint.scopeId` + `ThemeDataColor` identities. Microsoft's
+theme data-color IDs begin at **2**; indices 0/1 are reserved. Because
+region, brand, category, subcategory, customer segment and store name identify
+entities rather than numeric magnitude, those seven bar/column visuals
+use distinct colors in all approved Light/Dark palettes. The genuine numeric
+country Shape Map FillRule remains a separate measurable-color example.
+
+Graphite Red deliberately avoids green throughout its theme roles: its
+positive margin and waterfall-increase expressions use steel blue and
+negative values stay red. In the synthetic Contoso candidate only, two
+specifically identified positive appearance literals are recolored without
+changing comparison conditions, thresholds, DAX or business category. Other
+customer reports retain their conditionally formatted business colors.
+
+The five featured gallery families are Sunny Palette, Organic Palette,
+Graphite Red, Indigo Ember and Petrol & Gold. The remaining nine families
+are displayed as compact palette swatches rather than fabricated screenshots.

@@ -19,7 +19,7 @@
 
 ## Real Power BI showcase
 
-**Three distinctive palette families. Two modes each. Real, populated Power BI Desktop renders.**
+**Five distinctive palette families. Two modes each. Real, populated Power BI Desktop renders.**
 All screenshots come from generated candidates of the same five-page [fictional Contoso Retail PBIP](examples/contoso-retail/README.md) ([open the exact source report](examples/contoso-retail/Contoso%20Retail.pbip)); none is a simulated dashboard or an AI-generated illustration.
 
 
@@ -38,15 +38,29 @@ Grounded blues and fresh greens across contrasting light and dark.
 | [![Organic Palette Light, native Contoso Executive report](docs/images/adaptive-showcase/organic-palette-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#organic-palette) | [![Organic Palette Dark, native Contoso Executive report](docs/images/adaptive-showcase/organic-palette-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#organic-palette) |
 
 ### Graphite Red
-Restrained neutral surfaces with bold red accents.
+Graphite and red, with steel-blue positive indicators instead of green.
 
 | Light | Dark |
 | :--- | :--- |
 | [![Graphite Red Light, native Contoso Executive report](docs/images/adaptive-showcase/graphite-red-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#graphite-red) | [![Graphite Red Dark, native Contoso Executive report](docs/images/adaptive-showcase/graphite-red-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#graphite-red) |
 
-**[Explore 18 genuine report screenshots](docs/REAL_THEME_SHOWCASE.md)** · [See provenance and SHA-256 hashes](docs/images/adaptive-showcase/PROVENANCE.json) · [Browse every approved palette](docs/APPROVED_THEME_LIBRARY.md)
+### Indigo Ember
+Refined blue-violet and warm ember, balanced for analytical series contrast.
 
-Each featured mode was captured across all five pages in a disposable Desktop instance after refreshing its local model. Three representative pages per mode are published as lightweight WebP previews. The other **11 approved families** are shown as compact color swatches—no pretend report screenshots.
+| Light | Dark |
+| :--- | :--- |
+| [![Indigo Ember Light, native Contoso Executive report](docs/images/adaptive-showcase/indigo-ember-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#indigo-ember) | [![Indigo Ember Dark, native Contoso Executive report](docs/images/adaptive-showcase/indigo-ember-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#indigo-ember) |
+
+### Petrol & Gold
+Petrol blue-green and warm gold, with genuinely distinct supporting bars.
+
+| Light | Dark |
+| :--- | :--- |
+| [![Petrol & Gold Light, native Contoso Executive report](docs/images/adaptive-showcase/petrol-gold-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#petrol--gold) | [![Petrol & Gold Dark, native Contoso Executive report](docs/images/adaptive-showcase/petrol-gold-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#petrol--gold) |
+
+**[Explore 30 genuine report screenshots](docs/REAL_THEME_SHOWCASE.md)** · [See provenance and SHA-256 hashes](docs/images/adaptive-showcase/PROVENANCE.json) · [Browse every approved palette](docs/APPROVED_THEME_LIBRARY.md)
+
+Each featured mode was captured across all five pages in a disposable Desktop instance after refreshing its local model. Three representative pages per mode are published as lightweight WebP previews. The other **9 approved families** are shown as compact color swatches—no pretend report screenshots.
 
 ## Try it
 
@@ -70,7 +84,7 @@ vqs theme apply "examples/contoso-retail/Contoso Retail.pbip" --mode light --pal
 vqs theme audit ./organic-candidate
 ```
 
-`preview` is read-only; `apply` creates a separate candidate and audit manifest. The original PBIP, semantic model, DAX, field bindings and business-color rules are preserved. The generated candidate may need a first-open refresh in Power BI Desktop to populate its local sample model.
+`preview` is read-only; `apply` creates a separate candidate and audit manifest. The source PBIP, semantic model, DAX, field bindings and business-measure predicates remain intact; the curated Graphite Red candidate deliberately uses blue for positive outcomes. The generated candidate may need a first-open refresh in Power BI Desktop to populate its local sample model.
 
 [**Theme engine guide**](docs/THEME_ENGINE.md) · [CLI reference](docs/CLI.md) · [Five-page sample](examples/contoso-retail/README.md)
 
@@ -89,7 +103,7 @@ vqs theme audit ./organic-candidate
 
 ### Beyond a pretty screenshot
 
-VQS provides an explicit `vqs premium` design contract for hierarchy, spacing and quality review, rather than claiming to know that a screenshot is attractive from source JSON alone. The engine now checks categorical-series separation (normal and approximate color-vision distances), and premium preflight flags weak theme palettes and ambiguous categorical charts driven by numeric gradients—without tampering with business semantics. The final featured examples above are authentic recaptures from the color-corrected theme revision. The bundled Contoso Retail report includes charts, tables, slicers and a **no-sign-in Shape Map**.
+VQS provides an explicit `vqs premium` design contract for hierarchy, spacing and quality review, rather than claiming to know that a screenshot is attractive from source JSON alone. The engine now checks categorical-series separation (normal and approximate color-vision distances), and premium preflight flags weak theme palettes and ambiguous categorical charts driven by numeric gradients—without tampering with business semantics. The featured examples are authentic Desktop recaptures of the category-distinct, color-corrected source. The bundled Contoso Retail report includes charts, tables, slicers and a **no-sign-in Shape Map**.
 
 The distinct Corporate Spend subject has documented Azure Maps sign-in and schema-compatibility limitations; it is **not** presented as a fully certified cross-report success. Likewise, static authoring validation across **28 approved new Dark/Light modes** is not a claim that all 28 were independently rendered and visually signed off. Real interaction states and the `powerbi-core` release G2/G4/G6 acceptance remain separately gated.
 

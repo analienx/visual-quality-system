@@ -324,3 +324,31 @@ def test_graphite_red_margin_action_list_positive_has_no_green(
     assert cases[1]["Value"] == source_cases[1]["Value"]
     assert "#35C9B4" not in json.dumps(target)
     assert audit_candidate(dest)["integrityStatus"] == "pass"
+
+
+def test_every_contoso_categorical_chart_has_distinct_native_scope_colors() -> None:
+    """Guard seven charts against renewed magnitude gradients/black theme IDs."""
+    visual_counts = {
+        "Executive_overview/visuals/364c01f845a43686f504": 3,
+        "Markets_drivers/visuals/c1d2e3f40516273849ab": 3,
+        "Markets_drivers/visuals/market-sales-contribution": 3,
+        "Products_brands/visuals/2c82531fad7beac43747": 7,
+        "Products_brands/visuals/6eef7fa2804207db6a94": 5,
+        "Stores_customers/visuals/766e07cce8752903b7b5": 3,
+        "Stores_customers/visuals/defff69aa9c7c4f0f3e2": 5,
+    }
+    for rel, expected in visual_counts.items():
+        visual = _read(CONTOSO / "definition/pages" / rel / "visual.json")
+        points = visual["visual"]["objects"]["dataPoint"]
+        assert len(points) == expected + 1, rel
+        assert "FillRule" not in json.dumps(points), rel
+        ids = []
+        selectors = []
+        for i, item in enumerate(points[1:]):
+            entry = item["properties"]["fill"]["solid"]["color"]["expr"]
+            ids.append(entry["ThemeDataColor"]["ColorId"])
+            comp = item["selector"]["data"][0]["scopeId"]["Comparison"]
+            selectors.append(comp["Right"]["Literal"]["Value"])
+            assert comp["ComparisonKind"] == 0
+        assert ids == list(range(2, expected + 2)), (rel, ids)
+        assert len(set(selectors)) == expected, rel
