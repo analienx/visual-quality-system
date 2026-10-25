@@ -24,7 +24,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0,str(ROOT))
 
 from vqs.series_readability import distance
-from vqs.theme import load_palette, source_digest
+from vqs.theme import contrast_ratio, load_palette, source_digest
 
 CANVAS=(3915,2394)
 # Chart interior rectangles in actual native Power BI Desktop captures.
@@ -39,6 +39,7 @@ CHARTS=(
  ("Products & brands","subcategory-bars",(1550,850,3300,1420),7),
  ("Stores & customers","store-bars",(335,860,1570,1450),5),
  ("Stores & customers","segment-bars",(1745,855,3180,1450),3),
+ ("Deep-dive insights","deepdive-regional-bars",(1850,1550,3200,1960),3),
 )
 SHOWCASE=("sunny-palette","organic-palette",
           "graphite-red","indigo-ember","petrol-gold")
@@ -91,7 +92,7 @@ def verify(artifact: Path) -> dict:
 
 
 def verify_all_approved_gallery(artifact: Path) -> dict:
-    """28 modes, five visible charts per mode plus native dropdown rendering.
+    """28 modes, eleven populated chart regions plus dropdown and legend.
 
     Same category thresholds as pre-capture QVS, with pixels taken from
     exact registered-theme colors; this is scoped to the fictional
@@ -103,11 +104,11 @@ def verify_all_approved_gallery(artifact: Path) -> dict:
     assert len(list(artifact.glob("*/Contoso Retail.pbip")))==28
     expected_source=source_digest(
         ROOT/"examples/contoso-retail/Contoso Retail.Report")
-    regions=[entry for entry in CHARTS
-             if entry[0] in ("Executive overview","Products & brands")]
-    assert len(regions)==5
+    regions=list(CHARTS)
+    assert len(regions)==11
     checks=[]
     controls=[]
+    legend_checks=[]
     for item in selection:
         for mode in ("light","dark"):
             slug=item["slug"]
@@ -155,12 +156,29 @@ def verify_all_approved_gallery(artifact: Path) -> dict:
             assert hits>=1500,(key,"dropdown surface",c,hits)
             controls.append({"mode":key,"color":c,"visiblePixels":hits})
             print("GALLERY_ALL14_DROPDOWN_PASS",key,c,hits,flush=True)
-    assert len(checks)==140 and len(controls)==28
-    return {"schema":"vqs.native-gallery-all14/1",
+            # Native line-chart legends previously inherited dark default
+            # text regardless of readable palette tokens. The two-series
+            # Executive legend is the only text in this narrow source-specific
+            # region; verify the actual token exists in the rendered pixels.
+            assert contrast_ratio(colors["mutedForeground"],
+                                  colors["surface"])>=4.5,(key,"legend role")
+            with Image.open(capture_dir/"Executive overview.png") as im:
+                legend=np.asarray(im.convert("RGB").crop(
+                    (95,938,750,982)),dtype=np.int16)
+            c=colors["mutedForeground"]
+            rgb=np.array([int(c[i:i+2],16) for i in (1,3,5)])
+            hits=int(np.count_nonzero(
+                np.max(np.abs(legend-rgb),axis=2)<=7))
+            assert hits>=150,(key,"native line legend color",c,hits)
+            legend_checks.append({"mode":key,"color":c,"visiblePixels":hits})
+            print("GALLERY_ALL14_LINE_LEGEND_PASS",key,c,hits,flush=True)
+    assert len(checks)==308 and len(controls)==28 and len(legend_checks)==28
+    return {"schema":"vqs.native-gallery-all14/2",
             "sourceDigest":expected_source,
             "modes":28,"categoryChecks":len(checks),
-            "dropdownChecks":len(controls),"checks":168,"status":"pass",
-            "charts":checks,"dropdowns":controls}
+            "dropdownChecks":len(controls),"legendChecks":len(legend_checks),
+            "checks":364,"status":"pass",
+            "charts":checks,"dropdowns":controls,"legends":legend_checks}
 
 
 def main() -> int:

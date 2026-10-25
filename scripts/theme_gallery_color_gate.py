@@ -45,7 +45,8 @@ def verify(candidate_root: Path) -> dict:
         failures = [f for f in findings
                     if f["rule"] in ("color.category_series_collision",
                                      "color.category_wildcard_shared_fill",
-                                                "color.category_conditional_shared_status")]
+                                                "color.category_conditional_shared_status",
+                                                "color.category_unscoped_default")]
         output["modes"][key] = {
             "sourceDigest": manifest["sourceDigest"],
             "paletteHash": manifest["paletteHash"],

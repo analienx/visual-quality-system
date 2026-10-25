@@ -53,6 +53,8 @@ Thirty WebP previews and eighteen color swatches were regenerated and
 verified by SHA-256 at exactly that source revision.
 This is a draft engineering candidate, **not a production G2/G4/G6 signoff**.
 
+**Deep-dive region single-color source flaw:** Replaced the three identical default-orange regional sales bars with uniquely scoped native colors. QVS now fails source validation on categorical bar/column visuals missing per-category assignments altogether. Expanded per-mode native evidence to all five pages: 11 chart regions × 28 modes, plus actual dropdown and legend colors (364 pixel checks). Any incomplete/blank native screenshot is quarantined and re-captured; an exit code alone is not visual acceptance.
+
 ## Unreleased candidate — 2026-10-24 (draft PR #81; NOT on main)
 
 **Adaptive Power BI report themes:** 14 newly approved palette families in paired

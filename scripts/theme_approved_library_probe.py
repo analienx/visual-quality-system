@@ -84,7 +84,8 @@ def main() -> int:
                         finding for finding in quality["findings"]
                         if finding["rule"] in ("color.category_series_collision",
                                                 "color.category_wildcard_shared_fill",
-                                                "color.category_conditional_shared_status")]
+                                                "color.category_conditional_shared_status",
+                                                "color.category_unscoped_default")]
                     if collisions:
                         first = collisions[0]
                         raise RuntimeError(

@@ -184,6 +184,32 @@ def _category_collision_risks(
                 continue
             objects = obj.get("visual", {}).get("objects", {})
             entries = objects.get("dataPoint", [])
+            category_state = obj.get("visual", {}).get("query", {}).get(
+                "queryState", {}).get("Category", {})
+            category_fields = (category_state.get("projections", [])
+                               if isinstance(category_state, dict) else [])
+            # A chart with a categorical axis but *no* dataPoint assignments
+            # uses Power BI's single default series color for all bars.
+            # A prior executive-only QVS gate missed this exact issue on
+            # Deep-dive > Regional sales. Report the missing identity mapping
+            # before checking pairs (there are no pairs to compare yet).
+            if (visual["visual_type"].casefold() in {
+                    "clusteredbarchart", "clusteredcolumnchart",
+                    "stackedbarchart", "stackedcolumnchart",
+                    "barchart", "columnchart"}
+                    and category_fields and not entries):
+                out.append({
+                    "rule": "color.category_unscoped_default",
+                    "importance": "high", "page_id": page["id"],
+                    "visual_ids": [visual["visual_id"]],
+                    "evidence": {
+                        "scope": "categorical bar chart without scoped dataPoint fills",
+                        "categoryProjections": len(category_fields),
+                        "colorIdentity": "all categories inherit one default color"},
+                    "recommendation":
+                        "Assign explicit, perceptually distinct scopeId fill "
+                        "colors for each named category. A single default bar "
+                        "color is not category identity; verify native pixels."})
             wildcard = []
             conditional = []
             for entry in entries if isinstance(entries, list) else []:

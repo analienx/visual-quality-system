@@ -149,3 +149,50 @@ def test_five_category_near_collision_previous_40_threshold_is_rejected(
     assert len(findings) == 1
     assert any(set(x["colors"]) == {first, second}
                for x in findings[0]["evidence"]["colliding_pairs"])
+
+
+def test_unscoped_default_region_bars_are_flagged_before_desktop(
+        tmp_path: Path) -> None:
+    """Regression: Deep-dive regional bars repeated one theme-default color."""
+    palette = load_palette("light", None, "sunny-palette")
+    candidate = tmp_path / "missing-regional-scopes"
+    apply_theme(SOURCE, "light", palette, candidate)
+    report = candidate / SOURCE.name
+    target = (report / "definition/pages/d9bc3b8f90439bcc/visuals/"
+              "what-drives-sales/visual.json")
+    source = json.loads(target.read_text(encoding="utf-8"))
+    assert len(source["visual"]["objects"]["dataPoint"]) == 4
+    original_query = source["visual"]["query"]
+    del source["visual"]["objects"]["dataPoint"]
+    target.write_text(json.dumps(source), encoding="utf-8")
+    findings = [f for f in audit(str(report))["findings"]
+                if f["rule"] == "color.category_unscoped_default"]
+    assert len(findings) == 1
+    finding = findings[0]
+    assert finding["importance"] == "high"
+    assert finding["page_id"] == "d9bc3b8f90439bcc"
+    assert finding["visual_ids"] == ["what-drives-sales"]
+    assert source["visual"]["query"] == original_query
+
+
+@pytest.mark.parametrize("mode", ("light", "dark"))
+def test_deep_dive_regions_use_distinct_native_scope_fills(
+        tmp_path: Path, mode: str) -> None:
+    palette = load_palette(mode, None, "organic-palette")
+    candidate = tmp_path / mode
+    apply_theme(SOURCE, mode, palette, candidate)
+    report = candidate / SOURCE.name
+    source = json.loads((SOURCE / "definition/pages/d9bc3b8f90439bcc/"
+                         "visuals/what-drives-sales/visual.json").read_text())
+    actual = json.loads((report / "definition/pages/d9bc3b8f90439bcc/"
+                         "visuals/what-drives-sales/visual.json").read_text())
+    points = actual["visual"]["objects"]["dataPoint"]
+    assert len(points) == 4
+    colors = [x["properties"]["fill"]["solid"]["color"]["expr"][
+        "ThemeDataColor"]["ColorId"] for x in points[1:]]
+    assert colors == [2, 3, 4]
+    assert actual["visual"]["query"] == source["visual"]["query"]
+    assert points == source["visual"]["objects"]["dataPoint"]
+    assert not [f for f in audit(str(report))["findings"]
+                if f["rule"] in ("color.category_unscoped_default",
+                                  "color.category_series_collision")]

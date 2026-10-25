@@ -338,6 +338,7 @@ def test_every_contoso_categorical_chart_has_distinct_native_scope_colors() -> N
         "Products_brands/visuals/6eef7fa2804207db6a94": 5,
         "Stores_customers/visuals/766e07cce8752903b7b5": 3,
         "Stores_customers/visuals/defff69aa9c7c4f0f3e2": 5,
+        "d9bc3b8f90439bcc/visuals/what-drives-sales": 3,
     }
     for rel, expected in visual_counts.items():
         visual = _read(CONTOSO / "definition/pages" / rel / "visual.json")

@@ -37,7 +37,7 @@ The commands are read-only against the sample. For real Power BI Desktop capture
 | Markets & drivers | [Markets & drivers](../../docs/media/showcase/markets-drivers.webp) |
 | Deep-dive insights | [Deep-dive with Shape Map](../../docs/media/showcase/deep-dive-map.webp) |
 
-**Source provenance:** The PBIR report's SHA-256 source digest is `1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69` — **updated on 25 October** from the 22 October native Desktop source used for all five rendered screenshots. The semantic model's source digest (all TMDL files plus `definition.pbism`, stable sorted paths and NUL delimiters) is `30040bd3b229fc8507d30cf58e30d393b5b65e9317b2159f3066772aa715ae3f`. All 12 M partitions generate their own synthetic data.
+**Source provenance:** The PBIR report's SHA-256 source digest is `78b525a179c60bd4705364490cf8bfa3a1731f9d13dc9c9303e25b342f798273` — **updated on 25 October** from the 22 October native Desktop source used for all five rendered screenshots. The semantic model's source digest (all TMDL files plus `definition.pbism`, stable sorted paths and NUL delimiters) is `30040bd3b229fc8507d30cf58e30d393b5b65e9317b2159f3066772aa715ae3f`. All 12 M partitions generate their own synthetic data.
 
 The demo intentionally excludes `.pbi/cache.abf`, binary PBIX, full-resolution screenshot evidence, accounts, secrets, and anything tied to a private user filesystem. The installed Desktop rebuilds the cache on its first refresh. The screenshot previews are downscaled derivatives and are **not** a formal independent G2 visual-quality approval.
 
@@ -94,3 +94,15 @@ The previous cumulative waterfall's automatically generated Total bar
 is no longer part of this visual; the net variance is the sum of
 the three regional bars. This deliberate presentation trade-off avoids
 reusing one Increase color for three different named regions.
+
+
+### Deep-dive regional sales category identity
+
+The regional sales comparison now uses explicitly assigned and distinct
+`ThemeDataColor` series for Europe, North America and Asia Pacific.
+Its original Sales measure, region field bindings and quantitative
+values remain unchanged. This corrects the former uniform orange
+bars, a gap in the earlier QVS check that considered scoped color
+pairs but did not flag an entirely missing `dataPoint` collection.
+The QVS `color.category_unscoped_default` high-severity rule and
+its pre-capture gate now reject this regression.

@@ -251,3 +251,21 @@ Light/Dark, including a minimum 4.5:1 palette token/surface contrast and
 original report/query invariance. The exact Microsoft-authored candidate
 must be opened and inspected in Power BI Desktop before regenerating
 the 140-page screenshot evidence.
+
+
+## Deep-dive unscoped category fill correction
+
+A final native five-page audit found that Deep-dive insights
+→ Regional sales still rendered Europe, North America and
+Asia Pacific in one identical default color. The previous QVS
+assignment-pair detector did not recognize *missing assignments*:
+without `visual.objects.dataPoint`, it had no pair to measure.
+
+The synthetic Contoso regional bars now have explicit unique
+PBIR scope selectors and native theme colors 2, 3 and 4,
+with unchanged region and Reporting Year Sales bindings.
+New `color.category_unscoped_default` HIGH-severity QVS output
+flags categorical bar/column charts with a category axis but no
+explicit per-category fills. GitHub's 28-candidate authoring
+workflow and standalone pre-capture gate reject that finding.
+The refreshed gallery must not reuse the earlier source hash.

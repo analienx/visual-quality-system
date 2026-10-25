@@ -355,3 +355,29 @@ publishes two real screenshot previews per mode, 28 token/control swatches
 and full source/image provenance for the dedicated 14-family gallery.
 Anomalous native screenshots must be investigated and recaptured, never
 silently accepted by relaxing color separation.
+
+
+### Unscoped categorical defaults and full five-page native coverage
+
+The `color.category_unscoped_default` HIGH-risk rule covers
+clustered/stacked categorical bar or column charts with a `Category`
+query projection but **no explicit `dataPoint` assignments**.
+These visuals inherit Power BI's single default series color across
+different category values. The earlier pairwise rule could not
+identify a pair because no native color assignments existed.
+A synthetic Contoso Deep-dive regional-sales chart exposed the gap;
+the source now assigns scope-based Europe/North America/Asia Pacific
+color IDs 2/3/4 while preserving its sales measure.
+
+The `--all-approved` native pixel gate now checks **11 populated
+categorical/chart regions on all five report pages** in each of
+28 Light/Dark modes (**308 chart checks**), plus 28 closed
+Reporting Year dropdown background checks and 28 two-series
+line-legend contrast/pixel checks (**364 checks total**).
+The line-legend check additionally confirms that `mutedForeground`
+is visible in the actual Desktop screenshot, preventing implicit
+dark default text from slipping through. The regions are fixed
+to the synthetic Contoso sample, not a universal visual classifier.
+No source or gallery screenshot is accepted merely because the
+screenshot CLI returned a successful exit code; blank/under-rendered
+charts fail independently.
