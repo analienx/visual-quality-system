@@ -136,6 +136,8 @@ def build(artifact:Path,commit:str)->dict:
   "These are real, populated Power BI Desktop screenshots captured from one",
   "fictional Contoso Retail report; none is a simulated dashboard.",
   "Each screenshot is bound to the generating GitHub candidate and source hash.","",
+  "[Open the exact fictional Contoso PBIP source](examples/contoso-retail/Contoso%20Retail.pbip) —",
+  "the source of every generated variant, not a screenshot-only mockup.","",
   "**[Explore the complete 14-family native gallery](docs/REAL_THEME_SHOWCASE.md)** ·",
   "[Compare all color and control tokens](docs/APPROVED_THEME_LIBRARY.md) ·",
   "[View the provenance](docs/images/adaptive-showcase/PROVENANCE.json)","",
