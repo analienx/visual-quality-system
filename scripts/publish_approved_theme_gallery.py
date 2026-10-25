@@ -138,12 +138,15 @@ def build(artifact:Path,commit:str)->dict:
   "Each screenshot is bound to the generating GitHub candidate and source hash.","",
   "**[Explore the complete 14-family native gallery](docs/REAL_THEME_SHOWCASE.md)** ·",
   "[Compare all color and control tokens](docs/APPROVED_THEME_LIBRARY.md) ·",
-  "[View the provenance](docs/images/adaptive-showcase/PROVENANCE.json)",""]
+  "[View the provenance](docs/images/adaptive-showcase/PROVENANCE.json)","",
+  "**Jump to a featured theme:** " +
+  " · ".join(f"[{titles[slug]}](#{slug})" for slug in FEATURED),""
+ ]
  for slug in FEATURED:
   title=titles[slug]
   a=f"docs/images/adaptive-showcase/{slug}-light/executive-overview.webp"
   b=f"docs/images/adaptive-showcase/{slug}-dark/executive-overview.webp"
-  section.extend([f"### {title}","",DESCRIPTIONS[slug],"",
+  section.extend([f'<a id="{slug}"></a>',f"### {title}","",DESCRIPTIONS[slug],"",
    "| Light · actual report | Dark · actual report |",
    "| :--- | :--- |",
    f"| [![{title} Light real Power BI report]({a})](docs/REAL_THEME_SHOWCASE.md#{slug}) | [![{title} Dark real Power BI report]({b})](docs/REAL_THEME_SHOWCASE.md#{slug}) |",""])
@@ -175,7 +178,9 @@ def build(artifact:Path,commit:str)->dict:
    title=titles[slug]
    gallery.extend([f'<a id="{slug}"></a>',f"### {title}","",
     DESCRIPTIONS[slug],"",
-    f"![{title} Light palette and dropdown-control token colors](images/approved-themes/swatches/{slug}-light.svg)","",
+    "**Palette and controls — Light / Dark**","",
+    "| Light | Dark |","| :--- | :--- |",
+    f"| ![{title} Light palette and dropdown-control token colors](images/approved-themes/swatches/{slug}-light.svg) | ![{title} Dark palette and dropdown-control token colors](images/approved-themes/swatches/{slug}-dark.svg) |","",
     "**Executive overview — Light / Dark**","",
     "| Light | Dark |","| :--- | :--- |",
     f"| ![{title} Light Executive actual Power BI screenshot](images/adaptive-showcase/{slug}-light/executive-overview.webp) | ![{title} Dark Executive actual Power BI screenshot](images/adaptive-showcase/{slug}-dark/executive-overview.webp) |","",

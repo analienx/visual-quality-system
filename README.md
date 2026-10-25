@@ -24,12 +24,13 @@ These are real, populated Power BI Desktop screenshots captured from one
 fictional Contoso Retail report; none is a simulated dashboard.
 Each screenshot is bound to the generating GitHub candidate and source hash.
 
-**[Explore the complete 14-family native gallery](docs/REAL_THEME_SHOWCASE.md)**
-
-[Open the exact fictional Power BI source report](examples/contoso-retail/Contoso%20Retail.pbip) — the screenshots are taken from validated variants of this PBIP. ·
+**[Explore the complete 14-family native gallery](docs/REAL_THEME_SHOWCASE.md)** ·
 [Compare all color and control tokens](docs/APPROVED_THEME_LIBRARY.md) ·
 [View the provenance](docs/images/adaptive-showcase/PROVENANCE.json)
 
+**Jump to a featured theme:** [Sunny Palette](#sunny-palette) · [Organic Palette](#organic-palette) · [Graphite Red](#graphite-red) · [Indigo Ember](#indigo-ember) · [Petrol & Gold](#petrol-gold) · [Riviera Pop](#riviera-pop) · [Okabe–Ito Night](#okabe-ito-night)
+
+<a id="sunny-palette"></a>
 ### Sunny Palette
 
 Amber-orange and charcoal, with soft peach control surfaces.
@@ -38,6 +39,7 @@ Amber-orange and charcoal, with soft peach control surfaces.
 | :--- | :--- |
 | [![Sunny Palette Light real Power BI report](docs/images/adaptive-showcase/sunny-palette-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#sunny-palette) | [![Sunny Palette Dark real Power BI report](docs/images/adaptive-showcase/sunny-palette-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#sunny-palette) |
 
+<a id="organic-palette"></a>
 ### Organic Palette
 
 Cobalt, vivid magenta, green and cyan with differentiated controls.
@@ -46,6 +48,7 @@ Cobalt, vivid magenta, green and cyan with differentiated controls.
 | :--- | :--- |
 | [![Organic Palette Light real Power BI report](docs/images/adaptive-showcase/organic-palette-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#organic-palette) | [![Organic Palette Dark real Power BI report](docs/images/adaptive-showcase/organic-palette-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#organic-palette) |
 
+<a id="graphite-red"></a>
 ### Graphite Red
 
 Graphite, ruby and carefully contrasted supporting hues — no green.
@@ -54,6 +57,7 @@ Graphite, ruby and carefully contrasted supporting hues — no green.
 | :--- | :--- |
 | [![Graphite Red Light real Power BI report](docs/images/adaptive-showcase/graphite-red-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#graphite-red) | [![Graphite Red Dark real Power BI report](docs/images/adaptive-showcase/graphite-red-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#graphite-red) |
 
+<a id="indigo-ember"></a>
 ### Indigo Ember
 
 Indigo-violet balanced with warm editorial accents.
@@ -62,6 +66,7 @@ Indigo-violet balanced with warm editorial accents.
 | :--- | :--- |
 | [![Indigo Ember Light real Power BI report](docs/images/adaptive-showcase/indigo-ember-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#indigo-ember) | [![Indigo Ember Dark real Power BI report](docs/images/adaptive-showcase/indigo-ember-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#indigo-ember) |
 
+<a id="petrol-gold"></a>
 ### Petrol & Gold
 
 Petrol and warm gold for a confident executive dashboard.
@@ -70,6 +75,7 @@ Petrol and warm gold for a confident executive dashboard.
 | :--- | :--- |
 | [![Petrol & Gold Light real Power BI report](docs/images/adaptive-showcase/petrol-gold-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#petrol-gold) | [![Petrol & Gold Dark real Power BI report](docs/images/adaptive-showcase/petrol-gold-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#petrol-gold) |
 
+<a id="riviera-pop"></a>
 ### Riviera Pop
 
 Expressive seaside color, controlled by a disciplined layout.
@@ -78,6 +84,7 @@ Expressive seaside color, controlled by a disciplined layout.
 | :--- | :--- |
 | [![Riviera Pop Light real Power BI report](docs/images/adaptive-showcase/riviera-pop-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#riviera-pop) | [![Riviera Pop Dark real Power BI report](docs/images/adaptive-showcase/riviera-pop-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#riviera-pop) |
 
+<a id="okabe-ito-night"></a>
 ### Okabe–Ito Night
 
 Clear categorical hues and understated interface chrome.
@@ -136,7 +143,7 @@ vqs theme audit ./organic-candidate
 
 VQS provides an explicit `vqs premium` design contract for hierarchy, spacing and quality review, rather than claiming to know that a screenshot is attractive from source JSON alone. The engine validates **colors actually assigned to different categories inside each chart**, not merely the theme swatches. This catches near-duplicate Electronics/Sports colors, unscoped Retail/Online fills and **identical reds caused by conditional status fills** as HIGH-severity source findings. The 28-mode GitHub candidate workflow and pre-capture gate refuse to publish a candidate while any such violation remains. The 4–7-category normal/color-vision thresholds are **45/15**, and three-category limits are **50/19**. Ten chart regions per native mode undergo independent pixel checks before screenshot publication. Numeric gradients and business-status measures are preserved; distinct category colors are used where the showcase calls for category identity. The featured examples are authentic Desktop recaptures of the category-distinct, QVS-gated source. The bundled Contoso Retail report includes charts, tables, slicers and a **no-sign-in Shape Map**.
 
-The distinct Corporate Spend subject has documented Azure Maps sign-in and schema-compatibility limitations; it is **not** presented as a fully certified cross-report success. Likewise, static authoring validation across **28 approved new Dark/Light modes** is not a claim that all 28 were independently rendered and visually signed off. Real interaction states and the `powerbi-core` release G2/G4/G6 acceptance remain separately gated.
+The distinct Corporate Spend subject has documented Azure Maps sign-in and schema-compatibility limitations; it is **not** presented as a fully certified cross-report success. All **28 newly approved Light/Dark modes** have since received real native Desktop captures and screenshot-color checks. These default-state captures still do **not** certify open dropdown flyouts, all interactions, or independent aesthetic signoff. The `powerbi-core` G2/G4/G6 release gates remain separate.
 
 [Evidence & acceptance](docs/ACCEPTANCE_MATRIX.md) · [Release candidates](docs/RELEASE_NOTES_THEME_2026-10-24.md) · [Acceptance issue #16](https://github.com/analienx/visual-quality-system/issues/16)
 
@@ -152,19 +159,3 @@ The distinct Corporate Spend subject has documented Azure Maps sign-in and schem
 VQS focuses on **Power BI**. Word/DOCX assurance is a separate optional component, not a blocker for a Power BI-only release. Source inspection is local by default; private customer screenshots and caches must not be checked in or uploaded without explicit authorization.
 
 <sub>Apache-2.0 · Engineering preview · [Security & contribution guidance](CONTRIBUTING.md) · [Older five-theme native gallery](docs/THEME_GALLERY.md)</sub>
-
-
-### Category-color acceptance gate
-
-The 25 October screenshot audit exposed a previously missed **identical
-below-target red** for Electronics and Sports & Outdoors, and weak
-seven-category palette pairs. QVS now blocks wildcard conditional
-status colors on categorical bar charts and requires stronger pairwise
-separation (50/19 normal/simulated vision for three categories,
-45/15 for four to seven). The refreshed synthetic Contoso sample uses
-category-specific colors for the GM target and regional variance charts;
-business measures, percentages and the 35% reference line remain.
-A true waterfall total bar was intentionally replaced by a region
-comparison to avoid identical increase colors. This is a
-presentation trade-off, not a change to the underlying DAX.
-Native gallery screenshots are independently source-hash bound.

@@ -29,7 +29,11 @@ There are no generated dashboard mockups or counterfeit report images.
 
 Amber-orange and charcoal, with soft peach control surfaces.
 
-![Sunny Palette Light palette and dropdown-control token colors](images/approved-themes/swatches/sunny-palette-light.svg)
+**Palette and controls — Light / Dark**
+
+| Light | Dark |
+| :--- | :--- |
+| ![Sunny Palette Light palette and dropdown-control token colors](images/approved-themes/swatches/sunny-palette-light.svg) | ![Sunny Palette Dark palette and dropdown-control token colors](images/approved-themes/swatches/sunny-palette-dark.svg) |
 
 **Executive overview — Light / Dark**
 
@@ -50,7 +54,11 @@ Amber-orange and charcoal, with soft peach control surfaces.
 
 Cobalt, vivid magenta, green and cyan with differentiated controls.
 
-![Organic Palette Light palette and dropdown-control token colors](images/approved-themes/swatches/organic-palette-light.svg)
+**Palette and controls — Light / Dark**
+
+| Light | Dark |
+| :--- | :--- |
+| ![Organic Palette Light palette and dropdown-control token colors](images/approved-themes/swatches/organic-palette-light.svg) | ![Organic Palette Dark palette and dropdown-control token colors](images/approved-themes/swatches/organic-palette-dark.svg) |
 
 **Executive overview — Light / Dark**
 
@@ -71,7 +79,11 @@ Cobalt, vivid magenta, green and cyan with differentiated controls.
 
 Graphite, ruby and carefully contrasted supporting hues — no green.
 
-![Graphite Red Light palette and dropdown-control token colors](images/approved-themes/swatches/graphite-red-light.svg)
+**Palette and controls — Light / Dark**
+
+| Light | Dark |
+| :--- | :--- |
+| ![Graphite Red Light palette and dropdown-control token colors](images/approved-themes/swatches/graphite-red-light.svg) | ![Graphite Red Dark palette and dropdown-control token colors](images/approved-themes/swatches/graphite-red-dark.svg) |
 
 **Executive overview — Light / Dark**
 
@@ -92,7 +104,11 @@ Graphite, ruby and carefully contrasted supporting hues — no green.
 
 Indigo-violet balanced with warm editorial accents.
 
-![Indigo Ember Light palette and dropdown-control token colors](images/approved-themes/swatches/indigo-ember-light.svg)
+**Palette and controls — Light / Dark**
+
+| Light | Dark |
+| :--- | :--- |
+| ![Indigo Ember Light palette and dropdown-control token colors](images/approved-themes/swatches/indigo-ember-light.svg) | ![Indigo Ember Dark palette and dropdown-control token colors](images/approved-themes/swatches/indigo-ember-dark.svg) |
 
 **Executive overview — Light / Dark**
 
@@ -113,7 +129,11 @@ Indigo-violet balanced with warm editorial accents.
 
 Petrol and warm gold for a confident executive dashboard.
 
-![Petrol & Gold Light palette and dropdown-control token colors](images/approved-themes/swatches/petrol-gold-light.svg)
+**Palette and controls — Light / Dark**
+
+| Light | Dark |
+| :--- | :--- |
+| ![Petrol & Gold Light palette and dropdown-control token colors](images/approved-themes/swatches/petrol-gold-light.svg) | ![Petrol & Gold Dark palette and dropdown-control token colors](images/approved-themes/swatches/petrol-gold-dark.svg) |
 
 **Executive overview — Light / Dark**
 
@@ -134,7 +154,11 @@ Petrol and warm gold for a confident executive dashboard.
 
 Expressive seaside color, controlled by a disciplined layout.
 
-![Riviera Pop Light palette and dropdown-control token colors](images/approved-themes/swatches/riviera-pop-light.svg)
+**Palette and controls — Light / Dark**
+
+| Light | Dark |
+| :--- | :--- |
+| ![Riviera Pop Light palette and dropdown-control token colors](images/approved-themes/swatches/riviera-pop-light.svg) | ![Riviera Pop Dark palette and dropdown-control token colors](images/approved-themes/swatches/riviera-pop-dark.svg) |
 
 **Executive overview — Light / Dark**
 
@@ -155,7 +179,11 @@ Expressive seaside color, controlled by a disciplined layout.
 
 Clear categorical hues and understated interface chrome.
 
-![Okabe–Ito Night Light palette and dropdown-control token colors](images/approved-themes/swatches/okabe-ito-night-light.svg)
+**Palette and controls — Light / Dark**
+
+| Light | Dark |
+| :--- | :--- |
+| ![Okabe–Ito Night Light palette and dropdown-control token colors](images/approved-themes/swatches/okabe-ito-night-light.svg) | ![Okabe–Ito Night Dark palette and dropdown-control token colors](images/approved-themes/swatches/okabe-ito-night-dark.svg) |
 
 **Executive overview — Light / Dark**
 
@@ -179,7 +207,11 @@ Clear categorical hues and understated interface chrome.
 
 Quiet glacier-inspired greens and blue-grey neutrals.
 
-![Arctic Aurora Light palette and dropdown-control token colors](images/approved-themes/swatches/arctic-aurora-light.svg)
+**Palette and controls — Light / Dark**
+
+| Light | Dark |
+| :--- | :--- |
+| ![Arctic Aurora Light palette and dropdown-control token colors](images/approved-themes/swatches/arctic-aurora-light.svg) | ![Arctic Aurora Dark palette and dropdown-control token colors](images/approved-themes/swatches/arctic-aurora-dark.svg) |
 
 **Executive overview — Light / Dark**
 
@@ -200,7 +232,11 @@ Quiet glacier-inspired greens and blue-grey neutrals.
 
 Warm terracotta, sea hues and natural editorial neutrals.
 
-![Mediterranean Terra Light palette and dropdown-control token colors](images/approved-themes/swatches/mediterranean-terra-light.svg)
+**Palette and controls — Light / Dark**
+
+| Light | Dark |
+| :--- | :--- |
+| ![Mediterranean Terra Light palette and dropdown-control token colors](images/approved-themes/swatches/mediterranean-terra-light.svg) | ![Mediterranean Terra Dark palette and dropdown-control token colors](images/approved-themes/swatches/mediterranean-terra-dark.svg) |
 
 **Executive overview — Light / Dark**
 
@@ -221,7 +257,11 @@ Warm terracotta, sea hues and natural editorial neutrals.
 
 Golden saffron with spruce-like support and structured controls.
 
-![Saffron & Spruce Light palette and dropdown-control token colors](images/approved-themes/swatches/saffron-spruce-light.svg)
+**Palette and controls — Light / Dark**
+
+| Light | Dark |
+| :--- | :--- |
+| ![Saffron & Spruce Light palette and dropdown-control token colors](images/approved-themes/swatches/saffron-spruce-light.svg) | ![Saffron & Spruce Dark palette and dropdown-control token colors](images/approved-themes/swatches/saffron-spruce-dark.svg) |
 
 **Executive overview — Light / Dark**
 
@@ -242,7 +282,11 @@ Golden saffron with spruce-like support and structured controls.
 
 Muted autumn colors with a calm analytical presentation.
 
-![Autumn Editorial Light palette and dropdown-control token colors](images/approved-themes/swatches/autumn-editorial-light.svg)
+**Palette and controls — Light / Dark**
+
+| Light | Dark |
+| :--- | :--- |
+| ![Autumn Editorial Light palette and dropdown-control token colors](images/approved-themes/swatches/autumn-editorial-light.svg) | ![Autumn Editorial Dark palette and dropdown-control token colors](images/approved-themes/swatches/autumn-editorial-dark.svg) |
 
 **Executive overview — Light / Dark**
 
@@ -263,7 +307,11 @@ Muted autumn colors with a calm analytical presentation.
 
 Cool violet, pale blue and restrained supporting accents.
 
-![Violet Ice Light palette and dropdown-control token colors](images/approved-themes/swatches/violet-ice-light.svg)
+**Palette and controls — Light / Dark**
+
+| Light | Dark |
+| :--- | :--- |
+| ![Violet Ice Light palette and dropdown-control token colors](images/approved-themes/swatches/violet-ice-light.svg) | ![Violet Ice Dark palette and dropdown-control token colors](images/approved-themes/swatches/violet-ice-dark.svg) |
 
 **Executive overview — Light / Dark**
 
@@ -284,7 +332,11 @@ Cool violet, pale blue and restrained supporting accents.
 
 Electric, contemporary hues with clear series separation.
 
-![Electric Atelier Light palette and dropdown-control token colors](images/approved-themes/swatches/electric-atelier-light.svg)
+**Palette and controls — Light / Dark**
+
+| Light | Dark |
+| :--- | :--- |
+| ![Electric Atelier Light palette and dropdown-control token colors](images/approved-themes/swatches/electric-atelier-light.svg) | ![Electric Atelier Dark palette and dropdown-control token colors](images/approved-themes/swatches/electric-atelier-dark.svg) |
 
 **Executive overview — Light / Dark**
 
@@ -305,7 +357,11 @@ Electric, contemporary hues with clear series separation.
 
 Confident multicolor contrast with a purposeful interface.
 
-![Bold Eclectic Light palette and dropdown-control token colors](images/approved-themes/swatches/bold-eclectic-light.svg)
+**Palette and controls — Light / Dark**
+
+| Light | Dark |
+| :--- | :--- |
+| ![Bold Eclectic Light palette and dropdown-control token colors](images/approved-themes/swatches/bold-eclectic-light.svg) | ![Bold Eclectic Dark palette and dropdown-control token colors](images/approved-themes/swatches/bold-eclectic-dark.svg) |
 
 **Executive overview — Light / Dark**
 

@@ -233,7 +233,7 @@ flyout or filter pane render: such states require native Power BI Desktop
 screen captures and review. See docs/THEME_GALLERY.md.
 
 
-## Five featured families, ten native modes — 25 October
+## Initial five-family acceptance phase — expanded to all 14 on 25 October
 
 The source Contoso sample encodes **categorical** dimensions with explicit
 per-category `dataPoint.scopeId` + `ThemeDataColor` identities. Microsoft's

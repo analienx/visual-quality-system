@@ -1,5 +1,30 @@
 # Adaptive Power BI themes · release candidate · 24 October 2026
 
+## Current 14-family gallery release candidate — 25 October 2026
+
+**The latest approved engineering candidate is source commit
+`4987bd77f03a0d8a8822861408c62165ff542f69` and gallery publication
+`47086c318f1ec1bde315643752b5ac5edbbb59cc`.** This supersedes the
+historical five-family references below without deleting their audit trail.
+
+- All 14 approved themes are available in both Light and Dark: **28 genuine
+  Power BI Desktop modes** from one consistent synthetic report.
+- **140** complete raw native page captures and **56** published Executive
+  and Products & Brands screenshots with SHA-256 provenance.
+- **140** rendered category/series checks and **28** real closed-dropdown
+  appearance checks passed, alongside the QVS pre-capture source gate.
+- The homepage presents seven curated Light/Dark pairs with direct links to
+  the dedicated full gallery; the full gallery shows both modes and both
+  page views for every family, alongside selectable appearance tokens.
+- Each theme has its own slicer/dropdown background and selection contrast.
+  Organic uses cobalt and magenta with green/cyan identity; Sunny uses
+  documented orange/peach/grey as visual inspiration, with darker
+  chart-safe equivalents where needed.
+- The scope does **not** include visual acceptance of open dropdown flyouts
+  or comprehensive G2/G4 interaction behavior. Owner G6 merge approval is
+  still separate. This PR remains draft and unmerged.
+
+
 **Status: PR [#81](https://github.com/analienx/visual-quality-system/pull/81)
 remains DRAFT and unmerged.** These are engineering candidate notes,
 **not** a production release, independent G2 visual signoff or G6 merge approval.
