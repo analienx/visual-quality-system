@@ -6,6 +6,34 @@ remains DRAFT and unmerged.** These are engineering candidate notes,
 The previous [21 October Power BI core notes](RELEASE_NOTES_2026-10-21.md)
 remain valid for the code already in main.
 
+## Final corrected source and gallery evidence — 25 October
+
+Current approved engineering **candidate**, not a production merge:
+`587eda95c46770bdffd0c20992506c8bfbb94426`. The official GitHub CI, R6 and Microsoft
+report-authoring probes for this exact source completed successfully.
+The regenerated GitHub artifact contains 28 validated source-bound
+Power BI candidates, one per approved palette/mode.
+
+Native QA exposed a real defect in the previously published gallery:
+both *Electronics* and *Sports & Outdoors* were red in the GM target
+chart. The same screenshot review exposed weak 7-category hue
+separation and confirmed that palette-wide checks were insufficient.
+QVS now flags wildcard conditional colors on multi-category bars and
+screens actual assigned colors at stronger normal/CVD thresholds.
+The 35% target and business values remain; regional variance now
+uses distinct native category bars instead of repeating a waterfall
+Increase color (the cumulative Total bar is intentionally absent).
+
+The **final** native gallery was captured only *after* all 28
+GitHub candidates passed the independent QVS pre-capture gate.
+Five Light/Dark theme pairs, 50 real Desktop pages and 30 public WebP
+previews are source/candidate/model/palette and SHA-256 bound.
+The `scripts/theme_native_category_pixel_gate.py` acceptance additionally
+verifies 10 distinct chart regions per mode (**100 checks**) against
+the exact active theme colors, covering *all seven* product
+subcategories rather than only the first three bars. These checks
+are screening heuristics, not independent G2 aesthetic signoff.
+
 ## What is ready
 
 - 14 **new approved** palette families × paired Dark/Light = **28** modes.
@@ -19,7 +47,7 @@ remain valid for the code already in main.
   Bound business measures, filter selections, conditional thresholds and
   positive/negative meaning remain unchanged.
 - CI, R6 and official Microsoft report-authoring validation all **passed**
-  for the latest chart-assignment-quality implementation commit `dddae21fa2fa1ccee59361715a68d8ede1e3914c`.
+  for an earlier implementation commit `dddae21fa2fa1ccee59361715a68d8ede1e3914c`; the newer exact candidate is identified above.
   GitHub regenerated and validated **28 five-page Contoso PBIP candidates**
   (140 page definitions); structural validation alone does not certify pixels.
 - A [curated real Power BI Desktop showcase](REAL_THEME_SHOWCASE.md) captures
@@ -33,7 +61,7 @@ remain valid for the code already in main.
   [native gallery](THEME_GALLERY.md) is retained separately.
 - Verified native Sunny Dark subtitle and chart-legend appearance, after
   correction for implicit low-contrast text; guarded wildcard chart fills
-  follow selected tokens while waterfall business semantics remain intact.
+  follow selected tokens while the original DAX measures remain unchanged; the regional waterfall is deliberately shown as a category-colored column comparison.
 
 ## Categorical readability remediation — follow-up
 

@@ -4,11 +4,11 @@
 <text x="30" y="48" fill="#1F2834" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="650">Saffron &amp; Spruce</text>
 <text x="30" y="78" fill="#4A5563" font-family="Segoe UI,Arial,sans-serif" font-size="15">Light · actual theme tokens</text>
 <rect x="30" y="100" width="84" height="37" rx="7" fill="#AA8B45"/>
-<rect x="124" y="100" width="84" height="37" rx="7" fill="#54968C"/>
-<rect x="218" y="100" width="84" height="37" rx="7" fill="#A54554"/>
-<rect x="312" y="100" width="84" height="37" rx="7" fill="#2B7D26"/>
-<rect x="406" y="100" width="84" height="37" rx="7" fill="#887CB6"/>
-<rect x="500" y="100" width="84" height="37" rx="7" fill="#16228D"/>
-<rect x="594" y="100" width="84" height="37" rx="7" fill="#D557DB"/>
-<rect x="688" y="100" width="84" height="37" rx="7" fill="#484F56"/>
+<rect x="124" y="100" width="84" height="37" rx="7" fill="#539A8D"/>
+<rect x="218" y="100" width="84" height="37" rx="7" fill="#8C3B47"/>
+<rect x="312" y="100" width="84" height="37" rx="7" fill="#304B73"/>
+<rect x="406" y="100" width="84" height="37" rx="7" fill="#B26FC3"/>
+<rect x="500" y="100" width="84" height="37" rx="7" fill="#2E168D"/>
+<rect x="594" y="100" width="84" height="37" rx="7" fill="#D630DF"/>
+<rect x="688" y="100" width="84" height="37" rx="7" fill="#734E30"/>
 </svg>

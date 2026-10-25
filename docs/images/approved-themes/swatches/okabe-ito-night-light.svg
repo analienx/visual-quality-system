@@ -4,11 +4,11 @@
 <text x="30" y="48" fill="#1F2834" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="650">Okabe–Ito Night</text>
 <text x="30" y="78" fill="#4A5563" font-family="Segoe UI,Arial,sans-serif" font-size="15">Light · actual theme tokens</text>
 <rect x="30" y="100" width="84" height="37" rx="7" fill="#C68900"/>
-<rect x="124" y="100" width="84" height="37" rx="7" fill="#4B98C8"/>
-<rect x="218" y="100" width="84" height="37" rx="7" fill="#30734B"/>
-<rect x="312" y="100" width="84" height="37" rx="7" fill="#50A423"/>
-<rect x="406" y="100" width="84" height="37" rx="7" fill="#B6857C"/>
+<rect x="124" y="100" width="84" height="37" rx="7" fill="#2994C2"/>
+<rect x="218" y="100" width="84" height="37" rx="7" fill="#307341"/>
+<rect x="312" y="100" width="84" height="37" rx="7" fill="#A98466"/>
+<rect x="406" y="100" width="84" height="37" rx="7" fill="#CF6394"/>
 <rect x="500" y="100" width="84" height="37" rx="7" fill="#C22929"/>
-<rect x="594" y="100" width="84" height="37" rx="7" fill="#BB3E89"/>
+<rect x="594" y="100" width="84" height="37" rx="7" fill="#8A23A4"/>
 <rect x="688" y="100" width="84" height="37" rx="7" fill="#59616A"/>
 </svg>

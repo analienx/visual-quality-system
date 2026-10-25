@@ -1,5 +1,32 @@
 # Changelog
 
+## Native category-pixel acceptance correction, 25 October 2026 (PR #81, unmerged)
+
+A second native screenshot review found two genuine quality-control gaps:
+the gross-margin target chart rendered *Electronics* and *Sports &
+Outdoors* in exactly the same below-target red, and the 40/9
+multi-category separation allowed near-duplicates in the seven-category
+charts. The new QVS HIGH finding `color.category_conditional_shared_status`
+prohibits the wildcard conditional bar fill from silently passing as
+categorical identity. The 4–7-category screening bounds are now
+CIELAB ΔE76 >=45 and approximate color-vision distance >=15,
+while 2–3 categories retain >=50 and >=19.
+
+Contoso target bars now encode three distinct categories while preserving
+the 35% reference line, GM values and DAX. The former cumulative regional
+waterfall has been explicitly changed to a color-distinct regional
+variance **column comparison** (same variance DAX and grouping; no implicit
+waterfall total). Graphite Red remains green-free. All 28 candidate
+modes passed the updated QVS hard gate **before** Desktop capture.
+
+The corrected subtitle and native screen acceptance gate were published
+in source commit `587eda95c46770bdffd0c20992506c8bfbb94426`. After native model refresh, 50 real
+Power BI Desktop screenshots were independently verified with 100
+category/series chart-region pixel checks across the ten featured modes.
+Thirty WebP previews and eighteen color swatches were regenerated and
+verified by SHA-256 at exactly that source revision.
+This is a draft engineering candidate, **not a production G2/G4/G6 signoff**.
+
 ## Unreleased candidate — 2026-10-24 (draft PR #81; NOT on main)
 
 **Adaptive Power BI report themes:** 14 newly approved palette families in paired

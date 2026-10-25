@@ -309,3 +309,25 @@ not silently accepted. These are screening rules; actual pixel
 rendering and independent perceptual review remain required.
 This does not prohibit legitimate status-color encoding in non-category
 business visuals, but it cannot certify that as distinct category colors.
+
+
+### Final native screenshot acceptance: 100 chart regions
+
+After the 28-mode source gate and Microsoft authoring validation,
+run the *same* GitHub candidate artifacts in Power BI Desktop with
+a real model refresh and capture all five pages in both modes for
+each featured family. Then run:
+
+```bash
+python scripts/theme_native_category_pixel_gate.py /path/to/approved-candidates --out native-pixel-gate.json
+```
+
+The pixel gate checks the actual expected native theme colors for
+**every series** in ten fixed synthetic Contoso chart regions,
+across ten Light/Dark modes (100 checks). It covers 7 subcategories,
+5 brands, 5 stores, 3 target GM bars, regional variance and
+the supporting charts. It verifies source digest and exact
+capture dimensions. It is deliberately *source-specific*, not a
+universal image-recognition engine; separate independent screenshot
+review remains essential. The published screenshot hashes must
+also pass the ten-mode provenance audit.
