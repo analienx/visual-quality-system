@@ -616,7 +616,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Target 35% \\u00b7 bar color identifies category \\u00b7 read % label for performance.'"
+                  "Value": "'35% target. Colors identify categories; labels show their gross margin.'"
                 }
               }
             }

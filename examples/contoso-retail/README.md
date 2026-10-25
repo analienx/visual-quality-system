@@ -37,7 +37,7 @@ The commands are read-only against the sample. For real Power BI Desktop capture
 | Markets & drivers | [Markets & drivers](../../docs/media/showcase/markets-drivers.webp) |
 | Deep-dive insights | [Deep-dive with Shape Map](../../docs/media/showcase/deep-dive-map.webp) |
 
-**Source provenance:** The PBIR report's SHA-256 source digest is `e6d4d9613e30ac2d8f668cdd460c24bd834a4bdc485074b9bce37fa560f043a6` — **updated on 25 October** from the 22 October native Desktop source used for all five rendered screenshots. The semantic model's source digest (all TMDL files plus `definition.pbism`, stable sorted paths and NUL delimiters) is `30040bd3b229fc8507d30cf58e30d393b5b65e9317b2159f3066772aa715ae3f`. All 12 M partitions generate their own synthetic data.
+**Source provenance:** The PBIR report's SHA-256 source digest is `1c38fc2c2af5bc4595d0b015eed0ed828b70b9af8c8c9a6844bd5587a7a82d69` — **updated on 25 October** from the 22 October native Desktop source used for all five rendered screenshots. The semantic model's source digest (all TMDL files plus `definition.pbism`, stable sorted paths and NUL delimiters) is `30040bd3b229fc8507d30cf58e30d393b5b65e9317b2159f3066772aa715ae3f`. All 12 M partitions generate their own synthetic data.
 
 The demo intentionally excludes `.pbi/cache.abf`, binary PBIX, full-resolution screenshot evidence, accounts, secrets, and anything tied to a private user filesystem. The installed Desktop rebuilds the cache on its first refresh. The screenshot previews are downscaled derivatives and are **not** a formal independent G2 visual-quality approval.
 
