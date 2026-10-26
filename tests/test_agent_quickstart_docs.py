@@ -17,7 +17,7 @@ def test_quickstart_is_discoverable_from_readme_and_docs_hub():
     assert "AI_AGENT_QUICKSTART.md" in (ROOT / "docs" / "README.md").read_text(
         encoding="utf-8"
     )
-    assert "Fix Power BI with an AI agent" in (ROOT / "README.md").read_text(
+    assert "AI-driven improvement, with evidence at every step" in (ROOT / "README.md").read_text(
         encoding="utf-8"
     )
 
@@ -58,7 +58,7 @@ def test_agent_autofix_architecture_matches_existing_engine():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "AGENT_AUTOFIX_ARCHITECTURE.md" in guide
     assert "AGENT_AUTOFIX_ARCHITECTURE.md" in readme
-    assert readme.index("## Fix Power BI with an AI agent") < readme.index(
+    assert readme.index("## AI-driven improvement, with evidence at every step") < readme.index(
         "## Real Power BI showcase"
     )
     assert "Agent-first automatic candidate fixing" in (
@@ -77,3 +77,48 @@ def test_agent_autofix_architecture_matches_existing_engine():
     assert "mode=repair" in descriptions["vqs_run"]
     assert "Never overwrites the original" in descriptions["vqs_run"]
     assert "G6" in architecture
+
+
+
+def test_premium_homepage_has_working_agent_navigation_and_real_theme_gallery():
+    """Marketing claims must point to real artifacts, not screenshot mockups."""
+    from urllib.parse import unquote
+
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    first = readme.split("## Real Power BI showcase", 1)[0]
+    assert "AI-driven improvement, with evidence at every step" in first
+    assert "vqs_run" in first and "--mode repair" in first
+    assert "scope=static" in first
+    assert "Fixed" in first and "Verified" in first and "Still blocked" in first
+    assert "original" in first and "isolated candidate" in first
+    for path in ("docs/AI_AGENT_QUICKSTART.md",
+                 "docs/AGENT_AUTOFIX_ARCHITECTURE.md",
+                 "docs/diagrams/product-flow.svg"):
+        assert path in first
+        assert (ROOT / path).is_file()
+
+    gallery = readme.split("## Real Power BI showcase", 1)[1]
+    names = (
+        "sunny-palette", "organic-palette", "graphite-red",
+        "indigo-ember", "petrol-gold", "riviera-pop", "okabe-ito-night"
+    )
+    for slug in names:
+        assert f'<a id="{slug}"></a>' in gallery
+        for mode in ("light", "dark"):
+            image = (ROOT / "docs" / "images" / "adaptive-showcase"
+                     / f"{slug}-{mode}" / "executive-overview.webp")
+            assert image.is_file(), str(image)
+            assert image.relative_to(ROOT).as_posix() in gallery
+
+    # Verify both Markdown and HTML targets, not merely displayed link labels.
+    markdown_targets = re.findall(r"]\(([^)]+)\)", readme)
+    html_targets = re.findall(r'(?:href|src)="([^"]+)"', readme)
+    for target in markdown_targets + html_targets:
+        if target.startswith(("https://", "http://", "#")):
+            continue
+        path = unquote(target.split("#", 1)[0])
+        assert (ROOT / path).is_file(), target
+
+    assert readme.count("## Agent connection reference") == 0
+    assert "\\" + "`" not in readme
+    assert readme.count("```") % 2 == 0
