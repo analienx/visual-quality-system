@@ -40,7 +40,9 @@ def test_current_theme_notes_explicitly_override_stale_historical_draft_status()
         "Earlier engineering evidence"
     )
     assert "closed" in theme[:1000].lower()
-    assert "were explicitly moved to issue #16" in changelog[:3800]
+    assert "were explicitly moved to issue #16" in changelog.split(
+        "## Native gallery verified against current authoring source", 1
+    )[0]
 
 
 def test_current_release_notes_local_links_resolve():
