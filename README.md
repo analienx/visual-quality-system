@@ -4,6 +4,7 @@
   <p><strong>Diagnose the source. Refine the design. Verify what users actually see.</strong></p>
   <p>Deterministic PBIP checks · Source-safe Light/Dark themes · Real Power BI Desktop evidence</p>
   <p>
+    <a href="#use-vqs-with-an-ai-agent">Use with AI agents</a> ·
     <a href="#try-it">Quick start</a> ·
     <a href="#real-power-bi-showcase">Real report screenshots</a> ·
     <a href="docs/README.md">Documentation</a> ·
@@ -103,6 +104,26 @@ colors easy to compare. Each control palette includes themed dropdown,
 filter and selection surfaces. Interactive flyouts remain separately
 reviewable; static screenshots are not interaction certification.
 
+## Use VQS with an AI agent
+
+**Yes — VQS works with MCP-compatible AI agents and terminal-based coding agents.**
+Connect the built-in `vqs-mcp` server, point the agent at a Power BI `*.Report`
+folder, and ask it to find quality issues, explain them and propose safe,
+reversible improvements. You can start with a **read-only review**; no Power BI
+Desktop or Microsoft sign-in is required for source checks.
+
+**[5-minute AI agent setup: connect MCP, copy a prompt, review your first report](docs/AI_AGENT_QUICKSTART.md)**
+
+For agents with terminal access (even without MCP):
+
+```bash
+vqs review "path/to/Example.Report" --run-root "./private-vqs-runs" --run-id "first-review"
+```
+
+An agent may interpret findings, but a source check is not native screenshot
+proof and the agent cannot self-certify a release. Original reports are never
+silently overwritten.
+
 ## Try it
 
 Install and analyze a report **without Power BI Desktop, a Microsoft account or a cloud subscription**:
@@ -154,6 +175,7 @@ The distinct Corporate Spend subject has documented Azure Maps sign-in and schem
 
 | For | Start here |
 | :--- | :--- |
+| **AI agent users** | [Connect MCP or your coding agent — 5-minute walkthrough](docs/AI_AGENT_QUICKSTART.md) |
 | **Power BI report authors** | [Getting started](docs/USER_GUIDE.md) · [Premium design guide](docs/PREMIUM_POWERBI.md) · [Theme palette library](docs/APPROVED_THEME_LIBRARY.md) |
 | **BI platform engineers** | [Architecture](docs/ARCHITECTURE.md) · [CLI](docs/CLI.md) · [Power BI integration & native evidence](docs/VISUAL_QA_V2_P16_NATIVE_DESKTOP_UIA.md) |
 | **Quality reviewers** | [Acceptance matrix](docs/ACCEPTANCE_MATRIX.md) · [Screenshot provenance](docs/images/adaptive-showcase/PROVENANCE.json) · [Native gallery](docs/REAL_THEME_SHOWCASE.md) |
