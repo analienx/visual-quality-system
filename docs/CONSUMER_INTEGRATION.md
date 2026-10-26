@@ -68,6 +68,17 @@ Use the `powerbi-core` release scope for Power BI work. This requires **two genu
 
 `word-docx` is independently gated by OOXML, actual pagination, figures and G5. Do not silently claim a Word result from a passing PBIR review, and do not require a DOCX artifact for Power BI quality review.
 
+## Evidence already verified — two unrelated source inventories (26 October 2026)
+
+Using exactly the **same physical project revision** per subject, the existing PBIPDocumenter `PbipProject/build_project_summary` extractor and VQS `report_context` source parser were run read-only on the authorized Windows host. We compared exact page IDs, visual IDs, visual types and each `(page, visual, role, queryRef)` field binding, not merely headline counts.
+
+| Subject | Report source SHA-256 (prefix) | Pages | Visuals | Bound field references | Differences |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Fictional Contoso Retail (Sunny Light candidate) | `c23d6bffc62a` | 5 / 5 | 54 / 54 | 90 / 90 | 0 |
+| Structurally unrelated Corporate Spend export | `f9d935bf5321` | 3 / 3 | 20 / 20 | 38 / 38 | 0 |
+
+Private machine-local JSON receipts retain the complete source digest and full comparison. No report definitions, caches, raw data, native screenshots or credentials were uploaded. **These are G0 source-inventory parity results only:** neither this comparison nor an installed-package smoke test proves actual DOCX output equivalence, visual pixels, live DAX, cross-report interactions, or production approval. The Corporate Spend PBIR still carries known authoring-CLI/export disagreements and authenticated Azure Maps; do not market them as resolved.
+
 ## Migration and release boundary
 
 1. Pin both the incumbent PBIPDocumenter prototype and the VQS package commit. Run **the same report revision**, model hash, filters/role, and authorized data against each.
