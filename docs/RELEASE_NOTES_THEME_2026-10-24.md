@@ -1,5 +1,14 @@
 # Adaptive Power BI themes · release and integration history
 
+> **Current status (26 October):** 14-family adaptive theme implementation is
+> merged, and [#80](https://github.com/analienx/visual-quality-system/issues/80)
+> is **closed**. Any still-unverified interactive/theme P3 review, the
+> independent two-PBIP G2/G4 tests and production G6 are tracked in
+> still-open [#16](https://github.com/analienx/visual-quality-system/issues/16).
+> See [latest engineering release notes](RELEASE_NOTES_2026-10-26.md) and
+> [agent-first README](../README.md). Historical sections below preserve
+> their *then-current* draft/PR status and are not the current release state.
+
 ## Adaptive themes integrated into main — 26 October 2026
 
 Owner-approved [PR #81](https://github.com/analienx/visual-quality-system/pull/81)
@@ -13,9 +22,10 @@ passed 1,860 tests (11 skipped), and all PR CI, authoring and R6 jobs passed.
 **Release boundary:** this was approval to merge the **feature**, not
 independent `powerbi-core` production acceptance. The two unrelated
 PBIP G2/G4 scenarios and broader release G6 remain open in
-[issue #16](https://github.com/analienx/visual-quality-system/issues/16);
-additional theme-specific P3 interactive coverage remains open in
-[issue #80](https://github.com/analienx/visual-quality-system/issues/80).
+[issue #16](https://github.com/analienx/visual-quality-system/issues/16).
+The implementation issue [#80](https://github.com/analienx/visual-quality-system/issues/80)
+has since been **closed as completed**; its unverified P3 interaction checks
+were explicitly moved to issue #16, **not marked passed**.
 
 ## Earlier engineering evidence — 24–25 October 2026 (historical state)
 
