@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="840" height="204" viewBox="0 0 840 204">
+<rect width="840" height="204" rx="18" fill="#241E1B"/>
+<rect x="12" y="12" width="816" height="180" rx="12" fill="#322824"/>
+<text x="30" y="46" fill="#F4F6F8" font-family="Segoe UI,Arial,sans-serif" font-size="21" font-weight="600">Mediterranean Terra</text>
+<text x="30" y="73" fill="#D0D4DC" font-family="Segoe UI,Arial,sans-serif" font-size="15">Dark · real theme tokens</text>
+<rect x="30" y="91" width="86" height="35" rx="7" fill="#E8A17C"/>
+<rect x="126" y="91" width="86" height="35" rx="7" fill="#88CDC3"/>
+<rect x="222" y="91" width="86" height="35" rx="7" fill="#E7FB98"/>
+<rect x="318" y="91" width="86" height="35" rx="7" fill="#3B8C43"/>
+<rect x="414" y="91" width="86" height="35" rx="7" fill="#D4B1E7"/>
+<rect x="510" y="91" width="86" height="35" rx="7" fill="#E34F92"/>
+<rect x="606" y="91" width="86" height="35" rx="7" fill="#3076DF"/>
+<rect x="702" y="91" width="86" height="35" rx="7" fill="#74C748"/>
+<rect x="30" y="145" width="384" height="39" rx="8" fill="#4F3B32"/>
+<text x="44" y="170" font-family="Segoe UI,Arial,sans-serif" font-size="16" fill="#F4F6F8">Reporting year   ▾</text>
+<rect x="430" y="145" width="160" height="39" rx="8" fill="#E8A17C"/>
+<text x="448" y="170" font-family="Segoe UI,Arial,sans-serif" font-size="16" fill="#13191F">Selected</text>
+</svg>

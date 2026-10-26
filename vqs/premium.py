@@ -15,6 +15,7 @@ from statistics import median
 from typing import Any
 
 from .pbir import report_context
+from .series_readability import categorical_series_findings, distance
 from .triage import _report_input
 
 SCHEMA = "vqs.premium-design/1"
@@ -112,6 +113,301 @@ def _explicit_title_size(v: Mapping[str, Any]) -> float | None:
     return None
 
 
+
+def _assigned_categorical_colors(
+        objects: Mapping[str, Any], palette: list[str]) -> dict[str, str]:
+    """Resolve per-category PBIR fill expressions against the ACTIVE theme.
+
+    ThemeDataColor IDs 0/1 are reserved. IDs 2..N+1 correspond to the
+    registered Power BI dataColors[0..N-1], as verified by native renders.
+    Unsupported expressions are left unresolved rather than guessed.
+    """
+    selected: dict[str, str] = {}
+    entries = objects.get("dataPoint", [])
+    if not isinstance(entries, list):
+        return selected
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        selector = entry.get("selector", {})
+        try:
+            comparison = selector["data"][0]["scopeId"]["Comparison"]
+            if comparison["ComparisonKind"] != 0:
+                continue
+            raw = comparison["Right"]["Literal"]["Value"]
+            if not isinstance(raw, str) or not raw.startswith("'"):
+                continue
+            category = raw.strip("'").replace("''", "'")
+            expr = entry["properties"]["fill"]["solid"]["color"]["expr"]
+        except (KeyError, TypeError, IndexError):
+            continue
+        color = None
+        ref = expr.get("ThemeDataColor")
+        if isinstance(ref, dict):
+            idx = ref.get("ColorId")
+            if (isinstance(idx, int) and not isinstance(idx, bool)
+                    and 0 <= idx - 2 < len(palette)):
+                color = palette[idx - 2].upper()
+        literal = expr.get("Literal")
+        if isinstance(literal, dict):
+            val = literal.get("Value")
+            if (isinstance(val, str)
+                    and re.fullmatch(r"'?#[0-9a-fA-F]{6}'?", val)):
+                color = val.strip("'").upper()
+        if color is not None:
+            selected[category] = color
+    return selected
+
+
+def _category_collision_risks(
+        report_dir: Path, context: Mapping[str, Any],
+        palette: list[str]) -> list[dict]:
+    """HIGH severity if two visible-series identities resolve too closely.
+
+    Only explicit native PBIR scopeId category colors are considered; a
+    measure-bound numeric FillRule, waterfall sentiment or conditional KPI
+    is not reinterpreted as categorical. Results carry actual names and hexes.
+    """
+    out: list[dict] = []
+    kinds = {"clusteredbarchart","clusteredcolumnchart",
+             "stackedbarchart","stackedcolumnchart",
+             "barchart","columnchart","linechart","areachart"}
+    for page in context["pages"]:
+        for visual in page["visuals"]:
+            if visual["visual_type"].casefold() not in kinds:
+                continue
+            src = (report_dir/"definition/pages"/page["id"]/"visuals"
+                   /visual["visual_id"]/"visual.json")
+            try:
+                obj = json.loads(src.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            objects = obj.get("visual", {}).get("objects", {})
+            entries = objects.get("dataPoint", [])
+            category_state = obj.get("visual", {}).get("query", {}).get(
+                "queryState", {}).get("Category", {})
+            category_fields = (category_state.get("projections", [])
+                               if isinstance(category_state, dict) else [])
+            # A chart with a categorical axis but *no* dataPoint assignments
+            # uses Power BI's single default series color for all bars.
+            # A prior executive-only QVS gate missed this exact issue on
+            # Deep-dive > Regional sales. Report the missing identity mapping
+            # before checking pairs (there are no pairs to compare yet).
+            if (visual["visual_type"].casefold() in {
+                    "clusteredbarchart", "clusteredcolumnchart",
+                    "stackedbarchart", "stackedcolumnchart",
+                    "barchart", "columnchart"}
+                    and category_fields and not entries):
+                out.append({
+                    "rule": "color.category_unscoped_default",
+                    "importance": "high", "page_id": page["id"],
+                    "visual_ids": [visual["visual_id"]],
+                    "evidence": {
+                        "scope": "categorical bar chart without scoped dataPoint fills",
+                        "categoryProjections": len(category_fields),
+                        "colorIdentity": "all categories inherit one default color"},
+                    "recommendation":
+                        "Assign explicit, perceptually distinct scopeId fill "
+                        "colors for each named category. A single default bar "
+                        "color is not category identity; verify native pixels."})
+            wildcard = []
+            conditional = []
+            for entry in entries if isinstance(entries, list) else []:
+                if not isinstance(entry, dict):
+                    continue
+                if entry.get("selector", {}).get("data") != [
+                        {"dataViewWildcard": {"matchingOption": 1}}]:
+                    continue
+                expr = entry.get("properties", {}).get("fill", {}).get(
+                    "solid", {}).get("color", {}).get("expr", {})
+                if isinstance(expr, dict) and (
+                        "Literal" in expr or "ThemeDataColor" in expr):
+                    wildcard.append(entry)
+                # Conditional fills may deliberately group multiple named
+                # product categories by KPI outcome, making same-colored bars.
+                # This is a HIGH category-distinctness *risk*, not proof that
+                # the conditional expression is objectively wrong. The
+                # showcase requires category identity, so it must not pass.
+                if isinstance(expr, dict) and "Conditional" in expr:
+                    conditional.append(entry)
+            if conditional:
+                out.append({
+                    "rule": "color.category_conditional_shared_status",
+                    "importance": "high", "page_id": page["id"],
+                    "visual_ids": [visual["visual_id"]],
+                    "evidence": {
+                        "scope": "category-axis chart with wildcard conditional fill",
+                        "entry_count": len(conditional),
+                        "color_identity": "multiple categories can evaluate to same status"},
+                    "recommendation":
+                        "If distinct category identity is required, encode category "
+                        "with unique fills and retain target/threshold information "
+                        "through reference lines, labels or tooltips. Otherwise "
+                        "declare and review the intentional status-color exception."})
+            if wildcard:
+                out.append({
+                    "rule":"color.category_wildcard_shared_fill",
+                    "importance":"high", "page_id":page["id"],
+                    "visual_ids":[visual["visual_id"]],
+                    "evidence":{
+                        "scope":"flat wildcard fill applies to all category values",
+                        "assignmentCount":len(wildcard),
+                        "categoryDistinctness":"not explicitly guaranteed"},
+                    "recommendation":
+                        "Replace the unscoped flat fill with individually "
+                        "assigned category colors or demonstrate that the "
+                        "categorical visual contains only one category. "
+                        "Retain conditional business-status colors."})
+            assigned = _assigned_categorical_colors(objects, palette)
+            if len(assigned) < 2:
+                continue
+            names = list(assigned)
+            collisions = []
+            for i in range(len(names)):
+                for j in range(i+1, len(names)):
+                    a, b = assigned[names[i]], assigned[names[j]]
+                    try:
+                        deltas = {vision:round(distance(a,b,vision),2)
+                                  for vision in ("normal","protan","deutan","tritan")}
+                    except ValueError:
+                        continue
+                    # More stringent than generic palette check: all these
+                    # colors are actually assigned together in ONE chart.
+                    # Multi-category assignments must remain distinguishable.
+                    # The prior 40/9 thresholds let obvious near-matches
+                    # through in 5–7-category charts (observed in gallery).
+                    normal_limit = 50 if len(names) <= 3 else 45
+                    cvd_limit = 19 if len(names) <= 3 else 15
+                    violated = (
+                        deltas["normal"] < normal_limit
+                        or min(deltas[k] for k in
+                               ("protan","deutan","tritan")) < cvd_limit)
+                    if violated:
+                        collisions.append({
+                            "categories":[names[i],names[j]],
+                            "colors":[a,b],
+                            "normal_delta_e76":deltas["normal"],
+                            "cvd_delta_e76":{k:deltas[k] for k in
+                                             ("protan","deutan","tritan")},
+                            "thresholds":{"normal":normal_limit,"cvd":cvd_limit}})
+            if collisions:
+                out.append({
+                    "rule":"color.category_series_collision",
+                    "importance":"high","page_id":page["id"],
+                    "visual_ids":[visual["visual_id"]],
+                    "evidence":{
+                        "scope":"explicit resolved PBIR per-category colors",
+                        "assigned_categories":assigned,
+                        "pair_count":len(collisions),
+                        "colliding_pairs":collisions},
+                    "recommendation":
+                        "Assign strongly distinct colors to each named category "
+                        "in this visual, rerun VQS and verify actual Power BI "
+                        "pixels before recapturing the showcase. Preserve values, "
+                        "measures, conditional status and quantitative gradients."})
+    return out
+
+
+def _static_color_risks(report_dir: Path, context: Mapping[str, Any]) -> list[dict]:
+    """Source-proven theme pair collisions and numeric-vs-category ambiguity.
+
+    A report theme specifies *possible* colors; it does not prove that they
+    were rendered by any given chart. Findings are therefore explicit
+    risk/advisory observations, not image-verified failures.
+    """
+    issues: list[dict] = []
+    report_file = report_dir / "definition/report.json"
+    try:
+        metadata = json.loads(report_file.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return issues
+    colors: list[str] = []
+    custom = metadata.get("themeCollection", {}).get("customTheme", {})
+    name = custom.get("name") if isinstance(custom, dict) else None
+    if isinstance(name, str) and name.endswith(".json") and Path(name).name == name:
+        theme_file = report_dir / "StaticResources/RegisteredResources" / name
+        if theme_file.is_file() and not theme_file.is_symlink():
+            try:
+                payload = json.loads(theme_file.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                payload = {}
+            colors = payload.get("dataColors") if isinstance(payload, dict) else None
+            if (isinstance(colors, list) and len(colors) >= 2
+                    and all(isinstance(c, str) and len(c) == 7 for c in colors)):
+                try:
+                    weak = categorical_series_findings(colors[:8])
+                except ValueError:
+                    weak = []
+                if weak:
+                    # Surface a real page/chart locus, but don't assert all
+                    # 8 series are simultaneously used or rendered.
+                    charts = [
+                        (page["id"], visual["visual_id"])
+                        for page in context["pages"]
+                        for visual in page["visuals"]
+                        if visual["visual_type"].casefold() in {
+                            "linechart", "areachart", "clusteredbarchart",
+                            "clusteredcolumnchart", "donutchart", "piechart"}]
+                    if charts:
+                        first_page = charts[0][0]
+                        issues.append({
+                            "rule":"color.palette_series_collision",
+                            "importance":"high",
+                            "page_id":first_page,
+                            "visual_ids":[v for page,v in charts if page==first_page],
+                            "evidence":{
+                                "scope":"candidate theme palette, not rendered pixels",
+                                "theme":name,
+                                "pair_count":len(weak),
+                                "worst_pairs":weak[:4]},
+                            "recommendation":
+                                "Choose meaningfully separated categorical series colors "
+                                "and check two-series lines and clustered bars in native "
+                                "Power BI Desktop, including color-vision simulations. "
+                                "Do not change measure-bound business colors."})
+    if isinstance(colors, list) and all(
+            isinstance(c,str) and re.fullmatch(r"#[0-9a-fA-F]{6}", c)
+            for c in colors):
+        issues.extend(_category_collision_risks(report_dir,context,colors))
+    # A measure-driven continuous gradient used on named categories can make
+    # neighboring bars look almost identical. This is a documented encoding
+    # ambiguity, not proof of an incorrect business rule. Never rewrite it.
+    for page in context["pages"]:
+        flagged=[]
+        visual_root=report_dir/"definition/pages"/page["id"]/"visuals"
+        for visual in page["visuals"]:
+            if visual["visual_type"].casefold() not in {
+                    "clusteredbarchart","clusteredcolumnchart",
+                    "stackedbarchart","stackedcolumnchart"}:
+                continue
+            src=visual_root/visual["visual_id"]/"visual.json"
+            try:
+                data=json.loads(src.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            entries=data.get("visual",{}).get("objects",{}).get("dataPoint",[])
+            if (isinstance(entries,list) and any(
+                    isinstance(e,dict)
+                    and "FillRule" in json.dumps(e.get("properties",{}))
+                    and "linearGradient" in json.dumps(e.get("properties",{}))
+                    for e in entries)):
+                flagged.append(visual["visual_id"])
+        if flagged:
+            issues.append({
+                "rule":"color.numeric_gradient_category_ambiguity",
+                "importance":"low", "page_id":page["id"],
+                "visual_ids":flagged,
+                "evidence":{"source":"explicit measure-bound numeric FillRule",
+                            "rendered_distinction":"not verified",
+                            "affected_visuals":len(flagged)},
+                "recommendation":
+                    "Review the rendered quantitative legend and the near-equal "
+                    "category bars. Preserve the numeric-gradient semantics if "
+                    "color intentionally encodes magnitude; when categories "
+                    "require distinct identification, choose an owner-approved "
+                    "categorical encoding in a separate source edit."})
+    return issues
+
 def audit(source: str, *, contract: Mapping[str, Any] | None = None) -> dict[str, Any]:
     report, _model = _report_input(source, None)
     context = report_context(Path(report))
@@ -194,6 +490,7 @@ def audit(source: str, *, contract: Mapping[str, Any] | None = None) -> dict[str
                                               else round(focal_box[2] * focal_box[3], 1),
                                               "peer_median_area": median(comparable) if comparable else None},
                                  "recommendation": "Give the owner-declared focal visual clearer prominence; verify the reading path in a fresh full-page render."})
+    findings.extend(_static_color_risks(Path(report), context))
     findings.sort(key=lambda f: ({"high": 0, "medium": 1, "low": 2}[f["importance"]],
                                  f["page_id"], f["rule"], f["visual_ids"]))
     return {"schema": "vqs.premium-preflight/1", "source_sha256": context["source_sha256"],

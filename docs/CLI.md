@@ -42,6 +42,18 @@ bindings, source hash. Read-only; not design approval.
 vqs inventory path/to/Example.Report
 ```
 
+## vqs theme — adaptive Light/Dark theme engine
+
+Candidate-only re-theming by semantic role (issue #80). See
+[theme engine](THEME_ENGINE.md) and [theme audit](THEME_AUDIT.md).
+
+```console
+vqs theme inspect REPORT --out theme-inventory.json
+vqs theme preview REPORT --mode dark [--palette executive.json] --out plan.json
+vqs theme apply REPORT --mode dark [--palette executive.json] --candidate-root ./candidates/dark
+vqs theme audit ./candidates/dark --out theme-audit.json
+```
+
 ## vqs premium — source-bound design preflight
 
 For actual PBIR/PBIP reports, identify **measurable** page-design opportunities without redesigning data or querying a model. Generate a template with empty audience/question/focal fields; edit that JSON to state the owner's intent and budgets. It is tied to the exact current report source hash, so changing the report invalidates the template until re-reviewed. Results identify real page/visual IDs and rank up to three actions; `status=advisory` is **not** G2 visual acceptance.

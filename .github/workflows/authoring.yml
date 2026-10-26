@@ -31,3 +31,65 @@ jobs:
         with:
           name: authoring-real-cli-${{ matrix.os }}
           path: authoring-real-cli.json
+      - run: python -m pip install jsonschema==4.25.1
+      - run: python scripts/theme_candidate_probe.py theme-contoso-validation.json
+        env:
+          VQS_THEME_EVIDENCE_ROOT: theme-contoso-candidates
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: themed-contoso-${{ matrix.os }}
+          path: theme-contoso-candidates/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: theme-contoso-real-cli-${{ matrix.os }}
+          path: theme-contoso-validation.json
+
+      # Three optional flat dark palettes, real Contoso candidates, not
+      # screenshots. Preserve existing Light/Dark baseline probes unchanged.
+      - run: python scripts/theme_colorways_probe.py theme-colorways-proof.json
+        env:
+          VQS_THEME_COLORWAY_EVIDENCE_ROOT: theme-colorway-candidates
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: themed-contoso-colorways-${{ matrix.os }}
+          path: theme-colorway-candidates/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: theme-colorways-proof-${{ matrix.os }}
+          path: theme-colorways-proof.json
+
+
+  approved-theme-library:
+    # All 28 user-approved modes are validated against the real Contoso
+    # five-page PBIP, the published Microsoft schema and official CLI.
+    # This publishes source-backed candidates, never invented screenshots.
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: python -m pip install . jsonschema==4.25.1
+      - run: npm install -g @microsoft/powerbi-report-authoring-cli@0.5.0
+      - run: python scripts/theme_approved_library_probe.py approved-theme-proof.json
+        env:
+          VQS_APPROVED_EVIDENCE_ROOT: approved-theme-candidates
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: approved-theme-proof
+          path: approved-theme-proof.json
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: approved-theme-real-pbip-candidates
+          path: approved-theme-candidates/
+          retention-days: 14

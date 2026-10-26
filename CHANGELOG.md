@@ -1,5 +1,126 @@
 # Changelog
 
+## Native gallery verified against current authoring source — 25 October 2026
+
+- **Source:** GitHub authoring commit [6bb62da](https://github.com/analienx/visual-quality-system/commit/6bb62da26d7589dca492571fa5f2ee444e369117) and [workflow run 40224195761](https://github.com/analienx/visual-quality-system/actions/runs/40224195761). All 2,352 downloaded candidate files matched the local candidate set.
+- **Pre-capture QVS:** 28/28 approved Light/Dark modes passed with zero categorical-color findings.
+- **Native Desktop:** 140/140 genuine five-page captures; **364/364** source-specific pixel checks passed (308 charts, 28 closed dropdowns, 28 line legends). Graphite Red had zero suspect green/teal pixels across its ten pages under the documented screening rule.
+- **Publication:** 56 authentic derived WebP previews and 28 palette/control swatches; the provenance file binds source, candidate, model, palette, raw captures and public-image digests.
+- **Boundaries:** open flyouts, broad G2/G4 interactions, unrelated PBIPs and explicit owner G6 promotion are **not approved** by this evidence. PR #81 remains draft and unmerged.
+
+
+
+**Native line-legend polish:** Fixed implicit black line-series legends on dark theme surfaces by applying the explicit, contrast-checked theme token. New source/visual regressions verify bindings and label-color role stay intact; the exact-source native recapture is documented above.
+
+## Complete approved-theme native gallery — 25 October 2026 (PR #81 draft)
+
+The README now highlights seven curated Power BI theme families instead of
+showing the entire long catalog above the product documentation. A dedicated
+[14-family Desktop gallery](docs/REAL_THEME_SHOWCASE.md) shows **all 28
+Light/Dark variants** with **56 authentic report screenshots** (two
+representative pages per mode), backed by **140 private full-page native
+captures** from the exact GitHub-generated PBIP candidates. The complete
+palette reference includes **28 separate color/control previews**, with
+distinct themed dropdown and selection surfaces.
+
+The generic Organic color direction is anchored in cobalt and vivid magenta
+with green and sky-blue accents; Sunny retains orange, peach and grey
+in its appearance roles. Their categorical data colors were adjusted
+for readability separately from lighter brand-inspired control backgrounds.
+All 28 modes passed source QVS acceptance *before* capture, followed by
+**140 native chart-series pixel checks + 28 dropdown checks**. A single
+unexpected Electric Atelier Dark rendering was discarded and recaptured,
+rather than lowering the screenshot tolerance. All generated public assets
+are hash-bound to source/candidate/model/palette identities.
+
+This is a validated candidate and gallery update; separate G2/G4 interactive
+review and G6 merge approval remain outstanding.
+
+## Native category-pixel acceptance correction, 25 October 2026 (PR #81, unmerged)
+
+A second native screenshot review found two genuine quality-control gaps:
+the gross-margin target chart rendered *Electronics* and *Sports &
+Outdoors* in exactly the same below-target red, and the 40/9
+multi-category separation allowed near-duplicates in the seven-category
+charts. The new QVS HIGH finding `color.category_conditional_shared_status`
+prohibits the wildcard conditional bar fill from silently passing as
+categorical identity. The 4–7-category screening bounds are now
+CIELAB ΔE76 >=45 and approximate color-vision distance >=15,
+while 2–3 categories retain >=50 and >=19.
+
+Contoso target bars now encode three distinct categories while preserving
+the 35% reference line, GM values and DAX. The former cumulative regional
+waterfall has been explicitly changed to a color-distinct regional
+variance **column comparison** (same variance DAX and grouping; no implicit
+waterfall total). Graphite Red remains green-free. All 28 candidate
+modes passed the updated QVS hard gate **before** Desktop capture.
+
+The corrected subtitle and native screen acceptance gate were published
+in source commit `587eda95c46770bdffd0c20992506c8bfbb94426`. After native model refresh, 50 real
+Power BI Desktop screenshots were independently verified with 100
+category/series chart-region pixel checks across the ten featured modes.
+Thirty WebP previews and eighteen color swatches were regenerated and
+verified by SHA-256 at exactly that source revision.
+This is a draft engineering candidate, **not a production G2/G4/G6 signoff**.
+
+**Deep-dive region single-color source flaw:** Replaced the three identical default-orange regional sales bars with uniquely scoped native colors. QVS now fails source validation on categorical bar/column visuals missing per-category assignments altogether. Expanded per-mode native evidence to all five pages: 11 chart regions × 28 modes, plus actual dropdown and legend colors (364 pixel checks). Any incomplete/blank native screenshot is quarantined and re-captured; an exit code alone is not visual acceptance.
+
+## Unreleased candidate — 2026-10-24 (draft PR #81; NOT on main)
+
+**Adaptive Power BI report themes:** 14 newly approved palette families in paired
+Light and Dark modes (28 new variants), additive to four unchanged legacy
+presets. Bounded `vqs theme inspect/preview/apply/audit` safely generates
+new PBIP candidates without altering source reports, semantic bindings or
+business meaning. Native Desktop review identified and corrected two
+appearance defects: a hardcoded unscoped chart wildcard fill and low-contrast
+automatic legend/subtitle text. The existing supported chart and numeric
+gradient handling, source/model invariance checks and rollback remain intact.
+
+**Verifiable public showcase:** 50 actual populated Desktop page captures
+from ten featured Sunny, Organic, Graphite Red, Indigo Ember, and Petrol & Gold Light/Dark candidates,
+with 30 cropped WebP previews published in the
+[real gallery](docs/REAL_THEME_SHOWCASE.md). The other 9 families appear as
+18 original token-color swatches in the
+[approved library](docs/APPROVED_THEME_LIBRARY.md)—not claimed as native
+report screenshots. Hashes, candidate/model/source identity and exact
+rendering commit are recorded in the
+[public gallery manifest](docs/images/adaptive-showcase/PROVENANCE.json).
+The homepage and [documentation landing page](docs/README.md) were simplified
+for first-time users and independent reviewers.
+
+**24 October categorical readability correction:** a visual review exposed
+weak separation across many bar/line series. Removed an erroneous test that
+*required Graphite Red to remain nearly monochromatic*; re-optimized all
+28 categorical eight-color sets, preserving each first accent and numeric/
+business encodings. Added tested CIELAB and approximate color-vision
+simulations (Machado matrices applied in linear-light RGB), required
+new-preset load-time validation, and two read-only
+`vqs premium` source-risk findings. Native full-page captures for all ten
+showcased Light/Dark modes, plus the three-page public gallery per mode and
+the other 18 palette swatches, have been **regenerated from the GitHub-hosted
+`dddae21` artifacts**, with new SHA-256 provenance.
+
+**Quality boundary:** full GitHub CI, Microsoft
+authoring validation and source audit were green during preparation.
+GitHub CI checks and independent visual/interaction G2/G4 review remain
+separate from production signoff. Draft PR #81 **must not merge** without
+the separate owner G6 approval. [Theme release-candidate record](docs/RELEASE_NOTES_THEME_2026-10-24.md).
+
+**25 October category-level QA correction:** Existing theme-wide color
+separation missed the real Electronics/Sports & Outdoors pair and a flat
+Retail/Online wildcard. QVS premium now resolves PBIR scoped category names
+and active ThemeDataColor assignments, emits HIGH severity findings
+`color.category_series_collision` and
+`color.category_wildcard_shared_fill`, and records exact RGB/distance/page/
+visual evidence. The 28-mode Microsoft authoring job and its separately
+invocable pre-capture gate require **zero** such findings before publishing
+a screenshot-ready candidate. Rebalanced all 28 category ramps while
+retaining the Organic blue/pink/green/sky-blue and Sunny orange/grey
+visual vocabularies. Source-bound `dddae21` candidates passed
+28/28 with zero category collisions before real Desktop recapture.
+The published 5-family gallery now contains 50 native page captures,
+30 downscaled public screenshots and 18 swatches.
+
 ## Unreleased — 2026-10-21 (main branch; Power BI engineering preview, no GitHub Release)
 
 > This is an **engineering integration**, not a production release or an independently accepted Power BI product. See the [21 October Power BI engineering evidence and release-candidate notes](docs/RELEASE_NOTES_2026-10-21.md).
@@ -183,3 +304,15 @@ The entries below are preserved as **point-in-time candidate-branch records**. T
   `status`, `check`, `validate-plan`, `adjudicate-bundle`),
   acceptance core, ledger DAG validator, TMDL parsing with quoted
   identifiers.
+
+
+**25 October native chart clarity completion:** Seven categorical Contoso visuals
+now use native per-category PBIR scope selectors referencing theme series
+colors; these are category identity encodings rather than numerical ramps.
+The genuine country Shape Map remains a quantitative FillRule example.
+Graphite Red's positive bar and waterfall increase use theme-aware blue
+rather than green, with predicates, thresholds, measure bindings and negative
+red unchanged. The label now explains business value without naming a color.
+The public gallery adds Indigo Ember and Petrol & Gold to the original
+three-feature family comparison, for 50 total private native page captures
+and 30 public screenshot derivatives from the new exact-head candidate revision.

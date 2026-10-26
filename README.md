@@ -1,142 +1,164 @@
 <div align="center">
-  <img src="docs/media/showcase/vqs-brand.svg" alt="Visual Quality System — Power BI quality engine" width="100%">
+  <img src="docs/media/showcase/vqs-brand.svg" width="100%" alt="Visual Quality System — inspect, improve and verify Power BI reports">
   <h2>Make every Power BI report worth trusting.</h2>
-  <p><strong>Understand the source. Refine the design. Verify the actual experience.</strong></p>
-  <p>Deterministic PBIP diagnostics, grounded premium-design feedback, safe candidate repairs, and evidence from real Power BI Desktop.</p>
+  <p><strong>Diagnose the source. Refine the design. Verify what users actually see.</strong></p>
+  <p>Deterministic PBIP checks · Source-safe Light/Dark themes · Real Power BI Desktop evidence</p>
   <p>
-    <a href="#get-started">Get started</a> ·
-    <a href="#inside-the-reports">See real screenshots</a> ·
-    <a href="#how-vqs-works">How it works</a> ·
-    <a href="docs/RELEASE_NOTES_2026-10-21.md">Release notes</a>
+    <a href="#try-it">Quick start</a> ·
+    <a href="#real-power-bi-showcase">Real report screenshots</a> ·
+    <a href="docs/README.md">Documentation</a> ·
+    <a href="docs/ARCHITECTURE.md">Architecture</a>
   </p>
   <p>
-    <a href="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml"><img src="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml/badge.svg" alt="CI"/></a>
-    <img src="https://img.shields.io/badge/Python-3.11%2B-3270B7" alt="Python 3.11+"/>
-    <img src="https://img.shields.io/badge/License-Apache--2.0-18977A" alt="Apache 2.0"/>
-    <a href="docs/RELEASE_NOTES_2026-10-21.md"><img src="https://img.shields.io/badge/Status-engineering%20preview-E2A744" alt="Engineering preview"/></a>
+    <a href="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml"><img src="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml/badge.svg" alt="GitHub CI status"></a>
+    <img src="https://img.shields.io/badge/Python-3.11%2B-3270B7" alt="Python 3.11 and newer">
+    <img src="https://img.shields.io/badge/License-Apache--2.0-18977A" alt="Apache 2.0">
+    <img src="https://img.shields.io/badge/Status-engineering%20preview-E2A744" alt="Engineering preview, not production-certified">
   </p>
 </div>
 
-<a href="docs/media/showcase/executive-overview.webp">
-  <img src="docs/media/showcase/executive-overview.webp" width="100%" alt="Real Power BI Desktop capture of the fictional Contoso Retail Executive overview: four KPIs, monthly revenue trend, regional performance and gross-margin-to-target comparisons">
-</a>
-<p align="center"><sub><strong>REAL POWER BI DESKTOP RENDER</strong> · <a href="examples/contoso-retail/Contoso%20Retail.pbip"><strong>Open the exact matching PBIP</strong></a> · Fictional Contoso sample · Verified source and image hashes · <a href="docs/media/showcase/ASSET_PROVENANCE.md">Image provenance</a></sub></p>
+## Real Power BI showcase
 
-> [!NOTE]
-> **These five previews come from [the exact PBIP and self-contained semantic model committed in this repository](examples/contoso-retail/README.md)** — not mockups or a VQS GUI. Each screenshot's source digest matches the checked-in report. Open it in Power BI Desktop and click **Refresh now** on first use to populate its fictional data; private cache and raw screenshot evidence remain excluded. This is an **engineering preview**, not signed production acceptance.
+**Seven curated families on the homepage. All 14 Light/Dark families in the full gallery.**
+These are real, populated Power BI Desktop screenshots captured from one
+fictional Contoso Retail report; none is a simulated dashboard.
+Each screenshot is bound to the generating GitHub candidate and source hash.
 
-## Inside the reports
+[Open the exact fictional Contoso PBIP source](examples/contoso-retail/Contoso%20Retail.pbip) —
+the source of every generated variant, not a screenshot-only mockup.
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <a href="docs/media/showcase/deep-dive-map.webp"><img src="docs/media/showcase/deep-dive-map.webp" width="100%" alt="Power BI Deep-dive insights page with a rendered no-login country Shape Map, channel mix and regional sales charts"></a>
-      <p><strong>01 · Geography &amp; insight</strong><br><sub>Actual country shapes, regional ranking and channel breakdown—not a blank map placeholder.</sub></p>
-    </td>
-    <td width="50%" valign="top">
-      <a href="docs/media/showcase/products-brands.webp"><img src="docs/media/showcase/products-brands.webp" width="100%" alt="Power BI Products and brands page with sales by brand, subcategory bars, and margin-action matrix"></a>
-      <p><strong>02 · Product performance</strong><br><sub>Ranked categories, margin context and readable analytical tables.</sub></p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <a href="docs/media/showcase/stores-customers.webp"><img src="docs/media/showcase/stores-customers.webp" width="100%" alt="Power BI Stores and customers page with store sales, customer segments and regional customer tables"></a>
-      <p><strong>03 · Customer analytics</strong><br><sub>Native slicers, KPI hierarchy, peer visuals and source-backed matrices.</sub></p>
-    </td>
-    <td width="50%" valign="top">
-      <a href="docs/media/showcase/markets-drivers.webp"><img src="docs/media/showcase/markets-drivers.webp" width="100%" alt="Power BI Markets and drivers page with waterfall chart, channel delivery and category margin contribution"></a>
-      <p><strong>04 · Business drivers</strong><br><sub>Region waterfall, channel mix and contribution analysis across one consistent layout.</sub></p>
-    </td>
-  </tr>
-</table>
+**[Explore the complete 14-family native gallery](docs/REAL_THEME_SHOWCASE.md)** ·
+[Compare all color and control tokens](docs/APPROVED_THEME_LIBRARY.md) ·
+[View the provenance](docs/images/adaptive-showcase/PROVENANCE.json)
 
-<sub>**Every screenshot ↔ one committed project:** [Open Contoso Retail.pbip](examples/contoso-retail/Contoso%20Retail.pbip) · [Reproduction instructions](examples/contoso-retail/README.md) · [SHA-256 provenance](docs/media/showcase/ASSET_PROVENANCE.md). The public WebP previews come from source-identical real Power BI Desktop canvases; the private high-resolution PNGs and cache remain outside Git.</sub>
+**Jump to a featured theme:** [Sunny Palette](#sunny-palette) · [Organic Palette](#organic-palette) · [Graphite Red](#graphite-red) · [Indigo Ember](#indigo-ember) · [Petrol & Gold](#petrol-gold) · [Riviera Pop](#riviera-pop) · [Okabe–Ito Night](#okabe-ito-night)
 
-### Try the exact dashboard shown above
+<a id="sunny-palette"></a>
+### Sunny Palette
 
-The complete five-page [Contoso Retail example](examples/contoso-retail/README.md) is part of this repository, with its matching PBIR report and self-generating Power Query/TMDL semantic model. Clone the repo, open [Contoso Retail.pbip](examples/contoso-retail/Contoso%20Retail.pbip) in Power BI Desktop, and select **Refresh now** on the first open. The default Executive overview reproduces the **$6.82M / 10.0% / 33.9%** headline values shown above; no separate sample download, private ABF cache or database is required.
+Amber-orange and charcoal, with soft peach control surfaces.
 
-A source-hash regression test locks the screenshots to the included PBIP, so future design changes cannot leave outdated marketing images behind.
+| Light · actual report | Dark · actual report |
+| :--- | :--- |
+| [![Sunny Palette Light real Power BI report](docs/images/adaptive-showcase/sunny-palette-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#sunny-palette) | [![Sunny Palette Dark real Power BI report](docs/images/adaptive-showcase/sunny-palette-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#sunny-palette) |
 
-## Why VQS exists
+<a id="organic-palette"></a>
+### Organic Palette
 
-Power BI source files can be valid while the delivered report still has a clipped matrix, empty map, poor visual hierarchy, inconsistent measures, or broken filter interactions. VQS is designed to **separate what the source says from what the user actually sees**.
+Cobalt, vivid magenta, green and cyan with differentiated controls.
 
-| | VQS gives you | Evidence boundary |
-| --- | --- | --- |
-| **Inspect** | Page-/visual-level PBIR checks, TMDL and DAX/M cycle diagnostics, prioritized findings | Deterministic source evidence; no UI needed |
-| **Improve** | Owner-authored `premium` design contract, top-three grounded recommendations, bounded typed repairs | Your original report remains untouched |
-| **Observe** | Populated Power BI Desktop captures, Modeling MCP live DAX probes, supported Windows UI Automation interaction witnesses | Needs a real authorized Windows/Power BI session |
-| **Verify** | Source hashes, per-page image digests, measured report-only crops when possible, sealed review bundles | No self-awarded aesthetic or production approval |
+| Light · actual report | Dark · actual report |
+| :--- | :--- |
+| [![Organic Palette Light real Power BI report](docs/images/adaptive-showcase/organic-palette-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#organic-palette) | [![Organic Palette Dark real Power BI report](docs/images/adaptive-showcase/organic-palette-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#organic-palette) |
 
-### One engine, two execution environments
+<a id="graphite-red"></a>
+### Graphite Red
 
-<a href="docs/ARCHITECTURE.md"><img src="docs/diagrams/product-flow.svg" width="100%" alt="VQS Power BI workflow: read PBIP source, diagnose issues, observe Desktop, seal evidence, independently decide"></a>
+Graphite, ruby and carefully contrasted supporting hues — no green.
 
-**GitHub/Python** runs source checks. **Windows Power BI Desktop** supplies populated DAX, real screenshots and supported native interactions. An independent reviewer—not a model or CI job—makes the scoped release decision. See the [two-diagram architecture](docs/ARCHITECTURE.md) for the execution boundary and the optional Word/WinApp CLI distinction.
+| Light · actual report | Dark · actual report |
+| :--- | :--- |
+| [![Graphite Red Light real Power BI report](docs/images/adaptive-showcase/graphite-red-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#graphite-red) | [![Graphite Red Dark real Power BI report](docs/images/adaptive-showcase/graphite-red-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#graphite-red) |
 
-## Get started
+<a id="indigo-ember"></a>
+### Indigo Ember
 
-**Static quality analysis works on Windows, macOS and Linux.** No Microsoft account, Power BI Desktop installation or upload is needed for the included fixture.
+Indigo-violet balanced with warm editorial accents.
+
+| Light · actual report | Dark · actual report |
+| :--- | :--- |
+| [![Indigo Ember Light real Power BI report](docs/images/adaptive-showcase/indigo-ember-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#indigo-ember) | [![Indigo Ember Dark real Power BI report](docs/images/adaptive-showcase/indigo-ember-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#indigo-ember) |
+
+<a id="petrol-gold"></a>
+### Petrol & Gold
+
+Petrol and warm gold for a confident executive dashboard.
+
+| Light · actual report | Dark · actual report |
+| :--- | :--- |
+| [![Petrol & Gold Light real Power BI report](docs/images/adaptive-showcase/petrol-gold-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#petrol-gold) | [![Petrol & Gold Dark real Power BI report](docs/images/adaptive-showcase/petrol-gold-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#petrol-gold) |
+
+<a id="riviera-pop"></a>
+### Riviera Pop
+
+Expressive seaside color, controlled by a disciplined layout.
+
+| Light · actual report | Dark · actual report |
+| :--- | :--- |
+| [![Riviera Pop Light real Power BI report](docs/images/adaptive-showcase/riviera-pop-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#riviera-pop) | [![Riviera Pop Dark real Power BI report](docs/images/adaptive-showcase/riviera-pop-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#riviera-pop) |
+
+<a id="okabe-ito-night"></a>
+### Okabe–Ito Night
+
+Clear categorical hues and understated interface chrome.
+
+| Light · actual report | Dark · actual report |
+| :--- | :--- |
+| [![Okabe–Ito Night Light real Power BI report](docs/images/adaptive-showcase/okabe-ito-night-light/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#okabe-ito-night) | [![Okabe–Ito Night Dark real Power BI report](docs/images/adaptive-showcase/okabe-ito-night-dark/executive-overview.webp)](docs/REAL_THEME_SHOWCASE.md#okabe-ito-night) |
+
+**[See all 14 palettes and 56 authentic report previews](docs/REAL_THEME_SHOWCASE.md)**
+
+The gallery also shows Products & Brands, making all seven subcategory
+colors easy to compare. Each control palette includes themed dropdown,
+filter and selection surfaces. Interactive flyouts remain separately
+reviewable; static screenshots are not interaction certification.
+
+## Try it
+
+Install and analyze a report **without Power BI Desktop, a Microsoft account or a cloud subscription**:
 
 ```bash
 git clone https://github.com/analienx/visual-quality-system.git
 cd visual-quality-system
 python -m pip install -e ".[test]"
-
 vqs triage tests/powerbi/fixtures/mini_report --out quality.md
 ```
 
-Open `quality.md` for prioritized, source-located observations. The command **does not edit the PBIP**.
+Open `quality.md` to inspect the source-located findings; nothing in the report is changed.
 
-### Bring your own Power BI report
-
-```bash
-# Fast, grounded assessment of a local enhanced-format PBIP
-vqs triage path/to/YourReport.pbip --out quality.md
-
-# Define design intent once, then review the most useful deviations
-vqs premium path/to/YourReport.pbip --init-contract intent.json
-# Edit the generated intent.json for your audience, question and focal visual
-vqs premium path/to/YourReport.pbip --contract intent.json --out premium.md
-
-# Discover available optional Microsoft/Windows integrations
-vqs doctor
-```
-
-VQS `premium` looks for measurable spacing, explicit typography and visual hierarchy problems. It is a **source-aware preflight**, not an automatic beauty rating or AI-led restyling of your report. [Premium quality guide](docs/PREMIUM_POWERBI.md).
-
-### Verify in Power BI Desktop
+### Re-theme a real PBIP, safely
 
 ```bash
-# Private, live Windows instance; replace placeholders with real paths and PID
-vqs capture MyReport.Report private-renders --pid <DESKTOP_PID> --live-data
-vqs bundle pack MyReport.Report private-renders private-review-bundle --fixer-id reviewer-candidate
-vqs bundle verify private-review-bundle --report MyReport.Report
+vqs theme presets
+vqs theme preview "examples/contoso-retail/Contoso Retail.pbip" --mode dark --palette-preset sunny-palette --out theme-plan.json
+vqs theme apply "examples/contoso-retail/Contoso Retail.pbip" --mode light --palette-preset organic-palette --candidate-root ./organic-candidate
+vqs theme audit ./organic-candidate
 ```
 
-Real captures are bound to the model process and report revision. Image-only claims don't substitute for real DAX answers. Unsupported operations and unproven pixel geometry remain explicitly **blocked**, not silently passed.
+`preview` is read-only; `apply` creates a separate candidate and audit manifest. Generated candidates preserve source PBIP, semantic model, DAX, field bindings and business-measure predicates. The Contoso showcase now encodes product and region categories with distinct colors, while keeping business values and the 35% reference line. The generated candidate may need a first-open refresh in Power BI Desktop to populate its local sample model.
 
-## Demonstrated on two unrelated PBIPs
+[**Theme engine guide**](docs/THEME_ENGINE.md) · [CLI reference](docs/CLI.md) · [Five-page sample](examples/contoso-retail/README.md)
 
-| Evidence | Contoso Retail | Microsoft Corporate Spend |
-| --- | --- | --- |
-| Native captured pages | **5 / 5** | **3 / 3** including Tooltip |
-| Real model readiness | Repeated populated DAX probes | Repeated populated DAX probes |
-| Interaction witness | **9 native** Year/Region events | **Europe → Latin America → Europe**, DAX-matched |
-| Public-safe report-only preview | **5 verified canvases** above | Not published; clean crop unproven |
-| Known limits | Some map-country automation unsupported | Azure Maps prompts for sign-in |
+## One workflow, verifiable boundaries
 
-A report can pass static diagnostics without looking premium. Independent G2 aesthetic acceptance, broader G4 country-map coverage and separate G6 release authority are **not** signed off. [Exact engineering evidence and open blockers](docs/RELEASE_NOTES_2026-10-21.md) · [Acceptance issue #16](https://github.com/analienx/visual-quality-system/issues/16).
+| Step | What it does | What establishes confidence |
+| :--- | :--- | :--- |
+| **Inspect** | Analyze PBIR layout, TMDL/DAX bindings, contrast and report structure | Deterministic source diagnostics and exact-path findings |
+| **Improve** | Offer prioritized design changes; generate bounded, reversible repairs and palettes | Diff, candidate hash, Microsoft authoring schema and original-source invariance |
+| **Observe** | Capture populated Power BI Desktop screens; check supported UIA interactions | Exact report/PID, native rendered images and live model DAX |
+| **Review** | Package evidence and distinguish PASS, FAIL, unsupported and N/A states | Independent visual judgment and separate release/publisher approval |
 
-## Who this is for
+<a href="docs/ARCHITECTURE.md"><img src="docs/diagrams/product-flow.svg" width="100%" alt="Power BI VQS system flow, from report files through deterministic checks, desktop evidence, and independent review"></a>
 
-**Report authors** get a clear source-aware punch list before spending another design iteration. **BI platform and governance teams** can compare source, data, rendered pages and supported interactions without conflating their evidence. **Reviewers** receive sealable, verifiable artifacts rather than screenshots detached from the report revision.
+**Architecture in one sentence:** GitHub/Linux/Windows runners handle portable static analysis; a supported Windows Desktop session provides native pixels and interactions. [View the complete, simplified architecture](docs/ARCHITECTURE.md).
 
-Read the [user guide](docs/USER_GUIDE.md), [CLI reference](docs/CLI.md), [acceptance matrix](docs/ACCEPTANCE_MATRIX.md) and [contribution guide](CONTRIBUTING.md).
+### Beyond a pretty screenshot
 
----
+VQS provides an explicit `vqs premium` design contract for hierarchy, spacing and quality review, rather than claiming to know that a screenshot is attractive from source JSON alone. The engine validates **colors actually assigned to different categories inside each chart**, not merely the theme swatches. This catches near-duplicate Electronics/Sports colors, unscoped Retail/Online fills and **identical reds caused by conditional status fills** as HIGH-severity source findings. The 28-mode GitHub candidate workflow and pre-capture gate refuse to publish a candidate while any such violation remains. The 4–7-category normal/color-vision thresholds are **45/15**, and three-category limits are **50/19**. Ten chart regions per native mode undergo independent pixel checks before screenshot publication. Numeric gradients and business-status measures are preserved; distinct category colors are used where the showcase calls for category identity. The featured examples are authentic Desktop recaptures of the category-distinct, QVS-gated source. The bundled Contoso Retail report includes charts, tables, slicers and a **no-sign-in Shape Map**.
 
-**Power BI is the primary product.** Word/DOCX assurance is a separate optional component. Source diagnosis is local by default; remote image review needs explicit consent. Never commit private screenshots, `.pbi` caches, ABF files or business report data.
+The distinct Corporate Spend subject has documented Azure Maps sign-in and schema-compatibility limitations; it is **not** presented as a fully certified cross-report success. All **28 newly approved Light/Dark modes** have since received real native Desktop captures and screenshot-color checks. These default-state captures still do **not** certify open dropdown flyouts, all interactions, or independent aesthetic signoff. The `powerbi-core` G2/G4/G6 release gates remain separate.
 
-<sub>Apache-2.0 · Version `0.0.1a0` · Engineering preview · [Security and contribution rules](CONTRIBUTING.md) · [Changelog](CHANGELOG.md)</sub>
+[Evidence & acceptance](docs/ACCEPTANCE_MATRIX.md) · [Release candidates](docs/RELEASE_NOTES_THEME_2026-10-24.md) · [Acceptance issue #16](https://github.com/analienx/visual-quality-system/issues/16)
+
+## Documentation
+
+| For | Start here |
+| :--- | :--- |
+| **Power BI report authors** | [Getting started](docs/USER_GUIDE.md) · [Premium design guide](docs/PREMIUM_POWERBI.md) · [Theme palette library](docs/APPROVED_THEME_LIBRARY.md) |
+| **BI platform engineers** | [Architecture](docs/ARCHITECTURE.md) · [CLI](docs/CLI.md) · [Power BI integration & native evidence](docs/VISUAL_QA_V2_P16_NATIVE_DESKTOP_UIA.md) |
+| **Quality reviewers** | [Acceptance matrix](docs/ACCEPTANCE_MATRIX.md) · [Screenshot provenance](docs/images/adaptive-showcase/PROVENANCE.json) · [Native gallery](docs/REAL_THEME_SHOWCASE.md) |
+| **Contributors** | [Contributor guide](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [All documentation](docs/README.md) |
+
+VQS focuses on **Power BI**. Word/DOCX assurance is a separate optional component, not a blocker for a Power BI-only release. Source inspection is local by default; private customer screenshots and caches must not be checked in or uploaded without explicit authorization.
+
+<sub>Apache-2.0 · Engineering preview · [Security & contribution guidance](CONTRIBUTING.md) · [Older five-theme native gallery](docs/THEME_GALLERY.md)</sub>

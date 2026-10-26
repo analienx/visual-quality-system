@@ -30,6 +30,25 @@ The `top_three` array lists at most three grounded, priority-ordered recommendat
 
 `vqs assurance` carries the same source preflight as an advisory subsection next to independent rendered pixel measurements; it cannot elevate a G2/G4/G6 status. The existing `vqs review-images` uses an opt-in, image-capable reviewer on a hash-verified full-page capture; no model judgment alone approves a release.
 
+## Categorical colors and visually similar bars
+
+VQS now identifies two related but distinct source risks:
+
+- **`color.palette_series_collision`** — the registered report theme
+  declares near-indistinguishable `dataColors`. Reports the exact weakest
+  index pairs, normal CIELAB ΔE76, approximate protan/deutan/tritan distances,
+  and affected chart/page IDs. It is **not proof** all colors were drawn.
+- **`color.numeric_gradient_category_ambiguity`** — a numeric
+  measure-bound `FillRule` colors categorical bars. Similar measured
+  values legitimately produce similar shades, but may make category identity
+  hard to scan. This is *low-priority review advice*, never permission to
+  discard a quantitative encoding or change the business measure.
+
+The first-two-series readability screen is stricter because two thin lines
+can merge visually at normal dashboard viewing sizes. The actual pixel-level
+legibility still needs populated Desktop evidence, particularly for
+color-vision deficiencies. Neither rule modifies any source.
+
 ## 4. The safe improvement loop
 
 1. Generate/edit contract and use `vqs triage` plus `vqs premium` to identify concrete work.
@@ -56,3 +75,33 @@ text. The PBIR fixture now sets visual-only captions `Sales` and `GM %`
 while keeping both original measure `queryRef`/`nativeQueryRef` bindings.
 The source edit and image-review result are not a substitute for a fresh,
 populated Power BI Desktop render and independent G2/G4/G6 acceptance.
+
+
+### Exact assigned colors take precedence over palette swatches
+
+The new per-visual assignment resolver catches a real reported failure:
+*Electronics* and *Sports & Outdoors* received dark blue and medium blue
+that were only **39.53 ΔE76** apart on Organic Light. Both entries were
+present in a globally valid eight-color palette, so the earlier
+palette-only screen reported no problem. The new **HIGH**-importance
+`color.category_series_collision` finding identifies these exact
+categories and their PBIR visual and blocks the 28-mode authoring/
+screenshot workflow. It also detects exact same-color assignments
+introduced by mistaken `ThemeDataColor` references.
+
+
+### Full category-source gate tightened after screenshot challenge
+
+**Previously missed:** the native Gross Margin target bars for
+Electronics (33.3%) and Sports & Outdoors (32.9%) were both colored
+identically red, because a measure-bound conditional fill represented
+below-target **status**, not category identity. The owner explicitly
+required distinguishable category bars. The detector must therefore
+include `color.category_conditional_shared_status` alongside per-category
+pair collisions and flat wildcard fills. The underlying 35% reference
+line and business results remain unchanged.
+
+For 4–7-category charts, stronger **45/15** color-distance screening
+replaces the earlier insufficient **40/9**. All seven distinct-category
+assignments must be checked and confirmed against real Desktop pixels;
+a three-category-only screenshot test cannot establish gallery acceptance.

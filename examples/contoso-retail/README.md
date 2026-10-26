@@ -37,8 +37,72 @@ The commands are read-only against the sample. For real Power BI Desktop capture
 | Markets & drivers | [Markets & drivers](../../docs/media/showcase/markets-drivers.webp) |
 | Deep-dive insights | [Deep-dive with Shape Map](../../docs/media/showcase/deep-dive-map.webp) |
 
-**Source provenance:** The PBIR report's SHA-256 source digest is `37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca` — **exactly the same** as the fresh 22 October native Desktop source used for all five rendered screenshots. The semantic model's source digest (all TMDL files plus `definition.pbism`, stable sorted paths and NUL delimiters) is `30040bd3b229fc8507d30cf58e30d393b5b65e9317b2159f3066772aa715ae3f`. All 12 M partitions generate their own synthetic data.
+**Source provenance:** The PBIR report's SHA-256 source digest is `78b525a179c60bd4705364490cf8bfa3a1731f9d13dc9c9303e25b342f798273` — **updated on 25 October** from the 22 October native Desktop source used for all five rendered screenshots. The semantic model's source digest (all TMDL files plus `definition.pbism`, stable sorted paths and NUL delimiters) is `30040bd3b229fc8507d30cf58e30d393b5b65e9317b2159f3066772aa715ae3f`. All 12 M partitions generate their own synthetic data.
 
 The demo intentionally excludes `.pbi/cache.abf`, binary PBIX, full-resolution screenshot evidence, accounts, secrets, and anything tied to a private user filesystem. The installed Desktop rebuilds the cache on its first refresh. The screenshot previews are downscaled derivatives and are **not** a formal independent G2 visual-quality approval.
 
 **Preventing future mismatches:** `tests/test_public_showcase_example.py` checks that the report source digest, page identities, demo-model structure, and all five published image hashes still match this checked-in example. If you change the PBIP, regenerate the images from the updated source and update the documented provenance in the same PR.
+
+
+### Explicitly distinguishable categorical chart bars (25 October update)
+
+The seven **categorical** bar/column charts intentionally assign stable
+per-value colors using Power BI native `dataPoint.scopeId` identities,
+referencing the active theme's eight `dataColors`. Region, brand,
+subcategory, category, segment and store identity therefore remain visually
+distinct even when different bars have similar sales or gross-margin values.
+These are categorical colors, **not** approximate indicators of magnitude:
+sales and margin are encoded by bar length and exact data labels. The
+country Shape Map retains its **real measure-bound numeric gradient**.
+
+The **gross margin vs 35% target** visual and the waterfall remain
+measure-bound *business polarity* charts rather than categorical charts.
+Graphite Red intentionally uses steel blue (instead of green) for the
+positive/increase state and red for negative/below-target, without changing
+the measure or conditional thresholds. The generic source caption uses
+value-based words rather than promising particular hues.
+
+
+### Channel category readability
+
+The “How sales are delivered” chart uses separate Retail and Online
+native category selectors and two contrasting `ThemeDataColor` references,
+rather than a single wildcard bar fill. QVS premium now flags flat wildcard
+fills on category charts as a high-priority risk. Conditional target-status
+charts remain exempt because their colors represent business meaning, not
+category identity.
+
+
+### Categorical color identity — target chart correction
+
+The Executive overview gross-margin-versus-35%-target chart now binds
+Electronics, Home & Appliances and Sports & Outdoors to three separate
+native `ThemeDataColor` category identities, rather than the old
+wildcard conditional status red/green encoding. This preserves the
+35% reference line, percentages, query bindings and performance labels,
+while preventing Electronics and Sports & Outdoors from becoming identical
+red bars. The QVS pre-capture gate also flags any future wildcard
+conditional-fill regression on a multi-category chart.
+
+
+### Regional movement presentation
+
+The *Sales movement by region* chart uses a category-colored native
+clustered column comparison. The `Reporting Year Sales Variance` DAX
+measure, `Dim Store.Region` grouping and GM tooltip stay unchanged.
+The previous cumulative waterfall's automatically generated Total bar
+is no longer part of this visual; the net variance is the sum of
+the three regional bars. This deliberate presentation trade-off avoids
+reusing one Increase color for three different named regions.
+
+
+### Deep-dive regional sales category identity
+
+The regional sales comparison now uses explicitly assigned and distinct
+`ThemeDataColor` series for Europe, North America and Asia Pacific.
+Its original Sales measure, region field bindings and quantitative
+values remain unchanged. This corrects the former uniform orange
+bars, a gap in the earlier QVS check that considered scoped color
+pairs but did not flag an entirely missing `dataPoint` collection.
+The QVS `color.category_unscoped_default` high-severity rule and
+its pre-capture gate now reject this regression.

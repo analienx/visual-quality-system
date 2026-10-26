@@ -1,0 +1,39 @@
+{
+  "dark": {
+    "canvas": "#1A1A19",
+    "surface": "#252523",
+    "surfaceElevated": "#30302D",
+    "foreground": "#F5F3EA",
+    "mutedForeground": "#C0BFB5",
+    "subtleText": "#B0AEA4",
+    "outline": "#8D8B80",
+    "gridline": "#4C4A45",
+    "accent": "#E1BE83",
+    "accentForeground": "#242016",
+    "selection": "#706045",
+    "selectionForeground": "#FAF6EE",
+    "slicerBackground": "#2D2D29",
+    "slicerForeground": "#F5F3EA",
+    "tableHeader": "#383631",
+    "tableHeaderForeground": "#F5F3EA",
+    "rowAlternate": "#2A2A27",
+    "tooltip": "#F5F3EA",
+    "tooltipForeground": "#242321",
+    "dataColors": [
+      "#E1B37C",
+      "#79BBAE",
+      "#D58C70",
+      "#BAD083",
+      "#93B7CF",
+      "#D8A1B9",
+      "#CABCA3",
+      "#B2A1CA"
+    ],
+    "good": "#9EC8B9",
+    "neutral": "#E4BB7E",
+    "bad": "#DDA0A0",
+    "gradientMin": "#866D52",
+    "gradientCenter": "#C4A075",
+    "gradientMax": "#E9CEA3"
+  }
+}

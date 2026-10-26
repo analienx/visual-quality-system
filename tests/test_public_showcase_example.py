@@ -16,6 +16,7 @@ REPORT = EXAMPLE / "Contoso Retail.Report"
 MODEL = EXAMPLE / "Contoso Retail.SemanticModel"
 GALLERY = REPO / "docs" / "media" / "showcase"
 EXPECTED_REPORT = "37f812d1fdae338f82c7e1046d6771fa7451d664ff375f66e2331f261c670eca"
+CURRENT_REPORT = "78b525a179c60bd4705364490cf8bfa3a1731f9d13dc9c9303e25b342f798273"
 EXPECTED_MODEL = "30040bd3b229fc8507d30cf58e30d393b5b65e9317b2159f3066772aa715ae3f"
 PAGES = {
     "Executive_overview": "executive-overview.webp",
@@ -29,7 +30,7 @@ PAGES = {
 def test_readme_showcase_is_the_exact_committed_pbip_not_a_fixture():
     assert (EXAMPLE / "Contoso Retail.pbip").is_file()
     assert (MODEL / "definition.pbism").is_file()
-    assert source_digest(REPORT) == EXPECTED_REPORT
+    assert source_digest(REPORT) == CURRENT_REPORT
     context = report_context(REPORT)
     assert {p["id"] for p in context["pages"]} == set(PAGES)
     assert len(context["pages"]) == 5
@@ -67,14 +68,19 @@ def test_embedded_model_matches_the_rendered_fixture_and_has_no_external_sources
     assert "*.abf" in ignore and "**/.pbi/" in ignore
 
 
-def test_all_five_readme_images_match_public_provenance():
+def test_all_five_historical_images_remain_source_matched_and_navigable():
     root_readme = (REPO / "README.md").read_text(encoding="utf-8")
     example_readme = (EXAMPLE / "README.md").read_text(encoding="utf-8")
     provenance = (GALLERY / "ASSET_PROVENANCE.md").read_text(encoding="utf-8")
-    assert EXPECTED_REPORT in provenance
-    assert EXPECTED_REPORT in example_readme
+    assert EXPECTED_REPORT in provenance  # original historical capture hash
+    assert CURRENT_REPORT in example_readme
     assert EXPECTED_MODEL in example_readme
     assert "Contoso%20Retail.pbip" in provenance
+    # The current README promotes five authentic Light/Dark themes instead
+    # of re-embedding the original five-page legacy gallery. Preserve all
+    # historical assets, source hashes and a clear link to that gallery.
+    assert "docs/THEME_GALLERY.md" in root_readme
+    assert "docs/REAL_THEME_SHOWCASE.md" in root_readme
     for page_id, filename in PAGES.items():
         asset = GALLERY / filename
         assert asset.is_file()
@@ -82,5 +88,5 @@ def test_all_five_readme_images_match_public_provenance():
         assert body[:4] == b"RIFF" and body[8:12] == b"WEBP"
         assert len(body) < 150_000
         assert sha256(body).hexdigest() in provenance
-        assert filename in root_readme and filename in example_readme
+        assert filename in example_readme
         assert page_id in provenance

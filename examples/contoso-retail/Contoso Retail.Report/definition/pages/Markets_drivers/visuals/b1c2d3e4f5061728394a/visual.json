@@ -10,12 +10,9 @@
     "tabOrder": 0
   },
   "visual": {
-    "visualType": "waterfallChart",
+    "visualType": "clusteredColumnChart",
     "query": {
       "queryState": {
-        "Breakdown": {
-          "projections": []
-        },
         "Category": {
           "projections": [
             {
@@ -153,42 +150,147 @@
           }
         }
       ],
-      "sentimentColors": [
+      "dataPoint": [
         {
           "properties": {
-            "increaseFill": {
+            "defaultColor": {
               "solid": {
                 "color": {
                   "expr": {
-                    "Literal": {
-                      "Value": "'#22C55E'"
-                    }
-                  }
-                }
-              }
-            },
-            "decreaseFill": {
-              "solid": {
-                "color": {
-                  "expr": {
-                    "Literal": {
-                      "Value": "'#BE123C'"
-                    }
-                  }
-                }
-              }
-            },
-            "totalFill": {
-              "solid": {
-                "color": {
-                  "expr": {
-                    "Literal": {
-                      "Value": "'#94A3B8'"
+                    "ThemeDataColor": {
+                      "ColorId": 2,
+                      "Percent": 0
                     }
                   }
                 }
               }
             }
+          }
+        },
+        {
+          "properties": {
+            "fill": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "ThemeDataColor": {
+                      "ColorId": 2,
+                      "Percent": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "selector": {
+            "data": [
+              {
+                "scopeId": {
+                  "Comparison": {
+                    "ComparisonKind": 0,
+                    "Left": {
+                      "Column": {
+                        "Expression": {
+                          "SourceRef": {
+                            "Entity": "Dim Store"
+                          }
+                        },
+                        "Property": "Region"
+                      }
+                    },
+                    "Right": {
+                      "Literal": {
+                        "Value": "'Europe'"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "properties": {
+            "fill": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "ThemeDataColor": {
+                      "ColorId": 3,
+                      "Percent": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "selector": {
+            "data": [
+              {
+                "scopeId": {
+                  "Comparison": {
+                    "ComparisonKind": 0,
+                    "Left": {
+                      "Column": {
+                        "Expression": {
+                          "SourceRef": {
+                            "Entity": "Dim Store"
+                          }
+                        },
+                        "Property": "Region"
+                      }
+                    },
+                    "Right": {
+                      "Literal": {
+                        "Value": "'North America'"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "properties": {
+            "fill": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "ThemeDataColor": {
+                      "ColorId": 4,
+                      "Percent": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "selector": {
+            "data": [
+              {
+                "scopeId": {
+                  "Comparison": {
+                    "ComparisonKind": 0,
+                    "Left": {
+                      "Column": {
+                        "Expression": {
+                          "SourceRef": {
+                            "Entity": "Dim Store"
+                          }
+                        },
+                        "Property": "Region"
+                      }
+                    },
+                    "Right": {
+                      "Literal": {
+                        "Value": "'Asia Pacific'"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
           }
         }
       ]
@@ -207,7 +309,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Sales change by region'"
+                  "Value": "'Sales movement by region'"
                 }
               }
             },
@@ -266,7 +368,7 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Bars show regional change; Total shows the net reporting-year movement.'"
+                  "Value": "'Distinct regions by color; regional variance bars sum to total year-on-year movement.'"
                 }
               }
             }
