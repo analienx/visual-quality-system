@@ -383,5 +383,6 @@ These are source-matched Desktop screenshots of default page states after
 model refresh. Native pixel checks verify assigned category colors and the
 closed dropdown/control surface. They do **not** certify the appearance of
 open filter menus, flyout search, every slicer selection, or every report.
-Independent visual G2, functional G4 and owner G6 release acceptance
-are separate requirements; this draft PR is not a production release.
+The gallery feature was merged to `main` in owner-approved PR #81 on
+26 October 2026. Full product G2/G4 and release G6 remain separate
+requirements under issue #16; feature integration is not a production release.

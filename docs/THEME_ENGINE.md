@@ -1,5 +1,25 @@
 # Adaptive theme engine (issue #80)
 
+## Adaptive themes integrated into main — 26 October 2026
+
+Owner-approved [PR #81](https://github.com/analienx/visual-quality-system/pull/81)
+was merged to `main` at [`9770a52`](https://github.com/analienx/visual-quality-system/commit/9770a52f934daf45c72b1081e11b87009f95ea0b).
+The 14-family / 28-mode adaptive-theme feature, its exact-source native
+Contoso evidence (140 captures, 364/364 pixel/control checks) and the
+56-image public gallery are now integrated. The original authoring commit
+`6bb62da` remains in Git history for provenance. The full local test suite
+passed 1,860 tests (11 skipped), and all PR CI, authoring and R6 jobs passed.
+
+**Release boundary:** this was approval to merge the **feature**, not
+independent `powerbi-core` production acceptance. The two unrelated
+PBIP G2/G4 scenarios and broader release G6 remain open in
+[issue #16](https://github.com/analienx/visual-quality-system/issues/16);
+additional theme-specific P3 interactive coverage remains open in
+[issue #80](https://github.com/analienx/visual-quality-system/issues/80).
+
+## Native-gallery engineering proof — captured 25 October 2026
+
+
 ## Native gallery verified against current authoring source — 25 October 2026
 
 - **Source:** GitHub authoring commit [6bb62da](https://github.com/analienx/visual-quality-system/commit/6bb62da26d7589dca492571fa5f2ee444e369117) and [workflow run 40224195761](https://github.com/analienx/visual-quality-system/actions/runs/40224195761). All 2,352 downloaded candidate files matched the local candidate set.
