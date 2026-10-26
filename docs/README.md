@@ -10,7 +10,7 @@ Choose the shortest path for what you want to accomplish. **Power BI is the core
 | Check a PBIP for actual source defects | [CLI reference](CLI.md), [Quality guidance](PREMIUM_POWERBI.md) | [Acceptance matrix](ACCEPTANCE_MATRIX.md) |
 | Create a source-safe Light/Dark report | [Theme engine](THEME_ENGINE.md), [28-mode palette library](APPROVED_THEME_LIBRARY.md) | [Native report screenshots](REAL_THEME_SHOWCASE.md) |
 | Review the architecture | [Architecture](ARCHITECTURE.md) | [Simplified product flow](diagrams/product-flow.svg) |
-| Run native Power BI checks | [P16 Desktop UIA](VISUAL_QA_V2_P16_NATIVE_DESKTOP_UIA.md), [WinApp CLI policy](WINAPPCLI_POWERBI.md) | [Power BI release gate](https://github.com/analienx/visual-quality-system/issues/16) |
+| Run native Power BI checks | [P16 Desktop UIA](VISUAL_QA_V2_P16_NATIVE_DESKTOP_UIA.md), [Loaded-source attestation](DESKTOP_SOURCE_ATTESTATION.md) | [Power BI release gate](https://github.com/analienx/visual-quality-system/issues/16) |
 | Inspect actual screenshots / hashes | [14-family native gallery](REAL_THEME_SHOWCASE.md) | [Screenshot provenance](images/adaptive-showcase/PROVENANCE.json) |
 | Contribute or review changes | [Contributor guide](../CONTRIBUTING.md), [Changelog](../CHANGELOG.md) | [Release notes](RELEASE_NOTES_2026-10-21.md) |
 

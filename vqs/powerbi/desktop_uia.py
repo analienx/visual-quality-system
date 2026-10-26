@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from vqs.powerbi.contoso_project import inventory
+from vqs.powerbi.desktop_source import collect as attest_desktop_source
 from vqs.powerbi.interaction_audit import (
     DEEP_DIVE_PAGE,
     InteractionEvidenceError,
@@ -353,9 +354,11 @@ def assess_native_sequence(
 
 
 def run(project: Path, desktop_pid: int, oracle: Mapping[str, Any],
-        *, invoke: Callable[[int, str, str], dict] = _invoke_native) -> dict:
+        *, invoke: Callable[[int, str, str], dict] = _invoke_native,
+        attest_source: bool = False) -> dict:
     result = {"schema": SCHEMA, "native_uia": "blocked", "interactive": "blocked",
-              "country_map": "blocked", "independent_acceptance": "blocked"}
+              "country_map": "blocked", "independent_acceptance": "blocked",
+              "desktop_loaded_file_attested": False}
     try:
         _require(isinstance(oracle, Mapping), "blocked",
                  "live DAX receipt is not a JSON object")
@@ -364,6 +367,12 @@ def run(project: Path, desktop_pid: int, oracle: Mapping[str, Any],
         digest = before["digest"]
         _require(oracle.get("source_sha256") == digest, "fail",
                  "current physical PBIP source differs from executed live DAX")
+        if attest_source:
+            identity = attest_desktop_source(project, desktop_pid)
+            result["desktop_loaded_file_attestation"] = identity
+            _require(identity.get("loaded_file_attested") is True,
+                     "blocked", "Desktop loaded-source proof missing: "
+                     + str(identity.get("reason")))
         structure = inspect_deep_dive_contract(report)
         _require(structure.get("structural") == "pass", "blocked",
                  "current PBIR interaction structure not verified")
@@ -374,7 +383,17 @@ def run(project: Path, desktop_pid: int, oracle: Mapping[str, Any],
             result["reason"] = "physical PBIP report/model/wrapper changed during native UIA"
         result["pbir_contract"] = structure
         result["page_id"] = DEEP_DIVE_PAGE
-        result["desktop_loaded_file_attested"] = False
+        result["desktop_loaded_file_attested"] = (
+            attest_source and before == after and wrapper_hash == wrapper_after
+        )
+        if attest_source:
+            result["desktop_loaded_file_attestation"] = identity
+            if result["native_uia"] == "pass":
+                result["reason"] = (
+                    "Year/Region UIA and native KPI readbacks agree with DAX; "
+                    "Desktop OS/Bridge loaded-file attested. Country map and "
+                    "independent release approval remain blocked"
+                )
     except InteractionEvidenceError as exc:
         result["native_uia"] = exc.status
         result["reason"] = str(exc)

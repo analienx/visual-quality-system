@@ -18,13 +18,14 @@ from typing import Any
 
 from vqs.powerbi.contoso_project import inventory as _inventory
 from vqs.powerbi.contoso_runtime import CURRENT_SOURCE_CONTRACT, collect
+from vqs.powerbi.desktop_source import collect as attest_desktop_source
 from vqs.powerbi.modeling import StdioModelingClient
 
 SCHEMA = CURRENT_SOURCE_CONTRACT
 YEARS = (None, 2023, 2024, 2025)
 
 
-def run(project: Path, pid: int) -> dict[str, Any]:
+def run(project: Path, pid: int, *, attest_source: bool = False) -> dict[str, Any]:
     """Run four actual DAX states, fail closed on local source/model drift.
 
     A caller's PID/source label is never proof Desktop opened those exact
@@ -46,6 +47,13 @@ def run(project: Path, pid: int) -> dict[str, Any]:
     source = before["digest"]
     result["source_sha256"] = source
     result["local_project_source_fingerprinted"] = True
+    if attest_source:
+        proof = attest_desktop_source(project, pid)
+        result["desktop_source_evidence"] = proof
+        result["desktop_source_attested"] = proof.get("loaded_file_attested") is True
+        if not result["desktop_source_attested"]:
+            result["reason"] = "Desktop loaded-source attestation blocked: " + str(proof.get("reason"))
+            return result
     client = StdioModelingClient(target_pid=pid)
     try:
         states = []
@@ -67,9 +75,11 @@ def run(project: Path, pid: int) -> dict[str, Any]:
     try:
         after, wrapper_after = _inventory(project)
     except (OSError, ValueError) as exc:
+        result["desktop_source_attested"] = False
         result["reason"] = f"source became unreadable during DAX: {exc}"
         return result
     if before != after or wrapper_hash != wrapper_after:
+        result["desktop_source_attested"] = False
         result["reason"] = "Contoso report/model/PBIP changed during DAX collection"
     elif (len(states) != 4 or any(s["semantic"] != "pass" for s in states)):
         result["reason"] = "one or more live DAX year states failed"
@@ -78,8 +88,13 @@ def run(project: Path, pid: int) -> dict[str, Any]:
         result["reason"] = "model identity or OS-owned Desktop PID changed between states"
     else:
         result["semantic"] = "pass"
-        result["reason"] = ("four source-labelled DAX states agree; "
-                            "loaded Desktop file and clicks remain independently unverified")
+        result["reason"] = (
+            "four DAX states agree with OS/Bridge-attested loaded file; "
+            "UIA interaction and independent review still unverified"
+            if result["desktop_source_attested"] else
+            "four source-labelled DAX states agree; "
+            "loaded Desktop file and clicks remain independently unverified"
+        )
     return result
 
 
@@ -87,11 +102,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("project", type=Path)
     parser.add_argument("--desktop-pid", type=int, required=True)
+    parser.add_argument("--attest-loaded-file", action="store_true",
+                        help="Require exact OS/Bridge loaded PBIP/saved-state attestation")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     if args.output.exists() or args.output.is_symlink():
         parser.error("refusing to overwrite existing private runtime evidence")
-    result = run(args.project, args.desktop_pid)
+    result = run(args.project, args.desktop_pid, attest_source=args.attest_loaded_file)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2, ensure_ascii=False)
