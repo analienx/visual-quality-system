@@ -75,9 +75,11 @@ def run(project: Path, pid: int, *, attest_source: bool = False) -> dict[str, An
     try:
         after, wrapper_after = _inventory(project)
     except (OSError, ValueError) as exc:
+        result["desktop_source_attested"] = False
         result["reason"] = f"source became unreadable during DAX: {exc}"
         return result
     if before != after or wrapper_hash != wrapper_after:
+        result["desktop_source_attested"] = False
         result["reason"] = "Contoso report/model/PBIP changed during DAX collection"
     elif (len(states) != 4 or any(s["semantic"] != "pass" for s in states)):
         result["reason"] = "one or more live DAX year states failed"

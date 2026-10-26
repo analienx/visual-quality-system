@@ -75,3 +75,26 @@ def test_strict_uia_carries_live_host_attestation_without_self_approving(
     assert result["native_uia"] == "pass"
     assert result["desktop_loaded_file_attested"] is True
     assert result["independent_acceptance"] == "blocked"
+
+
+def test_strict_dax_revokes_attestation_if_model_source_drifts(
+        tmp_path, monkeypatch):
+    project = _project(tmp_path)
+    target = next((project / "Contoso Retail.SemanticModel").rglob("*.tmdl"))
+
+    class MutatingPort(FakePort):
+        def query_scoped(self, *args, **kwargs):
+            answer = super().query_scoped(*args, **kwargs)
+            if len(self.calls) == 4:
+                target.write_bytes(target.read_bytes() + b"\n// changed mid-run")
+            return answer
+
+    monkeypatch.setattr(dax, "attest_desktop_source",
+                        lambda *args: {"loaded_file_attested": True,
+                                       "status": "pass"})
+    monkeypatch.setattr(dax, "StdioModelingClient",
+                        lambda **kwargs: MutatingPort(desktop_pid=48552))
+    result = dax.run(project, 48552, attest_source=True)
+    assert result["semantic"] == "blocked"
+    assert result["desktop_source_attested"] is False
+    assert "changed during" in result["reason"]
