@@ -24,6 +24,27 @@ below expose each stage separately for debugging (expert interface).
 works anywhere the installed `vqs` does.
 
 
+## Agent-first automatic candidate fixing
+
+If an AI agent owns the task, use the **existing coordinator** rather than
+stringing low-level commands together yourself. Run `mode=repair` (not
+`review`), and let the agent inspect, synthesize an allowlisted plan, apply
+the changes **only to a disposable candidate**, verify the exact diff and
+remeasure. If no safe plan exists, the workflow returns `blocked` or
+`no_safe_fix` instead of guessing.
+
+```console
+vqs run "path/to/Example.Report" --mode repair --scope static --run-root "./private-vqs-runs" --run-id "autofix-001"
+```
+
+The mode is also exposed via MCP `vqs_run` with `mode="repair"`.
+`scope=static` verifies source conditions only. Real desktop and DAX
+regression need an authorized Windows host and explicit runtime scope;
+the coordinator never auto-promotes the original. A repair/verify stage may
+pass while the **overall report remains blocked** by a different defect.
+See the [single-prompt AI quickstart](AI_AGENT_QUICKSTART.md) and
+[auto-fix component architecture](AGENT_AUTOFIX_ARCHITECTURE.md).
+
 ## vqs status
 
 Read-only delivery-ledger snapshot; never modifies the ledger.

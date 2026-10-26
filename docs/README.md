@@ -7,7 +7,7 @@ Choose the shortest path for what you want to accomplish. **Power BI is the core
 | Your goal | Guide | Evidence / limitations |
 | :--- | :--- | :--- |
 | Understand VQS in 5 minutes | [Project overview](../README.md), [User guide](USER_GUIDE.md) | [Release status](RELEASE_NOTES_THEME_2026-10-24.md) |
-| Use VQS with an AI agent (MCP or terminal) | [5-minute AI agent quickstart](AI_AGENT_QUICKSTART.md) | Read-only first; agent results are not independent release approval |
+| Ask an AI agent to fix supported report issues | [AI auto-fix quickstart](AI_AGENT_QUICKSTART.md) and [Component architecture](AGENT_AUTOFIX_ARCHITECTURE.md) | Disposable candidate, evidence-based verification, separate promotion approval |
 | Check a PBIP for actual source defects | [CLI reference](CLI.md), [Quality guidance](PREMIUM_POWERBI.md) | [Acceptance matrix](ACCEPTANCE_MATRIX.md) |
 | Create a source-safe Light/Dark report | [Theme engine](THEME_ENGINE.md), [28-mode palette library](APPROVED_THEME_LIBRARY.md) | [Native report screenshots](REAL_THEME_SHOWCASE.md) |
 | Review the architecture | [Architecture](ARCHITECTURE.md) | [Simplified product flow](diagrams/product-flow.svg) |

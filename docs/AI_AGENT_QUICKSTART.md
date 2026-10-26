@@ -1,12 +1,14 @@
-# Use VQS with an AI agent — 5-minute setup
+# Fix a Power BI report with an AI agent — 5-minute setup
 
-**Your AI agent can inspect a Power BI report with VQS, explain concrete issues and propose safe improvements.** VQS supplies deterministic PBIP/PBIR/TMDL checks and evidence; the agent interprets results, prioritizes work and, with your approval, can prepare *separate candidate* changes. You do not have to learn VQS's internals.
+**Give the agent the report and a goal. It should fix supported defects, not bury you in analysis.** VQS performs source-bound diagnostics, synthesizes safe typed repairs, writes an isolated candidate, verifies what actually changed and records what still needs native Desktop evidence. The agent runs that workflow and reports results. **Only promotion of the original or material business changes require a separate decision from the report owner.**
 
-This is a local-first **engineering preview**, not an automatically approved production-release service. A passing source check is not a guarantee that a report looks good or works when filtered.
+**[How the complete auto-fix architecture works — components, why each exists, and the end-to-end sequence](AGENT_AUTOFIX_ARCHITECTURE.md)**
 
-## 1. Install VQS once
+VQS is a Power BI-first **engineering preview**. It can automatically repair some defects, not every possible visual or semantic problem. A candidate that passes a static repair step is *not* automatically proven production-ready.
 
-You need Python 3.11 or newer and access to your report's PBIP/PBIR files. In a terminal:
+## 1. Install the local VQS engine once
+
+Requirements: Python 3.11+ and authorized local access to your PBIP/PBIR project.
 
 ```bash
 git clone https://github.com/analienx/visual-quality-system.git
@@ -15,15 +17,13 @@ python -m pip install -e .
 vqs doctor
 ```
 
-Run `vqs doctor` to see which optional native tools are installed. **Static report checks do not require Power BI Desktop, Microsoft sign-in, a subscription, or an AI API key.** Native screenshots and live DAX checks need an authorized Windows Power BI Desktop setup and the corresponding Microsoft tools; VQS does not install them for you.
+Static source review and supported candidate repairs need **no Power BI Desktop, Microsoft account, AI API key or cloud subscription**. Native screenshots, live DAX and interaction tests require an authorized Windows Power BI Desktop host and its Microsoft tools. The agent can check capabilities with `vqs doctor` and must report what's unavailable.
 
-## 2. Connect your agent — choose one path
+## 2. Connect your agent (MCP is best; terminal also works)
 
-### A. Your agent supports MCP tools (recommended)
+### Agent supports local MCP tools
 
-VQS already ships a **local stdio MCP server**. Configure the *MCP client you actually use* to launch `python -m vqs.mcp` using the same Python environment in which you installed VQS.
-
-For clients with a `mcpServers` configuration (such as Claude Desktop), the server entry looks like:
+VQS has its own local stdio MCP server: `python -m vqs.mcp` (also installed as `vqs-mcp`). For clients using a `mcpServers` config (for example, Claude Desktop):
 
 ```json
 {
@@ -36,9 +36,7 @@ For clients with a `mcpServers` configuration (such as Claude Desktop), the serv
 }
 ```
 
-Use the **absolute path to your Python executable** instead of `python` when the agent application uses a different environment or cannot find VQS. Put the entry in the client's MCP settings; the exact settings location varies by client. Restart or reconnect the client and confirm that it discovers `vqs_inspect`, `vqs_review` and `vqs_run`. The MCP server uses local stdio, not a public HTTP endpoint.
-
-For VS Code MCP configurations that use `servers` and `type`, the corresponding server entry is:
+For VS Code configurations that use `servers` entries:
 
 ```json
 {
@@ -52,55 +50,51 @@ For VS Code MCP configurations that use `servers` and `type`, the corresponding 
 }
 ```
 
-This is an MCP-compatible **local application setup**, not a claim that simply opening this GitHub repository grants a cloud chat access to your files. Your AI agent must be able to access the installed VQS MCP process and the authorized report path. Agent tools do not bypass normal OS file permissions.
+Enter the JSON in your **client's MCP settings** (location varies); replace `python` with the **absolute interpreter path** if the agent uses another environment. Restart or reconnect. The agent should discover `vqs_run`, `vqs_inspect`, `vqs_review`, `vqs_propose`, `vqs_repair` and `vqs_verify`. MCP is a local tool protocol, not a web service; merely opening this GitHub repo in a cloud chat doesn't grant the chat access to your computer or confidential reports.
 
-### B. Your agent has a terminal, but not MCP
+### Agent supports a terminal but not MCP
 
-Give your coding agent (Codex, Claude Code, Muse or another terminal-capable agent) access to the checkout and ask it to run:
+Codex, Muse and other terminal-enabled agents can use the **same engine** directly:
 
 ```bash
-vqs review "path/to/Example.Report" --run-root "./private-vqs-runs" --run-id "first-review"
+vqs run "C:/Reports/Sales.Report" --mode repair --scope static --run-root "C:/private/vqs-runs" --run-id "sales-autofix-001"
 ```
 
-Replace `path/to/Example.Report` with an actual `*.Report` directory inside your PBIP project. This is a **read-only source review**; it writes evidence under the specified private run directory, never into the original report. Exit codes are `0` pass, `1` fail, `2` blocked. Your agent should check the JSON `verdict` *and* saved manifest, not treat every completed command as success.
+Use your actual `*.Report` folder inside the PBIP project. This command asks VQS to **find and apply supported fixes to a disposable candidate**—not to edit the original. Use a **fresh run ID and private run root** every attempt. An agent should inspect the structured output, including `summary.candidate_status`, `summary.resolved_findings`, `summary.new_regressions` and blocked stages, rather than equating a completed process with a successful report.
 
-## 3. Copy one of these prompts
+`--scope static` verifies source/candidate checks only. For native proof the agent must set up the supported Windows Desktop/Bridge/model/reviewer path separately and run the `desktop` scope with explicit permissions. It cannot silently treat a static result as native acceptance.
 
-**Find and explain issues (read-only):**
+## 3. One prompt: let the agent handle the work
 
-> Use VQS to inspect and review the Power BI report at `C:/my-reports/Sales.Report`. Begin with `vqs_inspect`, then `vqs_review` with `scope=static` and a unique run ID in a private run directory. Identify the five highest-priority **source-supported** issues, including page/visual IDs, why they matter and specific fixes. Do not modify my report. Distinguish pass, fail and blocked; don't invent screenshot findings.
+> **Fix my Power BI report** at `C:/Reports/Sales.pbip` using VQS. You can autonomously inspect it, prioritize the most impactful *supported* UX and correctness defects, synthesize an allowlisted repair plan, apply changes in **new disposable candidates**, verify exact source/model diffs and rerun quality checks. Use `vqs_run` with **`mode=repair`** and `scope=static` (or `vqs run --mode repair --scope static`) and keep evidence private. If a safe source-grounded theme would improve the report, preview/apply/audit it through the VQS CLI as an isolated candidate. When authorized Windows Power BI Desktop is available, inspect native renderings, supported interactions and live DAX. Iterate on evidence up to two times, never alter the original, never invent a repair, and never override an authoring validator failure. Return **Fixed / Verified / Still blocked** and the candidate path, not a long diagnostic report. Ask me only before changing business meaning, sharing private data, or promoting the original.
 
-**Plan safe improvements:**
+This is the **recommended default**. Approval for autonomous *candidate* edits need not be repeated at each safe step. Approval for production, DAX/RLS changes, customer-data disclosure or overwriting the original is **not included**.
 
-> Review `C:/my-reports/Sales.Report` with VQS. Suggest no more than three changes with the biggest usability benefit, show the before/after source properties and explain what each cannot prove from code alone. Use `vqs_propose` only after a sealed review run. Do not apply changes to the original. Ask for my approval before creating an isolated repair candidate; verify source/model invariants and real affected-page rendering before recommending promotion.
+## 4. What will actually happen?
 
-**Try another Light/Dark theme (agent with terminal access):**
+1. **Understand the real report:** the agent calls `vqs_run(mode=repair)`, which invokes PBIR/TMDL inspection, source-based quality checks, and typed proposal synthesis. Missing or ambiguous measurements are **blocked** rather than invented.
+2. **Fix what is safe:** the VQS repair engine only executes supported allowlisted operations (e.g. geometry/spacing, formatting and other typed visual changes), writes a separate candidate, records a rollback recipe and checks exact write boundaries. If no safe proposal exists, the agent should report that blocker, not make speculative business edits.
+3. **Prove the result:** verify original integrity and declared diffs, run the Microsoft Report Author structural checks where required, rerun VQS quality inspection, and optionally perform native Desktop page captures and live DAX/accessible filter comparisons. The built-in coordinator never promotes.
+4. **Return a decision-ready result:** identify completed repairs, remaining blockers and evidence gaps, not just severity labels. A candidate can be source-verified while the report remains **not accepted** because native evidence or an inherited property is unresolved.
 
-> Explore the available VQS theme presets for `C:/my-reports/Sales.pbip`. Preview an accessible dark theme, check per-chart categorical color distinctness, and explain the visual/control tokens that will change. After I approve, generate an isolated candidate using `vqs theme apply` and run `vqs theme audit`. Never overwrite the original PBIP, change business metrics or claim a static palette audit proves native Desktop appearance.
+The exact module and tool responsibilities—and **why** multiple components are needed—are in the [auto-fix architecture and workflow](AGENT_AUTOFIX_ARCHITECTURE.md). In particular, **agent reasoning** and **deterministic validation** are different jobs: the agent decides what to improve, VQS verifies only what the evidence supports.
 
-The theme CLI is a **separate command surface**; the current MCP server does not expose a dedicated `vqs_theme` tool. An MCP-only agent can inspect and review, but needs a separately authorized terminal/tool capability to invoke `vqs theme`.
+## 5. If you want a specific improvement
 
-## 4. What can the agent actually do?
+**Premium redesign / theme:** tell the agent, *"Improve the report's visual hierarchy, spacing, categorical colors and dropdown contrast. Use `vqs premium` to ground the design intent and `vqs theme preview/apply/audit` to build an isolated candidate; review actual rendered pages before recommending it."*
 
-| Goal | VQS tool | What is verified |
-| --- | --- | --- |
-| See what a report contains | `vqs_inspect` or `vqs inventory` | Pages, visual IDs, fields, source facts |
-| Assess source quality | `vqs_review` or `vqs run --mode review` | Sealed source findings, explicit limits |
-| Plan improvements | `vqs_propose` or `vqs run --mode propose` | Source-bound typed proposals |
-| Make approved, reversible candidate edits | `vqs_repair`, `vqs_verify` | Allowlisted changes and candidate integrity, **not** instant release approval |
-| Apply Light/Dark themes | `vqs theme preview/apply/audit` (**CLI**) | Palette / PBIR source audit; native Desktop review remains separate |
-| Check actual appearance and interactions | Windows Desktop Bridge + `vqs capture` / supported UIA / live DAX | Real pixels, supported selection states and data when available |
-| Publish a repaired original | Explicitly authorized promotion / independent release process | Never automatic merely because an agent says “looks good” |
+**Correct a layout defect:** tell it, *"Find and automatically fix supported overlapping or clipped visuals; keep all measure and filter semantics, preserve the original, verify the change and report only remaining blockers."*
 
-**Important:** VQS treats `blocked` as **not verified**, not as a pass. Missing Desktop/Bridge, a stale image, wrong report PID, inaccessible model or unsupported click target is a meaningful limitation. A native screenshot alone is not proof that filtering or DAX semantics are correct.
+**Prepare a full release candidate:** tell it, *"Perform VQS candidate repair, verify on real Power BI Desktop with supported controls/DAX and prepare private evidence for an independent reviewer. Don't publish or overwrite the original without explicit authorization."*
 
-## 5. Privacy, review and troubleshooting
+The MCP server currently exposes **nine tools** and does **not** have a dedicated `vqs_theme` tool. An MCP-only agent needs an **authorized terminal** to run the separate theme CLI. Also, `vqs_promote` is a separate explicit action and cannot be treated as part of automatic candidate fixing.
 
-- Keep customer PBIPs, screenshots, credentials and `.pbi/cache.abf` out of the public repo and public GitHub Actions artifacts. Use a local private evidence folder. Your **AI client** may have its own cloud-data policy; sharing business data with it is separate from running VQS locally and requires the appropriate authorization.
-- Never grant the agent permission to overwrite your original report, perform tenant operations or publish reports merely to make a check pass. Use an isolated candidate, inspect its diff and obtain explicit **report-owner approval** before promotion.
-- If no tools appear: confirm `python -m vqs.mcp` is being launched by the client, that client supports **local stdio MCP**, and that VQS is installed in the same Python environment. MCP itself is JSON-RPC on stdin/stdout, so launching it in a terminal does **not** display a chat UI.
-- If an MCP call returns `blocked`, inspect its `blocked_reasons` and `next_actions`. Fix the missing input or capability, or report the limitation clearly. Do **not** silently downgrade `scope=desktop` or `scope=release` to static.
-- For actual Windows capture instructions, see the [user guide](USER_GUIDE.md); for all command flags, see the [CLI reference](CLI.md); for verified acceptance and independent reviewer requirements, see the [acceptance matrix](ACCEPTANCE_MATRIX.md).
-- If you are **developing VQS itself**, read [AGENTS.md](../AGENTS.md). That file sets developer/agent execution rules; this guide is for someone who simply wants to **use VQS with an agent**.
+## 6. Safety and failure behavior
 
-**Start small:** run a read-only VQS review on one report, let your agent explain the findings, and only then authorize a separate repair candidate.
+- **`pass`** means the requested evidence-backed gate passed; **`fail`** means a demonstrated violation; **`blocked`** means the evidence or capability was unavailable. A sealed stage saying `repair: pass` can coexist with overall `blocked`: **the repaired report is not necessarily accepted**.
+- **Do not bypass validation** by replacing the Microsoft authoring CLI with a looser static backend for a production claim. The portable `direct` backend is useful for source-only test fixtures but isn't equivalent to Microsoft authoring or real Desktop.
+- **Don't send confidential PBIPs, screenshots, model caches, credentials or tenant data to cloud agents without explicit authorization.** Use a private evidence folder and follow your client's data policies; never commit them to public GitHub.
+- Wrong Desktop PID, unsaved state, stale source, inaccessible native controls or unsupported map sign-in must stop the affected check—not silently turn it green.
+- `AGENTS.md` is for **developing VQS itself**, not end-user setup. The [CLI guide](CLI.md), [native user guide](USER_GUIDE.md) and [release acceptance matrix](ACCEPTANCE_MATRIX.md) give implementation and testing details.
+
+**Bottom line:** one user request → agent-led `mode=repair` → safe isolated edits → measured verification → concise result; independent promotion remains controlled.

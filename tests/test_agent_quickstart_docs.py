@@ -17,7 +17,7 @@ def test_quickstart_is_discoverable_from_readme_and_docs_hub():
     assert "AI_AGENT_QUICKSTART.md" in (ROOT / "docs" / "README.md").read_text(
         encoding="utf-8"
     )
-    assert "Use VQS with an AI agent" in (ROOT / "README.md").read_text(
+    assert "Fix Power BI with an AI agent" in (ROOT / "README.md").read_text(
         encoding="utf-8"
     )
 
@@ -46,3 +46,34 @@ def test_documented_mcp_tools_exist_and_links_resolve():
     for target in re.findall(r"\]\(([^)]+\.md)(?:#[^)]*)?\)", guide):
         assert (GUIDE.parent / target).exists(), target
     assert "blocked" in guide and "owner" in guide.lower()
+
+
+def test_agent_autofix_architecture_matches_existing_engine():
+    from vqs.coordinator import STAGE_ORDER
+
+    guide = GUIDE.read_text(encoding="utf-8")
+    architecture = (ROOT / "docs" / "AGENT_AUTOFIX_ARCHITECTURE.md").read_text(
+        encoding="utf-8"
+    )
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "AGENT_AUTOFIX_ARCHITECTURE.md" in guide
+    assert "AGENT_AUTOFIX_ARCHITECTURE.md" in readme
+    assert readme.index("## Fix Power BI with an AI agent") < readme.index(
+        "## Real Power BI showcase"
+    )
+    assert "Agent-first automatic candidate fixing" in (
+        ROOT / "docs" / "CLI.md"
+    ).read_text(encoding="utf-8")
+    assert "mode=repair" in guide and "--mode repair" in guide
+    assert "disposable candidate" in guide.lower()
+    assert "mermaid" in architecture
+    assert "Agent" in architecture and "Coordinator" in architecture
+    assert "Microsoft" in architecture and "Desktop Bridge" in architecture
+    assert "TMDL" in architecture and "Modeling MCP" in architecture
+    assert all(stage in STAGE_ORDER for stage in (
+        "inspect", "review", "propose", "repair", "verify", "remeasure", "summary"
+    ))
+    descriptions = {spec["name"]: spec["description"] for spec in TOOL_SPECS}
+    assert "mode=repair" in descriptions["vqs_run"]
+    assert "Never overwrites the original" in descriptions["vqs_run"]
+    assert "G6" in architecture

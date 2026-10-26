@@ -1149,7 +1149,7 @@ def main(argv: list[str] | None = None) -> int:
                          help="Optional *.SemanticModel definition folder")
     run_cmd.add_argument("--mode", choices=("review", "propose", "repair"),
                          default="review",
-                         help="How far the sequence goes")
+                         help="review=read-only, propose=safe plan, repair=automatically apply supported edits only to a disposable candidate and verify; no promotion")
     run_cmd.add_argument("--scope", default="static",
                          help="static, desktop, or release (runtime legs "
                               "need Desktop + Bridge or block precisely)")

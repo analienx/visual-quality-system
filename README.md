@@ -4,7 +4,7 @@
   <p><strong>Diagnose the source. Refine the design. Verify what users actually see.</strong></p>
   <p>Deterministic PBIP checks · Source-safe Light/Dark themes · Real Power BI Desktop evidence</p>
   <p>
-    <a href="#use-vqs-with-an-ai-agent">Use with AI agents</a> ·
+    <a href="#fix-power-bi-with-an-ai-agent">AI auto-fix</a> ·
     <a href="#try-it">Quick start</a> ·
     <a href="#real-power-bi-showcase">Real report screenshots</a> ·
     <a href="docs/README.md">Documentation</a> ·
@@ -17,6 +17,22 @@
     <img src="https://img.shields.io/badge/Status-engineering%20preview-E2A744" alt="Engineering preview, not production-certified">
   </p>
 </div>
+
+## Fix Power BI with an AI agent
+
+**Tell your agent to fix your report—VQS handles source-grounded diagnostics, safe candidate repairs and verification.** It can autonomously run `vqs_run(mode=repair)` (or `vqs run --mode repair`), synthesize supported typed edits, create a disposable candidate, check its exact source diff and remeasure quality. When connected to authorized Windows Power BI Desktop, the agent can request real render/data evidence too. **No silent edits to the original, no automatic production promotion.**
+
+**[Get started: 5-minute AI auto-fix guide](docs/AI_AGENT_QUICKSTART.md)** · **[How it really works: components, architecture and why](docs/AGENT_AUTOFIX_ARCHITECTURE.md)**
+
+For a terminal-enabled agent:
+
+```bash
+vqs run "path/to/Example.Report" --mode repair --scope static --run-root "./private-vqs-runs" --run-id "autofix-001"
+```
+
+**One prompt:** *"Use VQS to fix the highest-impact supported issues in my Power BI report. Work autonomously in an isolated candidate, validate the actual changes, and return Fixed / Verified / Still blocked. Never overwrite the source or claim native acceptance without evidence."*
+
+The engine has a bounded repair allowlist and honest `blocked` states; unsupported repairs, failed Microsoft validation and missing native evidence aren't secretly approved. The [architecture guide](docs/AGENT_AUTOFIX_ARCHITECTURE.md) explains exactly which parts run in Python/GitHub, which require Power BI Desktop and why each exists.
 
 ## Real Power BI showcase
 
@@ -104,27 +120,18 @@ colors easy to compare. Each control palette includes themed dropdown,
 filter and selection surfaces. Interactive flyouts remain separately
 reviewable; static screenshots are not interaction certification.
 
-## Use VQS with an AI agent
+## Agent connection reference
 
-**Yes — VQS works with MCP-compatible AI agents and terminal-based coding agents.**
-Connect the built-in `vqs-mcp` server, point the agent at a Power BI `*.Report`
-folder, and ask it to find quality issues, explain them and propose safe,
-reversible improvements. You can start with a **read-only review**; no Power BI
-Desktop or Microsoft sign-in is required for source checks.
+Use VQS through the local **MCP** server (`vqs-mcp`) or an agent with an
+authorized terminal. The agent can call the **repair-mode coordinator** so
+you don't have to operate each low-level tool yourself. The
+[5-minute AI auto-fix setup](docs/AI_AGENT_QUICKSTART.md) shows both
+connections and the single prompt; the
+[component architecture](docs/AGENT_AUTOFIX_ARCHITECTURE.md) explains the
+source parser, planner, fixer, authoring, Desktop verification and independent
+review boundaries.
 
-**[5-minute AI agent setup: connect MCP, copy a prompt, review your first report](docs/AI_AGENT_QUICKSTART.md)**
-
-For agents with terminal access (even without MCP):
-
-```bash
-vqs review "path/to/Example.Report" --run-root "./private-vqs-runs" --run-id "first-review"
-```
-
-An agent may interpret findings, but a source check is not native screenshot
-proof and the agent cannot self-certify a release. Original reports are never
-silently overwritten.
-
-## Try it
+## Try it manually
 
 Install and analyze a report **without Power BI Desktop, a Microsoft account or a cloud subscription**:
 
@@ -175,7 +182,7 @@ The distinct Corporate Spend subject has documented Azure Maps sign-in and schem
 
 | For | Start here |
 | :--- | :--- |
-| **AI agent users** | [Connect MCP or your coding agent — 5-minute walkthrough](docs/AI_AGENT_QUICKSTART.md) |
+| **AI agent users** | [Agent-first automatic fixes](docs/AI_AGENT_QUICKSTART.md) · [Components, architecture and verification loop](docs/AGENT_AUTOFIX_ARCHITECTURE.md) |
 | **Power BI report authors** | [Getting started](docs/USER_GUIDE.md) · [Premium design guide](docs/PREMIUM_POWERBI.md) · [Theme palette library](docs/APPROVED_THEME_LIBRARY.md) |
 | **BI platform engineers** | [Architecture](docs/ARCHITECTURE.md) · [CLI](docs/CLI.md) · [Power BI integration & native evidence](docs/VISUAL_QA_V2_P16_NATIVE_DESKTOP_UIA.md) |
 | **Quality reviewers** | [Acceptance matrix](docs/ACCEPTANCE_MATRIX.md) · [Screenshot provenance](docs/images/adaptive-showcase/PROVENANCE.json) · [Native gallery](docs/REAL_THEME_SHOWCASE.md) |
