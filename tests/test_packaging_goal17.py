@@ -44,6 +44,16 @@ def test_installed_cli_mcp_parity_outside_checkout(tmp_path: Path) -> None:
         env=full_env)
     assert cli.returncode in (0, 1, 2), cli.stderr
     cli_envelope = json.loads(cli.stdout)
+    # The consumer must validate exit/verdict agreement and actual sealed
+    # provenance, not trust a plausible JSON response or filename.
+    assert cli.returncode == {"pass": 0, "fail": 1, "blocked": 2}[cli_envelope["verdict"]]
+    manifest_path = Path(cli_envelope["run_dir"]) / "manifest.json"
+    assert manifest_path.resolve().is_relative_to((work / "runs").resolve())
+    sealed = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert sealed["sealed"] is True
+    assert sealed["run_id"] == "pkg-cli"
+    assert sealed["status"] == cli_envelope["verdict"]
+    assert sealed["artifacts"]["source_sha256"] == cli_envelope["provenance"]["source_sha256"]
 
     request = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
                "params": {"name": "vqs_review",
