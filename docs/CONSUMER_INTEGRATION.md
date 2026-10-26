@@ -4,10 +4,10 @@
 
 ## Pin the implementation, not just the pre-alpha version string
 
-VQS is currently pre-alpha (`0.0.1a0`); no 1.0 stability or tagged production release has been certified. On a clean host use an explicit reviewed Git commit SHA or a vetted local wheel. Example for the 26 October engineering integration baseline:
+VQS is currently pre-alpha (`0.0.1a0`); no 1.0 stability or tagged production release has been certified. On a clean host use an explicit reviewed Git commit SHA or a vetted local wheel. Example for the 26 October reviewed engineering baseline (not a production release):
 
 ```console
-python -m pip install "git+https://github.com/analienx/visual-quality-system.git@48757e570da52f465a2f69b6479c8b230d4a1e77"
+python -m pip install "git+https://github.com/analienx/visual-quality-system.git@7fb0a4564d60c7378eb87d587fc8558c6119d6e1"
 python -m vqs --version
 vqs doctor
 ```
@@ -39,28 +39,34 @@ import subprocess
 from pathlib import Path
 
 def review_pbip(report_dir: Path, private_root: Path, run_id: str) -> dict:
-    result = subprocess.run(
-        ["vqs", "review", str(report_dir), "--run-root", str(private_root),
-         "--run-id", run_id],
-        capture_output=True, text=True, timeout=180, check=False, shell=False,
-    )
     try:
+        result = subprocess.run(
+            ["vqs", "review", str(report_dir), "--run-root", str(private_root),
+             "--run-id", run_id],
+            capture_output=True, text=True, timeout=180, check=False, shell=False,
+        )
         envelope = json.loads(result.stdout)
         verdict = envelope["verdict"]
         expected = {"pass": 0, "fail": 1, "blocked": 2}[verdict]
-        manifest_path = Path(envelope["run_dir"]) / "manifest.json"
-        assert manifest_path.resolve().is_relative_to(private_root.resolve())
+        manifest_path = (Path(envelope["run_dir"]) / "manifest.json").resolve()
+        if not manifest_path.is_relative_to(private_root.resolve()):
+            raise ValueError("manifest is outside the private evidence root")
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        assert result.returncode == expected
-        assert manifest["sealed"] is True and manifest["status"] == verdict
-        assert manifest["run_id"] == run_id
-        assert manifest["artifacts"]["source_sha256"] == envelope["provenance"]["source_sha256"]
-    except (ValueError, KeyError, AssertionError, OSError, TypeError):
+        if result.returncode != expected:
+            raise ValueError("exit code does not match the verdict")
+        if manifest["sealed"] is not True or manifest["status"] != verdict:
+            raise ValueError("manifest is not sealed or differs from verdict")
+        if manifest["run_id"] != run_id:
+            raise ValueError("run identifier mismatch")
+        if (manifest["artifacts"]["source_sha256"]
+                != envelope["provenance"]["source_sha256"]):
+            raise ValueError("source identity mismatch")
+    except (ValueError, KeyError, OSError, TypeError, subprocess.TimeoutExpired):
         return {"verdict": "blocked", "reason": "invalid or unsealed VQS result"}
     return envelope
 ```
 
-For consumer implementations, also verify the manifest's hash chain with VQS's existing evidence verifier rather than trusting a caller-controlled JSON filename. Keep stdout JSON separate from stderr. Never infer `pass` from a zero process exit without validating the envelope and provenance.
+For consumer implementations, also verify the manifest's hash chain with VQS's existing evidence verifier rather than trusting a caller-controlled JSON filename. This sample uses explicit guards rather than `assert`, so the fail-closed checks remain active when Python runs with optimization enabled. Keep stdout JSON separate from stderr. Never infer `pass` from a zero process exit without validating the envelope and provenance.
 
 ## Core versus optional Word
 
