@@ -45,6 +45,42 @@ def project_artifacts(project: Path) -> tuple[Path, Path]:
     return wrapper, report
 
 
+def local_semantic_model(project: Path, report: Path, wrapper: Path) -> tuple[Path | None, str]:
+    """Follow the *declared* PBIR byPath model, never guess an unrelated model."""
+    reference = report / "definition.pbir"
+    if reference.is_symlink():
+        raise ValueError("report dataset reference is symlinked")
+    if not reference.is_file():
+        legacy = project / (wrapper.stem + ".SemanticModel")
+        return (legacy if legacy.is_dir() else None), "legacy_unverified_reference"
+    try:
+        info = json.loads(reference.read_text(encoding="utf-8-sig"))
+        dataset = info["datasetReference"]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise ValueError("report dataset reference unreadable") from exc
+    if not isinstance(dataset, dict):
+        raise TypeError("report dataset reference is not an object")
+    if "byConnection" in dataset and "byPath" not in dataset:
+        return None, "byConnection_not_locally_verified"
+    path = dataset.get("byPath")
+    if not isinstance(path, dict) or not isinstance(path.get("path"), str):
+        raise TypeError("local dataset reference missing byPath")
+    value = path["path"].replace("\\", "/")
+    if not value.strip() or value.startswith("/") or ":" in value:
+        raise ValueError("invalid or absolute byPath dataset reference")
+    target = report.joinpath(*value.split("/"))
+    if target.is_symlink():
+        raise ValueError("dataset byPath is symlinked")
+    try:
+        resolved = target.resolve(strict=True)
+        parent = project.resolve(strict=True)
+    except (OSError, RuntimeError) as exc:
+        raise ValueError("local byPath semantic model missing") from exc
+    if resolved.parent != parent or not resolved.is_dir() or not resolved.name.endswith(".SemanticModel"):
+        raise ValueError("dataset byPath escapes project or is not a semantic-model directory")
+    return resolved, "byPath_source_checked"
+
+
 def assess(
     project: Path, pid: int, process: Mapping[str, Any],
     preview: Mapping[str, Any],
@@ -65,7 +101,7 @@ def assess(
         return block("missing OS process or Desktop preview registry evidence")
     try:
         wrapper, report = project_artifacts(project)
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, TypeError) as exc:
         return block(str(exc))
     if process.get("pid") != pid or str(process.get("name", "")).lower() != "pbidesktop.exe":
         return block("Desktop PID missing or process executable mismatch")
@@ -96,12 +132,15 @@ def assess(
         return block("Desktop Bridge loaded report folder differs from source")
     # Bind the semantic *definition*, not the volatile ABF/cache generated
     # when Desktop refreshes the model. Only byPath/local models are covered.
-    model = wrapper.parent / (wrapper.stem + ".SemanticModel")
+    try:
+        model, model_reference = local_semantic_model(wrapper.parent, report, wrapper)
+    except (OSError, ValueError, TypeError) as exc:
+        return block(str(exc))
     sources = [wrapper, *report.rglob("*")]
-    has_local_model = model.is_dir()
-    if model.is_symlink():
-        return block("local semantic model is symlinked")
+    has_local_model = model is not None
     if has_local_model:
+        if model.is_symlink():
+            return block("local semantic model is symlinked")
         sources.extend(model.rglob("*"))
     if any(x.is_symlink() for x in sources):
         return block("PBIR or semantic source contains symlinks")
@@ -129,6 +168,7 @@ def assess(
         "source_report": str(report.resolve()), "launch_wrapper": str(wrapper.resolve()),
         "desktop_create_time": created, "latest_source_mtime": latest,
         "local_model_definition_checked": has_local_model,
+        "local_model_reference": model_reference,
         "source_file_count": len(source_files),
     })
     return evidence
@@ -153,7 +193,7 @@ def collect(project: Path, pid: int) -> dict[str, Any]:
     # protects other open user instances and avoids reporting their status.
     try:
         wrapper, _ = project_artifacts(project)
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, TypeError) as exc:
         return {"schema": SCHEMA, "status": "blocked", "desktop_pid": pid,
                 "loaded_file_attested": False, "reason": str(exc)}
     cmdline = process.get("cmdline", [])

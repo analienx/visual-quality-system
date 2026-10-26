@@ -111,7 +111,13 @@ def test_missing_wrapper_does_not_get_file_attestation(witness):
 def test_unrelated_second_pbip_can_be_attested_without_contoso_names(tmp_path):
     report = tmp_path / "Corporate Spend.Report"
     report.mkdir()
-    (report / "definition.pbir").write_text("{}", encoding="utf8")
+    import json
+    model = tmp_path / "Corporate Spend.SemanticModel"
+    model.mkdir()
+    (model / "model.tmdl").write_text("model", encoding="utf8")
+    (report / "definition.pbir").write_text(json.dumps({
+        "datasetReference": {"byPath": {"path": "../Corporate Spend.SemanticModel"}}
+    }), encoding="utf8")
     wrapper = tmp_path / "Corporate Spend.pbip"
     wrapper.write_text("{}", encoding="utf8")
     pid = 4500
@@ -180,3 +186,68 @@ def test_symlinked_model_definition_rejected(witness):
     except (OSError, NotImplementedError) as exc:
         pytest.skip(f"no symlinks: {exc}")
     assert assess(project, 4107, process, preview)["loaded_file_attested"] is False
+
+
+def test_declared_by_path_can_reference_differently_named_model(witness):
+    import json
+    project, process, preview = witness
+    folder = project / "Finance.SemanticModel"
+    folder.mkdir()
+    definition = folder / "definition"
+    definition.mkdir()
+    (definition / "model.tmdl").write_text("model", encoding="utf8")
+    reference = project / "Contoso Retail.Report" / "definition.pbir"
+    reference.write_text(json.dumps({"datasetReference": {"byPath": {
+        "path": "../Finance.SemanticModel"}}}), encoding="utf8")
+    result = assess(project, 4107, process, preview)
+    assert result["status"] == "pass"
+    assert result["local_model_reference"] == "byPath_source_checked"
+    assert result["local_model_definition_checked"] is True
+    data = definition / "model.tmdl"
+    os.utime(data, (process["create_time"] + 10, process["create_time"] + 10))
+    changed = assess(project, 4107, process, preview)
+    assert changed["status"] == "blocked"
+    assert "model source modified" in changed["reason"]
+
+
+def test_wrong_missing_by_path_semantic_model_blocks(witness):
+    import json
+    project, process, preview = witness
+    path = project / "Contoso Retail.Report" / "definition.pbir"
+    path.write_text(json.dumps({"datasetReference": {"byPath": {
+        "path": "../Missing.SemanticModel"}}}), encoding="utf8")
+    answer = assess(project, 4107, process, preview)
+    assert answer["status"] == "blocked"
+    assert "byPath semantic model missing" in answer["reason"]
+
+
+def test_by_path_escape_outside_project_is_rejected(witness):
+    import json
+    project, process, preview = witness
+    sibling = project.parent / "External.SemanticModel"
+    sibling.mkdir()
+    ref = project / "Contoso Retail.Report" / "definition.pbir"
+    ref.write_text(json.dumps({"datasetReference": {"byPath": {
+        "path": "../../External.SemanticModel"}}}), encoding="utf8")
+    result = assess(project, 4107, process, preview)
+    assert result["status"] == "blocked"
+    assert "escapes project" in result["reason"]
+
+
+def test_by_connection_report_cannot_claim_local_model_verification(witness):
+    import json
+    project, process, preview = witness
+    ref = project / "Contoso Retail.Report" / "definition.pbir"
+    ref.write_text(json.dumps({"datasetReference": {"byConnection": {
+        "connectionString": "external"}}}), encoding="utf8")
+    result = assess(project, 4107, process, preview)
+    assert result["status"] == "pass"
+    assert result["local_model_definition_checked"] is False
+    assert result["local_model_reference"] == "byConnection_not_locally_verified"
+
+
+def test_invalid_or_missing_dataset_reference_blocks(witness):
+    project, process, preview = witness
+    ref = project / "Contoso Retail.Report" / "definition.pbir"
+    ref.write_text("not valid JSON", encoding="utf8")
+    assert assess(project, 4107, process, preview)["status"] == "blocked"
