@@ -13,6 +13,7 @@ Choose the shortest path for what you want to accomplish. **Power BI is the core
 | Review the architecture | [Architecture](ARCHITECTURE.md) | [Simplified product flow](diagrams/product-flow.svg) |
 | Run native Power BI checks | [P16 Desktop UIA](VISUAL_QA_V2_P16_NATIVE_DESKTOP_UIA.md), [Loaded-source attestation](DESKTOP_SOURCE_ATTESTATION.md) | [Power BI release gate](https://github.com/analienx/visual-quality-system/issues/16) |
 | Inspect actual screenshots / hashes | [14-family native gallery](REAL_THEME_SHOWCASE.md) | [Screenshot provenance](images/adaptive-showcase/PROVENANCE.json) |
+| Integrate VQS into PBIPDocumenter | [Consumer integration](CONSUMER_INTEGRATION.md), [CLI reference](CLI.md) | Power BI-only integration may proceed; independent release acceptance remains [#16](https://github.com/analienx/visual-quality-system/issues/16) |
 | Contribute or review changes | [Contributor guide](../CONTRIBUTING.md), [Changelog](../CHANGELOG.md) | [26 October update](RELEASE_NOTES_2026-10-26.md) · [21 October history](RELEASE_NOTES_2026-10-21.md) |
 
 ## The evidence contract
