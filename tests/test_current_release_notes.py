@@ -21,7 +21,9 @@ def test_current_release_notes_discoverable_and_bounded():
     for number in (81, 82, 83, 85):
         assert f"pull/{number}" in text
     assert "pull/84" in text
-    assert "not included in `main`" in text
+    assert "merged PR #84" in text
+    assert "Actual consumer migration" in text
+    assert "8aade94" in text
     assert "issue #80 closed" in text.lower()
     assert "G2/G4/G6" in text
     assert "not a production release" in text
