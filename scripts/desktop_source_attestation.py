@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from vqs.pbir import source_digest
-from vqs.powerbi.desktop_source import collect, project_artifacts
+from vqs.powerbi.desktop_source import collect, local_semantic_model, project_artifacts
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -23,13 +23,17 @@ def main(argv: list[str] | None = None) -> int:
         wrapper, report = project_artifacts(args.project)
         result["report_source_sha256"] = source_digest(report)
         result["wrapper_sha256"] = hashlib.sha256(wrapper.read_bytes()).hexdigest()
-        model = args.project / (wrapper.stem + ".SemanticModel")
-        if model.is_dir() and not model.is_symlink():
+        # Follow the declared PBIR datasetReference.byPath. A sibling folder
+        # named like the report may contain an entirely different model.
+        model, reference_kind = local_semantic_model(args.project, report, wrapper)
+        result["model_reference_status"] = reference_kind
+        result["model_source_sha256"] = None
+        if model is not None and reference_kind == "byPath_source_checked":
+            if model.is_symlink() or any(f.is_symlink() for f in model.rglob("*")):
+                raise ValueError("symlinked semantic model is not an attested source")
             files = [f for f in model.rglob("*") if f.is_file()
                      and ".pbi" not in f.relative_to(model).parts
                      and f.name != ".platform"]
-            if any(f.is_symlink() for f in model.rglob("*")):
-                raise ValueError("symlinked semantic model is not an attested source")
             h = hashlib.sha256()
             for f in sorted(files):
                 relative = f.relative_to(model).as_posix().encode("utf8")
