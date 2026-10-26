@@ -138,3 +138,45 @@ def test_generic_attestation_blocks_missing_matching_report(tmp_path):
     (tmp_path / "Different.pbip").write_text("{}", encoding="utf8")
     record = assess(tmp_path, 4107, {}, {})
     assert not record["loaded_file_attested"]
+
+
+def test_semantic_model_source_modified_after_launch_is_blocked(witness):
+    project, process, preview = witness
+    semantic = project / "Contoso Retail.SemanticModel" / "definition"
+    semantic.mkdir(parents=True)
+    file = semantic / "model.tmdl"
+    file.write_text("createOrReplace", encoding="utf8")
+    os.utime(file, (process["create_time"] + 10, process["create_time"] + 10))
+    record = assess(project, 4107, process, preview)
+    assert record["status"] == "blocked"
+    assert "model source modified" in record["reason"]
+
+
+def test_model_cache_refresh_after_launch_is_not_false_source_drift(witness):
+    project, process, preview = witness
+    model = project / "Contoso Retail.SemanticModel"
+    (model / "definition").mkdir(parents=True)
+    (model / "definition" / "model.tmdl").write_text("createOrReplace", encoding="utf8")
+    cache = model / ".pbi"
+    cache.mkdir()
+    data = cache / "cache.abf"
+    data.write_bytes(b"volatile-Desktop-cache")
+    os.utime(data, (process["create_time"] + 10, process["create_time"] + 10))
+    record = assess(project, 4107, process, preview)
+    assert record["loaded_file_attested"] is True
+    assert record["local_model_definition_checked"] is True
+    assert record["source_file_count"] >= 3
+
+
+def test_symlinked_model_definition_rejected(witness):
+    project, process, preview = witness
+    model = project / "Contoso Retail.SemanticModel"
+    model.mkdir()
+    target = project / "target.tmdl"
+    target.write_text("model", encoding="utf8")
+    link = model / "model.tmdl"
+    try:
+        link.symlink_to(target)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"no symlinks: {exc}")
+    assert assess(project, 4107, process, preview)["loaded_file_attested"] is False

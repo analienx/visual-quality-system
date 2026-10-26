@@ -94,24 +94,42 @@ def assess(
         return block("Desktop Bridge host PID differs from OS PID")
     if not _same_path(host.get("folder"), report):
         return block("Desktop Bridge loaded report folder differs from source")
+    # Bind the semantic *definition*, not the volatile ABF/cache generated
+    # when Desktop refreshes the model. Only byPath/local models are covered.
+    model = wrapper.parent / (wrapper.stem + ".SemanticModel")
     sources = [wrapper, *report.rglob("*")]
+    has_local_model = model.is_dir()
+    if model.is_symlink():
+        return block("local semantic model is symlinked")
+    if has_local_model:
+        sources.extend(model.rglob("*"))
     if any(x.is_symlink() for x in sources):
-        return block("PBIR source contains symlinks")
-    source_files = [x for x in sources if x.is_file()]
+        return block("PBIR or semantic source contains symlinks")
+    source_files = []
+    for x in sources:
+        if not x.is_file():
+            continue
+        if has_local_model and x.is_relative_to(model):
+            relative = x.relative_to(model)
+            if ".pbi" in relative.parts or relative.name == ".platform":
+                continue
+        source_files.append(x)
     if not source_files:
         return block("PBIR source has no files")
     try:
         latest = max(x.stat().st_mtime for x in source_files)
     except OSError:
-        return block("PBIR source modification times unreadable")
+        return block("PBIR/model source modification times unreadable")
     if latest > created + 1:
-        return block("PBIR source modified after the Desktop process started")
+        return block("PBIR/model source modified after the Desktop process started")
     evidence.update({
         "status": "pass", "loaded_file_attested": True,
         "reason": "OS launch path, sole Bridge registered report, PID, saved state "
                   "and source file age agree",
         "source_report": str(report.resolve()), "launch_wrapper": str(wrapper.resolve()),
         "desktop_create_time": created, "latest_source_mtime": latest,
+        "local_model_definition_checked": has_local_model,
+        "source_file_count": len(source_files),
     })
     return evidence
 
