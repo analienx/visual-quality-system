@@ -29,6 +29,22 @@ def _same_path(left: str, right: Path) -> bool:
         return False
 
 
+def project_artifacts(project: Path) -> tuple[Path, Path]:
+    """Resolve exactly one physical PBIP wrapper and its matching .Report."""
+    project = Path(project)
+    if not project.is_dir() or project.is_symlink():
+        raise ValueError("PBIP project directory missing or symlinked")
+    wrappers = list(project.glob("*.pbip"))
+    if len(wrappers) != 1:
+        raise ValueError("project must contain exactly one PBIP wrapper")
+    wrapper = wrappers[0]
+    report = project / (wrapper.stem + ".Report")
+    if (not wrapper.is_file() or not report.is_dir()
+            or wrapper.is_symlink() or report.is_symlink()):
+        raise ValueError("matching local PBIP/Report pair missing or symlinked")
+    return wrapper, report
+
+
 def assess(
     project: Path, pid: int, process: Mapping[str, Any],
     preview: Mapping[str, Any],
@@ -47,12 +63,10 @@ def assess(
         return block("invalid Desktop process ID")
     if not isinstance(process, Mapping) or not isinstance(preview, Mapping):
         return block("missing OS process or Desktop preview registry evidence")
-    project = Path(project)
-    wrapper = project / "Contoso Retail.pbip"
-    report = project / "Contoso Retail.Report"
-    if (not wrapper.is_file() or not report.is_dir()
-            or wrapper.is_symlink() or report.is_symlink()):
-        return block("exact local Contoso PBIP/report not available")
+    try:
+        wrapper, report = project_artifacts(project)
+    except (OSError, ValueError) as exc:
+        return block(str(exc))
     if process.get("pid") != pid or str(process.get("name", "")).lower() != "pbidesktop.exe":
         return block("Desktop PID missing or process executable mismatch")
     args = process.get("cmdline")
@@ -119,7 +133,11 @@ def collect(project: Path, pid: int) -> dict[str, Any]:
                 "reason": f"OS process inventory unavailable: {type(exc).__name__}"}
     # Refuse a different PBIP before contacting the Bridge at all. This
     # protects other open user instances and avoids reporting their status.
-    wrapper = Path(project) / "Contoso Retail.pbip"
+    try:
+        wrapper, _ = project_artifacts(project)
+    except (OSError, ValueError) as exc:
+        return {"schema": SCHEMA, "status": "blocked", "desktop_pid": pid,
+                "loaded_file_attested": False, "reason": str(exc)}
     cmdline = process.get("cmdline", [])
     launched = ([x for x in cmdline[1:] if isinstance(x, str)
                  and x.lower().endswith(".pbip")]
@@ -134,7 +152,6 @@ def collect(project: Path, pid: int) -> dict[str, Any]:
         return {"schema": SCHEMA, "status": "blocked",
                 "desktop_pid": pid, "loaded_file_attested": False,
                 "reason": "pinned Microsoft report authoring CLI unavailable"}
-    wrapper = Path(project) / "Contoso Retail.pbip"
     try:
         result = subprocess.run(
             [cli, "preview", str(wrapper), "--host", "desktop", "--status"],

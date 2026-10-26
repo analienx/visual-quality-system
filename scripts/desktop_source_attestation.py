@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
-from vqs.powerbi.contoso_project import inventory
-from vqs.powerbi.desktop_source import collect
+from vqs.pbir import source_digest
+from vqs.powerbi.desktop_source import collect, project_artifacts
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -19,9 +20,25 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("refusing overwrite of existing private identity receipt")
     result = collect(args.project, args.desktop_pid)
     try:
-        project, wrapper = inventory(args.project)
-        result["source_sha256"] = project["digest"]
-        result["wrapper_sha256"] = wrapper
+        wrapper, report = project_artifacts(args.project)
+        result["report_source_sha256"] = source_digest(report)
+        result["wrapper_sha256"] = hashlib.sha256(wrapper.read_bytes()).hexdigest()
+        model = args.project / (wrapper.stem + ".SemanticModel")
+        if model.is_dir() and not model.is_symlink():
+            files = [f for f in model.rglob("*") if f.is_file()
+                     and ".pbi" not in f.relative_to(model).parts
+                     and f.name != ".platform"]
+            if any(f.is_symlink() for f in model.rglob("*")):
+                raise ValueError("symlinked semantic model is not an attested source")
+            h = hashlib.sha256()
+            for f in sorted(files):
+                relative = f.relative_to(model).as_posix().encode("utf8")
+                h.update(len(relative).to_bytes(4, "big"))
+                h.update(relative)
+                content = f.read_bytes()
+                h.update(len(content).to_bytes(8, "big"))
+                h.update(content)
+            result["model_source_sha256"] = h.hexdigest() if files else None
     except (OSError, ValueError, TypeError) as exc:
         result["status"] = "blocked"
         result["loaded_file_attested"] = False

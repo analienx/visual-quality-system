@@ -106,3 +106,35 @@ def test_missing_wrapper_does_not_get_file_attestation(witness):
     project, process, preview = witness
     (project / "Contoso Retail.pbip").unlink()
     assert assess(project, 4107, process, preview)["status"] == "blocked"
+
+
+def test_unrelated_second_pbip_can_be_attested_without_contoso_names(tmp_path):
+    report = tmp_path / "Corporate Spend.Report"
+    report.mkdir()
+    (report / "definition.pbir").write_text("{}", encoding="utf8")
+    wrapper = tmp_path / "Corporate Spend.pbip"
+    wrapper.write_text("{}", encoding="utf8")
+    pid = 4500
+    process = {"pid": pid, "name": "PBIDesktop.exe",
+               "cmdline": ["PBIDesktop.exe", str(wrapper)],
+               "create_time": time.time() + 5}
+    bridge = {"data": {"state": "ready", "reports": [
+        {"folder": str(report), "hostInstanceId": str(pid)}],
+        "details": {"hasUnsavedChanges": False}}}
+    record = assess(tmp_path, pid, process, bridge)
+    assert record["loaded_file_attested"] is True
+    assert record["source_report"] == str(report.resolve())
+
+
+def test_generic_attestation_blocks_ambiguous_multiple_pbip_wrappers(witness):
+    project, process, preview = witness
+    (project / "Corporate Spend.pbip").write_text("{}", encoding="utf8")
+    record = assess(project, 4107, process, preview)
+    assert record["status"] == "blocked"
+    assert "exactly one" in record["reason"]
+
+
+def test_generic_attestation_blocks_missing_matching_report(tmp_path):
+    (tmp_path / "Different.pbip").write_text("{}", encoding="utf8")
+    record = assess(tmp_path, 4107, {}, {})
+    assert not record["loaded_file_attested"]
