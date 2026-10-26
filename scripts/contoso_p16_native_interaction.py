@@ -17,6 +17,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("project", type=Path)
     parser.add_argument("--desktop-pid", type=int, required=True)
+    parser.add_argument("--attest-loaded-file", action="store_true",
+                        help="Require exact OS/Bridge PBIP identity before any UIA action")
     parser.add_argument("--oracle", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
@@ -24,7 +26,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("refusing to overwrite existing private native UIA evidence")
     try:
         oracle = json.loads(args.oracle.read_text(encoding="utf-8"))
-        result = run(args.project, args.desktop_pid, oracle)
+        result = run(args.project, args.desktop_pid, oracle,
+                     attest_source=args.attest_loaded_file)
     except (OSError, ValueError, TypeError) as exc:
         result = {"native_uia": "blocked", "interactive": "blocked",
                   "country_map": "blocked", "independent_acceptance": "blocked",
