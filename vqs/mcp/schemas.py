@@ -118,7 +118,12 @@ TOOL_SPECS: tuple[dict[str, Any], ...] = (
          "required": ["run_root", "run_id", "owner_approval"],
          "additionalProperties": False}},
     {"name": "vqs_run", "tool": "vqs.run",
-     "description": "Run the orchestrated Power BI workflow.",
+     "description": (
+         "Agent-led Power BI auto-fix coordinator. Use mode=repair to inspect, "
+         "synthesize supported edits, apply only to a disposable candidate, "
+         "verify the diff, and remeasure quality. Native checks need authorized "
+         "Desktop capabilities. Never overwrites the original or auto-promotes."
+     ),
      "inputSchema": {
          "type": "object",
          "properties": {

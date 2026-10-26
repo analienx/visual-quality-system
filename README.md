@@ -1,13 +1,15 @@
 <div align="center">
-  <img src="docs/media/showcase/vqs-brand.svg" width="100%" alt="Visual Quality System — inspect, improve and verify Power BI reports">
-  <h2>Make every Power BI report worth trusting.</h2>
-  <p><strong>Diagnose the source. Refine the design. Verify what users actually see.</strong></p>
-  <p>Deterministic PBIP checks · Source-safe Light/Dark themes · Real Power BI Desktop evidence</p>
+  <img src="docs/media/showcase/vqs-brand.svg" width="100%" alt="Visual Quality System — source-grounded Power BI repair and native verification">
+  <h2>Fix the report. Verify the fix.</h2>
+  <p><strong>Give your AI agent a Power BI project. Get an independently checkable repair candidate—not another issues-only report.</strong></p>
+  <p>Deterministic PBIR &amp; TMDL analysis · Reversible auto-fixes · Real Power BI Desktop evidence</p>
   <p>
-    <a href="#try-it">Quick start</a> ·
-    <a href="#real-power-bi-showcase">Real report screenshots</a> ·
-    <a href="docs/README.md">Documentation</a> ·
-    <a href="docs/ARCHITECTURE.md">Architecture</a>
+    <a href="docs/AI_AGENT_QUICKSTART.md"><strong>Start with an AI agent</strong></a> ·
+    <a href="docs/AGENT_AUTOFIX_ARCHITECTURE.md">How it works</a> ·
+    <a href="#real-power-bi-showcase">Real report gallery</a> ·
+    <a href="docs/CLI.md">CLI</a> ·
+    <a href="docs/RELEASE_NOTES_2026-10-26.md">Release notes</a> ·
+    <a href="docs/README.md">All docs</a>
   </p>
   <p>
     <a href="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml"><img src="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml/badge.svg" alt="GitHub CI status"></a>
@@ -17,6 +19,39 @@
   </p>
 </div>
 
+## AI-driven improvement, with evidence at every step
+
+**Your goal:** *“Make this Power BI report clearer, more consistent and reliable. Fix what you can safely, validate the result, and show me the candidate.”*
+
+**VQS already supports that workflow for its allowlisted repair operations.** The agent chooses the work; VQS makes source-grounded changes in an **isolated candidate**, checks them, and records what cannot yet be verified. The original report is never silently overwritten.
+
+**01 / Understand** — Inspect actual PBIR/TMDL pages, fields, layouts and color assignments.
+
+**02 / Repair** — Synthesize supported typed fixes and apply them **only to an isolated candidate**.
+
+**03 / Verify** — Check the exact diff, remeasure quality, and gather native Power BI/DAX evidence where available.
+
+**04 / Deliver** — Return **Fixed · Verified · Still blocked**, backed by private evidence and a separate candidate.
+
+**Agent connected through MCP?** Use `vqs_run` with `mode=repair`. **Agent with terminal access?** Use the same engine:
+
+```bash
+vqs run "path/to/Sales.Report" --mode repair --scope static \
+  --run-root "./private-vqs-runs" --run-id "sales-autofix-001"
+```
+
+`scope=static` proves only supported source checks. Native Power BI Desktop validation needs a separately authorized Windows runtime. A passing candidate edit **does not** mean all visual, filter or release checks passed.
+
+**[Get started in 5 minutes · MCP setup and a one-prompt auto-fix workflow](docs/AI_AGENT_QUICKSTART.md)**
+
+**[Understand the system · Component responsibilities, architecture and why they exist](docs/AGENT_AUTOFIX_ARCHITECTURE.md)**
+
+### The system behind the agent
+
+<a href="docs/AGENT_AUTOFIX_ARCHITECTURE.md"><img src="docs/diagrams/product-flow.svg" width="100%" alt="Visual Quality System workflow: report source, quality analysis, repair candidates, Desktop evidence and independent review"></a>
+
+**Agent** orchestrates → **VQS** measures, proposes and repairs → **Microsoft tooling** validates supported changes → **Desktop/Modeling MCP** supplies native evidence → **reviewer** makes the release decision. [Explore each component and its limits](docs/AGENT_AUTOFIX_ARCHITECTURE.md).
+
 ## Real Power BI showcase
 
 **Seven curated families on the homepage. All 14 Light/Dark families in the full gallery.**
@@ -24,8 +59,9 @@ These are real, populated Power BI Desktop screenshots captured from one
 fictional Contoso Retail report; none is a simulated dashboard.
 Each screenshot is bound to the generating GitHub candidate and source hash.
 
-[Open the exact fictional Contoso PBIP source](examples/contoso-retail/Contoso%20Retail.pbip) —
-the source of every generated variant, not a screenshot-only mockup.
+[Open the exact fictional Contoso PBIP source](examples/contoso-retail/Contoso%20Retail.pbip) · [Run the five-page sample report](examples/contoso-retail/README.md)
+
+Every gallery variant comes from that actual source, not a screenshot-only mockup.
 
 **[Explore the complete 14-family native gallery](docs/REAL_THEME_SHOWCASE.md)** ·
 [Compare all color and control tokens](docs/APPROVED_THEME_LIBRARY.md) ·
@@ -103,20 +139,21 @@ colors easy to compare. Each control palette includes themed dropdown,
 filter and selection surfaces. Interactive flyouts remain separately
 reviewable; static screenshots are not interaction certification.
 
-## Try it
+## Other ways to use VQS
 
-Install and analyze a report **without Power BI Desktop, a Microsoft account or a cloud subscription**:
+If you prefer the CLI without an agent, install and inspect a source report locally:
 
 ```bash
 git clone https://github.com/analienx/visual-quality-system.git
 cd visual-quality-system
 python -m pip install -e ".[test]"
+vqs doctor
 vqs triage tests/powerbi/fixtures/mini_report --out quality.md
 ```
 
-Open `quality.md` to inspect the source-located findings; nothing in the report is changed.
+`triage` is a **read-only source check**, not the autonomous repair command. To fix supported issues in a disposable candidate, use the `vqs run --mode repair` example above.
 
-### Re-theme a real PBIP, safely
+**Light and Dark themes** can be generated and audited separately using the theme CLI:
 
 ```bash
 vqs theme presets
@@ -125,35 +162,24 @@ vqs theme apply "examples/contoso-retail/Contoso Retail.pbip" --mode light --pal
 vqs theme audit ./organic-candidate
 ```
 
-`preview` is read-only; `apply` creates a separate candidate and audit manifest. Generated candidates preserve source PBIP, semantic model, DAX, field bindings and business-measure predicates. The Contoso showcase now encodes product and region categories with distinct colors, while keeping business values and the 35% reference line. The generated candidate may need a first-open refresh in Power BI Desktop to populate its local sample model.
+`preview` is read-only; `apply` creates a separate PBIP candidate. Its source/model bindings and category colors must be checked before claiming native quality. [Theme guide](docs/THEME_ENGINE.md) · [Approved palettes](docs/APPROVED_THEME_LIBRARY.md) · [CLI commands](docs/CLI.md).
 
-[**Theme engine guide**](docs/THEME_ENGINE.md) · [CLI reference](docs/CLI.md) · [Five-page sample](examples/contoso-retail/README.md)
+## Trustworthy checks, with honest limits
 
-## One workflow, verifiable boundaries
-
-| Step | What it does | What establishes confidence |
+| Quality layer | What VQS verifies | What it cannot infer |
 | :--- | :--- | :--- |
-| **Inspect** | Analyze PBIR layout, TMDL/DAX bindings, contrast and report structure | Deterministic source diagnostics and exact-path findings |
-| **Improve** | Offer prioritized design changes; generate bounded, reversible repairs and palettes | Diff, candidate hash, Microsoft authoring schema and original-source invariance |
-| **Observe** | Capture populated Power BI Desktop screens; check supported UIA interactions | Exact report/PID, native rendered images and live model DAX |
-| **Review** | Package evidence and distinguish PASS, FAIL, unsupported and N/A states | Independent visual judgment and separate release/publisher approval |
+| **Source** | Layout, categorical color distinctness, supported formatting, bindings and checks with exact file evidence | Actual Desktop pixels or arbitrary dynamic state |
+| **Candidate** | Declared typed edits, unchanged original, rollback path, source diff and supported authoring validation | That every unrelated issue has disappeared |
+| **Native** | Authenticated, source-bound full-page renders and supported interaction/DAX checks when available | Unsupported visuals, inaccessible controls or unverified sign-in |
+| **Release** | Sealed evidence suitable for independent human/agent review | A production approval without an authorized separate decision |
 
-<a href="docs/ARCHITECTURE.md"><img src="docs/diagrams/product-flow.svg" width="100%" alt="Power BI VQS system flow, from report files through deterministic checks, desktop evidence, and independent review"></a>
-
-**Architecture in one sentence:** GitHub/Linux/Windows runners handle portable static analysis; a supported Windows Desktop session provides native pixels and interactions. [View the complete, simplified architecture](docs/ARCHITECTURE.md).
-
-### Beyond a pretty screenshot
-
-VQS provides an explicit `vqs premium` design contract for hierarchy, spacing and quality review, rather than claiming to know that a screenshot is attractive from source JSON alone. The engine validates **colors actually assigned to different categories inside each chart**, not merely the theme swatches. This catches near-duplicate Electronics/Sports colors, unscoped Retail/Online fills and **identical reds caused by conditional status fills** as HIGH-severity source findings. The 28-mode GitHub candidate workflow and pre-capture gate refuse to publish a candidate while any such violation remains. The 4–7-category normal/color-vision thresholds are **45/15**, and three-category limits are **50/19**. Ten chart regions per native mode undergo independent pixel checks before screenshot publication. Numeric gradients and business-status measures are preserved; distinct category colors are used where the showcase calls for category identity. The featured examples are authentic Desktop recaptures of the category-distinct, QVS-gated source. The bundled Contoso Retail report includes charts, tables, slicers and a **no-sign-in Shape Map**.
-
-The distinct Corporate Spend subject has documented Azure Maps sign-in and schema-compatibility limitations; it is **not** presented as a fully certified cross-report success. All **28 newly approved Light/Dark modes** have since received real native Desktop captures and screenshot-color checks. These default-state captures still do **not** certify open dropdown flyouts, all interactions, or independent aesthetic signoff. The `powerbi-core` G2/G4/G6 release gates remain separate.
-
-[Evidence & acceptance](docs/ACCEPTANCE_MATRIX.md) · [Release candidates](docs/RELEASE_NOTES_THEME_2026-10-24.md) · [Acceptance issue #16](https://github.com/analienx/visual-quality-system/issues/16)
+The 14 approved theme families include **28 Light/Dark modes** with real source-bound native previews. Their default-state capture and color checks do **not** certify every dropdown state, cross-report interaction, or production G2/G4/G6. [Latest engineering release notes](docs/RELEASE_NOTES_2026-10-26.md) · [Evidence and acceptance](docs/ACCEPTANCE_MATRIX.md) · [Open release gates](https://github.com/analienx/visual-quality-system/issues/16).
 
 ## Documentation
 
 | For | Start here |
 | :--- | :--- |
+| **AI agents and report owners** | [5-minute auto-fix quickstart](docs/AI_AGENT_QUICKSTART.md) · [Complete component architecture](docs/AGENT_AUTOFIX_ARCHITECTURE.md) |
 | **Power BI report authors** | [Getting started](docs/USER_GUIDE.md) · [Premium design guide](docs/PREMIUM_POWERBI.md) · [Theme palette library](docs/APPROVED_THEME_LIBRARY.md) |
 | **BI platform engineers** | [Architecture](docs/ARCHITECTURE.md) · [CLI](docs/CLI.md) · [Power BI integration & native evidence](docs/VISUAL_QA_V2_P16_NATIVE_DESKTOP_UIA.md) |
 | **Quality reviewers** | [Acceptance matrix](docs/ACCEPTANCE_MATRIX.md) · [Screenshot provenance](docs/images/adaptive-showcase/PROVENANCE.json) · [Native gallery](docs/REAL_THEME_SHOWCASE.md) |
@@ -161,4 +187,4 @@ The distinct Corporate Spend subject has documented Azure Maps sign-in and schem
 
 VQS focuses on **Power BI**. Word/DOCX assurance is a separate optional component, not a blocker for a Power BI-only release. Source inspection is local by default; private customer screenshots and caches must not be checked in or uploaded without explicit authorization.
 
-<sub>Apache-2.0 · Engineering preview · [Security & contribution guidance](CONTRIBUTING.md) · [Older five-theme native gallery](docs/THEME_GALLERY.md)</sub>
+<sub>Apache-2.0 · Engineering preview · Power BI first (Word/DOCX separately scoped) · [Security and contribution](CONTRIBUTING.md) · [Legacy theme gallery](docs/THEME_GALLERY.md)</sub>

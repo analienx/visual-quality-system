@@ -1,5 +1,16 @@
 # Changelog
 
+## Agent-led Power BI engineering integration — 26 October 2026
+
+**Current consolidated notes:** [26 October engineering update](docs/RELEASE_NOTES_2026-10-26.md). This is an **engineering preview**, not a production tag or independently approved release.
+
+- **Agent-first auto-fixing / premium onboarding:** [merged PR #85](https://github.com/analienx/visual-quality-system/pull/85) (merge [`c36a7e1`](https://github.com/analienx/visual-quality-system/commit/c36a7e189f232d83fc80e76a8970a8536b3fc3a8)) makes the README an agent-led repair landing page and prominently links the [5-minute MCP/CLI setup](docs/AI_AGENT_QUICKSTART.md) and [component-by-component auto-fix architecture](docs/AGENT_AUTOFIX_ARCHITECTURE.md). Supported typed source fixes go to isolated candidates with verification, not automatic report overwrites or production promotion.
+- **Power BI Desktop source assurance:** [merged PR #83](https://github.com/analienx/visual-quality-system/pull/83) (merge [`48757e5`](https://github.com/analienx/visual-quality-system/commit/48757e570da52f465a2f69b6479c8b230d4a1e77)) adds opt-in, fail-closed exact-PBIP OS/Bridge identity and saved-state verification, including declared local semantic model source checks. A native disposable report with unsaved state was correctly **blocked**, not falsely accepted.
+- **Themes:** [PR #81](https://github.com/analienx/visual-quality-system/pull/81) and follow-up documentation [PR #82](https://github.com/analienx/visual-quality-system/pull/82) are merged. 14 Light/Dark families, 28 modes, source-bound authentic gallery and associated static/native default-state checks are in `main`. **Implementation issue [#80](https://github.com/analienx/visual-quality-system/issues/80) is closed**; its outstanding dynamic state and independent release acceptance obligations were consolidated into still-open [#16](https://github.com/analienx/visual-quality-system/issues/16).
+- **Consumer:** two-project read-only source inventory parity is supported by private receipts. The guide/handoff [PR #84](https://github.com/analienx/visual-quality-system/pull/84) remains **open** at this checkpoint and is not shipped in `main`; actual consumer migration and independent production gate remain open.
+
+**Hosted verification:** the merged README/agent-guide PR #85 passed Windows/Linux CI, Microsoft authoring and R6. These results establish supported **engineering checks**, not independent two-PBIP G2/G4 or release-owner G6 acceptance.
+
 ## Adaptive themes integrated into main — 26 October 2026
 
 Owner-approved [PR #81](https://github.com/analienx/visual-quality-system/pull/81)
@@ -13,9 +24,10 @@ passed 1,860 tests (11 skipped), and all PR CI, authoring and R6 jobs passed.
 **Release boundary:** this was approval to merge the **feature**, not
 independent `powerbi-core` production acceptance. The two unrelated
 PBIP G2/G4 scenarios and broader release G6 remain open in
-[issue #16](https://github.com/analienx/visual-quality-system/issues/16);
-additional theme-specific P3 interactive coverage remains open in
-[issue #80](https://github.com/analienx/visual-quality-system/issues/80).
+[issue #16](https://github.com/analienx/visual-quality-system/issues/16).
+The implementation issue [#80](https://github.com/analienx/visual-quality-system/issues/80)
+has since been **closed as completed**; its unverified P3 interaction checks
+were explicitly moved to issue #16, **not marked passed**.
 
 
 ## Native gallery verified against current authoring source — 25 October 2026
