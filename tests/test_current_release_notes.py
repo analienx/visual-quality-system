@@ -21,7 +21,9 @@ def test_current_release_notes_discoverable_and_bounded():
     for number in (81, 82, 83, 85):
         assert f"pull/{number}" in text
     assert "pull/84" in text
-    assert "not included in `main`" in text
+    assert "merged PR #84" in text
+    assert "Actual consumer migration" in text
+    assert "8aade94" in text
     assert "issue #80 closed" in text.lower()
     assert "G2/G4/G6" in text
     assert "not a production release" in text
@@ -38,7 +40,9 @@ def test_current_theme_notes_explicitly_override_stale_historical_draft_status()
         "Earlier engineering evidence"
     )
     assert "closed" in theme[:1000].lower()
-    assert "were explicitly moved to issue #16" in changelog[:3800]
+    assert "were explicitly moved to issue #16" in changelog.split(
+        "## Native gallery verified against current authoring source", 1
+    )[0]
 
 
 def test_current_release_notes_local_links_resolve():
