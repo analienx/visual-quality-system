@@ -1,4 +1,24 @@
-# Adaptive Power BI themes · release candidate · 24 October 2026
+# Adaptive Power BI themes · release and integration history
+
+## Adaptive themes integrated into main — 26 October 2026
+
+Owner-approved [PR #81](https://github.com/analienx/visual-quality-system/pull/81)
+was merged to `main` at [`9770a52`](https://github.com/analienx/visual-quality-system/commit/9770a52f934daf45c72b1081e11b87009f95ea0b).
+The 14-family / 28-mode adaptive-theme feature, its exact-source native
+Contoso evidence (140 captures, 364/364 pixel/control checks) and the
+56-image public gallery are now integrated. The original authoring commit
+`6bb62da` remains in Git history for provenance. The full local test suite
+passed 1,860 tests (11 skipped), and all PR CI, authoring and R6 jobs passed.
+
+**Release boundary:** this was approval to merge the **feature**, not
+independent `powerbi-core` production acceptance. The two unrelated
+PBIP G2/G4 scenarios and broader release G6 remain open in
+[issue #16](https://github.com/analienx/visual-quality-system/issues/16);
+additional theme-specific P3 interactive coverage remains open in
+[issue #80](https://github.com/analienx/visual-quality-system/issues/80).
+
+## Earlier engineering evidence — 24–25 October 2026 (historical state)
+
 
 ## Native gallery verified against current authoring source — 25 October 2026
 
