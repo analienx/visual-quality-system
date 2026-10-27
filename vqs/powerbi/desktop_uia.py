@@ -27,6 +27,8 @@ from typing import Any
 from vqs.powerbi.contoso_project import inventory
 from vqs.powerbi.desktop_source import (
     collect as attest_desktop_source,
+)
+from vqs.powerbi.desktop_source import (
     strict_local_model_attested,
 )
 from vqs.powerbi.interaction_audit import (
