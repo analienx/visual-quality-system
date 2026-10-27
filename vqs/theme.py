@@ -546,6 +546,10 @@ def role_for(path: list[Any], visual_type: str, file_kind: str) -> str | None:
             and prop in ("strokecolor", "markercolor", "areacolor")):
         return "dataColors"
     if vtype in SLICER_TYPES:
+        if group_l == "selectionicon" and prop == "color":
+            # Native dropdown checkbox must contrast with its item surface,
+            # not inherit the selected-label or accent shade.
+            return "slicerForeground"
         if group_l == "searchbox":
             return "outline" if "border" in prop else "slicerBackground"
         if group_l == "header":
@@ -1354,6 +1358,10 @@ def _synthesized_changes(report_dir: Path, palette: dict[str, Any]) -> list[dict
                                "background": "slicerBackground"},
                     "searchBox": {"background": "slicerBackground",
                                   "borderColor": "outline"}}
+                if vtype == "slicer":
+                    # Microsoft native SelectionIcon catalog is for slicer.
+                    # Avoid guessing support for other filter visual families.
+                    targets["selectionIcon"] = {"color": "slicerForeground"}
             elif vtype in TABLE_TYPES:
                 targets = {
                     "columnHeaders": {"fontColor": "tableHeaderForeground",
@@ -1419,12 +1427,16 @@ def _synthesized_changes(report_dir: Path, palette: dict[str, Any]) -> list[dict
             for group, props_to_add in targets.items():
                 entries = objects.get(group)
                 if entries is None:
-                    if vtype in SLICER_TYPES and group in ("items", "searchBox"):
+                    if vtype in SLICER_TYPES and group in (
+                            "items", "searchBox", "selectionIcon"):
                         new_entry = {"properties": {k: _inline_color(str(palette[v]))
                                                      for k, v in props_to_add.items()}}
                         add(visual_file, ctx, ["visual", "objects", group],
-                            "slicerBackground", [new_entry],
-                            "slicer item group synthesized to avoid white dropdown")
+                            ("slicerForeground" if group == "selectionIcon" else
+                             "slicerBackground"), [new_entry],
+                            ("explicit checkbox indicator contrasts with item surface"
+                             if group == "selectionIcon" else
+                             "slicer item group synthesized to avoid white dropdown"))
                     continue
                 if not isinstance(entries, list):
                     continue
