@@ -15,6 +15,7 @@ import math
 from collections.abc import Mapping
 from typing import Any
 
+from vqs.powerbi.contoso_goldens import PINNED_DAX_SHA256
 from vqs.powerbi.modeling import ModelingScope
 
 COUNTRIES = frozenset({
@@ -143,6 +144,11 @@ def collect(port: Any, source_sha256: str, year: int | None,
         "queries": {k: hashlib.sha256(v.encode("utf-8")).hexdigest()
                     for k, v in queries.items()},
     }
+    # A self-generated query SHA is no independent semantic oracle.
+    # Refuse changed DAX before even connecting to the local model.
+    if receipt["queries"] != PINNED_DAX_SHA256.get(year):
+        receipt["reason"] = "DAX generator differs from independently pinned query fingerprints"
+        return receipt
     if (not isinstance(source_sha256, str) or len(source_sha256) != 64
             or any(c not in "0123456789abcdef" for c in source_sha256)):
         receipt["reason"] = "missing exact source fingerprint"
