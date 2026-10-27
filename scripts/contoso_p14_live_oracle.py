@@ -18,7 +18,10 @@ from typing import Any
 
 from vqs.powerbi.contoso_project import inventory as _inventory
 from vqs.powerbi.contoso_runtime import CURRENT_SOURCE_CONTRACT, collect
-from vqs.powerbi.desktop_source import collect as attest_desktop_source
+from vqs.powerbi.desktop_source import (
+    collect as attest_desktop_source,
+    strict_local_model_attested,
+)
 from vqs.powerbi.modeling import StdioModelingClient
 
 SCHEMA = CURRENT_SOURCE_CONTRACT
@@ -50,9 +53,13 @@ def run(project: Path, pid: int, *, attest_source: bool = False) -> dict[str, An
     if attest_source:
         proof = attest_desktop_source(project, pid)
         result["desktop_source_evidence"] = proof
-        result["desktop_source_attested"] = proof.get("loaded_file_attested") is True
+        result["desktop_source_attested"] = strict_local_model_attested(proof)
         if not result["desktop_source_attested"]:
-            result["reason"] = "Desktop loaded-source attestation blocked: " + str(proof.get("reason"))
+            result["reason"] = (
+                "Desktop report/local semantic-model source attestation blocked: "
+                + str(proof.get("reason", "model source unverified"))
+                + " (reference: " + str(proof.get("local_model_reference")) + ")"
+            )
             return result
     client = StdioModelingClient(target_pid=pid)
     try:
