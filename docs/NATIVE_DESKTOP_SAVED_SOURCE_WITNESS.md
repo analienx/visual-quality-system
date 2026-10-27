@@ -57,9 +57,15 @@ interval, and the live Bridge clean-state transition. Only the PBIP wrapper
 and report `definition.pbir` can have byte changes—and only schema-only,
 JSON-semantically equivalent ones. All other report/model source content
 must be identical. Stale, wrong PID/path/model, changed DAX/report source,
-changed post-Save file timestamps, in-memory dirty state, untrusted action
-type and missing source inventories **BLOCK**. Dynamic verification is
-performed again before strict DAX/UIA; routine invocations with no
+changed post-Save file timestamps, pre-action in-memory dirty state,
+untrusted action type and missing source inventories **BLOCK**. Dynamic
+strict verification is performed before DAX/UIA; when native UIA runs,
+its *separate terminal observation* preserves the dirty UI bit but only
+accepts engineering interaction evidence if exact source hashes/timestamps,
+OS PID, single Bridge report, byPath local model and native Save witness
+still match. A dirty terminal cannot become a fresh saved-file attestation
+(`status=blocked`, `loaded_file_attested=false`); source or host drift
+blocks/fails interaction evidence. Routine invocations with no
 `--native-save-witness` keep the older strict age requirement.
 
 The receipt is **first-party local process evidence**, not a cryptographic

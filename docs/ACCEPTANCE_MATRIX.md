@@ -67,7 +67,7 @@ For any mandatory criterion: `pass` requires directly relevant current evidence;
 | PBI-02 | Scratch PBIP with cache, fresh refresh fails | first-open populated recorded separately; reproducible refresh is failed/blocked, not silently passed | G1 |
 | PBI-03 | Live DAX returns 1,440 rows for synthetic model but rendered card blank | data/view discrepancy emitted for exact measure/filter and visual; no false pass | G1,G2 |
 | PBI-04 | Two identical report filenames in different Desktop PIDs | exact PID + canonical path required; wrong target fails | G0,G1 |
-| PBI-05 | Unsaved Desktop state or external PBIR edits while open | saved-state/source check blocks certification; explicit reload/reopen requirement | G0 |
+| PBI-05 | Unsaved Desktop state or external PBIR edits while open | Initial strict saved-file attestation blocks dirty; an already-attested native interaction may *observe* a dirty terminal UI only when unchanged source hashes/timestamps and same live PID/Bridge/report/model are verified. Terminal dirty remains `status=blocked` for a **new** saved-file attestation; source drift or host change always blocks/fails the interaction. Do not reopen repeatedly solely to clear an interaction-induced dirty flag | G0,G4 |
 | PBI-06 | Scale-2 screenshot viewport differs from scaled scale-1 coordinates | entire canvas includes right slicer and table; invalid crop fails calibration | G2 |
 | PBI-07 | Page count/order or PNG hash differs from capture manifest | stale/incomplete render rejected for whole-report gate | G0,G2 |
 | PBI-08 | Filter/role differs between DAX oracle and report view | answer comparison blocked or re-executed under equal data scope; not directly compared | G1,G4 |
