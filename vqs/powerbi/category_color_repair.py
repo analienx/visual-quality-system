@@ -52,7 +52,8 @@ def _color_id(entry: Any) -> int | None:
     return None
 
 
-def restore_from_reference(reference: Path, candidate: Path) -> dict[str, Any]:
+def restore_from_reference(reference: Path, candidate: Path,
+                           *, disposable_root: Path) -> dict[str, Any]:
     """Repair a same-query candidate using its trusted reference's selectors.
 
     The candidate must already be an isolated *distinct* file: original source
@@ -61,6 +62,11 @@ def restore_from_reference(reference: Path, candidate: Path) -> dict[str, Any]:
     """
     source = reference.resolve(strict=True)
     target = candidate.resolve(strict=True)
+    root = disposable_root.resolve(strict=True)
+    if not root.is_dir() or not target.is_relative_to(root) or target == root:
+        raise CategoryColorRepairError("candidate outside explicitly authorized disposable root")
+    if source.is_relative_to(root):
+        raise CategoryColorRepairError("trusted reference must be outside disposable root")
     if source == target or source in target.parents or target in source.parents:
         raise CategoryColorRepairError("reference and candidate must be disjoint")
     ref = _read(source)

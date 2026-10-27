@@ -19,12 +19,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("--candidate", type=Path, required=True)
+    parser.add_argument("--disposable-root", type=Path, required=True,
+                        help="explicit root containing ONLY authorized disposable candidates")
     parser.add_argument("--receipt", type=Path, required=True)
     args = parser.parse_args(argv)
     if args.receipt.exists() or args.receipt.is_symlink():
         parser.error("refusing to overwrite prior evidence receipt")
     try:
-        outcome = restore_from_reference(args.reference, args.candidate)
+        outcome = restore_from_reference(
+            args.reference, args.candidate, disposable_root=args.disposable_root)
     except (OSError, CategoryColorRepairError) as exc:
         print(json.dumps({"status": "blocked", "reason": str(exc)}))
         return 2

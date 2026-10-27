@@ -12,10 +12,11 @@ Finally, Desktop's genuine native Save reserialized the repaired categorical PBI
 
 ## 2. Bounded source-grounded correction
 
-`python -m scripts.restore_categorical_colors --reference "approved fictional same-query visual.json" --candidate "disposable candidate visual.json" --receipt "private JSON"`
+`python -m scripts.restore_categorical_colors --reference "approved fictional same-query visual.json" --candidate "disposable candidate visual.json" --disposable-root "isolated candidate parent folder" --receipt "private JSON"`
 
 - Requires exactly identical query and visual type, same bounded categorical field, two or more unique category selectors, and unique trusted theme slot IDs.
-- Refuses any reference/candidate overlap, existing candidate category overrides, unknown selector, different query, or duplicate category color slot. **Does not mutate the reference** or invent semantic categories.
+- Requires an **explicit `--disposable-root`**. Canonical (symlink-resolved) target path **must be within** that root, while the trusted reference **must be outside** it; no implicit original-project write is authorized. Symlink escapes, overbroad roots containing the reference, and missing root fail closed. The operator is responsible for choosing a genuinely disposable root, not a broad user-owned project directory.
+- Refuses any reference/candidate overlap, existing candidate category overrides, unknown selector, different query, or duplicate category color slot. **Does not mutate the reference** or invent semantic categories. Category literals originate from the caller-supplied **trusted** reference: this single-visual repair does *not* independently query the model for category members or auto-apply to arbitrary visuals; the trusted reference's provenance must be verified separately.
 - **Only** an explicitly disposable copy is patched; separately run Microsoft authoring `validate` and verify the real Desktop image before promoting anything.
 - The existing theme engine's PR #101 native `selectionIcon.color` support was applied through `vqs theme apply --mode dark --palette-preset saffron-spruce`, adding indicators for **all seven classic slicers** while keeping scoped category fills. A bounded *disposable-only* 120px → 80px Year slicer height adjustment addressed the Deep-dive excessive blank-space issue.
 
