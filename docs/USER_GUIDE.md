@@ -42,11 +42,13 @@ vqs measure tests/powerbi/fixtures/mini_report --model tests/powerbi/fixtures/mi
 vqs cycles tests/powerbi/fixtures/cycle_model   # exit 1: known loops, see tests/powerbi/test_cycles.py
 ```
 
-Or run the whole acceptance in one step:
+For a **G0-only source acceptance diagnostic**, use:
 
 ```bash
 python scripts/pbip_acceptance.py path/to/Example.Report --model path/to/Example.SemanticModel/definition
 ```
+
+This script measures static source quality and optional Microsoft authoring validation. A successful source check is recorded as `source_verdict: pass` but the overall `verdict` remains `blocked` (exit **2**) because it has **not** verified live native G1/G2/G4 evidence or independent G6 release authorization. A demonstrated source defect remains `fail` (exit **1**). It must never produce a production-acceptance `pass` merely because `--skip-external` was selected or the authoring CLI was missing. See the [independent acceptance gate](ACCEPTANCE_MATRIX.md).
 
 ## Workflow 2: screenshot review (Desktop)
 
@@ -128,4 +130,3 @@ caches, credentials, and `.vqs-runs/` out of public git (all
 gitignored by default). Never attach real screenshots to public
 issues; use hashes, page/visual IDs, and finding descriptions.
 Cloud submission of data or images needs explicit owner
-authorization, recorded in the run.
