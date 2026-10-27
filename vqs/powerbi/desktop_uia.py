@@ -80,7 +80,8 @@ def _snapshot(observation: Any, pid: int, *, action: str, value: str,
     method = observation.get("method")
     _require(method in ("read_only", "SelectionItemPattern",
                         "SelectionItemPattern.Select",
-                        "SelectionItemPattern.RemoveFromSelection"),
+                        "SelectionItemPattern.RemoveFromSelection",
+                        "TogglePattern.ToggleOn", "TogglePattern.ToggleOff"),
              "blocked", f"{scenario}: UIA method not allowlisted")
     if action == "probe":
         _require(method == "read_only", "fail", "a read-only probe reports interaction")
@@ -92,8 +93,10 @@ def _snapshot(observation: Any, pid: int, *, action: str, value: str,
                  "region clear did not use RemoveFromSelection")
     elif action == "year":
         expected_methods = (("SelectionItemPattern",
-                             "SelectionItemPattern.RemoveFromSelection")
-                            if value == "All" else ("SelectionItemPattern.Select",))
+                             "SelectionItemPattern.RemoveFromSelection",
+                             "TogglePattern.ToggleOff")
+                            if value == "All" else
+                            ("SelectionItemPattern.Select", "TogglePattern.ToggleOn"))
         _require(method in expected_methods, "fail",
                  "Year input did not use the exact allowed selection pattern")
     data = observation.get("observed")
@@ -266,14 +269,17 @@ def _wait_for_state(pid: int, action: str, value: str, year: int | None,
             or action_receipt.get("method") not in (
                 "read_only", "SelectionItemPattern",
                 "SelectionItemPattern.Select",
-                "SelectionItemPattern.RemoveFromSelection")):
+                "SelectionItemPattern.RemoveFromSelection",
+                "TogglePattern.ToggleOn", "TogglePattern.ToggleOff")):
         raise InteractionEvidenceError("blocked", "native action receipt has invalid provenance")
     method = action_receipt["method"]
     if not ((action == "probe" and method == "read_only")
             or (action == "year" and
                 method in (("SelectionItemPattern",
-                            "SelectionItemPattern.RemoveFromSelection")
-                           if value == "All" else ("SelectionItemPattern.Select",)))
+                            "SelectionItemPattern.RemoveFromSelection",
+                            "TogglePattern.ToggleOff")
+                           if value == "All" else
+                           ("SelectionItemPattern.Select", "TogglePattern.ToggleOn")))
             or (action == "region" and method == "SelectionItemPattern.Select")
             or (action == "clear-region" and
                 method == "SelectionItemPattern.RemoveFromSelection")):

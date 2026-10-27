@@ -115,6 +115,40 @@ def _run_fake(change=None) -> dict:
     return assess_native_sequence(_oracle(), SOURCE, PID, invoke=invoke)
 
 
+@pytest.mark.parametrize("year_method,clear_method", [
+    ("SelectionItemPattern.Select", "SelectionItemPattern.RemoveFromSelection"),
+    ("TogglePattern.ToggleOn", "TogglePattern.ToggleOff"),
+])
+def test_native_year_selection_patterns_preserve_exact_readbacks(
+    year_method: str, clear_method: str,
+) -> None:
+    def use_supported_patterns(events: list[dict]) -> None:
+        for event in events:
+            if event["action"] != "year":
+                continue
+            event["method"] = (
+                clear_method if event["requested_value"] == "All"
+                else year_method
+            )
+    result = _run_fake(use_supported_patterns)
+    assert result["native_uia"] == "pass"
+    assert len(result["events"]) == len(SCENARIOS)
+
+
+@pytest.mark.parametrize("bad_method", [
+    "TogglePattern.ToggleOff",
+    "InvokePattern.Invoke",
+    "TogglePattern",
+])
+def test_wrong_year_toggle_direction_fails_closed(bad_method: str) -> None:
+    def corrupt(events: list[dict]) -> None:
+        event = next(x for x in events if x["action"] == "year"
+                     and x["requested_value"] == "2024")
+        event["method"] = bad_method
+    result = _run_fake(corrupt)
+    assert result["native_uia"] in ("fail", "blocked")
+
+
 def test_all_native_years_region_and_clear_have_concrete_numeric_witness():
     result = _run_fake()
     assert result["native_uia"] == "pass"
