@@ -99,6 +99,19 @@ if (-not (Test-Path -LiteralPath $desktopExe -PathType Leaf)) {
     throw "Desktop executable missing: $desktopExe"
 }
 $beforeVersion = (Get-Item -LiteralPath $desktopExe).VersionInfo.ProductVersion
+try {
+    $installed = [version]$beforeVersion
+    $target = [version]$TargetVersion
+} catch {
+    throw "Cannot compare installed Desktop version $beforeVersion to $TargetVersion"
+}
+# The owner may already have approved/run the installer through Windows UI.
+# Never close the six disposable sessions for a needless reinstall/downgrade.
+if ($installed -ge $target) {
+    Write-Host "Desktop $beforeVersion already meets target $TargetVersion; no processes touched."
+    Write-Host 'Rerun saved-source attestation on a new disposable report instance.'
+    exit 0
+}
 if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     throw 'winget is unavailable; no installer launched'
 }
