@@ -20,6 +20,8 @@ from vqs.powerbi.contoso_project import inventory as _inventory
 from vqs.powerbi.contoso_runtime import CURRENT_SOURCE_CONTRACT, collect
 from vqs.powerbi.desktop_source import (
     collect as attest_desktop_source,
+)
+from vqs.powerbi.desktop_source import (
     strict_local_model_attested,
 )
 from vqs.powerbi.modeling import StdioModelingClient
