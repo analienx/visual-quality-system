@@ -1,6 +1,6 @@
 # VQS Power BI — engineering progress, 27 October 2026
 
-**Status: Engineering preview. No production release, tag or G6 signoff.**  
+**Status: Engineering preview. No production release, tag or G6 signoff.**
 [Release gate #16](https://github.com/analienx/visual-quality-system/issues/16) remains open. The mandatory independent G2/G4 review and owner/publisher G6 decision have **not** been granted.
 
 ## What has actually changed on protected main
