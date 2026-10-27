@@ -23,6 +23,25 @@ The compatibility issue was also [independently reported upstream](https://githu
 
 Private report sources, caches, screenshots, Windows receipts and data never belong in the public repository. Fictional Contoso screenshots already in the public gallery have their separate source/capture provenance; historical static/native-gallery images do not imply independent interactive acceptance.
 
+## G2 engineering correction — native slicer checkbox (27 October)
+
+The **Saffron & Spruce Dark** real expanded Year flyout displayed checkbox
+indicators at approximately **1.8:1** contrast against the item surface.
+A previously isolated seven-slicer private trial showed a readable light icon
+but was not a source-managed product fix. The theme engine now gives slicer
+`selectionIcon.color` an explicit `slicerForeground` role and synthesizes it
+for missing native icon groups, without changing filter behavior or editing
+original sources. The role is contrast-screened at **>=3:1** against
+`slicerBackground` in all 14 approved families and both modes.
+
+Engineering proof: **76 focused theme tests passed**; a fresh, isolated
+fictional Contoso Saffron Dark candidate contains **7/7** explicit light
+checkbox indicator colors and passes Microsoft Report Author `validate` with
+**0 errors / 0 warnings**, including schema checks. The previously captured
+native trial shows an improvement for the unselected list but does **not**
+replace a fresh, source-attested selected/unselected live-state capture of the
+newly generated candidate. This fix is **not independent G2 or G6 approval**.
+
 ## Release gates that remain
 
 1. **Independent G2:** all five populated Contoso pages in Light/Dark including expanded dropdown/filter states, and all three populated pages of the unrelated private report, reviewed independently for contrast, labels, missing content and actual visual correctness.

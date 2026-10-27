@@ -80,7 +80,7 @@ For any mandatory criterion: `pass` requires directly relevant current evidence;
 | --- | --- | --- | --- |
 | DES-01 | Numeric X-axis values distinct but both format as `10%` | verified distinctness defect with actual values and formatted labels; not fabricated from pixels alone | G2 |
 | DES-02 | Five categories in scrollable plot, four visible | category visibility defect when all five required, before/after count checked | G2,G4 |
-| DES-03 | Proper large-text/small-text/essential-mark contrast vs deficient variants | resolved foreground/background/alpha checked with appropriate thresholds and applicability; unknown style does not pass | G2 |
+| DES-03 | Proper large-text/small-text/essential-mark contrast vs deficient variants, including expanded native slicer checkboxes | resolved foreground/background/alpha checked with appropriate thresholds and applicability; check minimum 3:1 for functional icons in both unselected and selected live states. A source-managed `selectionIcon.color` patch alone is engineering evidence, not live G2 approval | G2 |
 | DES-04 | Positive value green on page A, same state red on page B without declared semantic reason | cross-page semantic-color inconsistency localized; brand/profile overrides respected | G2 |
 | DES-05 | Plausible-looking bar with misleading baseline, units or denominator | semantic/encoding finding using real underlying measure and filter | G1,G2 |
 | DES-06 | Aesthetic reviewer alleges slicer clipped but full-canvas render shows fully visible | unsupported reviewer claim contested/rejected; no unjustified PBIR edit | G2 |

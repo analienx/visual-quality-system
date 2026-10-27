@@ -760,3 +760,70 @@ def test_waterfall_sentiment_preserved_and_matrix_gridline_tinted(
     apply_theme(report, "dark", load_palette("dark", None), tmp_path / "dark")
     result = _read(_visual_path(tmp_path / "dark/Demo.Report", "fall"))
     assert result == fall
+
+
+def test_dark_dropdown_selection_icon_has_non_text_contrast(tmp_path: Path) -> None:
+    """The real Saffron Dark native flyout exposed a low-contrast checkbox."""
+    report = build_report(tmp_path)
+    before = source_digest(report)
+    palette = load_palette("dark", None, "saffron-spruce")
+    plan = build_plan(report, "dark", palette)
+    icon = [entry for entry in plan["changes"]
+            if entry.get("visual") == "slicerx"
+            and "/selectionIcon" in entry["pointer"]]
+    assert len(icon) == 1
+    assert icon[0]["role"] == "slicerForeground"
+    assert contrast_ratio(palette["slicerForeground"],
+                          palette["slicerBackground"]) >= 3
+    apply_theme(report, "dark", palette, tmp_path / "candidate")
+    assert source_digest(report) == before
+    output = _read(_visual_path(tmp_path / "candidate" / "Demo.Report", "slicerx"))
+    prop = output["visual"]["objects"]["selectionIcon"][0]["properties"]["color"]
+    assert prop["solid"]["color"]["expr"]["Literal"]["Value"] == (
+        "'" + palette["slicerForeground"] + "'")
+
+
+def test_selection_icon_existing_color_rethemed_without_touching_behavior(
+    tmp_path: Path,
+) -> None:
+    report = build_report(tmp_path)
+    path = _visual_path(report, "slicerx")
+    doc = _read(path)
+    doc["visual"]["objects"]["selectionIcon"] = [
+        {"properties": {"color": _color("#666666"),
+                        "show": _lit("true")}}]
+    _write(path, doc)
+    palette = load_palette("dark", None, "saffron-spruce")
+    apply_theme(report, "dark", palette, tmp_path / "candidate")
+    output = _read(_visual_path(tmp_path / "candidate" / "Demo.Report", "slicerx"))
+    props = output["visual"]["objects"]["selectionIcon"][0]["properties"]
+    assert props["show"] == _lit("true")
+    assert props["color"]["solid"]["color"]["expr"]["Literal"]["Value"] == (
+        "'" + palette["slicerForeground"] + "'")
+
+
+@pytest.mark.parametrize("preset", [
+    "okabe-ito-night", "petrol-gold", "indigo-ember", "arctic-aurora",
+    "mediterranean-terra", "saffron-spruce", "autumn-editorial",
+    "violet-ice", "electric-atelier", "riviera-pop", "bold-eclectic",
+    "graphite-red", "organic-palette", "sunny-palette",
+])
+@pytest.mark.parametrize("mode", ["light", "dark"])
+def test_approved_palette_default_checkbox_contrast(preset: str, mode: str) -> None:
+    palette = load_palette(mode, None, preset)
+    assert contrast_ratio(palette["slicerForeground"],
+                          palette["slicerBackground"]) >= 3
+
+
+def test_filter_slicer_never_gets_unverified_selection_icon_property(
+    tmp_path: Path,
+) -> None:
+    report = build_report(tmp_path)
+    file = _visual_path(report, "slicerx")
+    doc = _read(file)
+    doc["visual"]["visualType"] = "filterSlicer"
+    _write(file, doc)
+    apply_theme(report, "dark", load_palette("dark", None, "saffron-spruce"),
+                tmp_path / "candidate")
+    result = _read(_visual_path(tmp_path / "candidate" / "Demo.Report", "slicerx"))
+    assert "selectionIcon" not in result["visual"]["objects"]
