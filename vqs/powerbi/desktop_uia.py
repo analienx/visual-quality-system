@@ -326,6 +326,8 @@ def assess_native_sequence(
         "country_map": "blocked", "independent_acceptance": "blocked",
         "reason": "native UI Automation sequence did not finish",
         "events": [],
+        "read_only_baseline_verified": False,
+        "native_actions_verified": 0,
     }
     try:
         _require(type(desktop_pid) is int and desktop_pid > 0,
@@ -350,10 +352,19 @@ def assess_native_sequence(
                 event = _wait_for_state(desktop_pid, action, value, year,
                                         reference, scenario, invoke)
             result["events"].append(event)
+            if scenario == "baseline":
+                result["read_only_baseline_verified"] = True
+            else:
+                # A read-only baseline is evidence, not a ninth UI action.
+                result["native_actions_verified"] += 1
+        _require(result["read_only_baseline_verified"]
+                 and result["native_actions_verified"] == len(SCENARIOS) - 1,
+                 "blocked", "eight native actions and baseline probe not all verified")
         result["native_uia"] = "pass"
         result["reason"] = (
-            "UIA Year/Region actions, native KPI/geometry readbacks and "
-            "unrounded DAX agree; country map, loaded-file source identity, "
+            "Eight UIA Year/Region actions plus one read-only baseline, "
+            "native KPI/geometry readbacks and unrounded DAX agree; "
+            "country map, loaded-file source identity, "
             "independent render review and owner release acceptance remain blocked"
         )
     except InteractionEvidenceError as exc:

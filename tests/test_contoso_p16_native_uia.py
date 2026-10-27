@@ -153,6 +153,9 @@ def test_all_native_years_region_and_clear_have_concrete_numeric_witness():
     result = _run_fake()
     assert result["native_uia"] == "pass"
     assert len(result["events"]) == len(SCENARIOS)
+    assert result["native_actions_verified"] == len(SCENARIOS) - 1 == 8
+    assert result["read_only_baseline_verified"] is True
+    assert result["events"][0]["action"] == "probe"
     assert result["events"][-2]["observed"]["regions"][1]["name"] == "Europe"
     assert result["interactive"] == "blocked"
     assert result["independent_acceptance"] == "blocked"
@@ -242,3 +245,28 @@ def test_native_year_action_restores_collapsed_slicer_after_value_change():
     assert "if (-not $collapsed)" in cleanup
     assert "did not restore collapsed UI state" in cleanup
     assert begin < native.index("$observed = $null", end)
+
+def test_preselected_wrong_year_is_a_probe_not_a_ninth_successful_action():
+    """A leftover 2023 selection still requires all eight real actions."""
+    def preselected(events: list[dict]) -> None:
+        baseline = events[2].copy()
+        baseline["action"] = "probe"
+        baseline["requested_value"] = ""
+        baseline["method"] = "read_only"
+        events[0] = baseline
+
+    result = _run_fake(preselected)
+    assert result["native_uia"] == "pass"
+    assert len(result["events"]) == 9
+    assert result["events"][0]["observed"]["year"] == "2023"
+    assert result["read_only_baseline_verified"] is True
+    assert result["native_actions_verified"] == 8
+
+
+def test_partial_run_never_claims_eight_actuations():
+    def broken(events: list[dict]) -> None:
+        events[2]["observed"]["kpis"]["Sales"] = "$999"
+    result = _run_fake(broken)
+    assert result["native_uia"] == "fail"
+    assert result["read_only_baseline_verified"] is True
+    assert result["native_actions_verified"] == 1
