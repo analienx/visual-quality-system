@@ -34,7 +34,10 @@ def test_p14_current_source_actual_years_shared_model_and_os_pid(tmp_path, monke
     assert all(s["semantic"] == "pass" and s["source_sha256"] == actual
                for s in result["states"])
     assert port.connect_calls == 1
-    assert len(port.calls) == 12
+    assert len(port.calls) == 13
+    assert result["region_europe_2024"]["semantic"] == "pass"
+    assert result["region_europe_2024"]["kpis"]["Sales"] == 80.
+    assert result["region_scope_semantic"] == "pass"
 
 
 def test_wrong_or_absent_pbip_blocks_before_any_model_connection(tmp_path, monkeypatch):

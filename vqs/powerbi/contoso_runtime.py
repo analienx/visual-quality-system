@@ -13,9 +13,9 @@ from __future__ import annotations
 import hashlib
 import math
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
-from vqs.powerbi.contoso_goldens import PINNED_DAX_SHA256
+from vqs.powerbi.contoso_goldens import PINNED_DAX_SHA256, PINNED_REGION_EUROPE_2024_SHA256
 from vqs.powerbi.modeling import ModelingScope
 
 COUNTRIES = frozenset({
@@ -72,6 +72,23 @@ def build_queries(year: int | None) -> dict[str, str]:
     }
 
 
+
+# This is a separately reviewed fixed query, not a new synthetic KPI oracle.
+# The explicit pair of TREATAS filters reproduces Year=2024 + Region=Europe.
+REGION_EUROPE_2024_DAX = (
+    'EVALUATE\n'
+    'CALCULATETABLE (\n'
+    '    ROW ( "Sales", \'Fact Sales\'[Reporting Year Sales], '
+    '"Units", \'Fact Sales\'[Reporting Year Units], '
+    '"YoY", \'Fact Sales\'[Reporting Year Sales YoY %], '
+    '"GM", \'Fact Sales\'[Reporting Year GM %] ),\n'
+    '    TREATAS ( { 2024 }, \'Dim Date\'[Year] ),\n'
+    '    TREATAS ( { "Europe" }, \'Dim Store\'[Region] )\n'
+    ')'
+)
+REGION_EUROPE_2024_CONTRACT = "vqs.contoso-region-europe-kpis/1"
+
+
 def _column(row: Mapping[str, Any], name: str) -> Any:
     # Microsoft DAX query results may prefix named columns with [name].
     candidates = [v for k, v in row.items() if k in (name, f"[{name}]")]
@@ -121,7 +138,7 @@ def _kpis(rows: Any) -> dict[str, float | None]:
     # In 2023 the Contoso model has no prior year; DIVIDE legitimately
     # returns BLANK. Falling sales can also produce a negative growth rate.
     result["YoY"] = None if yoy is None else _number(yoy, signed=True)
-    if result["GM"] > 1 or (result["YoY"] is not None
+    if cast(float, result["GM"]) > 1 or (result["YoY"] is not None
                              and not -1 <= result["YoY"] <= 100):
         raise ValueError("unreasonable KPI percentage")
     return result
@@ -174,8 +191,8 @@ def collect(port: Any, source_sha256: str, year: int | None,
         countries = _groups(data["country"], COUNTRIES)
         regions = _groups(data["region"], REGIONS)
         kpis = _kpis(data["kpis"])
-        if (not math.isclose(sum(countries.values()), kpis["Sales"], rel_tol=0, abs_tol=0.05)
-                or not math.isclose(sum(regions.values()), kpis["Sales"], rel_tol=0,
+        if (not math.isclose(sum(countries.values()), cast(float, kpis["Sales"]), rel_tol=0, abs_tol=0.05)
+                or not math.isclose(sum(regions.values()), cast(float, kpis["Sales"]), rel_tol=0,
                                     abs_tol=0.05)):
             raise ValueError("map, region and KPI sales disagree")
         receipt.update({
@@ -185,6 +202,52 @@ def collect(port: Any, source_sha256: str, year: int | None,
         })
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
         receipt["reason"] = f"live DAX oracle blocked: {exc}"
+    return receipt
+
+
+
+def collect_region_europe_2024(port: Any, source_sha256: str,
+                               connection: Mapping[str, Any],
+                               year_2024: Mapping[str, Any]) -> dict[str, Any]:
+    """Execute four KPIs under *both* 2024 and Europe, fail closed.
+
+    The source, model, owned Desktop PID, frozen query and 2024 regional
+    Sales subtotal must all agree; all other KPI values remain independently
+    executed, not copied from the all-regions source snapshot.
+    """
+    receipt: dict[str, Any] = {
+        "contract": REGION_EUROPE_2024_CONTRACT, "semantic": "blocked",
+        "source_sha256": source_sha256, "year": 2024, "region": "Europe",
+        "model": connection.get("model"), "desktop_pid": connection.get("desktopPid"),
+        "dax_sha256": hashlib.sha256(REGION_EUROPE_2024_DAX.encode("utf-8")).hexdigest(),
+    }
+    if receipt["dax_sha256"] != PINNED_REGION_EUROPE_2024_SHA256:
+        receipt["reason"] = "region KPI DAX no longer matches reviewed frozen query"
+        return receipt
+    if (year_2024.get("year") != 2024 or year_2024.get("semantic") != "pass"
+            or year_2024.get("source_sha256") != source_sha256
+            or year_2024.get("desktop_pid") != receipt["desktop_pid"]
+            or year_2024.get("model") != receipt["model"]):
+        receipt["reason"] = "region KPI source/model/PID differs from 2024 snapshot"
+        return receipt
+    try:
+        model = receipt["model"]
+        if not isinstance(model, str) or not model:
+            raise ValueError("active model identity missing")
+        scope = ModelingScope(model=model, source_sha256=source_sha256)
+        query = port.query_scoped(REGION_EUROPE_2024_DAX, scope, max_rows=1)
+        context = query.get("context", {})
+        if (context.get("model") != model
+                or context.get("source_sha256") != source_sha256
+                or context.get("query_sha256") != receipt["dax_sha256"]):
+            raise ValueError("regional live DAX query context mismatch")
+        metrics = _kpis(query.get("rows"))
+        expected_sales = year_2024["region"]["Europe"]
+        if not math.isclose(cast(float, metrics["Sales"]), expected_sales, abs_tol=.05):
+            raise ValueError("regional KPI Sales contradicts independent regional subtotal")
+        receipt.update({"kpis": metrics, "semantic": "pass"})
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
+        receipt["reason"] = f"region KPI live query blocked: {exc}"
     return receipt
 
 

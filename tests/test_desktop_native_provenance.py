@@ -145,3 +145,68 @@ def test_duplicate_bridge_registry_blocks(native_witness):
     preview["data"]["reports"].append(dict(preview["data"]["reports"][0]))
     assert assess(project, pid, process, preview,
                   native_save_witness=witness)["status"] == "blocked"
+
+
+def _witness_with_visual_reserialization(native_witness):
+    project, pid, created, witness, _process, _preview = native_witness
+    page_visual = (project / "Example.Report" / "definition" / "pages" /
+                   "p1" / "visuals" / "a1" / "visual.json")
+    page_visual.parent.mkdir(parents=True)
+    original = '{"visual":{"visualType":"clusteredBarChart","objects":{"dataPoint":[{"properties":{"fill":{"solid":{"color":{"expr":{"ThemeDataColor":{"ColorId":2,"Percent":0}}}}}}}]}}}'
+    page_visual.write_text(original, encoding="utf8")
+    os.utime(page_visual, (created - 1, created - 1))
+    rel = page_visual.relative_to(project).as_posix()
+    witness["manifest_before"][rel] = snapshot(project)[rel]
+    page_visual.write_text(json.dumps(json.loads(original), indent=2), encoding="utf8")
+    os.utime(page_visual, (created + 4.5, created + 4.5))
+    witness["manifest_after"] = snapshot(project)
+    witness["visual_json_before"] = {rel: original}
+    return project, pid, created, witness, page_visual, rel
+
+
+def test_strict_byte_hash_matched_pbir_visual_reserialization_is_valid(native_witness):
+    project, pid, created, witness, _file, rel = (
+        _witness_with_visual_reserialization(native_witness))
+    ok, reason, detail = verify(project, pid, created, witness)
+    assert ok, reason
+    assert detail["saved_semantically_equivalent_visual_changes"] == [rel]
+    assert len(detail["saved_metadata_only_byte_changes"]) == 2
+
+
+@pytest.mark.parametrize("mutation", ["wrong_before", "changed_value", "missing_before",
+                                      "duplicate_json", "nonfinite_json"])
+def test_visual_semantic_changes_and_forged_presave_bytes_fail_closed(
+    native_witness, mutation,
+):
+    project, pid, created, witness, file, rel = (
+        _witness_with_visual_reserialization(native_witness))
+    if mutation == "wrong_before":
+        witness["visual_json_before"][rel] = '{"visual":{"visualType":"other"}}'
+    elif mutation == "missing_before":
+        del witness["visual_json_before"][rel]
+    else:
+        if mutation == "changed_value":
+            doc = json.loads(file.read_text())
+            doc["visual"]["objects"]["dataPoint"][0]["properties"]["fill"][
+                "solid"]["color"]["expr"]["ThemeDataColor"]["ColorId"] = 7
+            file.write_text(json.dumps(doc, indent=2), encoding="utf8")
+        elif mutation == "duplicate_json":
+            file.write_text('{"visual":{"visualType":"x"},"visual":{"visualType":"x"}}')
+        else:
+            file.write_text('{"visual":{"visualType":"x","bad":NaN}}')
+        os.utime(file, (created + 4.5, created + 4.5))
+        witness["manifest_after"] = snapshot(project)
+    ok, _reason, _detail = verify(project, pid, created, witness)
+    assert ok is False
+
+
+def test_report_json_mutation_cannot_claim_visual_reserialization(native_witness):
+    project, pid, created, witness, *_ = native_witness
+    target = project / "Example.Report" / "report.json"
+    original = target.read_text(encoding="utf8")
+    target.write_text('{"visuals":[] }', encoding="utf8")
+    os.utime(target, (created + 4.5, created + 4.5))
+    witness["manifest_after"] = snapshot(project)
+    witness["visual_json_before"] = {
+        "Example.Report/report.json": original}
+    assert verify(project, pid, created, witness)[0] is False

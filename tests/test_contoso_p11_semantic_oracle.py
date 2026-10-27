@@ -50,9 +50,14 @@ class FakePort:
 
     def query_scoped(self, dax, scope, max_rows=100):
         self.calls.append((dax, scope, max_rows))
-        key = ("country" if "[Country]" in dax else
+        special = 'TREATAS ( { "Europe" }, \'Dim Store\'[Region] )' in dax
+        key = ("kpis" if special else
+               "country" if "[Country]" in dax else
                "region" if "[Region]" in dax else "kpis")
-        return {"rows": deepcopy(self.tables[key]), "context": {
+        rows = deepcopy(self.tables[key])
+        if special:
+            rows[0]["[Sales]"] = REGION["Europe"]
+        return {"rows": rows, "context": {
             "model": scope.model,
             "source_sha256": scope.source_sha256,
             "query_sha256": ("0" * 64 if self.bad_context else

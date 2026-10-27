@@ -113,14 +113,10 @@ def _snapshot(observation: Any, pid: int, *, action: str, value: str,
     values = data.get("kpis")
     _require(isinstance(values, dict) and set(values) == {"Sales", "Units", "YoY", "GM"},
              "blocked", f"{scenario}: missing or duplicated native KPI")
-    expected = oracle["kpis"]
+    expected = (oracle["region_europe_2024"]["kpis"]
+                if scenario == "region:Europe" else oracle["kpis"])
     for key in ("Sales", "Units", "YoY", "GM"):
-        if scenario == "region:Europe" and key != "Sales":
-            # The four-year oracle has no region-scoped DAX for other measures.
-            continue
-        expected_value = (oracle["region"]["Europe"]
-                          if scenario == "region:Europe" and key == "Sales"
-                          else expected[key])
+        expected_value = expected[key]
         _require(_matches(values[key], expected_value,
                           percentage=key in ("YoY", "GM")),
                  "fail", f"{scenario}: rendered {key} disagrees with live DAX")
@@ -335,6 +331,37 @@ def assess_native_sequence(
                  "blocked", "positive run-owned Desktop PID required")
         states, model = _year_states(oracle, source, desktop_pid)
         result["model"] = model
+        # Refuse to actuate even the first Year control unless all 4 Europe
+        # KPIs have been independently executed on the same saved source/model.
+        region = oracle.get("region_europe_2024")
+        from vqs.powerbi.contoso_goldens import PINNED_REGION_EUROPE_2024_SHA256
+        from vqs.powerbi.contoso_runtime import REGION_EUROPE_2024_CONTRACT
+        _require(isinstance(region, dict)
+                 and region.get("semantic") == "pass"
+                 and region.get("contract") == REGION_EUROPE_2024_CONTRACT
+                 and region.get("source_sha256") == source
+                 and region.get("desktop_pid") == desktop_pid
+                 and region.get("model") == model
+                 and region.get("year") == 2024
+                 and region.get("region") == "Europe"
+                 and region.get("dax_sha256") == PINNED_REGION_EUROPE_2024_SHA256
+                 and isinstance(region.get("kpis"), dict)
+                 and set(region["kpis"]) == {"Sales", "Units", "YoY", "GM"},
+                 "blocked", "four same-source, same-model, 2024 Europe DAX KPIs required")
+        if not isinstance(region, dict):
+            raise InteractionEvidenceError("blocked", "regional DAX result absent")
+        _require(math.isclose(region["kpis"]["Sales"],
+                              states[2024]["region"]["Europe"], abs_tol=.05),
+                 "fail", "regional KPI Sales contradicts frozen regional DAX")
+        for key in ("Sales", "Units", "GM"):
+            _require(isinstance(region["kpis"][key], (float, int))
+                     and not isinstance(region["kpis"][key], bool)
+                     and math.isfinite(region["kpis"][key]),
+                     "blocked", "regional KPI " + key + " absent/non-finite")
+        if region["kpis"]["YoY"] is not None:
+            _require(isinstance(region["kpis"]["YoY"], (float, int))
+                     and math.isfinite(region["kpis"]["YoY"]),
+                     "blocked", "regional YoY not numeric")
         for scenario, action, value, year in SCENARIOS:
             if scenario == "baseline":
                 # A prior aborted run can leave a valid non-All year selected.
@@ -349,7 +376,8 @@ def assess_native_sequence(
                                   value="", year=year, oracle=states[year],
                                   scenario=scenario)
             else:
-                reference = states[year]
+                reference = ({**states[year], "region_europe_2024": region}
+                             if scenario == "region:Europe" else states[year])
                 event = _wait_for_state(desktop_pid, action, value, year,
                                         reference, scenario, invoke)
             result["events"].append(event)

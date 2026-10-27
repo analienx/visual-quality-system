@@ -73,6 +73,39 @@ def _equivalent_json(before: str, after: str) -> bool:
     return original == saved
 
 
+def _is_native_visual_json(rel: str) -> bool:
+    """Limit semantic-equivalence exceptions to native PBIR visual definitions."""
+    parts = Path(rel).parts
+    return (len(parts) == 7 and parts[0].endswith(".Report")
+            and parts[1:3] == ("definition", "pages")
+            and parts[4] == "visuals" and parts[-1] == "visual.json"
+            and parts[3] not in ("", ".", "..")
+            and parts[5] not in ("", ".", ".."))
+
+
+def _strict_json_semantics(source: str) -> str:
+    """Prevent duplicate-key/NaN JSON from faking semantic equivalence."""
+    def unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in out:
+                raise ValueError("duplicate JSON key in PBIR source")
+            out[key] = value
+        return out
+
+    def reject_constant(value: str) -> None:
+        raise ValueError("non-JSON constant " + value)
+
+    obj = json.loads(source, object_pairs_hook=unique,
+                     parse_constant=reject_constant)
+    if not isinstance(obj, dict):
+        raise TypeError("visual definition is not a JSON object")
+    if not isinstance(obj.get("visual"), dict):
+        raise TypeError("PBIR visual object absent")
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=False, allow_nan=False)
+
+
 def verify(
     project: Path, pid: int, created: float,
     witness: Mapping[str, Any],
@@ -147,16 +180,35 @@ def verify(
                     hashlib.sha256(metadata_post[rel].encode("utf-8")).hexdigest()
                     != after[rel]["sha256"]):
                 raise ValueError("native Save metadata fingerprints inconsistent")
-        permitted = expected_metadata
+        visual_before = witness.get("visual_json_before", {})
+        if not isinstance(visual_before, Mapping) or (
+                any(not isinstance(k, str) or not _is_native_visual_json(k)
+                    or k not in current or not isinstance(v, str)
+                    for k, v in visual_before.items())):
+            raise ValueError("invalid pre-Save native PBIR visual snapshots")
         changed = []
+        semantically_identical_visuals = []
         for rel, info in current.items():
             prior = before[rel]
             if prior["sha256"] != info["sha256"]:
-                if rel not in permitted:
+                if rel in expected_metadata:
+                    if not _equivalent_json(metadata_pre[rel], metadata_post[rel]):
+                        raise ValueError("native Save modified metadata semantics")
+                    changed.append(rel)
+                elif _is_native_visual_json(rel):
+                    snapshot_before = visual_before.get(rel)
+                    if not isinstance(snapshot_before, str):
+                        raise ValueError("changed visual missing pre-Save bytes")
+                    raw_before = snapshot_before.encode("utf-8")
+                    if (hashlib.sha256(raw_before).hexdigest() != prior["sha256"]
+                            or len(raw_before) != prior["size"]):
+                        raise ValueError("pre-Save visual text does not match prior content hash")
+                    if _strict_json_semantics(snapshot_before) != _strict_json_semantics(
+                            (project / rel).read_bytes().decode("utf-8")):
+                        raise ValueError("native Save changed visual JSON meaning")
+                    semantically_identical_visuals.append(rel)
+                else:
                     raise ValueError("native Save changed report/model source content")
-                if not _equivalent_json(metadata_pre[rel], metadata_post[rel]):
-                    raise ValueError("native Save modified metadata semantics")
-                changed.append(rel)
             mtime = float(info["mtime_ns"]) / 1e9
             if mtime > created + 1 and not (
                     start_epoch - 2 <= mtime <= end_epoch + 2):
@@ -165,8 +217,10 @@ def verify(
             "native_save_witness_verified": True,
             "saved_source_file_count": len(current),
             "saved_metadata_only_byte_changes": changed,
+            "saved_semantically_equivalent_visual_changes": semantically_identical_visuals,
             "local_model_reference": reference,
         }
     except (OSError, ValueError, KeyError, TypeError) as exc:
         return False, str(exc), {}
-    return True, "native UIA Save, Bridge clean state and unchanged report/model source bound", details
+    return True, ("native UIA Save, Bridge clean state, unchanged semantic model "
+                  "and byte- or strictly semantic-equivalent PBIR source bound"), details

@@ -41,9 +41,19 @@ def _oracle() -> dict:
             "region": {key: val * factor for key, val in REGION.items()},
             "country": {key: val * factor for key, val in COUNTRY.items()},
         })
+    from vqs.powerbi.contoso_goldens import PINNED_REGION_EUROPE_2024_SHA256
+    from vqs.powerbi.contoso_runtime import REGION_EUROPE_2024_CONTRACT
     return {"contract": CURRENT_SOURCE_CONTRACT, "semantic": "pass",
             "source_sha256": SOURCE, "desktop_pid": PID,
-            "local_project_source_fingerprinted": True, "states": states}
+            "local_project_source_fingerprinted": True, "states": states,
+            "region_europe_2024": {
+                "contract": REGION_EUROPE_2024_CONTRACT, "semantic": "pass",
+                "source_sha256": SOURCE, "desktop_pid": PID,
+                "model": MODEL, "year": 2024, "region": "Europe",
+                "dax_sha256": PINNED_REGION_EUROPE_2024_SHA256,
+                "kpis": {"Sales": REGION["Europe"], "Units": 200.,
+                         "YoY": .1, "GM": .333},
+            }}
 
 
 def _observation(index: int) -> dict:
@@ -196,7 +206,9 @@ def test_real_action_with_unsupported_primitive_fails_closed():
     item["method"] = "Click"
     with pytest.raises(InteractionEvidenceError, match="UIA method"):
         _snapshot(item, PID, action="region", value="Europe", year=2024,
-                  oracle=_oracle()["states"][2], scenario="region:Europe")
+                  oracle={**_oracle()["states"][2],
+                          "region_europe_2024": _oracle()["region_europe_2024"]},
+                  scenario="region:Europe")
 
 
 def test_invalid_live_dax_receipt_cannot_promote_native_uia():
@@ -367,3 +379,38 @@ def test_source_touch_during_native_actions_is_a_failure_not_dirty_excuse(monkey
     assert result["native_uia"] == "fail"
     assert result["desktop_loaded_file_attested"] is False
     assert result["interaction_transaction"]["source_content_and_timestamps_unchanged"] is False
+
+
+
+def test_region_europe_requires_all_four_pinned_kpis_before_any_ui_actions():
+    oracle = _oracle()
+    oracle.pop("region_europe_2024")
+    result = assess_native_sequence(oracle, SOURCE, PID, invoke=lambda *_args: (
+        pytest.fail("missing DAX must block before touching the live Desktop")))
+    assert result["native_uia"] == "blocked"
+    assert not result["events"]
+
+
+@pytest.mark.parametrize("wrong_field,wrong_value", [
+    ("dax_sha256", "0" * 64), ("model", "wrong-model"),
+    ("source_sha256", "a" * 64), ("year", 2025),
+])
+def test_wrong_regional_scope_identity_blocks_before_any_action(wrong_field, wrong_value):
+    oracle = _oracle()
+    oracle["region_europe_2024"][wrong_field] = wrong_value
+    result = assess_native_sequence(oracle, SOURCE, PID, invoke=lambda *_args: (
+        pytest.fail("mismatched regional context must not actuate")))
+    assert result["native_uia"] in ("blocked", "fail")
+    assert not result["events"]
+
+
+@pytest.mark.parametrize("metric,value", [
+    ("GM", "40.0%"), ("YoY", "25.0%"), ("Units", "999"),
+])
+def test_broken_non_sales_europe_kpi_now_fails_native_g4(metric, value):
+    def mutate(events):
+        events[6]["observed"]["kpis"][metric] = value
+    result = _run_fake(mutate)
+    assert result["native_uia"] == "fail"
+    assert result["native_actions_verified"] == 5
+    assert "disagrees with live DAX" in result["reason"]

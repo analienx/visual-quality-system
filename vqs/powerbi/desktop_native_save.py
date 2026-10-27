@@ -17,6 +17,7 @@ from vqs.powerbi.desktop_native_provenance import (
     SCHEMA,
     metadata_source,
     snapshot,
+    source_files,
     verify,
 )
 from vqs.powerbi.desktop_source import (
@@ -90,6 +91,15 @@ def save_and_witness(
         raise ValueError("expected one ready unsaved disposable Desktop candidate")
     pre = snapshot(project)
     original_metadata = metadata_source(project)
+    # Capture exact bytes before the witnessed UIA Save, so Desktop's pure
+    # JSON reserialization can be proven byte-originated and value-identical.
+    # Never accept a changed visual using only hashes claimed after Save.
+    visual_json_before = {
+        file.relative_to(project).as_posix(): file.read_bytes().decode("utf-8")
+        for file in source_files(project)
+        if file.name == "visual.json"
+        and "/definition/pages/" in file.as_posix()
+    }
     if any(float(entry["mtime_ns"]) / 1e9 > created + 1 for entry in pre.values()):
         raise ValueError("source already changed after launch before native Save")
     ps_script = (Path(__file__).resolve().parents[2]
@@ -162,6 +172,7 @@ def save_and_witness(
         "manifest_after": after,
         "metadata_before": original_metadata,
         "metadata_after": metadata_after,
+        "visual_json_before": visual_json_before,
         "independent_g2_g4_g6": "blocked",
     }
     passed, reason, detail = verify(project, pid, created, witness)

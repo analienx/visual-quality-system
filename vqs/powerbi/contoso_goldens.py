@@ -29,3 +29,6 @@ PINNED_DAX_SHA256: dict[int | None, dict[str, str]] = {
         "kpis": "0193ead7fba5b6a77137af61f3d357810b5ea80a2aec01c3233180ebc90cf914",
     },
 }
+
+# Explicit 2024+Europe 4-KPI DAX reviewed independently of runtime query builder.
+PINNED_REGION_EUROPE_2024_SHA256 = "107780d0056bea95a19eec4416fdbf16bd1e77c9e42b460420659ed5f1fee381"
