@@ -107,7 +107,7 @@ $evidence = Canonical $EvidenceRoot
 if (-not (Test-Path -LiteralPath $evidence -PathType Container)) {
     throw "Expected private evidence directory missing: $evidence"
 }
-$run = Join-Path $evidence ("desktop-upgrade-" + (Get-Date -AsUTC -Format 'yyyyMMddTHHmmssfffZ'))
+$run = Join-Path $evidence ("desktop-upgrade-" + [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ'))
 $backups = Join-Path $run 'backups'
 New-Item -ItemType Directory -Path $backups -Force | Out-Null
 $receipts = @()
@@ -176,6 +176,9 @@ try {
     $code = $LASTEXITCODE
     if ($code -ne 0) { throw "winget installer returned code $code" }
     $afterVersion = (Get-Item -LiteralPath $desktopExe).VersionInfo.ProductVersion
+    if ($afterVersion -ne $TargetVersion) {
+        throw "Installer returned success but Desktop version is $afterVersion (expected $TargetVersion)"
+    }
     $receipt.WindowsDesktopAfter = $afterVersion
     $receipt.Status = 'installer_completed_requires_attestation'
     $receipt | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $receiptPath -Encoding UTF8
