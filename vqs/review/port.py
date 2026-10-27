@@ -16,12 +16,13 @@ from __future__ import annotations
 
 import importlib
 import json
+from pathlib import Path
 from typing import Any
 
 from ..contracts.types import normalize_identity
 
 REVIEWER_VERSION = "vqs.reviewer/1"
-OBSERVATION_VERDICTS = ("pass", "fail", "blocked")
+OBSERVATION_VERDICTS = ("pass", "fail", "blocked", "not_applicable")
 
 
 class ReviewError(OSError):
@@ -35,7 +36,7 @@ class ReviewPort:
     ``review(bundle_dir)`` consumes a verified vqs review bundle
     directory and returns ``{"observations": [...]}`` where each
     observation is ``{"page_id": str, "check": str,
-    "verdict": "pass" | "fail" | "blocked"}`` with optional
+    "verdict": "pass" | "fail" | "blocked" | "not_applicable"}`` with optional
     JSON-native detail. Anything else raises ReviewError upstream —
     the port never returns free-form vision prose.
     """
@@ -170,10 +171,33 @@ def review_bundle(*, bundle_dir: str, reviewer: Any, reviewer_id: str,
                           f"{exc}") from exc
     observations = _check_observations(payload, [
         page for page in pages if isinstance(page, str)])
+    # A neutral result is valid only for a matrix check on a page whose
+    # source-bound inventory contains no table/matrix. Do not trust a model
+    # or external reviewer to declare its own N/A without source proof.
+    neutral = [item for item in observations
+               if item["verdict"] == "not_applicable"]
+    if neutral:
+        try:
+            inventory = json.loads(
+                (Path(bundle_dir) / "inventory.json").read_text(
+                    encoding="utf-8"))
+            indexed = {page["id"]: page for page in inventory["pages"]}
+            for item in neutral:
+                visuals = indexed[item["page_id"]]["visuals"]
+                if (item["check"] != "table_matrix_overflow"
+                        or not isinstance(visuals, list)
+                        or any(str(visual["visual_type"]).casefold()
+                               in {"table", "matrix", "pivottable"}
+                               for visual in visuals)):
+                    raise ValueError("neutral result conflicts with PBIR")
+        except (OSError, KeyError, TypeError, ValueError) as exc:
+            raise ReviewError(
+                "not_applicable requires a verified matrix-free page") from exc
     tally = {verdict: sum(1 for item in observations
                           if item["verdict"] == verdict)
              for verdict in OBSERVATION_VERDICTS}
-    visual = ("blocked" if tally["blocked"]
+    # N/A does not inflate PASS, and an N/A-only page cannot pass review.
+    visual = ("blocked" if tally["blocked"] or not (tally["pass"] or tally["fail"])
               else "fail" if tally["fail"] else "pass")
     verified = authority.get("renders")
     verified = verified if isinstance(verified, dict) else {}
