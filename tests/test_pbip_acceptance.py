@@ -62,17 +62,20 @@ def test_check_fail_produces_overall_fail_and_exit_1(tmp_path: Path, capsys,
     assert summary["verdict"] == "fail"
 
 
-def test_check_pass_keeps_overall_pass_and_exit_0(tmp_path: Path, capsys,
-                                                 monkeypatch) -> None:
+def test_source_pass_cannot_mint_release_pass(tmp_path: Path, capsys,
+                                              monkeypatch) -> None:
     report = tmp_path / "Example.Report"
     report.mkdir()
     monkeypatch.setattr("vqs.powerbi.measure.measure_report",
                         lambda *a, **k: _facts(failing=False))
     code = main([str(report), "--skip-external"])
-    assert code == 0
+    assert code == 2
     summary = json.loads(capsys.readouterr().out)
     assert summary["check"]["verdict"] == "pass"
-    assert summary["verdict"] == "pass"
+    assert summary["gate"] == "G0"
+    assert summary["source_verdict"] == "blocked"
+    assert summary["verdict"] == "blocked"
+    assert summary["release_verdict"] == "blocked"
 
 
 def test_skip_pbir_flag_is_gone(tmp_path: Path, capsys,
@@ -85,6 +88,70 @@ def test_skip_pbir_flag_is_gone(tmp_path: Path, capsys,
     with pytest.raises(SystemExit):
         main([str(report), "--skip-pbir"])
     code = main([str(report), "--skip-external"])
-    assert code == 0
+    assert code == 2
     summary = json.loads(capsys.readouterr().out)
     assert summary["report_author"]["status"] == "skipped"
+    assert summary["verdict"] == "blocked"
+def test_verified_microsoft_source_still_cannot_grant_release_pass(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    """Critical negative: genuine static + Microsoft validation is not G2/G4/G6."""
+    report = tmp_path / "Example.Report"
+    report.mkdir()
+    monkeypatch.setattr("vqs.powerbi.measure.measure_report",
+                        lambda *a, **k: _facts(failing=False))
+    monkeypatch.setattr("vqs.powerbi.author.mscli.validate",
+                        lambda *a, **k: _outcome("valid"))
+    code = main([str(report)])
+    data = json.loads(capsys.readouterr().out)
+    assert code == 2
+    assert data["gate"] == "G0"
+    assert data["source_verdict"] == "pass"
+    assert data["report_author"]["status"] == "valid"
+    assert data["verdict"] == data["release_verdict"] == "blocked"
+
+
+def test_missing_ms_author_cannot_grant_release_pass(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    report = tmp_path / "Example.Report"
+    report.mkdir()
+    monkeypatch.setattr("vqs.powerbi.measure.measure_report",
+                        lambda *a, **k: _facts(failing=False))
+    monkeypatch.setattr("vqs.powerbi.author.mscli.validate",
+                        lambda *a, **k: _outcome("missing"))
+    code = main([str(report)])
+    data = json.loads(capsys.readouterr().out)
+    assert code == 2
+    assert data["source_verdict"] == "blocked"
+    assert data["report_author"]["status"] == "skipped"
+    assert data["verdict"] == "blocked"
+
+
+def test_static_source_failure_remains_fail_even_if_external_skipped(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    report = tmp_path / "Example.Report"
+    report.mkdir()
+    monkeypatch.setattr("vqs.powerbi.measure.measure_report",
+                        lambda *a, **k: _facts(failing=True))
+    code = main([str(report), "--skip-external"])
+    data = json.loads(capsys.readouterr().out)
+    assert code == 1
+    assert data["source_verdict"] == "fail"
+    assert data["verdict"] == "fail"
+    assert data["release_verdict"] == "blocked"
+
+
+def test_unreadable_report_keeps_uniform_fail_closed_envelope(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    report = tmp_path / "Nonexistent.Report"
+    def missing(*a, **k):
+        raise OSError("cannot read private report")
+    monkeypatch.setattr("vqs.powerbi.measure.measure_report", missing)
+    code = main([str(report), "--skip-external"])
+    data = json.loads(capsys.readouterr().out)
+    assert code == 2
+    assert data["gate"] == "G0"
+    assert data["verdict"] == data["release_verdict"] == "blocked"

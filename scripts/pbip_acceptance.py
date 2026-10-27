@@ -4,11 +4,11 @@ Runs ``vqs measure`` against a PBIR report (plus optional TMDL model
 folder) and, unless ``--skip-external``, Microsoft
 ``powerbi-report-author validate`` for the same report (R6-E07: the
 legacy pbir validate/BPA legs are removed — BPA has no Microsoft
-equivalent). Prints a JSON summary and exits 0 when the emitter
-produces check-ready facts, the offline check passes, and validation
-reports no errors (a missing tool is reported as skipped, never a
-failure — VQS stays usable without it). Exit 1 when the check fails
-or validation reports errors, 2 when the report is unreadable::
+equivalent). Prints a scoped JSON summary. **G0 source checks are not full release
+acceptance**: even a clean source and successful Microsoft authoring
+validation cannot certify G1/G2/G4/G6. Exit 1 for a failed source check;
+exit 2 when source evidence is blocked or higher-gate acceptance is
+unverified. Never return release-level pass / exit 0 from this script::
 
     python scripts/pbip_acceptance.py path/to/Example.Report
     python scripts/pbip_acceptance.py path/to/Example.Report --model path/to/Example.SemanticModel/definition --out summary.json
@@ -46,7 +46,7 @@ def _report_author(report: Path) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Accept a PBIP report.")
+    parser = argparse.ArgumentParser(description="Run a G0-only PBIP source acceptance diagnostic.")
     parser.add_argument("report", type=Path)
     parser.add_argument("--model", type=Path, default=None)
     parser.add_argument("--out", type=Path, default=None)
@@ -66,7 +66,8 @@ def main(argv: list[str] | None = None) -> int:
         facts = measure_report(str(args.report), str(args.model)
                                if args.model else None)
     except OSError as exc:
-        print(json.dumps({"status": "blocked",
+        print(json.dumps({"gate": "G0", "scope": "static_source_only",
+                          "verdict": "blocked", "release_verdict": "blocked",
                           "reason": f"{type(exc).__name__}: {exc}"}))
         return 2
     with tempfile.TemporaryDirectory(prefix="vqs-accept-") as tmp:
@@ -88,17 +89,36 @@ def main(argv: list[str] | None = None) -> int:
                                  "reason": "--skip-external"}
                if args.skip_external else _report_author(args.report)}
     empty = not rules
-    external_bad = summary["report_author"]["status"] in ("error", "blocked")
+    author_status = summary["report_author"]["status"]
     check_bad = check_summary["verdict"] != "pass"
-    summary["verdict"] = "fail" if (empty or external_bad or check_bad) else "pass"
+    source_verdict = (
+        "blocked" if empty
+        else "fail" if check_bad or author_status == "error"
+        else "blocked" if author_status in ("skipped", "blocked")
+        else "pass"
+    )
+    # A source-only pass is real engineering evidence, not a G2/G4/G6
+    # release verdict. Avoid the previous misleading JSON pass + exit 0.
+    summary["gate"] = "G0"
+    summary["scope"] = "static_source_only"
+    summary["source_verdict"] = source_verdict
+    summary["release_verdict"] = "blocked"
+    summary["verdict"] = (
+        "blocked" if empty
+        else "fail" if check_bad or author_status == "error"
+        else "blocked"
+    )
+    summary["reason"] = (
+        "G0-only evidence cannot prove native G1/G2/G4 or independent G6"
+        if summary["verdict"] == "blocked" else
+        "source check or Microsoft validation failed"
+    )
     text = json.dumps(summary, indent=2)
     if args.out is None:
         print(text)
     else:
         args.out.write_text(text + "\n", encoding="utf-8")
-    if empty:
-        return 2
-    return 1 if (external_bad or check_bad) else 0
+    return 1 if summary["verdict"] == "fail" else 2
 
 
 if __name__ == "__main__":
