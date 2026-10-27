@@ -76,7 +76,13 @@ def test_muse_tool_disabled_provenance_bound_review(tmp_path, monkeypatch):
         reviewer_id=reviewer.reviewer_id, fixer_id="distinct-fixer")
     assert reviewed["visual"] == "fail"
     assert reviewed["tally"]["fail"] == 1
-    assert reviewed["tally"]["pass"] == len(CHECKS) - 1
+    # The synthetic source contains no matrix: N/A is NOT an image pass.
+    assert reviewed["tally"]["pass"] == len(CHECKS) - 2
+    assert reviewed["tally"]["not_applicable"] == 1
+    matrix = next(x for x in reviewed["observations"]
+                  if x["check"] == "table_matrix_overflow")
+    assert matrix["verdict"] == "not_applicable"
+    assert matrix["detail"]["matrix_visual_count"] == 0
     assert reviewed["observations"][0]["detail"]["image_sha256"] == sha
     assert len(invoked) == 1
 
