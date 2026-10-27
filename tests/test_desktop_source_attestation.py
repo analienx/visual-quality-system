@@ -251,3 +251,46 @@ def test_invalid_or_missing_dataset_reference_blocks(witness):
     ref = project / "Contoso Retail.Report" / "definition.pbir"
     ref.write_text("not valid JSON", encoding="utf8")
     assert assess(project, 4107, process, preview)["status"] == "blocked"
+
+
+
+def test_interaction_terminal_reports_dirty_without_faking_saved_attestation(witness):
+    project, process, bridge = witness
+    baseline = assess(project, 4107, process, bridge)
+    assert baseline["loaded_file_attested"] is True
+    bridge["data"]["details"]["hasUnsavedChanges"] = True
+
+    # The ordinary strict gate remains blocked: it must never waive dirty.
+    assert assess(project, 4107, process, bridge)["loaded_file_attested"] is False
+    terminal = assess(project, 4107, process, bridge, interaction_terminal=True)
+    assert terminal["status"] == "blocked"
+    assert terminal["loaded_file_attested"] is False
+    assert terminal["interaction_terminal_identity_checked"] is True
+    assert terminal["interaction_terminal_unsaved"] is True
+    assert terminal["source_report"] == baseline["source_report"]
+    assert "NOT a fresh saved-file attestation" in terminal["reason"]
+
+
+def test_interaction_terminal_still_rejects_wrong_live_report_or_modified_source(witness):
+    project, process, bridge = witness
+    bridge["data"]["details"]["hasUnsavedChanges"] = True
+    bridge["data"]["reports"][0]["folder"] = str(project / "Wrong.Report")
+    wrong = assess(project, 4107, process, bridge, interaction_terminal=True)
+    assert wrong["loaded_file_attested"] is False
+    assert wrong.get("interaction_terminal_identity_checked") is not True
+    bridge["data"]["reports"][0]["folder"] = str(project / "Contoso Retail.Report")
+    source = project / "Contoso Retail.Report" / "report.json"
+    os.utime(source, (process["create_time"] + 10, process["create_time"] + 10))
+    modified = assess(project, 4107, process, bridge, interaction_terminal=True)
+    assert modified["status"] == "blocked"
+    assert modified.get("interaction_terminal_identity_checked") is not True
+    assert "modified after" in modified["reason"]
+
+
+def test_interaction_terminal_clean_is_still_strictly_attested(witness):
+    project, process, bridge = witness
+    result = assess(project, 4107, process, bridge, interaction_terminal=True)
+    assert result["status"] == "pass"
+    assert result["loaded_file_attested"] is True
+    assert result["interaction_terminal_identity_checked"] is True
+    assert result["interaction_terminal_unsaved"] is False

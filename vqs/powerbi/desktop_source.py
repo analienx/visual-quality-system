@@ -31,7 +31,7 @@ def strict_local_model_attested(evidence: Mapping[str, Any]) -> bool:
             and evidence.get("local_model_reference") == "byPath_source_checked")
 
 
-def _same_path(left: str, right: Path) -> bool:
+def _same_path(left: object, right: Path) -> bool:
     if not isinstance(left, str) or not left.strip():
         return False
     try:
@@ -98,8 +98,13 @@ def assess(
     project: Path, pid: int, process: Mapping[str, Any],
     preview: Mapping[str, Any], *,
     native_save_witness: Mapping[str, Any] | None = None,
+    interaction_terminal: bool = False,
 ) -> dict[str, Any]:
-    """Pure, externally testable verification; never infer missing evidence."""
+    """Strict file attestation, or explicitly labeled post-interaction observation.
+
+    The terminal observation may prove identity despite a dirty UI, but must
+    NEVER report a new saved-file attestation or status=pass in that case.
+    """
     evidence: dict[str, Any] = {
         "schema": SCHEMA, "desktop_pid": pid, "loaded_file_attested": False,
         "status": "blocked", "reason": "missing source/host identity",
@@ -126,7 +131,7 @@ def assess(
     if len(opened) != 1 or not _same_path(opened[0], wrapper):
         return block("launched PBIP differs from the source project or is ambiguous")
     created = process.get("create_time")
-    if type(created) not in (int, float) or created <= 0:
+    if not isinstance(created, (int, float)) or isinstance(created, bool) or created <= 0:
         return block("OS process creation timestamp missing")
     data = preview.get("data")
     if not isinstance(data, Mapping) or data.get("state") != "ready":
@@ -134,7 +139,8 @@ def assess(
     details = data.get("details")
     if not isinstance(details, Mapping) or type(details.get("hasUnsavedChanges")) is not bool:
         return block("Desktop Bridge saved-state flag missing")
-    if details["hasUnsavedChanges"]:
+    dirty = details["hasUnsavedChanges"]
+    if dirty and not interaction_terminal:
         return block("Desktop currently has unsaved changes")
     reports = data.get("reports")
     if not isinstance(reports, list) or len(reports) != 1:
@@ -152,7 +158,7 @@ def assess(
         return block(str(exc))
     sources = [wrapper, *report.rglob("*")]
     has_local_model = model is not None
-    if has_local_model:
+    if model is not None:
         if model.is_symlink():
             return block("local semantic model is symlinked")
         sources.extend(model.rglob("*"))
@@ -162,7 +168,7 @@ def assess(
     for x in sources:
         if not x.is_file():
             continue
-        if has_local_model and x.is_relative_to(model):
+        if model is not None and x.is_relative_to(model):
             relative = x.relative_to(model)
             if ".pbi" in relative.parts or relative.name == ".platform":
                 continue
@@ -188,8 +194,12 @@ def assess(
     else:
         evidence["source_provenance_method"] = "pre_open_source_age"
     evidence.update({
-        "status": "pass", "loaded_file_attested": True,
-        "reason": ("OS launch path, sole Bridge registered report, PID, saved "
+        "status": "blocked" if dirty else "pass",
+        "loaded_file_attested": not dirty,
+        "reason": ("OS/Bridge report, PID and unchanged source identity agree, "
+                   "but the interactive Desktop session is unsaved; this is "
+                   "NOT a fresh saved-file attestation" if dirty else
+                   "OS launch path, sole Bridge registered report, PID, saved "
                    "state and verified native UIA Save source inventory agree"
                    if native_save_witness is not None else
                    "OS launch path, sole Bridge registered report, PID, saved "
@@ -200,12 +210,16 @@ def assess(
         "local_model_reference": model_reference,
         "source_file_count": len(source_files),
     })
+    if interaction_terminal:
+        evidence["interaction_terminal_identity_checked"] = True
+        evidence["interaction_terminal_unsaved"] = dirty
     return evidence
 
 
 def collect(
     project: Path, pid: int, *,
     native_save_witness: Mapping[str, Any] | None = None,
+    interaction_terminal: bool = False,
 ) -> dict[str, Any]:
     """Collect real OS + Bridge metadata, never mutate or refresh the Desktop."""
     if os.name != "nt":
@@ -254,4 +268,5 @@ def collect(
         return {"schema": SCHEMA, "status": "blocked",
                 "desktop_pid": pid, "loaded_file_attested": False,
                 "reason": "Desktop Bridge status unavailable or malformed"}
-    return assess(project, pid, process, preview, native_save_witness=native_save_witness)
+    return assess(project, pid, process, preview, native_save_witness=native_save_witness,
+                  interaction_terminal=interaction_terminal)

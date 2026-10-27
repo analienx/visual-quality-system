@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from vqs.powerbi.contoso_project import inventory
+from vqs.powerbi.desktop_native_provenance import snapshot as source_snapshot
 from vqs.powerbi.desktop_source import (
     collect as attest_desktop_source,
 )
@@ -386,6 +387,7 @@ def run(project: Path, desktop_pid: int, oracle: Mapping[str, Any],
         _require(isinstance(oracle, Mapping), "blocked",
                  "live DAX receipt is not a JSON object")
         before, wrapper_hash = inventory(project)
+        before_source = source_snapshot(project) if attest_source else None
         report = project / "Contoso Retail.Report"
         digest = before["digest"]
         _require(oracle.get("source_sha256") == digest, "fail",
@@ -405,21 +407,41 @@ def run(project: Path, desktop_pid: int, oracle: Mapping[str, Any],
                  "current PBIR interaction structure not verified")
         result = assess_native_sequence(oracle, digest, desktop_pid, invoke=invoke)
         after, wrapper_after = inventory(project)
-        if before != after or wrapper_hash != wrapper_after:
+        source_unchanged = (before == after and wrapper_hash == wrapper_after)
+        if attest_source:
+            source_unchanged = source_unchanged and before_source == source_snapshot(project)
+        if not source_unchanged:
             result["native_uia"] = "fail"
-            result["reason"] = "physical PBIP report/model/wrapper changed during native UIA"
+            result["reason"] = "physical PBIP source content/timestamps changed during native UIA"
         result["pbir_contract"] = structure
         result["page_id"] = DEEP_DIVE_PAGE
-        result["desktop_loaded_file_attested"] = (
-            attest_source and before == after and wrapper_hash == wrapper_after
-        )
+        result["desktop_loaded_file_attested"] = bool(attest_source and source_unchanged)
         if attest_source:
-            result["desktop_loaded_file_attestation"] = identity
-            if result["native_uia"] == "pass":
+            result["desktop_loaded_file_attestation"] = identity  # Strict pre-action proof only.
+            terminal = attest_desktop_source(
+                project, desktop_pid, native_save_witness=native_save_witness,
+                interaction_terminal=True,
+            )
+            runtime_held = terminal.get("interaction_terminal_identity_checked") is True
+            result["interaction_transaction"] = {
+                "source_content_and_timestamps_unchanged": source_unchanged,
+                "os_bridge_report_model_identity_held": runtime_held,
+                "desktop_unsaved_after_actions": terminal.get("interaction_terminal_unsaved"),
+                "fresh_saved_file_attested_after_actions": terminal.get("loaded_file_attested") is True,
+                "terminal_evidence": terminal,
+                "independent_g2_g4_g6": "blocked",
+            }
+            if not runtime_held:
+                if result["native_uia"] != "fail":
+                    result["native_uia"] = "blocked"
+                result["desktop_loaded_file_attested"] = False
+                result["reason"] = "post-interaction Desktop identity/source check blocked: " + str(terminal.get("reason"))
+            elif result["native_uia"] == "pass":
                 result["reason"] = (
-                    "Year/Region UIA and native KPI readbacks agree with DAX; "
-                    "Desktop OS/Bridge loaded-file attested. Country map and "
-                    "independent release approval remain blocked"
+                    "Native Year/Region UIA and DAX match; strict pre-action saved "
+                    "source, unchanged files and terminal OS/Bridge identity verified. "
+                    "Post-action dirty state is reported, not waived. "
+                    "Independent review and release remain blocked"
                 )
     except InteractionEvidenceError as exc:
         result["native_uia"] = exc.status

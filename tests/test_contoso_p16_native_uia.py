@@ -270,3 +270,100 @@ def test_partial_run_never_claims_eight_actuations():
     assert result["native_uia"] == "fail"
     assert result["read_only_baseline_verified"] is True
     assert result["native_actions_verified"] == 1
+
+
+
+def test_attested_transaction_preserves_native_success_when_only_ui_session_is_dirty(monkeypatch):
+    """Do not re-open/save the PBIP after filters; observe final state explicitly."""
+    from pathlib import Path
+
+    from vqs.powerbi import desktop_uia
+
+    ledger = []
+    monkeypatch.setattr(desktop_uia, "inventory",
+                        lambda _p: ({"digest": SOURCE}, "same-wrapper"))
+    monkeypatch.setattr(desktop_uia, "source_snapshot",
+                        lambda _p: {"report.json": {"sha256": SOURCE, "mtime_ns": 42}})
+    monkeypatch.setattr(desktop_uia, "inspect_deep_dive_contract",
+                        lambda _p: {"structural": "pass"})
+    monkeypatch.setattr(desktop_uia, "assess_native_sequence",
+                        lambda *_args, **_kwargs: {"native_uia": "pass",
+                                                   "interactive": "blocked"})
+    def attest(_project, pid, *, native_save_witness=None, interaction_terminal=False):
+        assert pid == PID
+        ledger.append(interaction_terminal)
+        if interaction_terminal:
+            return {"status": "blocked", "loaded_file_attested": False,
+                    "interaction_terminal_identity_checked": True,
+                    "interaction_terminal_unsaved": True}
+        return {"status": "pass", "loaded_file_attested": True,
+                "local_model_definition_checked": True,
+                "local_model_reference": "byPath_source_checked"}
+    monkeypatch.setattr(desktop_uia, "attest_desktop_source", attest)
+    result = desktop_uia.run(Path("unused"), PID, _oracle(),
+                             attest_source=True)
+    assert ledger == [False, True]
+    assert result["native_uia"] == "pass"
+    assert result["desktop_loaded_file_attested"] is True  # PRE-action evidence
+    end = result["interaction_transaction"]
+    assert end["source_content_and_timestamps_unchanged"] is True
+    assert end["os_bridge_report_model_identity_held"] is True
+    assert end["desktop_unsaved_after_actions"] is True
+    assert end["fresh_saved_file_attested_after_actions"] is False
+    assert end["independent_g2_g4_g6"] == "blocked"
+
+
+def test_attested_transaction_blocks_when_runtime_identity_changes(monkeypatch):
+    from pathlib import Path
+
+    from vqs.powerbi import desktop_uia
+
+    monkeypatch.setattr(desktop_uia, "inventory",
+                        lambda _p: ({"digest": SOURCE}, "same-wrapper"))
+    monkeypatch.setattr(desktop_uia, "source_snapshot",
+                        lambda _p: {"report.json": {"sha256": SOURCE, "mtime_ns": 42}})
+    monkeypatch.setattr(desktop_uia, "inspect_deep_dive_contract",
+                        lambda _p: {"structural": "pass"})
+    monkeypatch.setattr(desktop_uia, "assess_native_sequence",
+                        lambda *_a, **_kw: {"native_uia": "pass"})
+    def attest(_project, _pid, *, native_save_witness=None, interaction_terminal=False):
+        if interaction_terminal:
+            return {"status": "blocked", "reason": "Bridge report folder differs"}
+        return {"status": "pass", "loaded_file_attested": True,
+                "local_model_definition_checked": True,
+                "local_model_reference": "byPath_source_checked"}
+    monkeypatch.setattr(desktop_uia, "attest_desktop_source", attest)
+    result = desktop_uia.run(Path("unused"), PID, _oracle(), attest_source=True)
+    assert result["native_uia"] == "blocked"
+    assert result["desktop_loaded_file_attested"] is False
+    assert result["interaction_transaction"]["os_bridge_report_model_identity_held"] is False
+
+
+
+def test_source_touch_during_native_actions_is_a_failure_not_dirty_excuse(monkeypatch):
+    from pathlib import Path
+
+    from vqs.powerbi import desktop_uia
+
+    seen = [0]
+    monkeypatch.setattr(desktop_uia, "inventory",
+                        lambda _p: ({"digest": SOURCE}, "same-wrapper"))
+    def evolving_snapshot(_p):
+        seen[0] += 1
+        return {"report.json": {"sha256": SOURCE, "mtime_ns": 42 if seen[0] == 1 else 43}}
+    monkeypatch.setattr(desktop_uia, "source_snapshot", evolving_snapshot)
+    monkeypatch.setattr(desktop_uia, "inspect_deep_dive_contract",
+                        lambda _p: {"structural": "pass"})
+    monkeypatch.setattr(desktop_uia, "assess_native_sequence",
+                        lambda *_a, **_kw: {"native_uia": "pass"})
+    def attest(_project, _pid, *, native_save_witness=None, interaction_terminal=False):
+        if interaction_terminal:
+            return {"status": "blocked", "reason": "source timestamp changed"}
+        return {"status": "pass", "loaded_file_attested": True,
+                "local_model_definition_checked": True,
+                "local_model_reference": "byPath_source_checked"}
+    monkeypatch.setattr(desktop_uia, "attest_desktop_source", attest)
+    result = desktop_uia.run(Path("unused"), PID, _oracle(), attest_source=True)
+    assert result["native_uia"] == "fail"
+    assert result["desktop_loaded_file_attested"] is False
+    assert result["interaction_transaction"]["source_content_and_timestamps_unchanged"] is False
