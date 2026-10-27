@@ -39,6 +39,9 @@ def main(argv: list[str] | None = None) -> int:
     print(json.dumps({"native_uia": result["native_uia"],
                       "interactive": result["interactive"],
                       "events": len(result.get("events", [])),
+                      "native_actions_verified": result.get("native_actions_verified", 0),
+                      "read_only_baseline_verified": result.get(
+                          "read_only_baseline_verified", False),
                       "reason": result.get("reason"),
                       "receipt": str(args.output)}, indent=2))
     return 0 if result["native_uia"] == "pass" else (
