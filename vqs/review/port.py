@@ -193,9 +193,12 @@ def review_bundle(*, bundle_dir: str, reviewer: Any, reviewer_id: str,
         except (OSError, KeyError, TypeError, ValueError) as exc:
             raise ReviewError(
                 "not_applicable requires a verified matrix-free page") from exc
+    # Preserve the existing three-key tally for consumers with no N/A.
     tally = {verdict: sum(1 for item in observations
                           if item["verdict"] == verdict)
-             for verdict in OBSERVATION_VERDICTS}
+             for verdict in ("pass", "fail", "blocked")}
+    if neutral:
+        tally["not_applicable"] = len(neutral)
     # N/A does not inflate PASS, and an N/A-only page cannot pass review.
     visual = ("blocked" if tally["blocked"] or not (tally["pass"] or tally["fail"])
               else "fail" if tally["fail"] else "pass")
