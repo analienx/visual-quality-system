@@ -18,6 +18,19 @@ from typing import Any
 SCHEMA = "vqs.desktop-loaded-source-attestation/1"
 
 
+def strict_local_model_attested(evidence: Mapping[str, Any]) -> bool:
+    """G1/G4 strict local model evidence needs a declared byPath source.
+
+    A Desktop Bridge report/window attestation may legitimately pass
+    for a remote byConnection or a legacy source. That proves the loaded
+    *report*, not the local semantic model the DAX/UIA receipt purports
+    to compare against. Keep these two levels of proof distinct.
+    """
+    return (evidence.get("loaded_file_attested") is True
+            and evidence.get("local_model_definition_checked") is True
+            and evidence.get("local_model_reference") == "byPath_source_checked")
+
+
 def _same_path(left: str, right: Path) -> bool:
     if not isinstance(left, str) or not left.strip():
         return False

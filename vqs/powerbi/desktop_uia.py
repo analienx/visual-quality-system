@@ -25,7 +25,12 @@ from pathlib import Path
 from typing import Any
 
 from vqs.powerbi.contoso_project import inventory
-from vqs.powerbi.desktop_source import collect as attest_desktop_source
+from vqs.powerbi.desktop_source import (
+    collect as attest_desktop_source,
+)
+from vqs.powerbi.desktop_source import (
+    strict_local_model_attested,
+)
 from vqs.powerbi.interaction_audit import (
     DEEP_DIVE_PAGE,
     InteractionEvidenceError,
@@ -379,6 +384,9 @@ def run(project: Path, desktop_pid: int, oracle: Mapping[str, Any],
             _require(identity.get("loaded_file_attested") is True,
                      "blocked", "Desktop loaded-source proof missing: "
                      + str(identity.get("reason")))
+            _require(strict_local_model_attested(identity), "blocked",
+                     "Desktop declared local byPath semantic model unverified: "
+                     + str(identity.get("local_model_reference")))
         structure = inspect_deep_dive_contract(report)
         _require(structure.get("structural") == "pass", "blocked",
                  "current PBIR interaction structure not verified")
