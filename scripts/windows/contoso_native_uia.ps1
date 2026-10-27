@@ -222,24 +222,80 @@ if ($Action -eq 'year') {
             throw 'duplicate or unexpected Year slicer option'
         }
         $options[$name] = $item
-        $pattern = $item.GetCurrentPattern(
-            [System.Windows.Automation.SelectionItemPattern]::Pattern)
-        if ($pattern.Current.IsSelected) { $selected += $item }
+        $selectionPattern = $null
+        $togglePattern = $null
+        $supportsSelection = $item.TryGetCurrentPattern(
+            [System.Windows.Automation.SelectionItemPattern]::Pattern,
+            [ref]$selectionPattern)
+        $supportsToggle = $item.TryGetCurrentPattern(
+            [System.Windows.Automation.TogglePattern]::Pattern, [ref]$togglePattern)
+        if ($supportsSelection) {
+            if ($selectionPattern.Current.IsSelected) { $selected += $item }
+        } elseif ($supportsToggle) {
+            $toggleState = $togglePattern.Current.ToggleState
+            if ($toggleState -eq [System.Windows.Automation.ToggleState]::Indeterminate) {
+                throw "Year $name has an ambiguous tri-state toggle"
+            }
+            if ($toggleState -eq [System.Windows.Automation.ToggleState]::On) {
+                $selected += $item
+            }
+        } else {
+            throw "Year $name exposes neither selection nor toggle UIA pattern"
+        }
     }
     if ($options.Count -ne 3 -or $selected.Count -gt 1) {
         throw 'Year selection/options are incomplete or ambiguous'
     }
     if ($Value -eq 'All') {
         if ($selected.Count -eq 1) {
-            $selected[0].GetCurrentPattern(
-                [System.Windows.Automation.SelectionItemPattern]::Pattern).RemoveFromSelection()
-            $method = 'SelectionItemPattern.RemoveFromSelection'
+            $selectionPattern = $null
+            if ($selected[0].TryGetCurrentPattern(
+                [System.Windows.Automation.SelectionItemPattern]::Pattern,
+                [ref]$selectionPattern)) {
+                $selectionPattern.RemoveFromSelection()
+                $method = 'SelectionItemPattern.RemoveFromSelection'
+            } else {
+                $togglePattern = $null
+                if (-not $selected[0].TryGetCurrentPattern(
+                    [System.Windows.Automation.TogglePattern]::Pattern,
+                    [ref]$togglePattern)) {
+                    throw 'Year clear has no supported UIA selection/toggle pattern'
+                }
+                if ($togglePattern.Current.ToggleState -ne
+                    [System.Windows.Automation.ToggleState]::On) {
+                    throw 'Year clear target is not currently selected'
+                }
+                $togglePattern.Toggle()
+                $method = 'TogglePattern.ToggleOff'
+            }
         }
     } else {
         $item = $options[$Value]
-        $item.GetCurrentPattern(
-            [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-        $method = 'SelectionItemPattern.Select'
+        $selectionPattern = $null
+        if ($item.TryGetCurrentPattern(
+            [System.Windows.Automation.SelectionItemPattern]::Pattern,
+            [ref]$selectionPattern)) {
+            $selectionPattern.Select()
+            $method = 'SelectionItemPattern.Select'
+        } else {
+            $togglePattern = $null
+            if (-not $item.TryGetCurrentPattern(
+                [System.Windows.Automation.TogglePattern]::Pattern,
+                [ref]$togglePattern)) {
+                throw "Year $Value cannot be selected without a UIA pattern"
+            }
+            if ($togglePattern.Current.ToggleState -eq
+                [System.Windows.Automation.ToggleState]::Indeterminate) {
+                throw "Year $Value has an ambiguous tri-state toggle"
+            }
+            if ($togglePattern.Current.ToggleState -eq
+                [System.Windows.Automation.ToggleState]::Off) {
+                # This slicer permits only one selected Year. Selecting a
+                # new year via Toggle must clear the previous selection.
+                $togglePattern.Toggle()
+            }
+            $method = 'TogglePattern.ToggleOn'
+        }
     }
 } elseif ($Action -in @('region','clear-region')) {
     $regions = @(Region-Rows $report)

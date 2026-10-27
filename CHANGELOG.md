@@ -1,5 +1,10 @@
 # Changelog
 
+## P1 Desktop native Year control compatibility — 27 October 2026
+
+- Power BI Desktop 2.159 exposed Year slicer options through `TogglePattern` instead of the older `SelectionItemPattern`. The native Windows adapter now supports both, verifies exact selected state and permits only the intended toggle direction; the Python attestation layer recognizes only `TogglePattern.ToggleOn` for Year selection and `TogglePattern.ToggleOff` for clearing.
+- After upgrading Desktop, the real disposable Contoso report passed **9/9 native Year/Region UI Automation steps** with live DAX agreement. Strict loaded-file source attestation remained blocked because the Desktop host continues to report unsaved changes even after clean launch. This patch does **not** authorize G2/G4/G6 certification or a production tag; independent acceptance remains [issue #16](https://github.com/analienx/visual-quality-system/issues/16).
+
 ## Agent-led Power BI engineering integration — 26 October 2026
 
 **Current consolidated notes:** [26 October engineering update](docs/RELEASE_NOTES_2026-10-26.md). This is an **engineering preview**, not a production tag or independently approved release.
