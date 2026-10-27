@@ -8,7 +8,7 @@
     <a href="docs/AGENT_AUTOFIX_ARCHITECTURE.md">How it works</a> ·
     <a href="#real-power-bi-showcase">Real report gallery</a> ·
     <a href="docs/CLI.md">CLI</a> ·
-    <a href="docs/RELEASE_NOTES_2026-10-26.md">Release notes</a> ·
+    <a href="docs/RELEASE_NOTES_2026-10-27.md">Engineering release notes</a> ·
     <a href="docs/README.md">All docs</a>
   </p>
   <p>
