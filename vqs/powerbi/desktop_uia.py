@@ -377,7 +377,8 @@ def assess_native_sequence(
 
 def run(project: Path, desktop_pid: int, oracle: Mapping[str, Any],
         *, invoke: Callable[[int, str, str], dict] = _invoke_native,
-        attest_source: bool = False) -> dict:
+        attest_source: bool = False,
+        native_save_witness: dict[str, Any] | None = None) -> dict:
     result = {"schema": SCHEMA, "native_uia": "blocked", "interactive": "blocked",
               "country_map": "blocked", "independent_acceptance": "blocked",
               "desktop_loaded_file_attested": False}
@@ -390,7 +391,8 @@ def run(project: Path, desktop_pid: int, oracle: Mapping[str, Any],
         _require(oracle.get("source_sha256") == digest, "fail",
                  "current physical PBIP source differs from executed live DAX")
         if attest_source:
-            identity = attest_desktop_source(project, desktop_pid)
+            identity = (attest_desktop_source(project, desktop_pid, native_save_witness=native_save_witness)
+                        if native_save_witness is not None else attest_desktop_source(project, desktop_pid))
             result["desktop_loaded_file_attestation"] = identity
             _require(identity.get("loaded_file_attested") is True,
                      "blocked", "Desktop loaded-source proof missing: "

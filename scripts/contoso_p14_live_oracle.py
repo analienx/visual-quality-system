@@ -30,7 +30,8 @@ SCHEMA = CURRENT_SOURCE_CONTRACT
 YEARS = (None, 2023, 2024, 2025)
 
 
-def run(project: Path, pid: int, *, attest_source: bool = False) -> dict[str, Any]:
+def run(project: Path, pid: int, *, attest_source: bool = False,
+        native_save_witness: dict[str, Any] | None = None) -> dict[str, Any]:
     """Run four actual DAX states, fail closed on local source/model drift.
 
     A caller's PID/source label is never proof Desktop opened those exact
@@ -53,7 +54,8 @@ def run(project: Path, pid: int, *, attest_source: bool = False) -> dict[str, An
     result["source_sha256"] = source
     result["local_project_source_fingerprinted"] = True
     if attest_source:
-        proof = attest_desktop_source(project, pid)
+        proof = (attest_desktop_source(project, pid, native_save_witness=native_save_witness)
+                 if native_save_witness is not None else attest_desktop_source(project, pid))
         result["desktop_source_evidence"] = proof
         result["desktop_source_attested"] = strict_local_model_attested(proof)
         if not result["desktop_source_attested"]:
@@ -111,13 +113,21 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("project", type=Path)
     parser.add_argument("--desktop-pid", type=int, required=True)
+    parser.add_argument("--native-save-witness", type=Path)
     parser.add_argument("--attest-loaded-file", action="store_true",
                         help="Require exact OS/Bridge loaded PBIP/saved-state attestation")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
     if args.output.exists() or args.output.is_symlink():
         parser.error("refusing to overwrite existing private runtime evidence")
-    result = run(args.project, args.desktop_pid, attest_source=args.attest_loaded_file)
+    if args.native_save_witness and not args.attest_loaded_file:
+        parser.error("native Save receipt requires --attest-loaded-file")
+    try:
+        witness = json.loads(args.native_save_witness.read_text(encoding="utf-8")) if args.native_save_witness else None
+    except (OSError, ValueError) as exc:
+        parser.error(f"native Save witness unreadable: {exc}")
+    result = run(args.project, args.desktop_pid, attest_source=args.attest_loaded_file,
+                 native_save_witness=witness)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2, ensure_ascii=False)

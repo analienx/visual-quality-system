@@ -17,6 +17,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("project", type=Path)
     parser.add_argument("--desktop-pid", type=int, required=True)
+    parser.add_argument("--native-save-witness", type=Path)
     parser.add_argument("--attest-loaded-file", action="store_true",
                         help="Require exact OS/Bridge PBIP identity before any UIA action")
     parser.add_argument("--oracle", type=Path, required=True)
@@ -24,10 +25,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.output.exists() or args.output.is_symlink():
         parser.error("refusing to overwrite existing private native UIA evidence")
+    if args.native_save_witness and not args.attest_loaded_file:
+        parser.error("native Save receipt requires --attest-loaded-file")
     try:
+        witness = json.loads(args.native_save_witness.read_text(encoding="utf-8")) if args.native_save_witness else None
         oracle = json.loads(args.oracle.read_text(encoding="utf-8"))
         result = run(args.project, args.desktop_pid, oracle,
-                     attest_source=args.attest_loaded_file)
+                     attest_source=args.attest_loaded_file,
+                     native_save_witness=witness)
     except (OSError, ValueError, TypeError) as exc:
         result = {"native_uia": "blocked", "interactive": "blocked",
                   "country_map": "blocked", "independent_acceptance": "blocked",

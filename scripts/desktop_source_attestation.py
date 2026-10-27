@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
 from vqs.pbir import source_digest
@@ -15,10 +16,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("project", type=Path)
     parser.add_argument("--desktop-pid", required=True, type=int)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--native-save-witness", type=Path,
+                        help="Private source-bound native Save receipt; default strict age unchanged")
     args = parser.parse_args(argv)
     if args.output.exists() or args.output.is_symlink():
         parser.error("refusing overwrite of existing private identity receipt")
-    result = collect(args.project, args.desktop_pid)
+    try:
+        witness = json.loads(args.native_save_witness.read_text(encoding="utf-8")) if args.native_save_witness else None
+        if witness is not None and not isinstance(witness, Mapping):
+            raise ValueError("native Save witness is not a JSON object")
+    except (OSError, ValueError, TypeError) as exc:
+        parser.error(f"native Save witness unreadable: {exc}")
+    result = (collect(args.project, args.desktop_pid, native_save_witness=witness)
+              if witness is not None else collect(args.project, args.desktop_pid))
     try:
         wrapper, report = project_artifacts(args.project)
         result["report_source_sha256"] = source_digest(report)
