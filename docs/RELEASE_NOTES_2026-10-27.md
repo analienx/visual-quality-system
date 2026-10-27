@@ -38,9 +38,45 @@ Engineering proof: **76 focused theme tests passed**; a fresh, isolated
 fictional Contoso Saffron Dark candidate contains **7/7** explicit light
 checkbox indicator colors and passes Microsoft Report Author `validate` with
 **0 errors / 0 warnings**, including schema checks. The previously captured
-native trial shows an improvement for the unselected list but does **not**
-replace a fresh, source-attested selected/unselected live-state capture of the
-newly generated candidate. This fix is **not independent G2 or G6 approval**.
+native trial improved the unselected indicator. A subsequent single final
+combined candidate was captured in real Power BI Desktop, with source-known
+unselected and 2024-selected expanded-list states. **Both are visually readable**;
+the selected white square and unchecked white outlines contrast with the dark
+item background. This is fresh real engineering capture evidence, **not**
+independent G2 or G6 approval.
+
+## Source-grounded G2 color + full Europe-filter G4 correction
+
+Fresh adversarial review discovered the Dark `Deep-dive insights` Region bars
+all yellow despite distinct Light palette categories. A strict **source-grounded,
+candidate-only** selector restoration now rejects mismatched query/field or
+nonunique palette slots, preserving three verified category bindings. A **real
+native Desktop screenshot** now renders Europe yellow, North America green,
+and Asia Pacific red, also in Year 2024. The final isolated combined candidate
+was further checked with a corrected 80px Year slicer container and seven
+explicit accessible selector icons; Microsoft validator **0 errors/0 warnings**.
+
+The native Contoso Europe interaction previously skipped 3/4 KPI comparisons.
+Now a separate pinned 2024+Europe DAX query checks **Sales, Units, YoY and GM**;
+no native input action proceeds without its source/model/PID-bound, complete
+four-value oracle. A single real source-attested Windows/Desktop G4 run
+returned **8/8 native actions plus baseline PASS**, confirmed Year/Region KPI
+values and unchanged source hashes/timestamps across the transaction.
+
+A genuine native Save reserialized one `visual.json` without changing its
+parsed meaning. A new **strict** witness requires pre-Save exact visual bytes
+(hash+size anchored to the frozen inventory) and whole-object semantic equality
+(duplicate keys/nonfinite JSON rejected). Other source/model mutations still
+block; the old default strict source gate remains unchanged. The same Windows
+PID's strict saved-file attestation passed after the reconciled single Save.
+
+Complete bounded reproduction, negative tests, SHA receipt handling and
+independent-review limits are documented in
+[P1 G2/G4 corrective evidence](P1_G2_G4_CORRECTIVE_EVIDENCE_2026-10-27.md).
+The current source branch passed **2010 full-suite tests, 14 skipped**, plus
+Ruff, mypy and real Microsoft authoring 0/0; protected GitHub checks required
+before merging. Corporate native UIA, owner-supported map/tooltip scope,
+formal distinct reviewer and G6 **remain open**. No production tag.
 
 ## Release gates that remain
 
@@ -55,5 +91,6 @@ newly generated candidate. This fix is **not independent G2 or G6 approval**.
 - [Native Desktop saved-source witness runbook](NATIVE_DESKTOP_SAVED_SOURCE_WITNESS.md)
 - [Schema normalization compatibility and boundaries](P1_DESKTOP_SAVE_SCHEMA_COMPATIBILITY_2026-10-27.md)
 - [Strict Desktop source attestation contract](DESKTOP_SOURCE_ATTESTATION.md)
+- [G2/G4 corrective engineering verification and remaining gates](P1_G2_G4_CORRECTIVE_EVIDENCE_2026-10-27.md)
 
 See [26 October engineering history](RELEASE_NOTES_2026-10-26.md) for the prior snapshot. This document supersedes its acceptance-status section, not its historical events.

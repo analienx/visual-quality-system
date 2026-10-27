@@ -17,7 +17,11 @@ from pathlib import Path
 from typing import Any
 
 from vqs.powerbi.contoso_project import inventory as _inventory
-from vqs.powerbi.contoso_runtime import CURRENT_SOURCE_CONTRACT, collect
+from vqs.powerbi.contoso_runtime import (
+    CURRENT_SOURCE_CONTRACT,
+    collect,
+    collect_region_europe_2024,
+)
 from vqs.powerbi.desktop_source import (
     collect as attest_desktop_source,
 )
@@ -77,6 +81,11 @@ def run(project: Path, pid: int, *, attest_source: bool = False,
                               "desktopPid": state["desktop_pid"]}
             if state["semantic"] != "pass":
                 break
+        if (len(states) == 4 and all(s["semantic"] == "pass" for s in states)
+                and connection is not None):
+            result["region_europe_2024"] = collect_region_europe_2024(
+                client, source, connection, states[2]
+            )
     except (OSError, ValueError, TypeError, KeyError) as exc:
         result["reason"] = f"live model collection unavailable: {exc}"
         return result
@@ -99,6 +108,8 @@ def run(project: Path, pid: int, *, attest_source: bool = False,
         result["reason"] = "model identity or OS-owned Desktop PID changed between states"
     else:
         result["semantic"] = "pass"
+        result["region_scope_semantic"] = (
+            result.get("region_europe_2024", {}).get("semantic", "blocked"))
         result["reason"] = (
             "four DAX states agree with OS/Bridge-attested loaded file; "
             "UIA interaction and independent review still unverified"
