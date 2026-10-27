@@ -73,10 +73,18 @@ PID's strict saved-file attestation passed after the reconciled single Save.
 Complete bounded reproduction, negative tests, SHA receipt handling and
 independent-review limits are documented in
 [P1 G2/G4 corrective evidence](P1_G2_G4_CORRECTIVE_EVIDENCE_2026-10-27.md).
-The current source branch passed **2010 full-suite tests, 14 skipped**, plus
-Ruff, mypy and real Microsoft authoring 0/0; protected GitHub checks required
-before merging. Corporate native UIA, owner-supported map/tooltip scope,
-formal distinct reviewer and G6 **remain open**. No production tag.
+[PR #103](https://github.com/analienx/visual-quality-system/pull/103)
+merged with **2010 full-suite tests passing, 14 skipped**, Ruff, mypy,
+Microsoft authoring real-CLI and protected **CI/DAX/R6** all passing.
+A subsequent distinct private **Corporate Spend** acceptance run provided
+previously missing strict saved-source/native Sales Region On → Off → On
+receipt (2 actions + 1 read-only baseline), independently executed Europe
+and unfiltered DAX parity, unchanged PBIR/TMDL SHA+mtime across actions,
+terminal OS/Bridge identity and **3/3 new native page captures**.
+See [Corporate native G4 evidence](P1_CORPORATE_NATIVE_G4_EVIDENCE_2026-10-27.md).
+That private Corporate candidate had **0 authoring errors / 1 remote-schema-endpoint warning**, not 0/0.
+Owner-supported map/tooltip scope, formal distinct reviewer and G6
+**remain open**. No production tag.
 
 ## Release gates that remain
 
@@ -92,5 +100,6 @@ formal distinct reviewer and G6 **remain open**. No production tag.
 - [Schema normalization compatibility and boundaries](P1_DESKTOP_SAVE_SCHEMA_COMPATIBILITY_2026-10-27.md)
 - [Strict Desktop source attestation contract](DESKTOP_SOURCE_ATTESTATION.md)
 - [G2/G4 corrective engineering verification and remaining gates](P1_G2_G4_CORRECTIVE_EVIDENCE_2026-10-27.md)
+- [Corporate Spend source-bound native G4 evidence and unsupported-scope matrix](P1_CORPORATE_NATIVE_G4_EVIDENCE_2026-10-27.md)
 
 See [26 October engineering history](RELEASE_NOTES_2026-10-26.md) for the prior snapshot. This document supersedes its acceptance-status section, not its historical events.

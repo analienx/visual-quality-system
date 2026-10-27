@@ -1,6 +1,6 @@
 # Power BI G2/G4 corrective verification — 27 October 2026
 
-**Status:** engineering fixes validated on real populated disposable Contoso; independent organizational G2/G4, unrelated Corporate Spend G4, unsupported map/tooltip decisions, consumer signoff and G6 production remain **BLOCKED**. This is **not** a production release.
+**Status:** engineering fixes validated on real populated disposable Contoso **and a second unrelated Corporate Spend native G4 source-bound run**. Independent organizational G2/G4, unsupported map/tooltip decisions, consumer signoff and G6 production remain **BLOCKED**. This is **not** a production release.
 
 ## 1. The adversarial defects, not feature scope
 
@@ -48,7 +48,8 @@ A real Windows UIA Save on one disposable PID may legitimately reserialize an ot
 
 - Local full VQS regression suite (current branch): **2010 passed, 14 skipped**, 0 failures.
 - Ruff (all changed files), mypy on the modified core modules, Git diff checks, Microsoft authoring validation and protected GitHub CI required before merging.
-- Unrelated **Corporate Spend** native Sales Region select/clear/reset still requires source-bound, self-contained standardized receipt. Tooltip hover context and Shape Map country interaction remain unsupported unless separately and expressly excluded by the owner.
+- A new unrelated **Corporate Spend** run now has one strict saved-source witness, genuine live Europe and All-region DAX queries, **two verified native Sales Region toggles plus one read-only baseline**, exact source hashes/mtimes and terminal OS/Bridge identity, and three new actual native page captures. The complete hash-bound private receipt was authored and separately read-only rechecked; **this closes the missing Corporate event receipt at engineering level**. See [Corporate native G4 evidence](P1_CORPORATE_NATIVE_G4_EVIDENCE_2026-10-27.md).
+- Tooltip **hover** context and Shape Map country-specific input remain unsupported/untested unless separately and expressly excluded by the owner.
 - Same assistant cannot pretend to be a separate human reviewer; signed independent G2/G4 and separate **owner/publisher G6** release decision remain open. **No release tag and no automated #16 closure.**
 
 See [issue #16](https://github.com/analienx/visual-quality-system/issues/16), [#102](https://github.com/analienx/visual-quality-system/issues/102), [#17](https://github.com/analienx/visual-quality-system/issues/17).
