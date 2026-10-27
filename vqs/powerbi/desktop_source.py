@@ -96,7 +96,8 @@ def local_semantic_model(project: Path, report: Path, wrapper: Path) -> tuple[Pa
 
 def assess(
     project: Path, pid: int, process: Mapping[str, Any],
-    preview: Mapping[str, Any],
+    preview: Mapping[str, Any], *,
+    native_save_witness: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Pure, externally testable verification; never infer missing evidence."""
     evidence: dict[str, Any] = {
@@ -172,12 +173,27 @@ def assess(
         latest = max(x.stat().st_mtime for x in source_files)
     except OSError:
         return block("PBIR/model source modification times unreadable")
-    if latest > created + 1:
+    if native_save_witness is not None:
+        # Opt-in alternative for a *proved, exact-PID* Desktop native Save.
+        # Never weaken the default pre-open source freshness gate.
+        from vqs.powerbi.desktop_native_provenance import verify
+
+        verified, reason, saved_details = verify(project, pid, created, native_save_witness)
+        if not verified:
+            return block("native Save witness rejected: " + reason)
+        evidence.update(saved_details)
+        evidence["source_provenance_method"] = "native_uia_saved_source"
+    elif latest > created + 1:
         return block("PBIR/model source modified after the Desktop process started")
+    else:
+        evidence["source_provenance_method"] = "pre_open_source_age"
     evidence.update({
         "status": "pass", "loaded_file_attested": True,
-        "reason": "OS launch path, sole Bridge registered report, PID, saved state "
-                  "and source file age agree",
+        "reason": ("OS launch path, sole Bridge registered report, PID, saved "
+                   "state and verified native UIA Save source inventory agree"
+                   if native_save_witness is not None else
+                   "OS launch path, sole Bridge registered report, PID, saved "
+                   "state and pre-open source file age agree"),
         "source_report": str(report.resolve()), "launch_wrapper": str(wrapper.resolve()),
         "desktop_create_time": created, "latest_source_mtime": latest,
         "local_model_definition_checked": has_local_model,
@@ -187,7 +203,10 @@ def assess(
     return evidence
 
 
-def collect(project: Path, pid: int) -> dict[str, Any]:
+def collect(
+    project: Path, pid: int, *,
+    native_save_witness: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     """Collect real OS + Bridge metadata, never mutate or refresh the Desktop."""
     if os.name != "nt":
         return {"schema": SCHEMA, "status": "blocked",
@@ -235,4 +254,4 @@ def collect(project: Path, pid: int) -> dict[str, Any]:
         return {"schema": SCHEMA, "status": "blocked",
                 "desktop_pid": pid, "loaded_file_attested": False,
                 "reason": "Desktop Bridge status unavailable or malformed"}
-    return assess(project, pid, process, preview)
+    return assess(project, pid, process, preview, native_save_witness=native_save_witness)
