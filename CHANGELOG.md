@@ -1,5 +1,11 @@
 # Changelog
 
+## Native saved-source provenance — 27 October 2026 (engineering preview)
+
+**Latest evidence and limitations:** [27 October engineering notes](docs/RELEASE_NOTES_2026-10-27.md). Protected PRs [#97](https://github.com/analienx/visual-quality-system/pull/97) and [#98](https://github.com/analienx/visual-quality-system/pull/98) merged with required CI/authoring/R6 checks. Microsoft's native Desktop Save strips two metadata schemas; the new disposable-only auto-fix restores only those fields. A separate exact-PID/UIA Save provenance witness allows an explicitly verified native-save source route without weakening the original default age gate.
+
+On two unrelated disposable Desktop PBIPs, real local `byPath` model/source attestation now has a **positive** witness. Fictional Contoso's source-bound Year/Region DAX and eight native actions plus baseline matched; the unrelated private report's native Region On → Off → On readback matched live region-filtered/unfiltered DAX. These are verified **engineering runs**, not independent G2/G4. Desktop becomes dirty again after supported UI interactions despite unchanged physical source, so strict terminal saved-state attestation correctly blocks until the independent acceptance contract is resolved. There is **no production tag or G6 approval**; [#16](https://github.com/analienx/visual-quality-system/issues/16) stays OPEN.
+
 ## P1 Desktop native Year control compatibility — 27 October 2026
 
 - Power BI Desktop 2.159 exposed Year slicer options through `TogglePattern` instead of the older `SelectionItemPattern`. The native Windows adapter now supports both, verifies exact selected state and permits only the intended toggle direction; the Python attestation layer recognizes only `TogglePattern.ToggleOn` for Year selection and `TogglePattern.ToggleOff` for clearing.
