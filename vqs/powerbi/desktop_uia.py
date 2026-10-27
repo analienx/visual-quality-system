@@ -345,10 +345,24 @@ def assess_native_sequence(
                 event = _wait_for_state(desktop_pid, action, value, year,
                                         reference, scenario, invoke)
             result["events"].append(event)
+        # The first witness is a read-only baseline probe, not an action.
+        # Report observation count and executed control operations separately,
+        # rather than advertising 9/9 "interactions" for eight inputs.
+        baseline = [event for event in result["events"]
+                    if event["action"] == "probe"]
+        operations = [event for event in result["events"]
+                      if event["action"] != "probe"]
+        _require(len(baseline) == 1 and baseline[0]["method"] == "read_only"
+                 and len(operations) == len(SCENARIOS) - 1,
+                 "blocked", "native baseline/action witness counts are incomplete")
+        result["observation_count"] = len(result["events"])
+        result["read_only_baseline_count"] = len(baseline)
+        result["control_operation_count"] = len(operations)
         result["native_uia"] = "pass"
         result["reason"] = (
-            "UIA Year/Region actions, native KPI/geometry readbacks and "
-            "unrounded DAX agree; country map, loaded-file source identity, "
+            "eight requested UIA Year/Region control operations and one "
+            "read-only baseline, with native KPI/geometry readbacks and "
+            "unrounded DAX agreement; country map, loaded-file source identity, "
             "independent render review and owner release acceptance remain blocked"
         )
     except InteractionEvidenceError as exc:
