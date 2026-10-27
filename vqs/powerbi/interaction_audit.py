@@ -16,13 +16,13 @@ from pathlib import Path
 from typing import Any
 
 from vqs.evidence import _PNG_FILE_CAP, _decode_png
+from vqs.powerbi.contoso_goldens import PINNED_DAX_SHA256
 from vqs.powerbi.contoso_runtime import (
     COUNTRIES,
     CURRENT_SOURCE_CONTRACT,
     REGIONS,
     SOURCE_CONTRACT,
     YEARS,
-    build_queries,
 )
 
 SCHEMA = "vqs.contoso-desktop-interaction-trace/1"
@@ -236,9 +236,7 @@ def _year_states(oracle: object, source: str, desktop_pid: int
                  "blocked", "unexpected DAX year")
         _require(year not in indexed, "blocked", "duplicate DAX year")
         _require(state.get("contract") == SOURCE_CONTRACT
-                 and state.get("queries") == {
-                     key: hashlib.sha256(dax.encode("utf-8")).hexdigest()
-                     for key, dax in build_queries(year).items()},
+                 and state.get("queries") == PINNED_DAX_SHA256[year],
                  "blocked", "DAX query fingerprint is absent or altered")
         model = state.get("model")
         _require(isinstance(model, str) and bool(model),
