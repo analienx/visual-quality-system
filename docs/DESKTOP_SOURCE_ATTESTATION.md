@@ -2,6 +2,8 @@
 
 This optional **G0 evidence guard** supports issue [#16](https://github.com/analienx/visual-quality-system/issues/16). It helps prevent an interaction receipt from being assigned to the wrong open PBIP. It does **not** establish G2 aesthetics, G4 interaction correctness, or independent G6 release approval.
 
+For the October 2026 multi-report Desktop false-dirty investigation, the guarded Windows installer and the exact P1 reacceptance steps, see the [27 October recovery handoff](P1_DESKTOP_RECOVERY_2026-10-27.md).
+
 Run on the authorized Windows host using a **disposable, already-open, saved** PBIP containing exactly one wrapper and its matching report folder. The identity collector supports unrelated report projects; the DAX/UIA runners shown below remain Contoso-specific. Use a unique output file under an ignored/private evidence directory; do not commit raw run receipts, model cache, window captures, or user paths.
 
 ```console
