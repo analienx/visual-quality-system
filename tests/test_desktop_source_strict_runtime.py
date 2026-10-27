@@ -34,7 +34,9 @@ def test_strict_dax_with_attested_source_reuses_existing_oracles(tmp_path, monke
     project = _project(tmp_path)
     monkeypatch.setattr(dax, "attest_desktop_source",
                         lambda *args: {"loaded_file_attested": True,
-                                       "status": "pass"})
+                                       "status": "pass",
+                                       "local_model_definition_checked": True,
+                                       "local_model_reference": "byPath_source_checked"})
     monkeypatch.setattr(dax, "StdioModelingClient",
                         lambda **kwargs: FakePort(desktop_pid=48552))
     result = dax.run(project, 48552, attest_source=True)
@@ -65,7 +67,9 @@ def test_strict_uia_carries_live_host_attestation_without_self_approving(
     source = inventory(project)[0]["digest"]
     monkeypatch.setattr(desktop_uia, "attest_desktop_source",
                         lambda *args: {"loaded_file_attested": True,
-                                       "status": "pass"})
+                                       "status": "pass",
+                                       "local_model_definition_checked": True,
+                                       "local_model_reference": "byPath_source_checked"})
     monkeypatch.setattr(desktop_uia, "assess_native_sequence",
                         lambda *args, **kwargs: {"native_uia": "pass",
                                                  "interactive": "blocked",
@@ -91,10 +95,66 @@ def test_strict_dax_revokes_attestation_if_model_source_drifts(
 
     monkeypatch.setattr(dax, "attest_desktop_source",
                         lambda *args: {"loaded_file_attested": True,
-                                       "status": "pass"})
+                                       "status": "pass",
+                                       "local_model_definition_checked": True,
+                                       "local_model_reference": "byPath_source_checked"})
     monkeypatch.setattr(dax, "StdioModelingClient",
                         lambda **kwargs: MutatingPort(desktop_pid=48552))
     result = dax.run(project, 48552, attest_source=True)
     assert result["semantic"] == "blocked"
     assert result["desktop_source_attested"] is False
     assert "changed during" in result["reason"]
+
+def test_strict_dax_rejects_by_connection_before_model_connector(
+        tmp_path, monkeypatch) -> None:
+    """Report/window identity alone never proves a remote model's source."""
+    project = _project(tmp_path)
+    monkeypatch.setattr(dax, "attest_desktop_source",
+                        lambda *args: {
+                            "loaded_file_attested": True, "status": "pass",
+                            "local_model_definition_checked": False,
+                            "local_model_reference": "byConnection_not_locally_verified",
+                        })
+    def forbidden(**kwargs):
+        raise AssertionError("unverified remote model must not be queried")
+    monkeypatch.setattr(dax, "StdioModelingClient", forbidden)
+    result = dax.run(project, 48552, attest_source=True)
+    assert result["semantic"] == "blocked"
+    assert result["desktop_source_attested"] is False
+    assert "byConnection_not_locally_verified" in result["reason"]
+
+
+def test_strict_uia_rejects_by_connection_before_any_control_action(
+        tmp_path, monkeypatch) -> None:
+    project = _project(tmp_path)
+    digest = inventory(project)[0]["digest"]
+    monkeypatch.setattr(desktop_uia, "attest_desktop_source",
+                        lambda *args: {
+                            "loaded_file_attested": True, "status": "pass",
+                            "local_model_definition_checked": False,
+                            "local_model_reference": "byConnection_not_locally_verified",
+                        })
+    def forbidden(*args):
+        raise AssertionError("unverified remote model must not receive UI action")
+    result = desktop_uia.run(project, 48552, {"source_sha256": digest},
+                             attest_source=True, invoke=forbidden)
+    assert result["native_uia"] == "blocked"
+    assert result["desktop_loaded_file_attested"] is False
+    assert "byConnection_not_locally_verified" in result["reason"]
+
+
+def test_legacy_unverified_model_cannot_upgrade_to_strict_model_proof() -> None:
+    from vqs.powerbi.desktop_source import strict_local_model_attested
+
+    assert not strict_local_model_attested({
+        "loaded_file_attested": True, "local_model_definition_checked": True,
+        "local_model_reference": "legacy_unverified_reference",
+    })
+    assert not strict_local_model_attested({
+        "loaded_file_attested": True,
+        "local_model_reference": "byPath_source_checked",
+    })
+    assert strict_local_model_attested({
+        "loaded_file_attested": True, "local_model_definition_checked": True,
+        "local_model_reference": "byPath_source_checked",
+    })
