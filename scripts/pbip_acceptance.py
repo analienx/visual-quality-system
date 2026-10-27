@@ -66,7 +66,8 @@ def main(argv: list[str] | None = None) -> int:
         facts = measure_report(str(args.report), str(args.model)
                                if args.model else None)
     except OSError as exc:
-        print(json.dumps({"status": "blocked",
+        print(json.dumps({"gate": "G0", "scope": "static_source_only",
+                          "verdict": "blocked", "release_verdict": "blocked",
                           "reason": f"{type(exc).__name__}: {exc}"}))
         return 2
     with tempfile.TemporaryDirectory(prefix="vqs-accept-") as tmp:
@@ -91,8 +92,9 @@ def main(argv: list[str] | None = None) -> int:
     author_status = summary["report_author"]["status"]
     check_bad = check_summary["verdict"] != "pass"
     source_verdict = (
-        "blocked" if empty or author_status in ("skipped", "blocked")
+        "blocked" if empty
         else "fail" if check_bad or author_status == "error"
+        else "blocked" if author_status in ("skipped", "blocked")
         else "pass"
     )
     # A source-only pass is real engineering evidence, not a G2/G4/G6
