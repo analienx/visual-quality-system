@@ -88,6 +88,7 @@ For any mandatory criterion: `pass` requires directly relevant current evidence;
 | DES-08 | No date/target/causal evidence, automatic story generator proposes trend/target/causal claim | corresponding story not applicable/needs clarification; never fabricate metric/causation | G1,G4 |
 | DES-09 | Equivalent source answer but different RLS, period or category filter | apparent equality cannot pass question oracle without same scope | G4 |
 | DES-10 | No configured image-capable provider or no opt-in for private screenshot upload | perceptual mandatory gate blocked; no substitution of text-only reviewer | G2 |
+| DES-11 | Source inventory declares no table/matrix; image reviewer emits matrix PASS | reclassify as source-verified `not_applicable`, report separately, do not increase passed check count; a contradictory matrix FAIL is blocked, not silently discarded | G2 |
 
 ## 5. Repair and no-regression (WP-09,10,11)
 

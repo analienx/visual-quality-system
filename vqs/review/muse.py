@@ -101,7 +101,7 @@ def _validate_result(response: dict[str, Any], page: str,
         raise ReviewError("Muse vision returned unexpected identity/metadata")
     checks = response.get("checks")
     if not isinstance(checks, list) or len(checks) != len(CHECKS):
-        raise ReviewError("Muse vision failed to cover all six image checks")
+        raise ReviewError("Muse vision failed to cover all seven image checks")
     seen: set[str] = set()
     observations = []
     for item in checks:
@@ -208,14 +208,46 @@ class MuseVisionReviewer:
                 "canvases, not a raw Desktop window")
         images = authority["review_images"]
         root = Path(bundle_dir).resolve()
+        # bundle.verify has already validated the inventory file digest.
+        # Do not use the vision model to determine whether a matrix exists.
+        try:
+            inventory = json.loads((root / "inventory.json").read_text(
+                encoding="utf-8"))
+            matrix_by_page = {
+                page["id"]: any(
+                    str(visual["visual_type"]).casefold()
+                    in {"table", "matrix", "pivottable"}
+                    for visual in page["visuals"])
+                for page in inventory["pages"]
+            }
+            if set(matrix_by_page) != set(authority["pages"]):
+                raise ValueError("page mismatch")
+        except (OSError, KeyError, TypeError, ValueError) as exc:
+            raise ReviewError("sealed visual inventory incomplete") from exc
         observations: list[dict[str, Any]] = []
         for page in authority["pages"]:
             binding = images[page]
             image = root / binding["image"]
             if image.resolve().parent != root or image.is_symlink():
                 raise ReviewError("image path escapes verified review bundle")
-            observations.extend(
-                self._review_page(page, image, binding["sha256"]))
+            reviewed = self._review_page(page, image, binding["sha256"])
+            if not matrix_by_page[page]:
+                for check in reviewed:
+                    if check["check"] != "table_matrix_overflow":
+                        continue
+                    if check["verdict"] == "pass":
+                        check["verdict"] = "not_applicable"
+                        check["detail"]["applicability"] = (
+                            "no_table_or_matrix_in_verified_pbir_inventory")
+                        check["detail"]["matrix_visual_count"] = 0
+                    elif check["verdict"] == "fail":
+                        # An image reviewer found a matrix defect where
+                        # the sealed PBIR declares no matrix: block rather
+                        # than silently discard a potential source conflict.
+                        check["verdict"] = "blocked"
+                        check["detail"]["source_conflict"] = (
+                            "matrix_claim_without_declared_matrix")
+            observations.extend(reviewed)
         return {"observations": observations}
 
 
