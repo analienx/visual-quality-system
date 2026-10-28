@@ -426,6 +426,8 @@ def test_native_country_map_group_uses_exact_reviewed_title_aliases_only():
     marker = script.index("function Find-Approved-MapGroup")
     region = script[marker:script.index("function Bounds", marker)]
     assert "Country sales footprint " in region
+    assert "Country sales footprint Gold marks countries with sales; gray denotes no plotted data " in region
+    assert "Country sales footprint Gold shades indicate sales in highlighted countries; gray means no plotted data " in region
     assert "[char]0x00B7 + ' darker = higher '" in region
     assert "NameProperty" in region and "ControlTypeProperty" in region
     assert "ControlType]::Group" in region

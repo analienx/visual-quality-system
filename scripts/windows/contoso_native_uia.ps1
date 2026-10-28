@@ -37,7 +37,9 @@ function Find-Exact($scope, [string]$name, $kind) {
 function Find-Approved-MapGroup($report) {
     $names = @(
         ('Country sales ' + [char]0x00B7 + ' darker = higher '),
-        'Country sales footprint '
+        'Country sales footprint ',
+        'Country sales footprint Gold marks countries with sales; gray denotes no plotted data ',
+        'Country sales footprint Gold shades indicate sales in highlighted countries; gray means no plotted data '
     )
     $matches = @()
     foreach ($label in $names) {
