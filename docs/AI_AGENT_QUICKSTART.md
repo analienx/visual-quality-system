@@ -4,7 +4,7 @@
 
 **[How the complete auto-fix architecture works — components, why each exists, and the end-to-end sequence](AGENT_AUTOFIX_ARCHITECTURE.md)**
 
-VQS is a Power BI-first **engineering preview**. It can automatically repair some defects, not every possible visual or semantic problem. A candidate that passes a static repair step is *not* automatically proven production-ready.
+VQS `v0.1.0` distributes the **source-bound CLI/MCP and allowlisted candidate-repair core** for operational use; **native Desktop visual acceptance and independent report release remain preview/gated**. It can automatically repair some defects, not every possible visual or semantic problem. A candidate that passes a static repair step is *not* automatically proven production-ready.
 
 ## 1. Install the local VQS engine once
 

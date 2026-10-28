@@ -4,7 +4,7 @@
 
 ## Pin the implementation, not just the pre-alpha version string
 
-VQS is currently pre-alpha (`0.0.1a0`); no 1.0 stability or tagged production release has been certified. On a clean host use an explicit reviewed Git commit SHA or a vetted local wheel. Example for the 26 October reviewed engineering baseline (not a production release):
+VQS `v0.1.0` is a **versioned production distribution of supported source-only CLI/MCP capabilities**; it is not a 1.0 feature-completeness or independently certified native-G2/G4/G6 product. Install the vetted wheel from the [v0.1.0 GitHub Release](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.0), or pin its final release commit. For historical 26 October engineering evidence only:
 
 ```console
 python -m pip install "git+https://github.com/analienx/visual-quality-system.git@7fb0a4564d60c7378eb87d587fc8558c6119d6e1"
