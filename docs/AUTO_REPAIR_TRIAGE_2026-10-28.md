@@ -6,7 +6,7 @@
 
 The installed consumer ran static repair against the checked-in five-page fictional Contoso Retail PBIR, with sealed VQS evidence. The original three static failures included two geometric collisions with the Markets & drivers decomposition tree (visual a1b2c3d4e5f60718293a). Its PBIR **isHidden: true**, and the existing native Desktop screenshot shows it is not on the rendered page. The previous evaluator treated it as visible and rejected all available moves.
 
-The corrected visibility-aware measurement skips **only actual boolean true** when calculating visible visual geometry, grain, map/tree content and typography. The complete source inventory remains **5 pages / 54 visual definitions**, with **53 visible geometry items**. Hidden fields remain in the source/model binding audit. Missing, false, and string "true" flags still count as visible. Both false collisions disappear **without changing a byte in the source report**.
+The corrected visibility-aware measurement skips **only actual boolean true** when calculating visible visual geometry, composition/reflow candidates, grain, map/tree content and typography. The complete source inventory remains **5 pages / 54 visual definitions**, with **53 visible geometry items**. Hidden fields remain in the source/model binding audit. Missing, false, and string "true" flags still count as visible. Both false collisions disappear **without changing a byte in the source report**.
 
 ## Remaining genuine questions, not safe autonomous edits
 
