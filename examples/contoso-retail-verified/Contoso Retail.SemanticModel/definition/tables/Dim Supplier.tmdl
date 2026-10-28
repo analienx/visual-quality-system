@@ -1,0 +1,47 @@
+/// Supplier dimension used to assess inventory ownership and supply risk.
+table 'Dim Supplier'
+	lineageTag: 9c69d982-5b79-4b10-9e5b-e3cb300b3626
+
+	column 'Supplier Key'
+		dataType: int64
+		isHidden
+		isKey
+		lineageTag: 267b77b4-ad37-4ab4-9b94-8fa8f79a83b9
+		summarizeBy: none
+		sourceColumn: Supplier Key
+
+	column 'Supplier Name'
+		dataType: string
+		lineageTag: bf020093-1430-4b9e-9cf4-bfba5f890e46
+		summarizeBy: none
+		sourceColumn: Supplier Name
+
+	column Country
+		dataType: string
+		lineageTag: c47f3499-b609-4566-bbb9-1d5eacb8460a
+		dataCategory: Country
+		summarizeBy: none
+		sourceColumn: Country
+
+	column 'Lead Time Days'
+		dataType: int64
+		lineageTag: eedf9747-f1ab-4215-85c2-eb8175d389e7
+		summarizeBy: none
+		sourceColumn: Lead Time Days
+
+	column 'Risk Tier'
+		dataType: string
+		lineageTag: 7b908c06-56fd-4ec7-b868-8af94dc0b478
+		summarizeBy: none
+		sourceColumn: Risk Tier
+
+	partition 'Dim Supplier' = m
+		mode: import
+		source =
+				let
+					Source = #table(type table [#"Supplier Key" = Int64.Type, #"Supplier Name" = text, Country = text, #"Lead Time Days" = Int64.Type, #"Risk Tier" = text], {{1, "Alpine Components", "United States", 12, "Low"}, {2, "Fabrikam Manufacturing", "Germany", 21, "Medium"}, {3, "Northwind Imports", "United Kingdom", 28, "High"}, {4, "Adventure Distribution", "Japan", 18, "Medium"}})
+				in
+					Source
+
+	annotation PBI_ResultType = Table
+

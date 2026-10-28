@@ -1,6 +1,6 @@
 # Contoso Retail · reproducible Power BI example
 
-**This is the actual PBIP used to create the five dashboard screenshots in the repository README.** It is not a decorative mockup.
+**Historical theme-lab PBIP**: the authentic source used to build the older five-page previews and 28 Light/Dark theme candidates. It is not a decorative mockup, and those archived previews retain their original source IDs. For the newest native-verified five-page Contoso reference, use [the finished report](../contoso-retail-verified/README.md).
 
 [Open the PBIP project](Contoso%20Retail.pbip) · [See the public screenshot gallery](../../docs/media/showcase/ASSET_PROVENANCE.md) · [Return to the main README](../../README.md)
 

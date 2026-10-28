@@ -1,0 +1,11 @@
+# Preserve exact Power BI Desktop PBIR/TMDL source bytes on ALL platforms.
+# This fixture is evidence-bound: changing CRLF/LF changes its SHA-256 and
+# breaks strict native-vs-authoring source-identity verification.
+*.json -text
+*.tmdl -text
+*.pbir -text
+*.pbism -text
+*.pbip -text
+*.platform -text
+*.abf binary
+*.zip binary

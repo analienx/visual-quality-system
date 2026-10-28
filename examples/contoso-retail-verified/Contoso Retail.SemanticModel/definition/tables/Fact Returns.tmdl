@@ -1,0 +1,121 @@
+/// Return transaction fact table at returned-line grain.
+table 'Fact Returns'
+	lineageTag: a3ae8082-8d04-4dcd-a0b2-4cb8b237f68a
+
+	/// Monetary value returned by customers.
+	measure 'Return Value' = SUM ( 'Fact Returns'[Return Amount] )
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Returns
+		lineageTag: a1474ca9-e277-4a42-93f0-17685ee74475
+
+	/// Units returned by customers.
+	measure 'Returned Units' = SUM ( 'Fact Returns'[Return Quantity] )
+		formatString: #,0
+		displayFolder: Returns
+		lineageTag: 2cb71f67-725d-41ce-a34e-23fcd6897dd2
+
+	/// Number of individual return transactions.
+	measure 'Return Orders' = COUNTROWS ( 'Fact Returns' )
+		formatString: #,0
+		displayFolder: Returns
+		lineageTag: c30ab081-5901-4790-870e-80f9d6e114bb
+
+	/// Returned value as a proportion of gross sales.
+	measure 'Return Rate %' = DIVIDE ( [Return Value], [Sales Amount] )
+		formatString: 0.0%;(0.0%);0.0%
+		displayFolder: Returns
+		lineageTag: f978256a-ca24-4a68-bc8a-97c845041bdc
+
+	/// Sales remaining after return value is deducted.
+	measure 'Net Sales After Returns' = [Sales Amount] - [Return Value]
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Returns
+		lineageTag: 39a7ccd2-3902-4071-b5d6-3d73c3ddad08
+
+	column 'Return ID'
+		dataType: string
+		isHidden
+		isKey
+		lineageTag: 108f7451-9f0d-4444-ab4a-8d27b96b0e74
+		summarizeBy: none
+		sourceColumn: Return ID
+
+	column 'Return Date Key'
+		dataType: int64
+		isHidden
+		lineageTag: bae5a0be-7a27-44b0-a2fd-0b370f770cb5
+		summarizeBy: none
+		sourceColumn: Return Date Key
+
+	column 'Customer Key'
+		dataType: int64
+		isHidden
+		lineageTag: 21511e1d-ccc9-42f5-9585-fdf676b7c63e
+		summarizeBy: none
+		sourceColumn: Customer Key
+
+	column 'Product Key'
+		dataType: int64
+		isHidden
+		lineageTag: 03d11c03-9113-4972-b501-c6ff1cd019f7
+		summarizeBy: none
+		sourceColumn: Product Key
+
+	column 'Store Key'
+		dataType: int64
+		isHidden
+		lineageTag: d151c45d-bda3-4060-8a48-af67f400d5a5
+		summarizeBy: none
+		sourceColumn: Store Key
+
+	column 'Promotion Key'
+		dataType: int64
+		isHidden
+		lineageTag: 09d23ecb-1c2d-4ce7-ba18-a2189e018b4b
+		summarizeBy: none
+		sourceColumn: Promotion Key
+
+	column 'Return Reason Key'
+		dataType: int64
+		isHidden
+		lineageTag: 3edfdf27-0882-4dbc-8c67-0b9a5ca2f47f
+		summarizeBy: none
+		sourceColumn: Return Reason Key
+
+	column 'Return Quantity'
+		dataType: int64
+		isHidden
+		lineageTag: 9b35e50b-ca0c-4cb0-bc65-7fcbf28425f0
+		summarizeBy: sum
+		sourceColumn: Return Quantity
+
+	column 'Return Amount'
+		dataType: decimal
+		isHidden
+		formatString: $#,0.00;($#,0.00);$#,0.00
+		lineageTag: 0cd586fe-8e4b-4441-9df7-e5c14cc60e16
+		summarizeBy: sum
+		sourceColumn: Return Amount
+
+	partition 'Fact Returns' = m
+		mode: import
+		source =
+				let
+					Months = List.Generate(() => #date(2023, 1, 1), each _ <= #date(2025, 12, 1), each Date.AddMonths(_, 1)),
+					Rows = List.Combine(List.Transform(Months, (d as date) => List.Transform({1..8}, (p as number) =>
+						let
+							StoreKey = Number.Mod(p + Date.Month(d), 5) + 1,
+							CustomerKey = Number.Mod(p * 2 + Date.Month(d) + Date.Year(d), 12) + 1,
+							PromotionKey = Number.Mod(p + Date.Month(d), 4) + 1,
+							Quantity = if Number.Mod(p + Date.Month(d), 3) = 0 then 2 else 1,
+							UnitPrice = {1180, 980, 760, 640, 220, 280, 190, 150}{p - 1},
+							Amount = Number.Round(Quantity * UnitPrice * (0.82 + Number.Mod(Date.Month(d), 3) * 0.04), 2)
+						in
+							[#"Return ID" = Text.Combine({"R", Text.From(Date.Year(d)), Text.PadStart(Text.From(Date.Month(d)), 2, "0"), Text.From(p)}, "-"), #"Return Date Key" = Date.Year(d) * 10000 + Date.Month(d) * 100 + 20, #"Customer Key" = CustomerKey, #"Product Key" = p, #"Store Key" = StoreKey, #"Promotion Key" = PromotionKey, #"Return Reason Key" = Number.Mod(p + Date.Month(d), 4) + 1, #"Return Quantity" = Quantity, #"Return Amount" = Amount]
+					))),
+					Source = Table.FromRecords(Rows, type table [#"Return ID" = text, #"Return Date Key" = Int64.Type, #"Customer Key" = Int64.Type, #"Product Key" = Int64.Type, #"Store Key" = Int64.Type, #"Promotion Key" = Int64.Type, #"Return Reason Key" = Int64.Type, #"Return Quantity" = Int64.Type, #"Return Amount" = Currency.Type])
+				in
+					Source
+
+	annotation PBI_ResultType = Table
+

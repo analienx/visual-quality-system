@@ -4,7 +4,7 @@
 The seven-feature homepage is intentionally curated; this page is the complete
 collection, with both an Executive and a Products & Brands screenshot for
 every theme. All versions come from one identical synthetic Contoso report.
-There are no generated dashboard mockups or counterfeit report images.
+There are no generated dashboard mockups or counterfeit report images. **These are historical, source-bound theme candidates, not renders from the later final Contoso pilot.** See the [separate five-page native-verified reference report](VERIFIED_CONTOSO_SHOWCASE.md), with its own matching PBIP, hashes and original screenshots.
 
 [Back to curated homepage](../README.md#real-power-bi-showcase) ·
 [Palette and dropdown-control colors](APPROVED_THEME_LIBRARY.md) ·

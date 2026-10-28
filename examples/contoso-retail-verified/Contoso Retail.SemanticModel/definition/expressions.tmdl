@@ -1,0 +1,25 @@
+expression pScenarioStartDate = #date(2023, 1, 1) meta [IsParameterQuery=true, Type="Date", IsParameterQueryRequired=true]
+	lineageTag: 8abab935-c439-4764-a6c3-66368e2cacff
+
+	annotation PBI_ResultType = Date
+
+expression pScenarioEndDate = #date(2025, 12, 31) meta [IsParameterQuery=true, Type="Date", IsParameterQueryRequired=true]
+	lineageTag: 04ee32f1-3b4e-478b-96e7-4d5e493e2804
+
+	annotation PBI_ResultType = Date
+
+expression fnSeasonalityFactor = (month as number) as number => {0.90, 0.94, 1.02, 1.05, 1.08, 1.13, 0.99, 1.01, 1.09, 1.18, 1.30, 1.48}{month - 1}
+	lineageTag: cf6e9ae1-55e4-4fde-b436-e4994d9aeeb5
+
+	annotation PBI_ResultType = Function
+
+expression stgProductEconomics = #table(type table [#"Product Key" = Int64.Type, #"Unit Price" = Currency.Type, #"Cost Rate" = number], {{1, 1180, 0.66}, {2, 980, 0.68}, {3, 760, 0.63}, {4, 640, 0.70}, {5, 220, 0.57}, {6, 280, 0.61}, {7, 190, 0.72}, {8, 150, 0.60}})
+	lineageTag: 2d0f2851-4edf-4ad9-b2db-f9a471a6346a
+
+	annotation PBI_ResultType = Table
+
+expression stgSalesPlan = #table(type table [Year = Int64.Type, #"Growth Rate" = number], {{2023, 1.00}, {2024, 1.10}, {2025, 1.21}})
+	lineageTag: ffa70c05-0bc0-455d-acf5-1f28c3fa9af9
+
+	annotation PBI_ResultType = Table
+

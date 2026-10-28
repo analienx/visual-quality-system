@@ -2,7 +2,7 @@
 
 **Product goal:** give an AI agent a PBIP project and ask it to **fix the report**, not produce a diagnostic essay. The agent chooses and executes supported repairs; VQS provides deterministic checks and verifiable boundaries. The original report stays unchanged until the owner explicitly promotes a reviewed candidate.
 
-[Start in 5 minutes](AI_AGENT_QUICKSTART.md) · [CLI commands](CLI.md) · [Architecture](ARCHITECTURE.md) · [Full acceptance boundaries](ACCEPTANCE_MATRIX.md)
+[Start in 5 minutes](AI_AGENT_QUICKSTART.md) · [CLI commands](CLI.md) · [Architecture](ARCHITECTURE.md) · [Full acceptance boundaries](ACCEPTANCE_MATRIX.md) · [**Real five-page PBIP and proven Desktop results**](VERIFIED_CONTOSO_SHOWCASE.md)
 
 ## The actual architecture
 
