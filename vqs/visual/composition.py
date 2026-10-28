@@ -43,6 +43,11 @@ def composition_facts(found: dict[str, Any]) -> list[dict[str, Any]]:
         for (pid, visual_id), doc in sorted(found.get("visuals", {}).items()):
             if pid != page_id:
                 continue
+            # Composition is a rendered-canvas quality check; a PBIR visual
+            # hidden by an explicit boolean True must not steer reflow.
+            # Keep it in the full reader/source inventory and binding audit.
+            if isinstance(doc, dict) and doc.get("isHidden") is True:
+                continue
             visual = doc.get("visual", {}) if isinstance(doc, dict) else {}
             visual = visual if isinstance(visual, dict) else {}
             vco = visual.get("visualContainerObjects", {})

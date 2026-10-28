@@ -99,3 +99,33 @@ def test_hidden_text_is_not_visible_contrast_but_stays_in_source(tmp_path):
     assert not [item for item in contrast.get("readings", [])
                 if item["visual"] == "titlebox"]
     assert original.is_file()
+
+
+
+def test_real_contoso_hidden_tree_excluded_from_composition_reflow_facts(tmp_path):
+    from vqs.pbir import read_report_files, source_digest
+    from vqs.visual.composition import composition_facts
+
+    baseline = source_digest(REPORT)
+    composition = composition_facts(read_report_files(str(REPORT)))
+    page = next(p for p in composition if p["page"] == PAGE)
+    assert len(composition) == 5
+    assert HIDDEN_ID not in {v["visual"] for v in page["visuals"]}
+    assert sum(len(p["visuals"]) for p in composition) == 53
+
+    target = tmp_path / "Copy.Report"
+    shutil.copytree(REPORT, target)
+    path = target / HIDDEN_VISUAL
+    doc = json.loads(path.read_text(encoding="utf8"))
+    for flag in (False, "true", None):
+        altered = dict(doc)
+        if flag is None:
+            altered.pop("isHidden", None)
+        else:
+            altered["isHidden"] = flag
+        path.write_text(json.dumps(altered), encoding="utf8")
+        result = composition_facts(read_report_files(str(target)))
+        page = next(p for p in result if p["page"] == PAGE)
+        assert HIDDEN_ID in {v["visual"] for v in page["visuals"]}
+        assert sum(len(p["visuals"]) for p in result) == 54
+    assert source_digest(REPORT) == baseline
