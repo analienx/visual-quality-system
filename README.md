@@ -8,7 +8,7 @@
     <a href="docs/AGENT_AUTOFIX_ARCHITECTURE.md">How it works</a> ·
     <a href="#real-power-bi-showcase">Real report gallery</a> ·
     <a href="docs/CLI.md">CLI</a> ·
-    <a href="docs/RELEASE_NOTES_2026-10-27.md">Engineering release notes</a> ·
+    <a href="docs/RELEASE_NOTES_2026-10-28.md">Engineering release notes</a> ·
     <a href="docs/README.md">All docs</a>
   </p>
   <p>
@@ -23,7 +23,7 @@
 
 **Your goal:** *“Make this Power BI report clearer, more consistent and reliable. Fix what you can safely, validate the result, and show me the candidate.”*
 
-**VQS already supports that workflow for its allowlisted repair operations.** The agent chooses the work; VQS makes source-grounded changes in an **isolated candidate**, checks them, and records what cannot yet be verified. The original report is never silently overwritten.
+**VQS supports that workflow for its source-provable allowlisted repair operations.** If no safe fix can be proved, it returns **blocked with per-finding agent decisions**, rather than manufacturing a candidate. [See the verified auto-repair limits](docs/AUTO_REPAIR_TRIAGE_2026-10-28.md). The agent chooses the work; VQS makes source-grounded changes in an **isolated candidate**, checks them, and records what cannot yet be verified. The original report is never silently overwritten.
 
 **01 / Understand** — Inspect actual PBIR/TMDL pages, fields, layouts and color assignments.
 

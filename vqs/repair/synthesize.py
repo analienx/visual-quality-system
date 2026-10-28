@@ -794,6 +794,66 @@ def synthesize_plan(findings: Any, facts: Any, *,
                         check, binding, all_pages or ["unknown"])
                 candidates.extend(made)
                 decisions.extend(held)
+            elif check == "insight.no_cross_page_duplicate_grain":
+                # A duplicate measure+dimension breakdown may be a genuine
+                # intentional overview/detail pattern. The source proves
+                # sameness, NOT which visual may be removed or redesigned.
+                pairs = _finding_conflicts(item)
+                if not pairs:
+                    decisions.append(_decision(
+                        check, "needs_owner_decision",
+                        "duplicate grain reported without exact cross-page "
+                        "visual identities; no automatic deletion"))
+                for conflict in pairs:
+                    names = conflict.get("visuals", [])
+                    if not isinstance(names, list):
+                        names = []
+                    decisions.append(_decision(
+                        check, "needs_owner_decision",
+                        "same insight grain across pages: "
+                        + ", ".join(str(name) for name in names[:2])
+                        + "; may be deliberate overview/detail; "
+                          "no source-proven choice of which to remove, "
+                          "rebind or retain"))
+            elif check == "typography.format_declaration_consistency":
+                detail = item.get("detail")
+                evidence = (detail.get("evidence")
+                            if isinstance(detail, dict) else None)
+                if not isinstance(evidence, dict):
+                    decisions.append(_decision(
+                        check, "needs_owner_decision",
+                        "formatting conflict lacks a proved effective "
+                        "font-size/desired target; preserve declarations"))
+                    continue
+                conflicts = evidence.get("conflicts", [])
+                pending = evidence.get("pending", [])
+                before_item_decisions = len(decisions)
+                if isinstance(conflicts, list):
+                    for conflict in conflicts:
+                        if isinstance(conflict, dict):
+                            decisions.append(_decision(
+                                check, "needs_owner_decision",
+                                f"cohort {conflict.get('cohort', '?')!s}: "
+                                "explicit visual-size declarations diverge; "
+                                "which design size is correct is not "
+                                "proved by the PBIR"))
+                if isinstance(pending, list):
+                    for unknown in pending:
+                        if isinstance(unknown, dict):
+                            decisions.append(_decision(
+                                check, "needs_owner_decision",
+                                f"cohort {unknown.get('cohort', '?')!s}: "
+                                "unknown inherited default: mixed explicit/inherited font sizes; "
+                                "collect actual rendered effective style "
+                                "evidence before any edit"))
+                if len(decisions) == before_item_decisions:
+                    # Each sealed finding is accounted for, even when
+                    # another finding with the *same check* already had
+                    # an actionable explanation.
+                    decisions.append(_decision(
+                        check, "needs_owner_decision",
+                        "no proved effective format or approved new "
+                        "value; source declarations never imply a fix"))
             elif check.startswith(("coverage:", "oracle:", "document:",
                                        "model:")):
                 decisions.append(_decision(

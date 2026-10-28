@@ -60,7 +60,7 @@ Codex, Muse and other terminal-enabled agents can use the **same engine** direct
 vqs run "C:/Reports/Sales.Report" --mode repair --scope static --run-root "C:/private/vqs-runs" --run-id "sales-autofix-001"
 ```
 
-Use your actual `*.Report` folder inside the PBIP project. This command asks VQS to **find and apply supported fixes to a disposable candidate**—not to edit the original. Use a **fresh run ID and private run root** every attempt. An agent should inspect the structured output, including `summary.candidate_status`, `summary.resolved_findings`, `summary.new_regressions` and blocked stages, rather than equating a completed process with a successful report.
+Use your actual `*.Report` folder inside the PBIP project. This command asks VQS to **find and apply supported fixes to a disposable candidate**—not to edit the original. Use a **fresh run ID and private run root** every attempt. An agent should inspect the structured output, including `summary.candidate_status`, `summary.repair_triage.decisions`, `summary.resolved_findings`, `summary.new_regressions` and blocked stages, rather than equating a completed process with a successful report.
 
 `--scope static` verifies source/candidate checks only. For native proof the agent must set up the supported Windows Desktop/Bridge/model/reviewer path separately and run the `desktop` scope with explicit permissions. It cannot silently treat a static result as native acceptance.
 
@@ -73,7 +73,7 @@ This is the **recommended default**. Approval for autonomous *candidate* edits n
 ## 4. What will actually happen?
 
 1. **Understand the real report:** the agent calls `vqs_run(mode=repair)`, which invokes PBIR/TMDL inspection, source-based quality checks, and typed proposal synthesis. Missing or ambiguous measurements are **blocked** rather than invented.
-2. **Fix what is safe:** the VQS repair engine only executes supported allowlisted operations (e.g. geometry/spacing, formatting and other typed visual changes), writes a separate candidate, records a rollback recipe and checks exact write boundaries. If no safe proposal exists, the agent should report that blocker, not make speculative business edits.
+2. **Fix what is safe:** the VQS repair engine only executes supported allowlisted operations (e.g. geometry/spacing, formatting and other typed visual changes), writes a separate candidate, records a rollback recipe and checks exact write boundaries. If no safe proposal exists, the agent **must not fabricate a candidate**. Read summary.repair_triage.decisions for the exact unresolved cohort or visual pair; collect fresh source-bound design/render evidence or use an owner-authorized plan. Do not repeatedly run propose with unchanged facts. [See the real Contoso hidden-visual false-positive correction and the repair handoff contract](AUTO_REPAIR_TRIAGE_2026-10-28.md).
 3. **Prove the result:** verify original integrity and declared diffs, run the Microsoft Report Author structural checks where required, rerun VQS quality inspection, and optionally perform native Desktop page captures and live DAX/accessible filter comparisons. The built-in coordinator never promotes.
 4. **Return a decision-ready result:** identify completed repairs, remaining blockers and evidence gaps, not just severity labels. A candidate can be source-verified while the report remains **not accepted** because native evidence or an inherited property is unresolved.
 
