@@ -1,6 +1,6 @@
 # VQS v0.1.0 — production distribution / controlled supported scope
 
-**Release date:** 28 October 2026. **Channel:** public GitHub Release, signed-by-repository release tag with installable Python **wheel** and **source archive**. No hosted web service, Power BI tenant deployment or PyPI publish is implied.
+**Release date:** 28 October 2026. **Channel:** public GitHub Release, annotated Git tag at protected `main`, and installable Python **wheel** and **source archive** with SHA-256 checksums. No hosted web service, Power BI tenant deployment or PyPI publish is implied.
 
 ## What is being deployed
 
@@ -32,7 +32,7 @@ vqs review /path/to/Project.Report --run-root /path/to/private-runs --run-id rel
 
 Native Desktop, Microsoft Modeling MCP, visuals, and browser integrations are separately installed/authorized; the wheel does not implicitly provision them. The assistant/agent must propagate `blocked` and `fail` outcomes without turning them into `pass`.
 
-**Rollback:** preserve the old wheel or commit pin, then uninstall v0.1.0 in the isolated interpreter and reinstall the approved older wheel/commit; never use this release to force-rewrite PBIPs. The [previous `main` at public showcase merge](https://github.com/analienx/visual-quality-system/commit/36bbe2af364861be2765b0b82dc901c086048597) remains available as the last pre-versioned source reference. The v0.1.0 tag is immutable by release procedure.
+**Rollback:** preserve the old wheel or commit pin, then uninstall v0.1.0 in the isolated interpreter and reinstall the approved older wheel/commit; never use this release to force-rewrite PBIPs. The [previous `main` at public showcase merge](https://github.com/analienx/visual-quality-system/commit/36bbe2af364861be2765b0b82dc901c086048597) remains available as the last pre-versioned source reference. Never force-move the published v0.1.0 tag. This process does not claim a cryptographically signed Git tag or a protected GitHub tag rule unless separately established.
 
 ## Promotion decision / governance
 
