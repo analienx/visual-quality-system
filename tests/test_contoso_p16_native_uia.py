@@ -414,3 +414,23 @@ def test_broken_non_sales_europe_kpi_now_fails_native_g4(metric, value):
     assert result["native_uia"] == "fail"
     assert result["native_actions_verified"] == 5
     assert "disagrees with live DAX" in result["reason"]
+
+
+def test_native_country_map_group_uses_exact_reviewed_title_aliases_only():
+    """Presentation title edit cannot break native G4 or permit wrong map."""
+    from pathlib import Path
+
+    script = (Path(__file__).resolve().parents[1] /
+              "scripts/windows/contoso_native_uia.ps1").read_text(
+                  encoding="utf-8")
+    marker = script.index("function Find-Approved-MapGroup")
+    region = script[marker:script.index("function Bounds", marker)]
+    assert "Country sales footprint " in region
+    assert "[char]0x00B7 + ' darker = higher '" in region
+    assert "NameProperty" in region and "ControlTypeProperty" in region
+    assert "ControlType]::Group" in region
+    assert "$matches.Count -ne 1" in region
+    assert "missing or ambiguous" in region
+    assert "StartsWith" not in region
+    assert "$layout['Map'] = Bounds (Find-Approved-MapGroup $report)" in script
+    assert "Map=('Country sales '" not in script

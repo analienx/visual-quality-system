@@ -30,6 +30,33 @@ function Find-Exact($scope, [string]$name, $kind) {
     throw "expected exactly one '$name' $kind control, found 0 after waiting"
 }
 
+
+# Exact accessibility names for this one known same-query native Shape Map.
+# UIA layout must survive a presentation-only title rename. Do NOT resolve
+# by substring, page text, an arbitrary Group, or the first match.
+function Find-Approved-MapGroup($report) {
+    $names = @(
+        ('Country sales ' + [char]0x00B7 + ' darker = higher '),
+        'Country sales footprint '
+    )
+    $matches = @()
+    foreach ($label in $names) {
+        $condition = New-Object System.Windows.Automation.AndCondition(
+            (New-Object System.Windows.Automation.PropertyCondition(
+                [System.Windows.Automation.AutomationElement]::NameProperty, $label)),
+            (New-Object System.Windows.Automation.PropertyCondition(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Group)))
+        $found = $report.FindAll(
+            [System.Windows.Automation.TreeScope]::Descendants, $condition)
+        foreach ($item in $found) { $matches += $item }
+    }
+    if ($matches.Count -ne 1) {
+        throw "exact expected Country Shape Map group missing or ambiguous: $($matches.Count)"
+    }
+    return $matches[0]
+}
+
 function Bounds($element) {
     for ($attempt = 0; $attempt -lt 6; $attempt++) {
         $r = $element.Current.BoundingRectangle
@@ -142,13 +169,13 @@ function Snapshot($report, $yearControl) {
     $groupNames = @{
         Sales='Sales '; Units='Units sold '
         YoY='YoY growth '; GM='Gross margin '
-        Map=('Country sales ' + [char]0x00B7 + ' darker = higher ')
         Channel='Units by channel '; Regional='Regional sales '
     }
-    foreach ($name in @('Sales','Units','YoY','GM','Map','Channel','Regional')) {
+    foreach ($name in @('Sales','Units','YoY','GM','Channel','Regional')) {
         $control = Find-Exact $report $groupNames[$name] ([System.Windows.Automation.ControlType]::Group)
         $layout[$name] = Bounds $control
     }
+    $layout['Map'] = Bounds (Find-Approved-MapGroup $report)
     return [pscustomobject]@{
         year=(Year-State $yearControl)
         kpis=$kpis

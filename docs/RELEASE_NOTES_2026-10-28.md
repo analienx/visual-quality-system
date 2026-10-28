@@ -20,6 +20,14 @@ The Windows installed PBIPDocumenter bridge was previously validated against fic
 
 The remaining questions demand real design/effective-style evidence, not more trial-and-error UI reopening. Primary Power BI release gate [#16](https://github.com/analienx/visual-quality-system/issues/16), consumer [#17](https://github.com/analienx/visual-quality-system/issues/17), and the separate Word scope [#13](https://github.com/analienx/visual-quality-system/issues/13) remain distinct.
 
+## Two-subject native acceptance and installed consumer integration, later 28 October
+
+The installed PBIPDocumenter [PR #21](https://github.com/analienx/pbidocumenter/pull/21) merged and completed actual wheel-installed **5/5 real Contoso native pages**, same-PID source and local Modeling, sealed PNGs, and a four-transition baseline→upgrade→rollback→re-upgrade package proof. Without an external visual reviewer, the consumer correctly returned **BLOCKED**, not a fake G2 PASS. The actual final Contoso source then passed **8 native Year/Region actions and a separately executed four-KPI Europe DAX oracle**.
+
+Adversarial *image* review identified missing Market chart values and an overstated map color title. One bounded disposable candidate enabled **four readable native chart value-label groups**, plus the accurate *Country sales footprint* title. Microsoft authoring passed 0/0, and the new Desktop screenshot visibly improved. Its first G4 run correctly blocked on a **hardcoded accessibility group name for the old map title**; the bounded adapter now uses two exact allowlisted, unambiguous map names and the same-source **8/8 native G4 run passed** without relaxing any DAX/PID/save-state rules. A new full five-page native source-bound screenshot set was saved privately; the public gallery has NOT been falsely replaced.
+
+An unrelated Corporate Spend source-bound G4 event packet and 3/3 native pages remain confirmed separately. **Premium G2, unsupported map/tooltip feature choices, distinct human reviewer and owner G6 remain unapproved**. See the [current two-subject acceptance matrix and decision boundaries](POWER_BI_CORE_ACCEPTANCE_2026-10-28.md). No production release/tag.
+
 ## Operator entry points
 
 - [One-command AI agent auto-fix quickstart](AI_AGENT_QUICKSTART.md)
