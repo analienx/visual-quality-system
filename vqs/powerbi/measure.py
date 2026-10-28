@@ -252,6 +252,10 @@ def _visual_text_runs(found: dict) -> list[dict]:
         for (pid, visual_id), visual in sorted(found["visuals"].items()):
             if pid != page_id:
                 continue
+            if visual.get("isHidden") is True:
+                # Contrast is a rendered-page check. Keep hidden text in
+                # the full PBIR inventory, not the visible contrast ratios.
+                continue
             node = visual.get("visual", {})
             visit(node.get("objects", {}) if isinstance(node, dict) else {},
                   (page_id, visual_id))
@@ -464,6 +468,10 @@ def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dic
                     else:
                         entry["actual_unknown"] = True
                     bindings.append(entry)
+            # Hidden visuals remain available to source/model binding audit,
+            # but must not vote in visible typography-consistency cohorts.
+            if visual.get("isHidden") is True:
+                continue
             # A visual title normally lives in visualContainerObjects, *not*
             # visual.objects. Omitting this layer made mixed explicit/default
             # title sizes invisible (and allowed oversized Desktop defaults
@@ -510,6 +518,8 @@ def _cohort_nulls(found: dict, readings: list[dict]) -> list[dict]:
                 continue
             node = visual.get("visual", {})
             if not isinstance(node, dict):
+                continue
+            if visual.get("isHidden") is True:
                 continue
             visual_type = node.get("visualType", "?")
             objects = node.get("objects", {})

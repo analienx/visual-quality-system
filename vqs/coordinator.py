@@ -723,6 +723,7 @@ def _runtime_sequence(run_dir: Any, rid: str, stages: list,
             try:
                 plan = json.loads(Path(params["plan_path"]).read_text(
                     encoding="utf-8-sig"))
+                state["owner_plan_supplied"] = True
             except (OSError, ValueError) as exc:
                 plan = None
                 record(_stage("repair", "blocked",
@@ -730,9 +731,23 @@ def _runtime_sequence(run_dir: Any, rid: str, stages: list,
                 return _finish(run_dir, rid, stages, state, mode,
                                params["scope"], run_root)
         if not isinstance(plan, dict):
+            # Propose ALREADY ran during repair mode. Never tell an AI
+            # consumer to re-run it, nor claim an automatic fix occurred.
+            # Each decision has an exact check/reason, and the remaining
+            # issue may be intentional design or require render evidence.
+            decisions = state.get("triage", {}).get("decisions", [])
+            checks = sorted({str(d.get("check")) for d in decisions
+                             if isinstance(d, dict)
+                             and isinstance(d.get("check"), str)})
+            state["no_safe_fix"] = True
             record(_stage("repair", "blocked",
-                          reason="no synthesized candidate and no owner "
-                                 "plan; author a plan or run propose mode"))
+                          reason=("no source-provable automatic candidate "
+                                  f"({len(decisions)} decision(s) across "
+                                  f"{len(checks)} check(s)); "
+                                  "see summary.repair_triage for exact "
+                                  "unsupported/owner-evidence reasons"),
+                          evidence={"decision_count": len(decisions),
+                                    "checks": checks}))
             return _finish(run_dir, rid, stages, state, mode,
                            params["scope"], run_root)
         try:
@@ -1338,6 +1353,16 @@ def _next_actions(verdict: str, rid: str, scope: str,
                            "reviewer (fixer/reviewer separation holds)")
         return actions
     if verdict == "blocked":
+        triage = summary.get("repair_triage", {})
+        if triage.get("status") == "no_safe_candidate":
+            return [
+                ("no safe automatic edit was source-proven; inspect "
+                 "summary.repair_triage.decisions and collect the specific "
+                 "missing render/semantic evidence before a new attempt"),
+                ("use an owner-authorized, source-bound plan only for an "
+                 "unambiguous edit; never retry propose with unchanged facts"),
+                "no original report or model was modified or promoted",
+            ]
         return [(f"resolve blocked stage(s): "
                  f"{', '.join(summary['blocked_stages'])}"),
                 f"resume with vqs run --resume-from {rid}"]
@@ -1435,6 +1460,23 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
         "findings_complete": reconcile["complete"],
         "candidates_proposed": candidate_count,
         "candidate_status": candidate_state,
+        # Structured agent handoff instead of an opaque "run propose" loop.
+        # This is advisory evidence; decisions cannot authorize a source edit.
+        "repair_triage": {
+            "status": ("no_safe_candidate" if state.get("no_safe_fix")
+                       else "owner_plan_supplied"
+                       if state.get("owner_plan_supplied")
+                       else "candidates_available" if candidate_count
+                       else "not_requested"),
+            "decisions": [
+                {k: value for k, value in item.items()
+                 if k in ("check", "status", "reason", "page", "visual")}
+                for item in (propose_evidence.get("decisions", [])
+                             if isinstance(propose_evidence, dict) else [])
+                if isinstance(item, dict)],
+            "requires_proven_fix_or_owner_plan": bool(state.get("no_safe_fix")),
+            "promotion_performed": False,
+        },
         "promotion_status": {
             "status": "not-performed",
             "reason": ("the coordinator never promotes; promotion is "

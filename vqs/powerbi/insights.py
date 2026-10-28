@@ -390,6 +390,15 @@ def page_insights(report_dir: str, model_dir: str | None = None) -> dict:
                      "dimensions": dimensions, "roles": roles,
                      "customized": isinstance(objects, dict)
                      and len(objects) > 0}
+            # Native PBIR explicitly hides these visuals. Retain them in the
+            # source inventory for coverage, bookmarks, audit and model
+            # identity, but never treat their geometry or displayed insight
+            # as an on-canvas issue needing an autofix. Only boolean True
+            # proves hidden: missing/ambiguous values remain visible.
+            if visual.get("isHidden") is True:
+                entry["is_hidden"] = True
+                entries.append(entry)
+                continue
             entries.append(entry)
             rect = _geometry(visual)
             if rect is not None:
