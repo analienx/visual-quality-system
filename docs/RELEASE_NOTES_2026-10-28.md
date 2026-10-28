@@ -28,6 +28,12 @@ Adversarial *image* review identified missing Market chart values and an oversta
 
 An unrelated Corporate Spend source-bound G4 event packet and 3/3 native pages remain confirmed separately. **Premium G2, unsupported map/tooltip feature choices, distinct human reviewer and owner G6 remain unapproved**. See the [current two-subject acceptance matrix and decision boundaries](POWER_BI_CORE_ACCEPTANCE_2026-10-28.md). No production release/tag.
 
+## Final same-day private Contoso P2 presentation and native-G4 check
+
+A second disposable Contoso Saffron Dark pilot resolved the Executive multiRowCard's technical `GM Target Gap Label` caption using a **visual-only projection displayName**, changed Deep-dive donut values from rounded 3K/4K to exact unit counts, and added truthful map subtitle copy explaining highlighted countries. Native Desktop screenshots confirmed improved readability without collisions. The initial native Save changed the en-US semantic culture metadata automatically, **correctly failing strict source attestation**; one stabilized reload and saved-source witness were required. All four Europe KPI DAX checks and **8/8 native Year/Region actions** then passed against the same new source/PID; all five pages were captured, privately source-hashed. The map subtitle changed its accessible UIA Group name: a first native probe BLOCKED with **zero actions**, leading to two additional strict map-name aliases (for the two explicitly approved subtitle wordings), with no broad pattern matching.
+
+No report, cache or raw private image was uploaded to this public repository. Private upload may happen only after destination GitHub visibility is confirmed `private`; this is not G6 production approval. See the [two-subject acceptance record](POWER_BI_CORE_ACCEPTANCE_2026-10-28.md).
+
 ## Operator entry points
 
 - [One-command AI agent auto-fix quickstart](AI_AGENT_QUICKSTART.md)
