@@ -1,5 +1,21 @@
 # Changelog
 
+## Public five-page synthetic Contoso reference — 28 October 2026
+
+**Owner-authorized public publication of a fully source-bound fictional Power BI example.** This is an **engineering-preview exhibit**, not a signed production release or software version/tag. The separate private Corporate Spend report, its data, private model/cache and private interaction receipts remain excluded.
+
+- **The artifact is usable.** [Open the full PBIP](examples/contoso-retail-verified/Contoso%20Retail.pbip), including its explicitly fictional model cache, to see populated native visuals without an external data service. All 12 M partitions are internally synthetic; private file paths/credentials are excluded. Both the public PBIR source and strict native-saved ZIP are included because Microsoft Desktop Save drops two schema metadata declarations.
+- **The media actually belongs to the report.** Five authentic full Desktop PNGs and five cropped WebP previews are published with individual SHA-256 hashes, crop boxes and source identity: [verified five-page showcase](docs/VERIFIED_CONTOSO_SHOWCASE.md) and [machine-checkable manifest](docs/media/contoso-verified/PROVENANCE.json). CI fails on a changed source, ZIP/model/content mismatch, absent page, missing or changed screenshot, or accidental local settings.
+- **The engineering checks are specific.** Genuine saved-source witness, 2024+Europe live four-KPI DAX, **8/8 native Year/Region UIA actions + baseline** and source/model bytes unchanged throughout the interaction test. The last separate automated pixel review found **zero P1/P2 visual observations** on these five images; it is **not** a different authorized human reviewer. Microsoft's authoring CLI validated the normalized project (0 errors / 0 warnings).
+- **The established 14-family gallery stays correct.** The existing 28 Light/Dark modes and 56 source-bound real screenshots continue to refer to their own historical Contoso/PBIR candidate hashes. We do **not** swap out the old sample or falsely claim those older images were captured from the new final reference.
+
+### Precise boundaries
+
+This change approves publishing the synthetic **example**, **not** a production release. Shape Map country-specific selection, genuine hidden Tooltip hover and arbitrary third-party Desktop interactions are still outside confirmed G4 scope. A distinct authorized human G2/G4 reviewer and publisher G6 owner approval are not recorded. Issues [#16](https://github.com/analienx/visual-quality-system/issues/16) (core acceptance) and [#17](https://github.com/analienx/visual-quality-system/issues/17) (consumer release) remain open until their actual unmet gate conditions are resolved.
+
+Read the [agent auto-fix guide](docs/AI_AGENT_QUICKSTART.md), [architecture](docs/AGENT_AUTOFIX_ARCHITECTURE.md), [full public example](docs/VERIFIED_CONTOSO_SHOWCASE.md), and [two-subject acceptance ledger](docs/POWER_BI_CORE_ACCEPTANCE_2026-10-28.md). Word/DOCX quality remains independent.
+
+
 ## Native saved-source provenance — 27 October 2026 (engineering preview)
 
 **Latest evidence and limitations:** [27 October engineering notes](docs/RELEASE_NOTES_2026-10-27.md). Protected PRs [#97](https://github.com/analienx/visual-quality-system/pull/97) and [#98](https://github.com/analienx/visual-quality-system/pull/98) merged with required CI/authoring/R6 checks. Microsoft's native Desktop Save strips two metadata schemas; the new disposable-only auto-fix restores only those fields. A separate exact-PID/UIA Save provenance witness allows an explicitly verified native-save source route without weakening the original default age gate.

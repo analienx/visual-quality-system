@@ -1,0 +1,166 @@
+{
+  "version": "1.1.0",
+  "diagrams": [
+    {
+      "ordinal": 0,
+      "scrollPosition": {
+        "x": 583.33331298828125,
+        "y": 0
+      },
+      "nodes": [
+        {
+          "location": {
+            "x": 2272.5436867126423,
+            "y": 200.1864704124514
+          },
+          "nodeIndex": "Fact Sales",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 2063.4483633953209,
+            "y": 550.36064836192475
+          },
+          "nodeIndex": "Dim Customer",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1988.3616394153598,
+            "y": -6.4020575931048143
+          },
+          "nodeIndex": "Dim Date",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 2556.7235683332156,
+            "y": 448.87694609169557
+          },
+          "nodeIndex": "Dim Product",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 2492.6756599855344,
+            "y": -50
+          },
+          "nodeIndex": "Dim Store",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1186.3616394153598,
+            "y": 188.18032418096237
+          },
+          "nodeIndex": "Fact Inventory Snapshot",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 334.18475118062975,
+            "y": 188.1803241809624
+          },
+          "nodeIndex": "Fact Returns",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1420.3616394153598,
+            "y": 264.18032418096237
+          },
+          "nodeIndex": "Fact Sales Budget",
+          "size": {
+            "height": 248,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1704.3616394153598,
+            "y": 300.18032418096237
+          },
+          "nodeIndex": "Dim Employee",
+          "size": {
+            "height": 176,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 618.36163941535983,
+            "y": 263.50531681339703
+          },
+          "nodeIndex": "Dim Promotion",
+          "size": {
+            "height": 176,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 50,
+            "y": 243.24543335830393
+          },
+          "nodeIndex": "Dim Return Reason",
+          "size": {
+            "height": 152,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 902.36163941535983,
+            "y": 238.18032418096237
+          },
+          "nodeIndex": "Dim Supplier",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        }
+      ],
+      "name": "All tables",
+      "zoomValue": 100,
+      "pinKeyFieldsToTop": false,
+      "showExtraHeaderInfo": false,
+      "hideKeyFieldsWhenCollapsed": false,
+      "tablesLocked": false
+    }
+  ],
+  "selectedDiagram": "All tables",
+  "defaultDiagram": "All tables"
+}

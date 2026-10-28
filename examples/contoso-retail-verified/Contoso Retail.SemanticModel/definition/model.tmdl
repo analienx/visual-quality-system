@@ -1,0 +1,29 @@
+/// Contoso Retail executive sales and profitability model. A documented star schema with a dedicated Sales fact table and conformed Date, Product, Store, and Customer dimensions for trend, geographic, portfolio, and customer analysis.
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	discourageImplicitMeasures
+	sourceQueryCulture: en-US
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation PBI_QueryOrder = ["pScenarioStartDate","pScenarioEndDate","fnSeasonalityFactor","stgProductEconomics","stgSalesPlan","Dim Customer","Dim Date","Dim Product","Dim Store","Dim Promotion","Dim Employee","Dim Supplier","Dim Return Reason","Fact Sales","Fact Returns","Fact Inventory Snapshot","Fact Sales Budget"]
+
+annotation PBI_ProTooling = ["DevMode"]
+
+ref table 'Dim Customer'
+ref table 'Dim Date'
+ref table 'Dim Product'
+ref table 'Dim Store'
+ref table 'Dim Promotion'
+ref table 'Dim Employee'
+ref table 'Dim Supplier'
+ref table 'Dim Return Reason'
+ref table 'Fact Sales'
+ref table 'Fact Returns'
+ref table 'Fact Inventory Snapshot'
+ref table 'Fact Sales Budget'
+
+ref cultureInfo en-US
+

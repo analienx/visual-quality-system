@@ -1,0 +1,114 @@
+/// Conformed calendar dimension used for all reporting periods and time-intelligence calculations. One row per date.
+table 'Dim Date'
+	lineageTag: dfea27c9-3ba2-4fd0-91c9-d5a9209696fa
+	dataCategory: Time
+
+	/// Integer calendar key used by the sales relationship.
+	column 'Date Key'
+		dataType: int64
+		isHidden
+		isKey
+		lineageTag: 2e8fa990-31fa-4b0e-98a7-3593d1ce68ce
+		summarizeBy: none
+		sourceColumn: Date Key
+
+	/// Calendar date used for time intelligence.
+	column Date
+		dataType: dateTime
+		formatString: yyyy-MM-dd
+		lineageTag: 9c39bf14-ddce-45e5-a7ba-02ea133e960b
+		dataCategory: Time
+		summarizeBy: none
+		sourceColumn: Date
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	/// Calendar year.
+	column Year
+		dataType: int64
+		formatString: 0
+		lineageTag: 405c4ad9-a013-45ba-b9b8-a056f9a01789
+		summarizeBy: none
+		sourceColumn: Year
+
+	/// Calendar quarter label.
+	column Quarter
+		dataType: string
+		lineageTag: 7b416c67-d2dd-4081-84fd-f445a9ec8a59
+		summarizeBy: none
+		sourceColumn: Quarter
+
+	/// Calendar month number used for sorting.
+	column 'Month Number'
+		dataType: int64
+		isHidden
+		lineageTag: 225280e1-2ca6-4729-9172-2ac8cfc811ca
+		summarizeBy: none
+		sourceColumn: Month Number
+
+	/// Calendar month name.
+	column 'Month Name'
+		dataType: string
+		lineageTag: bcb65a19-9947-4d83-8b42-9d5005b34c34
+		summarizeBy: none
+		sourceColumn: Month Name
+		sortByColumn: 'Month Number'
+
+	/// Chronological month label for trends.
+	column 'Year Month'
+		dataType: string
+		lineageTag: a462a2d1-0e42-4c3a-89fa-0b3b0841e576
+		summarizeBy: none
+		sourceColumn: Year Month
+		sortByColumn: 'Year Month Sort'
+
+	/// Numeric year-month key used to sort Year Month.
+	column 'Year Month Sort'
+		dataType: int64
+		isHidden
+		lineageTag: ed4f01a9-6d31-4668-9ac1-43bc9fab161e
+		summarizeBy: none
+		sourceColumn: Year Month Sort
+
+	hierarchy 'Calendar Hierarchy'
+		lineageTag: 72ce0682-c05f-401a-b48f-748ad72d1d70
+
+		level Year
+			lineageTag: 2e326c31-538b-42c2-b18d-f8dc1ca80bbe
+			column: Year
+
+		level Quarter
+			lineageTag: cb405b27-a15b-4ce2-80e0-04ab8c91f836
+			column: Quarter
+
+		level Month
+			lineageTag: a3e5d56a-8299-465c-9c0b-2b4b6b6b66f6
+			column: 'Month Name'
+
+		level Date
+			lineageTag: 7e6fbd19-5445-4eb0-917a-f8931d8cc59a
+			column: Date
+
+	partition 'Dim Date' = m
+		mode: import
+		source =
+				let
+					StartDate = #date(2023, 1, 1),
+					EndDate = #date(2025, 12, 31),
+					Dates = List.Dates(StartDate, Duration.Days(EndDate - StartDate) + 1, #duration(1, 0, 0, 0)),
+					Rows = List.Transform(Dates, each [
+						#"Date Key" = Date.Year(_) * 10000 + Date.Month(_) * 100 + Date.Day(_),
+						Date = _,
+						Year = Date.Year(_),
+						Quarter = "Q" & Text.From(Date.QuarterOfYear(_)),
+						#"Month Number" = Date.Month(_),
+						#"Month Name" = Date.ToText(_, "MMM", "en-US"),
+						#"Year Month" = Date.ToText(_, "MMM yyyy", "en-US"),
+						#"Year Month Sort" = Date.Year(_) * 100 + Date.Month(_)
+					]),
+					Source = Table.FromRecords(Rows, type table [#"Date Key" = Int64.Type, Date = date, Year = Int64.Type, Quarter = text, #"Month Number" = Int64.Type, #"Month Name" = text, #"Year Month" = text, #"Year Month Sort" = Int64.Type])
+				in
+					Source
+
+	annotation PBI_ResultType = Table
+

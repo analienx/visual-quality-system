@@ -1,5 +1,13 @@
 # VQS Power BI — automated repair correction, 28 October 2026
 
+## Latest publication addendum — real Contoso example on PUBLIC VQS main
+
+The owner explicitly authorized public inclusion of the **fictional Contoso Retail** acceptance report after completing its presentation and native evidence review. [Current live reference PBIP](../examples/contoso-retail-verified/Contoso%20Retail.pbip) · [native five-page photo-real source screenshots](VERIFIED_CONTOSO_SHOWCASE.md) · [public image/source provenance](media/contoso-verified/PROVENANCE.json). Both the exact Desktop-native source archive and the structurally normalized source are included. Only the two PBIP/PBIR schema declarations differ; all model and visual semantics are unchanged. The gallery previews are derived from the final source-bound Desktop PNGs by a documented crop; no mockups were substituted.
+
+**Tested acceptance:** native UIA Save true, all four Year/Europe scoped KPIs independently matched live DAX, 8/8 actual Year/Region native interactions + baseline, unchanged file hashes/mtimes, five real populated native pages, separate automated G2 pixel review with **zero remaining P1/P2 issues**. Normalized project Microsoft authoring **0 errors, 0 warnings**. Linux/Windows CI now verifies the source digest and every PNG/WebP hash. The old 14-theme/56-image showcase is preserved with its own historical candidate identity. Private Corporate Spend evidence is never part of this public upload.
+
+**This is an engineering-preview *example* publication, not production G6 or an official versioned release/tag.** Distinct human G2/G4 and owner G6 signoff remain pending; the true Shape Map country-click/Tooltip-hover cases are unproven.
+
 **Status: engineering preview. No production release/tag, independent G2/G4 review or G6 owner approval.**
 
 ## Why a clean installed consumer returned BLOCKED
@@ -32,7 +40,7 @@ An unrelated Corporate Spend source-bound G4 event packet and 3/3 native pages r
 
 A second disposable Contoso Saffron Dark pilot resolved the Executive multiRowCard's technical `GM Target Gap Label` caption using a **visual-only projection displayName**, changed Deep-dive donut values from rounded 3K/4K to exact unit counts, and added truthful map subtitle copy explaining highlighted countries. Native Desktop screenshots confirmed improved readability without collisions. The initial native Save changed the en-US semantic culture metadata automatically, **correctly failing strict source attestation**; one stabilized reload and saved-source witness were required. All four Europe KPI DAX checks and **8/8 native Year/Region actions** then passed against the same new source/PID; all five pages were captured, privately source-hashed. The map subtitle changed its accessible UIA Group name: a first native probe BLOCKED with **zero actions**, leading to two additional strict map-name aliases (for the two explicitly approved subtitle wordings), with no broad pattern matching.
 
-No report, cache or raw private image was uploaded to this public repository. Private upload may happen only after destination GitHub visibility is confirmed `private`; this is not G6 production approval. See the [two-subject acceptance record](POWER_BI_CORE_ACCEPTANCE_2026-10-28.md).
+**Historical note, now superseded by the owner-authorized public synthetic publication above:** at that earlier checkpoint only the private Contoso fixture existed. The final **fictional Contoso PBIP and synthetic model cache** are now intentionally published as the separate native-verified reference. **No private Corporate Spend report or raw company image** is published. This is not G6 production approval. See the [two-subject acceptance record](POWER_BI_CORE_ACCEPTANCE_2026-10-28.md).
 
 ## Operator entry points
 
@@ -41,4 +49,4 @@ No report, cache or raw private image was uploaded to this public repository. Pr
 - [Source-bound consumer integration](CONSUMER_INTEGRATION.md)
 - [Previous genuine Desktop G2/G4 evidence](RELEASE_NOTES_2026-10-27.md)
 
-No private PBIP, semantic cache, unredacted screenshot, Corporate Spend data or Windows receipt is included in this repository update.
+The public update intentionally includes **only the fictional Contoso PBIP, its synthetic sample cache and exact-source native Desktop screenshots**, with published SHA-256 provenance. It does **not** include customer Corporate Spend data, private runtime receipts, personal machine settings, or G6 release authority.

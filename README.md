@@ -52,16 +52,26 @@ vqs run "path/to/Sales.Report" --mode repair --scope static \
 
 **Agent** orchestrates → **VQS** measures, proposes and repairs → **Microsoft tooling** validates supported changes → **Desktop/Modeling MCP** supplies native evidence → **reviewer** makes the release decision. [Explore each component and its limits](docs/AGENT_AUTOFIX_ARCHITECTURE.md).
 
+## Verified reference report · all five pages
+
+**A real, native Power BI Desktop report you can run and inspect.** This fictional Contoso source was saved and exercised in Desktop with live four-KPI DAX, eight Year/Region interactions and a separate automated five-image visual review (zero observed P1/P2 defects). Its five screenshots, exact source revision and metadata-normalized PBIP are [published together with individual SHA-256 provenance](docs/VERIFIED_CONTOSO_SHOWCASE.md).
+
+| Executive overview | Markets & drivers | Deep-dive insights |
+| :--- | :--- | :--- |
+| [![Verified native Power BI Executive overview](docs/media/contoso-verified/executive-overview.webp)](docs/VERIFIED_CONTOSO_SHOWCASE.md#executive-overview) | [![Verified native Power BI Markets and drivers](docs/media/contoso-verified/markets-drivers.webp)](docs/VERIFIED_CONTOSO_SHOWCASE.md#markets--drivers) | [![Verified native Power BI Deep-dive with native Shape Map](docs/media/contoso-verified/deep-dive-insights.webp)](docs/VERIFIED_CONTOSO_SHOWCASE.md#deep-dive-insights) |
+
+[**Open PBIP and reproduce the report**](examples/contoso-retail-verified/README.md) · [See all five native pages](docs/VERIFIED_CONTOSO_SHOWCASE.md) · [Read the validation boundaries](docs/POWER_BI_CORE_ACCEPTANCE_2026-10-28.md)
+
+The original remains intact. Image review is automated, **not** formal independent human G2/G4 or owner G6 release approval. The two unsupported interaction cases—country-specific Shape Map click and hidden Tooltip hover—are not claimed to pass.
+
 ## Real Power BI showcase
 
 **Seven curated families on the homepage. All 14 Light/Dark families in the full gallery.**
-These are real, populated Power BI Desktop screenshots captured from one
-fictional Contoso Retail report; none is a simulated dashboard.
-Each screenshot is bound to the generating GitHub candidate and source hash.
+These are authentic, populated Power BI Desktop screenshots from the **historical 14-family theme-lab source**; none is a simulated dashboard. Each preview is bound to its own authored candidate/source and image hashes. The [current finished-reference pilot](docs/VERIFIED_CONTOSO_SHOWCASE.md) is a separate source revision and has its own complete five-page native capture.
 
-[Open the exact fictional Contoso PBIP source](examples/contoso-retail/Contoso%20Retail.pbip) · [Run the five-page sample report](examples/contoso-retail/README.md)
+[**Open the current, native-verified Contoso PBIP**](examples/contoso-retail-verified/Contoso%20Retail.pbip) · [See all five final pages](docs/VERIFIED_CONTOSO_SHOWCASE.md) · [Historical 14-theme source](examples/contoso-retail/Contoso%20Retail.pbip) · [Reproduction guide](examples/contoso-retail/README.md)
 
-Every gallery variant comes from that actual source, not a screenshot-only mockup.
+Every theme-gallery variant comes from its own source-bound historical candidate, **not** an invented mockup or the newer finished-reference PBIP. The [final source-bound five-page Contoso reference](docs/VERIFIED_CONTOSO_SHOWCASE.md) is deliberately kept separate, with its own screenshot hashes and tested model.
 
 **[Explore the complete 14-family native gallery](docs/REAL_THEME_SHOWCASE.md)** ·
 [Compare all color and control tokens](docs/APPROVED_THEME_LIBRARY.md) ·

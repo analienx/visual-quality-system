@@ -1,0 +1,367 @@
+/// Sales transaction fact table at sales-order-line grain. Contains additive revenue, cost, and quantity metrics linked to conformed dimensions.
+table 'Fact Sales'
+	lineageTag: 520533e2-e157-48b8-aaa1-cb539ef62b28
+
+	/// Total net sales in the current filter context.
+	measure 'Sales Amount' = SUM ( 'Fact Sales'[Net Sales] )
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Revenue
+		lineageTag: 738e3cf9-2793-4eb7-b316-c9ffb4ff88eb
+
+	/// Total product cost in the current filter context.
+	measure 'Total Cost' = SUM ( 'Fact Sales'[Cost Amount] )
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Profitability
+		lineageTag: d96171c3-7436-48f9-9911-7ca94ed6d6fb
+
+	/// Sales less product cost in the current filter context.
+	measure 'Gross Margin' = [Sales Amount] - [Total Cost]
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Profitability
+		lineageTag: bf0ec3e2-bf1d-47d7-80d2-87a8b62480e5
+
+	/// Gross margin divided by sales; use to compare profitability across segments of different size.
+	measure 'Gross Margin %' = DIVIDE ( [Gross Margin], [Sales Amount] )
+		formatString: 0.0%;(0.0%);0.0%
+		displayFolder: Profitability
+		lineageTag: d02c9e8b-d171-49c5-8284-db8e6461c0a9
+
+	/// Distinct sales orders in the current filter context.
+	measure 'Order Count' = DISTINCTCOUNT ( 'Fact Sales'[Sales Order Number] )
+		formatString: #,0
+		displayFolder: Activity
+		lineageTag: 350b57b2-a921-4a37-a2b5-cf11881c3b28
+
+	/// Total units sold in the current filter context.
+	measure 'Units Sold' = SUM ( 'Fact Sales'[Quantity] )
+		formatString: #,0
+		displayFolder: Activity
+		lineageTag: ec29c5a7-63b7-4d8a-bd52-ac9b1d9ae38e
+
+	/// Distinct customers with at least one sale in the current filter context.
+	measure 'Active Customers' = DISTINCTCOUNT ( 'Fact Sales'[Customer Key] )
+		formatString: #,0
+		displayFolder: Activity
+		lineageTag: 5288406a-ccf4-4a8b-ad17-7c50b2185ef4
+
+	/// Average net sales per order.
+	measure 'Average Order Value' = DIVIDE ( [Sales Amount], [Order Count] )
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Activity
+		lineageTag: d486504b-feaf-4df7-a37b-bf468169394a
+
+	/// Average net sales per unit.
+	measure 'Average Selling Price' = DIVIDE ( [Sales Amount], [Units Sold] )
+		formatString: $#,0.00;($#,0.00);$#,0.00
+		displayFolder: Activity
+		lineageTag: 927bff78-ebe2-4822-ba0f-675091a64a61
+
+	/// Sales for the equivalent visible date set one year earlier. Robust to Year Month and other calendar attributes on visuals.
+	measure 'Sales LY' = VAR _PriorDates = SELECTCOLUMNS ( VALUES ( 'Dim Date'[Date] ), "__Date", EDATE ( 'Dim Date'[Date], -12 ) ) RETURN CALCULATE ( [Sales Amount], REMOVEFILTERS ( 'Dim Date' ), TREATAS ( _PriorDates, 'Dim Date'[Date] ) )
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Time Intelligence
+		lineageTag: 2fe3e6d3-23da-4c67-a78d-bbac2081f246
+
+	/// Absolute sales change versus the equivalent prior-year period.
+	measure 'Sales YoY' = [Sales Amount] - [Sales LY]
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Time Intelligence
+		lineageTag: d59cbada-3fb5-4047-bb58-7aa9881defd7
+
+	/// Percentage sales change versus the equivalent prior-year period.
+	measure 'Sales YoY %' = DIVIDE ( [Sales YoY], [Sales LY] )
+		formatString: 0.0%;(0.0%);0.0%
+		displayFolder: Time Intelligence
+		lineageTag: 542bd0e0-2603-421b-a824-053bfaa5407e
+
+	/// Sales accumulated from the start of the current year through the visible date.
+	measure 'Sales YTD' = TOTALYTD ( [Sales Amount], 'Dim Date'[Date] )
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Time Intelligence
+		lineageTag: d9ae80cc-6e33-4679-aae8-80c62ba8cdb9
+
+	/// Sales across the rolling three-month window ending on the visible date.
+	measure 'Rolling 3M Sales' = CALCULATE ( [Sales Amount], DATESINPERIOD ( 'Dim Date'[Date], MAX ( 'Dim Date'[Date] ), -3, MONTH ) )
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Time Intelligence
+		lineageTag: 69e533f7-56d4-46c4-ac65-22f32d4f1875
+
+	/// Latest year remaining in the current filter context.
+	measure 'Reporting Year' = MAX ( 'Dim Date'[Year] )
+		formatString: 0
+		displayFolder: Reporting Year
+		lineageTag: 4234b3b3-0f45-4c41-a2c7-026712e28da7
+
+	/// Sales for the selected reporting year while preserving visible quarter and month context.
+	measure 'Reporting Year Sales' = VAR _SelectedYear = [Reporting Year] RETURN CALCULATE ( [Sales Amount], REMOVEFILTERS ( 'Dim Date'[Year] ), KEEPFILTERS ( 'Dim Date'[Year] = _SelectedYear ) )
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Reporting Year
+		lineageTag: 971aa2b3-e212-4392-b05c-2f985e3cad89
+
+	/// Sales for the equivalent visible period in the year immediately preceding the reporting year.
+	measure 'Reporting Year Sales LY' = VAR _SelectedYear = [Reporting Year] RETURN CALCULATE ( [Sales Amount], REMOVEFILTERS ( 'Dim Date'[Year] ), KEEPFILTERS ( 'Dim Date'[Year] = _SelectedYear - 1 ) )
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Reporting Year
+		lineageTag: 2508be5e-91a0-41cd-b9f6-fdeda0271a29
+
+	/// Percentage change in reporting-year sales versus the prior year.
+	measure 'Reporting Year Sales YoY %' = DIVIDE ( [Reporting Year Sales] - [Reporting Year Sales LY], [Reporting Year Sales LY] )
+		formatString: 0.0%;(0.0%);0.0%
+		displayFolder: Reporting Year
+		lineageTag: 9f34a3ad-c2ad-4f9c-a115-ed0d5fc3d86a
+
+	/// Gross margin for the reporting year while preserving visible quarter and month context.
+	measure 'Reporting Year Gross Margin' = VAR _SelectedYear = [Reporting Year] RETURN CALCULATE ( [Gross Margin], REMOVEFILTERS ( 'Dim Date'[Year] ), KEEPFILTERS ( 'Dim Date'[Year] = _SelectedYear ) )
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Reporting Year
+		lineageTag: f34f78dd-2c65-4782-8e02-f0f986070022
+
+	/// Gross margin percentage for the reporting year.
+	measure 'Reporting Year GM %' = DIVIDE ( [Reporting Year Gross Margin], [Reporting Year Sales] )
+		formatString: 0.0%;(0.0%);0.0%
+		displayFolder: Reporting Year
+		lineageTag: 0b326bcb-3259-46be-a5f1-f4e6c7ea33e0
+
+	/// Distinct orders in the reporting year while preserving visible quarter and month context.
+	measure 'Reporting Year Orders' = VAR _SelectedYear = [Reporting Year] RETURN CALCULATE ( [Order Count], REMOVEFILTERS ( 'Dim Date'[Year] ), KEEPFILTERS ( 'Dim Date'[Year] = _SelectedYear ) )
+		formatString: #,0
+		displayFolder: Reporting Year
+		lineageTag: 2635a4d1-35a6-4e9f-b62e-0f9246c0c69c
+
+	/// Units sold in the reporting year while preserving visible quarter and month context.
+	measure 'Reporting Year Units' = VAR _SelectedYear = [Reporting Year] RETURN CALCULATE ( [Units Sold], REMOVEFILTERS ( 'Dim Date'[Year] ), KEEPFILTERS ( 'Dim Date'[Year] = _SelectedYear ) )
+		formatString: #,0
+		displayFolder: Reporting Year
+		lineageTag: 874ad723-3fe5-4f3d-8c24-a9f79fead61e
+
+	/// Highest-sales category in the current reporting-year selection.
+	measure 'Top Category' = VAR _Ranking = TOPN ( 1, ADDCOLUMNS ( ALLSELECTED ( 'Dim Product'[Category] ), "__Sales", [Reporting Year Sales] ), [__Sales], DESC, 'Dim Product'[Category], ASC ) RETURN CONCATENATEX ( _Ranking, 'Dim Product'[Category], ", " )
+		displayFolder: Insights
+		lineageTag: 81b6751a-01af-4bdc-878d-c7a10890c45d
+
+	/// Highest-sales region in the current reporting-year selection.
+	measure 'Top Region' = VAR _Ranking = TOPN ( 1, ADDCOLUMNS ( ALLSELECTED ( 'Dim Store'[Region] ), "__Sales", [Reporting Year Sales] ), [__Sales], DESC, 'Dim Store'[Region], ASC ) RETURN CONCATENATEX ( _Ranking, 'Dim Store'[Region], ", " )
+		displayFolder: Insights
+		lineageTag: 1115e2aa-df05-400f-b70d-c30f9fae8e7f
+
+	/// Highest-sales store in the current reporting-year selection.
+	measure 'Top Store' = VAR _Ranking = TOPN ( 1, ADDCOLUMNS ( ALLSELECTED ( 'Dim Store'[Store Name] ), "__Sales", [Reporting Year Sales] ), [__Sales], DESC, 'Dim Store'[Store Name], ASC ) RETURN CONCATENATEX ( _Ranking, 'Dim Store'[Store Name], ", " )
+		displayFolder: Insights
+		lineageTag: dd462f72-c00e-425b-8788-5b22d0731abe
+
+	/// Absolute reporting-year sales change versus the prior year.
+	measure 'Reporting Year Sales Variance' = [Reporting Year Sales] - [Reporting Year Sales LY]
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Reporting Year
+		lineageTag: 31f7c6e2-2be9-4220-b946-c1be7b7926ef
+
+	/// Reporting-year gross margin percentage less the 35% management target, expressed in percentage points.
+	measure 'GM Target Gap' = ( [Reporting Year GM %] - 0.35 ) * 100
+		formatString: 0.0 "pp";-0.0 "pp";0.0 "pp"
+		displayFolder: Insights
+		lineageTag: d7e78e78-8ac3-4a4f-93ab-6162f63d4adf
+
+	/// Selected region's share of reporting-year sales across visible regions.
+	measure 'Region Sales Share' = DIVIDE ( [Reporting Year Sales], CALCULATE ( [Reporting Year Sales], ALLSELECTED ( 'Dim Store'[Region] ) ) )
+		formatString: 0.0%;(0.0%);0.0%
+		displayFolder: Insights
+		lineageTag: 197f0848-0403-4bfb-8939-8697417dc08e
+
+	/// Selected category's share of reporting-year sales across visible categories.
+	measure 'Category Sales Share' = DIVIDE ( [Reporting Year Sales], CALCULATE ( [Reporting Year Sales], ALLSELECTED ( 'Dim Product'[Category] ) ) )
+		formatString: 0.0%;(0.0%);0.0%
+		displayFolder: Insights
+		lineageTag: 1a380972-7970-4f30-9ae7-5b93ecaf9109
+
+	/// Dense rank of each store by reporting-year sales within the visible selection.
+	measure 'Store Sales Rank' = RANKX ( ALLSELECTED ( 'Dim Store'[Store Name] ), [Reporting Year Sales], , DESC, DENSE )
+		formatString: #,0
+		displayFolder: Insights
+		lineageTag: 1bc41c4a-1c5d-4471-a607-4ef282fd572e
+
+	/// Reporting-year sales divided by reporting-year active customers.
+	measure 'Sales per Active Customer' = DIVIDE ( [Reporting Year Sales], [Reporting Year Active Customers] )
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Insights
+		lineageTag: f8a686fd-8381-4ef7-ab10-3747807791b9
+
+	/// Distinct active customers in the reporting year while preserving non-date filters.
+	measure 'Reporting Year Active Customers' = VAR _SelectedYear = [Reporting Year] RETURN CALCULATE ( [Active Customers], REMOVEFILTERS ( 'Dim Date'[Year] ), KEEPFILTERS ( 'Dim Date'[Year] = _SelectedYear ) )
+		formatString: #,0
+		displayFolder: Reporting Year
+		lineageTag: 4234b3b3-0f45-4c41-a2c7-026712e28db1
+
+	/// Average order value in the reporting year.
+	measure 'Reporting Year Average Order Value' = DIVIDE ( [Reporting Year Sales], [Reporting Year Orders] )
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Reporting Year
+		lineageTag: 4234b3b3-0f45-4c41-a2c7-026712e28db2
+
+	/// Human-readable gross-margin target variance for KPI cards; uses an unambiguous minus sign rather than accounting parentheses.
+	measure 'GM Target Gap Label' = VAR _Gap = [GM Target Gap] RETURN IF ( _Gap < 0, UNICHAR ( 8722 ), "" ) & FORMAT ( ABS ( _Gap ), "0.0" ) & " pp"
+		displayFolder: Insights
+		lineageTag: 4b0d6680-8b76-4e7d-b1bd-21a4541fd1f4
+
+	/// Short display measures for report tables, tooltips and legends. They retain the reporting-year calculation while avoiding technical labels in reader-facing visuals.
+	measure Sales = [Reporting Year Sales]
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Display
+		lineageTag: 5bb31606-3c67-41cf-89f8-e76dce7c4d31
+
+	measure 'Gross margin $' = [Reporting Year Gross Margin]
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Display
+		lineageTag: 626fb016-7c9c-43f7-9de7-6c550f447c50
+
+	measure 'GM %' = [Reporting Year GM %]
+		formatString: 0.0%;(0.0%);0.0%
+		displayFolder: Display
+		lineageTag: dc2c6ee7-70d9-4d3d-9d99-589056ac4925
+
+	measure YoY = [Reporting Year Sales YoY %]
+		formatString: 0.0%;(0.0%);0.0%
+		displayFolder: Display
+		lineageTag: 6910c594-f640-459f-8ab4-9f04b25c20f0
+
+	measure Units = [Reporting Year Units]
+		formatString: #,0
+		displayFolder: Display
+		lineageTag: 651a893d-2f03-4d4c-9e16-dd6a329390e0
+
+	measure Orders = [Reporting Year Orders]
+		formatString: #,0
+		displayFolder: Display
+		lineageTag: 9a86a09a-a6a3-4ec3-af5c-1b5c236563f8
+
+	measure 'Avg order value' = [Reporting Year Average Order Value]
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Display
+		lineageTag: 22a71d99-6107-4074-a038-eab1ec8b4d5b
+
+	measure 'Sales per customer' = [Sales per Active Customer]
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Display
+		lineageTag: b6126048-8c51-4b6e-a139-a660b41aaa5a
+
+	measure 'GM vs target' = [GM Target Gap]
+		formatString: 0.0 "pp";-0.0 "pp";0.0 "pp"
+		displayFolder: Display
+		lineageTag: 39d6ddaa-0e15-4d51-973a-5827017fde58
+
+	/// Degenerate order identifier at the transaction grain.
+	column 'Sales Order Number'
+		dataType: string
+		isHidden
+		isKey
+		lineageTag: 9ff1b91d-902e-4b20-8281-c377d5133a4a
+		summarizeBy: none
+		sourceColumn: Sales Order Number
+
+	/// Foreign key to the conformed calendar dimension.
+	column 'Order Date Key'
+		dataType: int64
+		isHidden
+		lineageTag: 4447fb8a-e236-4092-a071-3c8fb12dd65c
+		summarizeBy: none
+		sourceColumn: Order Date Key
+
+	/// Foreign key to the customer dimension.
+	column 'Customer Key'
+		dataType: int64
+		isHidden
+		lineageTag: 7f8a5e69-6f1a-49ea-8565-950770bac370
+		summarizeBy: none
+		sourceColumn: Customer Key
+
+	/// Foreign key to the product dimension.
+	column 'Product Key'
+		dataType: int64
+		isHidden
+		lineageTag: cee31fd2-4af2-4a2e-ba86-0026b2799c3a
+		summarizeBy: none
+		sourceColumn: Product Key
+
+	/// Foreign key to the store dimension.
+	column 'Store Key'
+		dataType: int64
+		isHidden
+		lineageTag: b099d336-a732-4e13-9103-084f8e08479b
+		summarizeBy: none
+		sourceColumn: Store Key
+
+	/// Foreign key to the promotion applied to the sales line.
+	column 'Promotion Key'
+		dataType: int64
+		isHidden
+		lineageTag: 29f07816-ff8b-4c11-af03-e26b6f2598cf
+		summarizeBy: none
+		sourceColumn: Promotion Key
+
+	/// Foreign key to the commercial employee responsible for the sales line.
+	column 'Employee Key'
+		dataType: int64
+		isHidden
+		lineageTag: efd60295-bd67-4e97-955b-10db39078470
+		summarizeBy: none
+		sourceColumn: Employee Key
+
+	/// Units sold on the transaction line.
+	column Quantity
+		dataType: int64
+		isHidden
+		lineageTag: dd090bac-1605-4ff9-adb3-394c9184ee6d
+		summarizeBy: sum
+		sourceColumn: Quantity
+
+	/// Net revenue amount on the transaction line.
+	column 'Net Sales'
+		dataType: decimal
+		isHidden
+		formatString: $#,0.00;($#,0.00);$#,0.00
+		lineageTag: fcca5e83-c928-46ed-a7c9-34d8937cbb70
+		summarizeBy: sum
+		sourceColumn: Net Sales
+
+	/// Product cost amount on the transaction line.
+	column 'Cost Amount'
+		dataType: decimal
+		isHidden
+		formatString: $#,0.00;($#,0.00);$#,0.00
+		lineageTag: 9def6bee-271e-478d-b403-cabbbc46ecbd
+		summarizeBy: sum
+		sourceColumn: Cost Amount
+
+	partition 'Fact Sales' = m
+		mode: import
+		source =
+				let
+					MonthStarts = List.Generate(() => #date(2023, 1, 1), each _ <= #date(2025, 12, 1), each Date.AddMonths(_, 1)),
+					StoreKeys = {1..5},
+					ProductKeys = {1..8},
+					Rows = List.Combine(List.Transform(MonthStarts, (d as date) =>
+						List.Combine(List.Transform(StoreKeys, (s as number) =>
+							List.Transform(ProductKeys, (p as number) =>
+								let
+									YearFactor = if Date.Year(d) = 2023 then 1 else if Date.Year(d) = 2024 then 1.10 else 1.21,
+									Seasonality = {0.90, 0.94, 1.02, 1.05, 1.08, 1.13, 0.99, 1.01, 1.09, 1.18, 1.30, 1.48}{Date.Month(d) - 1},
+									StoreFactor = {1.18, 0.96, 1.14, 0.88, 1.05}{s - 1},
+									ProductFactor = {1.35, 1.22, 1.12, 1.28, 0.84, 0.78, 1.03, 0.91}{p - 1},
+									QuantityValue = Number.RoundDown(6 + Date.Month(d) / 2 + s + Number.Mod(p * 3 + Date.Month(d), 8)),
+									UnitPrice = {1180, 980, 760, 640, 220, 280, 190, 150}{p - 1},
+									CostRate = {0.66, 0.68, 0.63, 0.70, 0.57, 0.61, 0.72, 0.60}{p - 1},
+									SalesValue = Number.Round(QuantityValue * UnitPrice * YearFactor * Seasonality * StoreFactor * ProductFactor, 2),
+									CostValue = Number.Round(SalesValue * CostRate, 2),
+					CustomerValue = Number.Mod(Date.Month(d) + s * 2 + p * 3 + Date.Year(d), 12) + 1,
+					PromotionValue = Number.Mod(p + Date.Month(d), 4) + 1,
+					EmployeeValue = Number.Mod(s + p + Date.Month(d), 6) + 1
+								in
+									[#"Sales Order Number" = Text.Combine({Text.From(Date.Year(d)), Text.PadStart(Text.From(Date.Month(d)), 2, "0"), Text.From(s), Text.PadStart(Text.From(p), 2, "0")}, "-"), #"Order Date Key" = Date.Year(d) * 10000 + Date.Month(d) * 100 + 1, #"Customer Key" = CustomerValue, #"Product Key" = p, #"Store Key" = s, #"Promotion Key" = PromotionValue, #"Employee Key" = EmployeeValue, Quantity = QuantityValue, #"Net Sales" = SalesValue, #"Cost Amount" = CostValue]
+							)
+						))
+					)),
+					Source = Table.FromRecords(Rows, type table [#"Sales Order Number" = text, #"Order Date Key" = Int64.Type, #"Customer Key" = Int64.Type, #"Product Key" = Int64.Type, #"Store Key" = Int64.Type, #"Promotion Key" = Int64.Type, #"Employee Key" = Int64.Type, Quantity = Int64.Type, #"Net Sales" = Currency.Type, #"Cost Amount" = Currency.Type])
+				in
+					Source
+
+	annotation PBI_ResultType = Table
+

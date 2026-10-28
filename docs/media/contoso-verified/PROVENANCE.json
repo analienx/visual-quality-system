@@ -1,0 +1,160 @@
+{
+  "schema": "vqs.public-contoso-native-showcase/1",
+  "label": "Synthetic Contoso · final verified native Power BI reference",
+  "status": "engineering verified; not independently human-signed or G6 released",
+  "synthetic": true,
+  "public_upload_authorized": true,
+  "normalized_pbip": "examples/contoso-retail-verified/Contoso Retail.pbip",
+  "normalized_source_sha256": "b6422f15db3b66dd598c0f21ba537bff0fe5323aaec577adb0293577dff48bc6",
+  "exact_tested_source_sha256": "1ec835399a51eb50bd53558124e1ac2d503d7addb6238bae749f6f5eafdd0ce0",
+  "exact_tested_source_archive": "examples/contoso-retail-verified/evidence/strict-native-source.zip",
+  "exact_tested_source_zip_sha256": "64c5174690a6cbd611587d6b5467e6dab5b03eb743e53d8870e1844437f62ae1",
+  "source_normalization_changes": [
+    "Contoso Retail.Report/definition.pbir",
+    "Contoso Retail.pbip"
+  ],
+  "normalization_validation": {
+    "microsoft_report_author": {
+      "errors": 0,
+      "warnings": 0,
+      "status": "succeeded"
+    }
+  },
+  "native_capture": {
+    "page_count": 5,
+    "all_source_bound": true,
+    "saved_desktop_verified": true
+  },
+  "model": {
+    "fictional_m_partitions": 12,
+    "embedded_local_cache": true,
+    "cache_bytes": 198018
+  },
+  "behavior": {
+    "local_model_dax_4_kpi": "pass",
+    "native_year_region_actions": 8,
+    "read_only_baseline": 1,
+    "terminal_source_unchanged": true,
+    "visual_automated_review": "pass; 0 P1, 0 P2 observed"
+  },
+  "unsupported_not_claimed": [
+    "Shape Map country-specific click",
+    "true contextual Tooltip hover",
+    "arbitrary unrelated Power BI Desktop UIA interaction"
+  ],
+  "owner_G6": false,
+  "distinct_human_review": false,
+  "capture_references": [
+    {
+      "name": "Executive overview",
+      "page_id": "Executive_overview",
+      "raw_png": "docs/media/contoso-verified/native/Executive overview.png",
+      "raw_sha256": "e31bba7619af6b4dbb3ecefb5492f7e6391c49ca10c2393139bfb68ffffb2e27",
+      "native_dimensions": [
+        3472,
+        1976
+      ],
+      "preview": "docs/media/contoso-verified/executive-overview.webp",
+      "webp_sha256": "6097ab7af213f89d83a944cad190ccd246c563869c7437aa456767e440b85f7d",
+      "public_report_crop": [
+        0,
+        205,
+        2894,
+        1833
+      ],
+      "preview_dimensions": [
+        1600,
+        900
+      ]
+    },
+    {
+      "name": "Products & brands",
+      "page_id": "Products_brands",
+      "raw_png": "docs/media/contoso-verified/native/Products & brands.png",
+      "raw_sha256": "5fc11f4db8201ada10b41a9ae9a86c5511a8fd390c83ce1f5d480f8c63d5b86e",
+      "native_dimensions": [
+        3472,
+        1976
+      ],
+      "preview": "docs/media/contoso-verified/products-brands.webp",
+      "webp_sha256": "97e68878d00f6db4d8375f6d055e4e0e87aaa0e2382309be93b57582aa861330",
+      "public_report_crop": [
+        0,
+        205,
+        2894,
+        1833
+      ],
+      "preview_dimensions": [
+        1600,
+        900
+      ]
+    },
+    {
+      "name": "Stores & customers",
+      "page_id": "Stores_customers",
+      "raw_png": "docs/media/contoso-verified/native/Stores & customers.png",
+      "raw_sha256": "20f8480b1e2b4f631084dfe5da2b51558acd6bdc735719e937b25e9600c25187",
+      "native_dimensions": [
+        3472,
+        1976
+      ],
+      "preview": "docs/media/contoso-verified/stores-customers.webp",
+      "webp_sha256": "7d7c9816ff5f9185eae04a225769fdc56b776edc2f5b8ba1ddf3b45532a3d303",
+      "public_report_crop": [
+        0,
+        205,
+        2894,
+        1833
+      ],
+      "preview_dimensions": [
+        1600,
+        900
+      ]
+    },
+    {
+      "name": "Markets & drivers",
+      "page_id": "Markets_drivers",
+      "raw_png": "docs/media/contoso-verified/native/Markets & drivers.png",
+      "raw_sha256": "94a7d01bfda136dd170835b06d0557dde955847898069ac0ba2932192a9d3372",
+      "native_dimensions": [
+        3472,
+        1976
+      ],
+      "preview": "docs/media/contoso-verified/markets-drivers.webp",
+      "webp_sha256": "9a023e01c1da20f223b2e2ed2e1ea87d74b70cf8c944329a643b6870b24b5fbc",
+      "public_report_crop": [
+        0,
+        205,
+        2894,
+        1833
+      ],
+      "preview_dimensions": [
+        1600,
+        900
+      ]
+    },
+    {
+      "name": "Deep-dive insights",
+      "page_id": "d9bc3b8f90439bcc",
+      "raw_png": "docs/media/contoso-verified/native/Deep-dive insights.png",
+      "raw_sha256": "675877f3cd92585d140c5b4af8bec202f23c55d956d55723c976da4d6d037b4a",
+      "native_dimensions": [
+        3472,
+        1976
+      ],
+      "preview": "docs/media/contoso-verified/deep-dive-insights.webp",
+      "webp_sha256": "365347dfcbcf8c5b0795613d0aed3ee3261d15c3623d0096dc417e4abeacb854",
+      "public_report_crop": [
+        0,
+        205,
+        2894,
+        1833
+      ],
+      "preview_dimensions": [
+        1600,
+        900
+      ]
+    }
+  ],
+  "historical_theme_gallery_note": "28 original theme modes are from separate historical source digest. This package does not reassign provenance for them."
+}

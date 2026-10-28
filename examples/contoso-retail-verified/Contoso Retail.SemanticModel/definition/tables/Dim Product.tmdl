@@ -1,0 +1,63 @@
+/// Product dimension for category, subcategory, brand, and SKU analysis. One row per product.
+table 'Dim Product'
+	lineageTag: d939c850-6f97-46d3-b5fb-fde4cccfca9b
+
+	/// Surrogate key used to relate products to the sales fact.
+	column 'Product Key'
+		dataType: int64
+		isHidden
+		isKey
+		lineageTag: dc5c4c4d-c424-40f7-b95f-42a906f336a2
+		summarizeBy: none
+		sourceColumn: Product Key
+
+	/// Business-facing product name.
+	column 'Product Name'
+		dataType: string
+		lineageTag: c097506b-95f9-4217-8da3-92295eb85c76
+		summarizeBy: none
+		sourceColumn: Product Name
+
+	/// Product brand used for portfolio analysis.
+	column Brand
+		dataType: string
+		lineageTag: 2f2f8c09-253a-44af-8886-1a3e8697ba26
+		summarizeBy: none
+		sourceColumn: Brand
+
+	/// Top-level product category.
+	column Category
+		dataType: string
+		lineageTag: 45b3fdfe-cc61-4ac6-824e-b16466ca1ec6
+		summarizeBy: none
+		sourceColumn: Category
+
+	/// Product subcategory used for drill-down and decomposition.
+	column Subcategory
+		dataType: string
+		lineageTag: 0a54525d-3723-43b9-b36f-f75cf4b88fda
+		summarizeBy: none
+		sourceColumn: Subcategory
+
+	partition 'Dim Product' = m
+		mode: import
+		source =
+				let
+					Source = #table(
+						type table [#"Product Key" = Int64.Type, #"Product Name" = text, Brand = text, Category = text, Subcategory = text],
+						{
+							{1, "Contoso Laptop Pro", "Contoso", "Electronics", "Computers"},
+							{2, "Fabrikam Ultrabook", "Fabrikam", "Electronics", "Computers"},
+							{3, "Litware Smart TV", "Litware", "Electronics", "Televisions"},
+							{4, "Adventure Works Phone", "Adventure Works", "Electronics", "Mobile"},
+							{5, "Contoso Espresso Maker", "Contoso", "Home & Appliances", "Kitchen"},
+							{6, "Fabrikam Air Purifier", "Fabrikam", "Home & Appliances", "Climate"},
+							{7, "Adventure Works Fitness Watch", "Adventure Works", "Sports & Outdoors", "Fitness"},
+							{8, "Northwind Camping Kit", "Northwind", "Sports & Outdoors", "Outdoor"}
+						}
+					)
+				in
+					Source
+
+	annotation PBI_ResultType = Table
+

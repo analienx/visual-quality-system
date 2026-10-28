@@ -1,0 +1,76 @@
+relationship factSales_customer
+	fromColumn: 'Fact Sales'.'Customer Key'
+	toColumn: 'Dim Customer'.'Customer Key'
+
+relationship factSales_date
+	fromColumn: 'Fact Sales'.'Order Date Key'
+	toColumn: 'Dim Date'.'Date Key'
+
+relationship factSales_product
+	fromColumn: 'Fact Sales'.'Product Key'
+	toColumn: 'Dim Product'.'Product Key'
+
+relationship factSales_store
+	fromColumn: 'Fact Sales'.'Store Key'
+	toColumn: 'Dim Store'.'Store Key'
+
+relationship factSales_promotion
+	fromColumn: 'Fact Sales'.'Promotion Key'
+	toColumn: 'Dim Promotion'.'Promotion Key'
+
+relationship factSales_employee
+	fromColumn: 'Fact Sales'.'Employee Key'
+	toColumn: 'Dim Employee'.'Employee Key'
+
+relationship factReturns_date
+	fromColumn: 'Fact Returns'.'Return Date Key'
+	toColumn: 'Dim Date'.'Date Key'
+
+relationship factReturns_customer
+	fromColumn: 'Fact Returns'.'Customer Key'
+	toColumn: 'Dim Customer'.'Customer Key'
+
+relationship factReturns_product
+	fromColumn: 'Fact Returns'.'Product Key'
+	toColumn: 'Dim Product'.'Product Key'
+
+relationship factReturns_store
+	fromColumn: 'Fact Returns'.'Store Key'
+	toColumn: 'Dim Store'.'Store Key'
+
+relationship factReturns_promotion
+	fromColumn: 'Fact Returns'.'Promotion Key'
+	toColumn: 'Dim Promotion'.'Promotion Key'
+
+relationship factReturns_reason
+	fromColumn: 'Fact Returns'.'Return Reason Key'
+	toColumn: 'Dim Return Reason'.'Return Reason Key'
+
+relationship factInventory_date
+	fromColumn: 'Fact Inventory Snapshot'.'Snapshot Date Key'
+	toColumn: 'Dim Date'.'Date Key'
+
+relationship factInventory_product
+	fromColumn: 'Fact Inventory Snapshot'.'Product Key'
+	toColumn: 'Dim Product'.'Product Key'
+
+relationship factInventory_store
+	fromColumn: 'Fact Inventory Snapshot'.'Store Key'
+	toColumn: 'Dim Store'.'Store Key'
+
+relationship factInventory_supplier
+	fromColumn: 'Fact Inventory Snapshot'.'Supplier Key'
+	toColumn: 'Dim Supplier'.'Supplier Key'
+
+relationship factBudget_date
+	fromColumn: 'Fact Sales Budget'.'Budget Date Key'
+	toColumn: 'Dim Date'.'Date Key'
+
+relationship factBudget_product
+	fromColumn: 'Fact Sales Budget'.'Product Key'
+	toColumn: 'Dim Product'.'Product Key'
+
+relationship factBudget_store
+	fromColumn: 'Fact Sales Budget'.'Store Key'
+	toColumn: 'Dim Store'.'Store Key'
+

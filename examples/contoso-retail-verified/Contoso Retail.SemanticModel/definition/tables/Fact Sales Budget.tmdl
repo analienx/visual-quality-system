@@ -1,0 +1,71 @@
+/// Monthly sales plan fact table at product-store grain.
+table 'Fact Sales Budget'
+	lineageTag: a5853917-140d-41fb-acfc-71ed783ae254
+
+	/// Planned sales value for the visible period.
+	measure 'Sales Budget' = SUM ( 'Fact Sales Budget'[Budget Amount] )
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Budget
+		lineageTag: 46b2c643-1a77-4930-bdd8-664d43783321
+
+	/// Sales value relative to the approved plan.
+	measure 'Sales vs Budget' = [Sales Amount] - [Sales Budget]
+		formatString: $#,0;($#,0);$#,0
+		displayFolder: Budget
+		lineageTag: 5cac1a8e-f43b-439b-bef7-9a5224529118
+
+	/// Sales attainment relative to the approved plan.
+	measure 'Budget Attainment %' = DIVIDE ( [Sales Amount], [Sales Budget] )
+		formatString: 0.0%;(0.0%);0.0%
+		displayFolder: Budget
+		lineageTag: 35a9d399-745e-450a-a590-13cd31db67b2
+
+	column 'Budget Date Key'
+		dataType: int64
+		isHidden
+		lineageTag: c694e979-f1ac-4c31-811e-926811057e68
+		summarizeBy: none
+		sourceColumn: Budget Date Key
+
+	column 'Product Key'
+		dataType: int64
+		isHidden
+		lineageTag: 5bd5c99e-54eb-4a44-9a29-cfc951fbfdab
+		summarizeBy: none
+		sourceColumn: Product Key
+
+	column 'Store Key'
+		dataType: int64
+		isHidden
+		lineageTag: 6c7bde82-5a10-4b8f-b023-7a6116ffe355
+		summarizeBy: none
+		sourceColumn: Store Key
+
+	column 'Budget Amount'
+		dataType: decimal
+		isHidden
+		formatString: $#,0.00;($#,0.00);$#,0.00
+		lineageTag: cf60f042-f38c-4f4d-b55a-8ca6297cea14
+		summarizeBy: sum
+		sourceColumn: Budget Amount
+
+	partition 'Fact Sales Budget' = m
+		mode: import
+		source =
+				let
+					Months = List.Generate(() => #date(2023, 1, 1), each _ <= #date(2025, 12, 1), each Date.AddMonths(_, 1)),
+					Rows = List.Combine(List.Transform(Months, (d as date) => List.Combine(List.Transform({1..5}, (s as number) => List.Transform({1..8}, (p as number) =>
+						let
+							YearFactor = if Date.Year(d) = 2023 then 1 else if Date.Year(d) = 2024 then 1.10 else 1.21,
+							Seasonality = {0.90, 0.94, 1.02, 1.05, 1.08, 1.13, 0.99, 1.01, 1.09, 1.18, 1.30, 1.48}{Date.Month(d) - 1},
+							UnitPrice = {1180, 980, 760, 640, 220, 280, 190, 150}{p - 1},
+							PlannedUnits = 8 + s + Number.Mod(p * 2 + Date.Month(d), 7)
+						in
+							[#"Budget Date Key" = Date.Year(d) * 10000 + Date.Month(d) * 100 + 1, #"Product Key" = p, #"Store Key" = s, #"Budget Amount" = Number.Round(PlannedUnits * UnitPrice * YearFactor * Seasonality, 2)]
+					))))),
+					Source = Table.FromRecords(Rows, type table [#"Budget Date Key" = Int64.Type, #"Product Key" = Int64.Type, #"Store Key" = Int64.Type, #"Budget Amount" = Currency.Type])
+				in
+					Source
+
+	annotation PBI_ResultType = Table
+

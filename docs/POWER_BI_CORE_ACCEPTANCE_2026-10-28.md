@@ -1,6 +1,8 @@
 # Power BI core · release acceptance snapshot
 *28 October 2026 · real Desktop / real Model / separate private evidence*
 
+**Public fictional Contoso sample (later same-day update):** The owner authorized the synthetic final Contoso project to be published in the PUBLIC VQS repository. The [five-page verified report](VERIFIED_CONTOSO_SHOWCASE.md), [source PBIP](../examples/contoso-retail-verified/Contoso%20Retail.pbip) and [source/image SHA manifest](media/contoso-verified/PROVENANCE.json) now preserve the complete final evidence together. Separate automated G2 image re-review observed **zero P1 or P2 visual defects**. The normalizing two-schema-fields-only diff is documented explicitly; the historical 14-family theme gallery retains its own source. **Only fictional Contoso is public. The unrelated private Corporate Spend model/images and runtime receipts are not.**
+
 **Release disposition: NOT APPROVED.** The engineering source, DAX and native-interaction proof is substantially complete for two unrelated reports. Independent authorized visual signoff, precise supported-feature boundary and owner/publisher G6 approval have **not** been granted. This is a deliberately honest release-governance record, not a plan for further architecture.
 
 ## What was actually exercised
@@ -45,7 +47,7 @@ The map subtitle becomes part of the UIA Group's accessible `Name` in this Power
 
 The final private-ready copy also corrected two residual P2 presentation ambiguities without changing data: the category gross-margin visual no longer implies that a 35% reference line rendered when it did not, and the Shape Map now explicitly says **gold shades** represent countries with recorded sales. Microsoft authoring (0 errors/0 warnings), real native Save, four-KPI DAX and a further **8/8 same-PID native Year/Region G4** passed on this newest source; all five final pages were recaptured and fingerprinted privately. The approved map subtitle appends to the native accessibility name, hence a fourth **exact** alias was added without fuzzy fallback. Opening in a minimized OS window also triggered a correct blocked probe; the operator restored only the verified disposable window and reran on the same PID.
 
-The public example, gallery images, or theme provenance are **not** being replaced with this source until the complete matching artifact set can be handled in a verified **private** destination. Separate human G2/G4 and owner G6 signoffs are still outstanding.
+The completed public Contoso reference is published as a **separate, source-bound example**; the historical theme-lab example and gallery source identities have not been overwritten. Separate human G2/G4 and owner G6 signoffs are still outstanding.
 
 ## Adversarial G2 review: residual findings and proposed disposition
 
