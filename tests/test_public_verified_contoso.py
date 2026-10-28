@@ -58,7 +58,7 @@ def test_native_archive_contains_the_same_model_and_only_schema_metadata_differs
         native_names = set(z.namelist())
         disk = {
             p.relative_to(EXAMPLE).as_posix() for p in EXAMPLE.rglob("*")
-            if p.is_file() and p.name != "README.md"
+            if p.is_file() and p.name not in {"README.md", ".gitattributes"}
             and not p.relative_to(EXAMPLE).as_posix().startswith("evidence/")
         }
         assert native_names == disk
@@ -71,6 +71,9 @@ def test_native_archive_contains_the_same_model_and_only_schema_metadata_differs
         # The ZIP is a true native source capture, not a substituted HTML/render.
         assert all(n.startswith(("Contoso Retail.Report/", "Contoso Retail.SemanticModel/"))
                    or n == "Contoso Retail.pbip" for n in native_names)
+    attr = (EXAMPLE / ".gitattributes").read_text(encoding="utf-8")
+    assert "*.json -text" in attr and "*.tmdl -text" in attr
+    assert "*.pbip -text" in attr and "*.pbir -text" in attr
     assert not list(EXAMPLE.rglob("localSettings.json"))
     assert not list(EXAMPLE.rglob("editorSettings.json"))
 
