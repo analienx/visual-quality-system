@@ -1,5 +1,7 @@
 # VQS Power BI — automated repair correction, 28 October 2026
 
+**Latest:** [v0.1.0 versioned production distribution of supported Power BI source/CLI/MCP subset](PRODUCTION_DISTRIBUTION_v0.1.0.md). This does not certify native report G2/G4/G6 or create a hosted service.
+
 ## Latest publication addendum — real Contoso example on PUBLIC VQS main
 
 The owner explicitly authorized public inclusion of the **fictional Contoso Retail** acceptance report after completing its presentation and native evidence review. [Current live reference PBIP](../examples/contoso-retail-verified/Contoso%20Retail.pbip) · [native five-page photo-real source screenshots](VERIFIED_CONTOSO_SHOWCASE.md) · [public image/source provenance](media/contoso-verified/PROVENANCE.json). Both the exact Desktop-native source archive and the structurally normalized source are included. Only the two PBIP/PBIR schema declarations differ; all model and visual semantics are unchanged. The gallery previews are derived from the final source-bound Desktop PNGs by a documented crop; no mockups were substituted. The example adds local `.gitattributes` with `-text` for PBIR/TMDL/PBIP source files so Git-for-Windows cannot silently normalize evidence-bound source hashes differently from Linux CI.

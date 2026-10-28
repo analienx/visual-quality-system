@@ -6,6 +6,7 @@ Choose the shortest path for what you want to accomplish. **Power BI is the core
 
 | Your goal | Guide | Evidence / limitations |
 | :--- | :--- | :--- |
+| Install supported VQS v0.1.0 core | [Production distribution](PRODUCTION_DISTRIBUTION_v0.1.0.md) | [GitHub wheel and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.0); native/report G2/G4/G6 excluded |
 | Understand VQS in 5 minutes | [Project overview](../README.md), [User guide](USER_GUIDE.md) | [Current engineering release notes](RELEASE_NOTES_2026-10-28.md) |
 | Ask an AI agent to fix supported report issues | [AI auto-fix quickstart](AI_AGENT_QUICKSTART.md) and [Component architecture](AGENT_AUTOFIX_ARCHITECTURE.md) | [Source-bound repair triage and real blockers](AUTO_REPAIR_TRIAGE_2026-10-28.md); disposable candidate, separate promotion approval |
 | Check a PBIP for actual source defects | [CLI reference](CLI.md), [Quality guidance](PREMIUM_POWERBI.md) | [Acceptance matrix](ACCEPTANCE_MATRIX.md) |

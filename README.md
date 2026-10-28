@@ -15,9 +15,15 @@
     <a href="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml"><img src="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml/badge.svg" alt="GitHub CI status"></a>
     <img src="https://img.shields.io/badge/Python-3.11%2B-3270B7" alt="Python 3.11 and newer">
     <img src="https://img.shields.io/badge/License-Apache--2.0-18977A" alt="Apache 2.0">
-    <img src="https://img.shields.io/badge/Status-engineering%20preview-E2A744" alt="Engineering preview, not production-certified">
+    <img src="https://img.shields.io/badge/Status-supported%20CLI%20v0.1.0%20%7C%20native%20preview-E2A744" alt="Supported CLI v0.1.0 distribution; native features retain evidence gates">
   </p>
 </div>
+
+## Install the supported VQS core · v0.1.0
+
+[**Download the verified wheel and release checksums**](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.0) · [Supported features and explicit exclusions](docs/PRODUCTION_DISTRIBUTION_v0.1.0.md)
+
+VQS is distributed as a **local Python CLI/MCP** for source-grounded Power BI checks and bounded disposable repairs—not a hosted service or an automatic Power BI tenant deployment. The native Desktop acceptance matrix remains separately governed; software distribution **does not mean your report was certified or edited**.
 
 ## AI-driven improvement, with evidence at every step
 

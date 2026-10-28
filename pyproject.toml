@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "visual-quality-system"
-version = "0.0.1a0"
+version = "0.1.0"
 description = "Source-grounded visual quality evidence and design policy engine"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{name = "VQS contributors"}]
 dependencies = []
-classifiers = ["Development Status :: 2 - Pre-Alpha", "Programming Language :: Python :: 3"]
+classifiers = ["Development Status :: 4 - Beta", "Programming Language :: Python :: 3"]
 
 [project.optional-dependencies]
 test = ["pytest>=8", "ruff>=0.6"]

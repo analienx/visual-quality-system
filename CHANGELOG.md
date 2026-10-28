@@ -1,5 +1,12 @@
 # Changelog
 
+## Versioned production distribution · v0.1.0 (28 October 2026)
+
+The owner authorized publishing a **supported-scope installable distribution**. Its versioned wheel/sdist and SHA-256 checksums are available from the [GitHub v0.1.0 Release](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.0). This is a **local source-review/CLI/MCP product**, not a hosted API or a Power BI tenant rollout. Its production support boundary is source-grounded checks, deterministic triage, supported disposable candidate repair and evidence/agent protocol; advanced native Desktop interactions remain proof-gated engineering preview.
+
+**Important:** public software distribution is **not** independent report-level G2/G4/G6 acceptance. Shape Map country clicking, true Tooltip hover, generalized native repair reload and optional Word/DOCX certification remain outside the supported production scope. See [the full release contract](docs/PRODUCTION_DISTRIBUTION_v0.1.0.md) and [actual reproducible Contoso example](docs/VERIFIED_CONTOSO_SHOWCASE.md). Production publication must not close [#16](https://github.com/analienx/visual-quality-system/issues/16) or [#17](https://github.com/analienx/visual-quality-system/issues/17).
+
+
 ## Public five-page synthetic Contoso reference — 28 October 2026
 
 **Owner-authorized public publication of a fully source-bound fictional Power BI example.** This is an **engineering-preview exhibit**, not a signed production release or software version/tag. The separate private Corporate Spend report, its data, private model/cache and private interaction receipts remain excluded.

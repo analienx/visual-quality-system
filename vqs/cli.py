@@ -1,4 +1,4 @@
-"""Pre-alpha CLI: source inventory and evidence requests, never release approval."""
+"""Power BI source-review and agent CLI; never self-grants report release approval."""
 from __future__ import annotations
 
 import argparse
