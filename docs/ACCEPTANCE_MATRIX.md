@@ -5,7 +5,7 @@ component; the historical combined suite remains a compatibility profile.
 See the [illustrated architecture](ARCHITECTURE.md),
 [program](IMPLEMENTATION_PROGRAM.md), [agent/ledger protocol](LEDGER_AND_AGENT_PROTOCOL.md)
 and [work packages](../roadmap/work_packages.json). The [22 October real before/after repair and independent-review handoff](POWER_BI_CORE_REPAIR_ACCEPTANCE_2026-10-22.md) records current #14/#16 engineering evidence and honest blockers. These are falsifiable
-acceptance requirements, **not** claims of independently passing evidence.
+acceptance requirements, **not** claims of independently passing evidence. The [28 October current-source two-PBIP native acceptance snapshot](POWER_BI_CORE_ACCEPTANCE_2026-10-28.md) reconciles Contoso, Corporate Spend, the installed consumer and unsatisfied independent approval requirements.
 
 ## 1. Gate definitions and result semantics
 
