@@ -90,14 +90,31 @@ def _report_author() -> dict[str, Any]:
 def report() -> dict[str, Any]:
     """Collect every capability check into one JSON-serializable report."""
     from .install import installation_report
+    from .mcp.server import SUPPORTED_VERSIONS
 
     report_author = _report_author()
     bridge = _tool("powerbi-desktop", "--version")
     mcp = _tool("powerbi-modeling-mcp")
     mcp["note"] = ("Presence only: live model connectivity is proven "
                    "per run via connection_operations ListLocalInstances.")
-    return {"status": "ok",
-            "checks": {"report_author": report_author,
+    # Report the actual authoring preflight, not just the CLI's presence.
+    # Missing or mispackaged approved skill resources must be visible here.
+    from .powerbi.author.preflight import check as authoring_check
+
+    authoring = authoring_check("auto")
+    ready = authoring.get("status") == "pass"
+    return {"status": "ok" if ready else "needs_setup",
+            "checks": {"mcp_protocols": list(SUPPORTED_VERSIONS),
+                       "authoring_preflight": {
+                           "status": authoring.get("status"),
+                           "reason": authoring.get("reason"),
+                           "skill": authoring.get("skill"),
+                           "assurance": authoring.get("assurance"),
+                           "next_action": (None if ready else
+                               "Install the supported pinned Microsoft authoring CLI "
+                               "or repair the approved skill resources; "
+                               "run vqs doctor to recheck.")},
+                       "report_author": report_author,
                        "desktop_bridge": bridge, "modeling_mcp": mcp,
                        "desktop_process": _desktop_process(),
                        "installation": installation_report()}}

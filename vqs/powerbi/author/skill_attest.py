@@ -51,9 +51,22 @@ def _tree_digest(folder: Path) -> tuple[str, int]:
 def check() -> tuple[dict[str, Any], dict[str, Any]]:
     """Read-only offline hash attestation and real executable identity."""
     specified = os.environ.get("VQS_APPROVED_SKILL_ROOT")
-    root = Path(specified).resolve() if specified else Path(__file__).resolve().parents[3]
-    folder = root / ".agents" / "skills" / "powerbi-report-cli"
-    lockfile = root / ".agents" / "skills" / "powerbi-report-cli-upstream.json"
+    # A wheel must be functional without a source checkout. The approved
+    # resource tree is bundled with VQS and independently hash-attested
+    # on every Microsoft authoring preflight. Preserve the source checkout
+    # override for controlled developer/testing environments.
+    bundled = Path(__file__).resolve().parents[2] / "approved_skill"
+    if specified:
+        root = Path(specified).resolve()
+        skill_root = root / ".agents" / "skills"
+    elif bundled.is_dir():
+        root = bundled
+        skill_root = bundled
+    else:
+        root = Path(__file__).resolve().parents[3]
+        skill_root = root / ".agents" / "skills"
+    folder = skill_root / "powerbi-report-cli"
+    lockfile = skill_root / "powerbi-report-cli-upstream.json"
     skill: dict[str, Any] = {"status": "blocked", "checkout": str(root)}
     try:
         tree, count = _tree_digest(folder)

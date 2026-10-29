@@ -1,3 +1,6 @@
 # Byte-for-byte PBIR/TMDL identity is used by the public screenshot provenance.
 # Do not let platform-specific Git EOL conversion change demo-report hashes.
 examples/contoso-retail/** -text whitespace=cr-at-eol,-blank-at-eof
+
+# Vendored, SHA-pinned upstream guidance must not be whitespace-rewritten.
+vqs/approved_skill/** -text whitespace=-trailing-space,-blank-at-eof,-space-before-tab

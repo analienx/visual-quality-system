@@ -31,7 +31,7 @@ def test_both_documented_mcp_config_shapes_launch_real_server():
         entry = configuration[section_name]["vqs"]
         assert entry["command"] == "python"
         assert entry["args"] == ["-m", "vqs.mcp"]
-    assert "vqs_theme" not in {spec["name"] for spec in TOOL_SPECS}
+    assert "vqs_theme" in {spec["name"] for spec in TOOL_SPECS}
 
 
 def test_documented_mcp_tools_exist_and_links_resolve():

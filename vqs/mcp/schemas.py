@@ -149,7 +149,34 @@ TOOL_SPECS: tuple[dict[str, Any], ...] = (
              "live_answers": {"type": "boolean"}},
          "required": ["run_root"],
          "additionalProperties": False}},
+    {"name": "vqs_theme", "tool": "vqs.theme",
+     "description": ("Inspect, preview or audit an adaptive theme; apply writes "
+                     "only to the explicitly chosen new disposable candidate."),
+     "inputSchema": {
+         "type": "object",
+         "properties": {
+             "action": {"type": "string",
+                        "enum": ["presets", "inspect", "preview", "apply", "audit"]},
+             "report_dir": {"type": ["string", "null"]},
+             "candidate_root": {"type": ["string", "null"]},
+             "mode": {"type": ["string", "null"], "enum": ["light", "dark", None]},
+             "palette_preset": {"type": ["string", "null"]},
+             "palette_path": {"type": ["string", "null"]}},
+         "required": ["action"],
+         "additionalProperties": False}},
 )
+
+# Stable JSON object outputs. Tool-specific fields remain optional because
+# blocked preflight envelopes precede normal execution.
+OUTPUT_SCHEMA = {"type": "object", "additionalProperties": True,
+                 "properties": {
+                     "verdict": {"type": "string"},
+                     "outcome": {"type": ["string", "null"]},
+                     "run_id": {"type": ["string", "null"]},
+                     "run_dir": {"type": ["string", "null"]},
+                     "candidate": {"type": ["string", "null"]},
+                     "next_actions": {"type": "array", "items": {"type": "string"}},
+                     "blocked_reasons": {"type": "array", "items": {"type": "string"}}}}
 
 _BY_NAME = {spec["name"]: spec for spec in TOOL_SPECS}
 

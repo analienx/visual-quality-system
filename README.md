@@ -19,6 +19,18 @@
   </p>
 </div>
 
+## Next: v0.1.1 agent-usability candidate
+
+The upcoming release is designed around one safe instruction:
+`vqs fix "Report.pbip"`. The clean wheel embeds the pinned,
+hash-attested Microsoft authoring skill; `vqs doctor` checks readiness,
+and the existing coordinator writes only isolated candidates. Modern
+agent clients get compact results with separately preserved sealed evidence,
+while legacy MCP clients remain supported. Themes can be previewed/applied
+through MCP, always to a separate candidate.
+**v0.1.1 has not been published yet.**
+[See the implementation and acceptance plan](docs/V011_USABILITY_RELEASE_PLAN.md).
+
 ## Install the supported VQS core · v0.1.0
 
 [**Download the verified wheel and release checksums**](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.0) · [Supported features and explicit exclusions](docs/PRODUCTION_DISTRIBUTION_v0.1.0.md)

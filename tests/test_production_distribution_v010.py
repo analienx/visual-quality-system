@@ -13,7 +13,7 @@ def test_release_version_consistency_and_supported_entrypoints():
     config = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     project = config["project"]
     assert project["name"] == "visual-quality-system"
-    assert project["version"] == vqs.__version__ == "0.1.0"
+    assert project["version"] == vqs.__version__ == "0.1.1"
     assert project["requires-python"] == ">=3.11"
     assert project["scripts"]["vqs"] == "vqs.cli:main"
     assert project["scripts"]["vqs-mcp"] == "vqs.mcp.server:main"
