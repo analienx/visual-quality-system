@@ -1,0 +1,75 @@
+name: v0.1.1 cross-platform clean-wheel end-to-end
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/v011-runner-e2e.yml"
+      - "scripts/ci_v011_runner_e2e.py"
+      - "vqs/**"
+      - "examples/contoso-retail-verified/**"
+      - "pyproject.toml"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/v011-runner-e2e.yml"
+      - "scripts/ci_v011_runner_e2e.py"
+      - "vqs/**"
+      - "examples/contoso-retail-verified/**"
+      - "pyproject.toml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installed-wheel-e2e:
+    name: Installed wheel / ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Checkout source only for building and fictional fixtures
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up Node for pinned official Microsoft validator
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Prepare build dependencies
+        run: python -m pip install --upgrade pip build setuptools wheel
+
+      - name: Install exact official Microsoft authoring CLI
+        run: npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
+
+      - name: Build both wheel and source archive from this PR
+        shell: bash
+        run: python -m build --wheel --sdist --outdir "$RUNNER_TEMP/vqs-dist"
+
+      - name: Test the clean installed wheel outside checkout with real CLI and MCP
+        shell: bash
+        run: |
+          python scripts/ci_v011_runner_e2e.py \
+            --dist-dir "$RUNNER_TEMP/vqs-dist" \
+            --evidence-dir "$RUNNER_TEMP/vqs-e2e-evidence"
+
+      - name: Upload traceable fictional-source evidence even on failures
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: v011-clean-wheel-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: ${{ runner.temp }}/vqs-e2e-evidence/
+          retention-days: 14
+          if-no-files-found: warn
