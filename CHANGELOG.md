@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.1 ? usability and agent interoperability (development candidate; not published)
+
+- **Clean-install authoring:** distribute the hash-locked Microsoft authoring skill resources inside the wheel; verify the same approved SHA and pinned CLI on preflight. `vqs doctor` now reports the real authoring readiness instead of presence-only success. No validator downgrade or auto-install.
+- **One command:** `vqs fix <report.pbip>` uses the existing repair coordinator, resolves the actual report and unique model, generates private run IDs, preserves the source, and prints a decision-ready result. `vqs run --summary` is opt-in; its existing full JSON contract remains default.
+- **Agent context:** compact MCP structured output for protocol versions supporting it, with full sealed evidence preserved on disk; keep explicit `pass/fail/blocked`, original preservation and no automatic promotion.
+- **Protocol compatibility:** legacy stdio clients remain operational; add 2025 handshake and 2026 stateless discovery/per-request metadata, correct result envelopes, and output schema hints.
+- **Theme agent workflow:** `vqs_theme` exposes existing preview/apply/audit through MCP with disposable candidate output required for writes; no additional theme families.
+- **Acceptance:** real installed-wheel no-checkout authoring preflight, actual public Contoso PBIP source-only end-to-end, seeded-positive repair proof, invalid-input negatives and protected CI. Arbitrary native Desktop repair candidate reload and independent report G2/G4/G6 remain separately gated.
+
+
 ## Versioned production distribution · v0.1.0 (28 October 2026)
 
 The owner authorized publishing a **supported-scope installable distribution**. Its versioned wheel/sdist and SHA-256 checksums are available from the [GitHub v0.1.0 Release](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.0). This is a **local source-review/CLI/MCP product**, not a hosted API or a Power BI tenant rollout. Its production support boundary is source-grounded checks, deterministic triage, supported disposable candidate repair and evidence/agent protocol; advanced native Desktop interactions remain proof-gated engineering preview.

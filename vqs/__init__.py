@@ -3,4 +3,4 @@
 Versioned distribution: importing this module does not imply a report passed visual review.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "visual-quality-system"
-version = "0.1.0"
+version = "0.1.1"
 description = "Source-grounded visual quality evidence and design policy engine"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -24,7 +24,7 @@ vqs-mcp = "vqs.mcp.server:main"
 include = ["vqs*"]
 
 [tool.setuptools.package-data]
-vqs = ["palettes/*.json"]
+vqs = ["palettes/*.json", "approved_skill/*.json", "approved_skill/powerbi-report-cli/**/*.md", "approved_skill/powerbi-report-cli/**/*.json", "approved_skill/powerbi-report-cli/**/*.yaml", "approved_skill/powerbi-report-cli/**/*.yml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

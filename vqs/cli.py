@@ -12,6 +12,17 @@ from .install import package_version
 from .pbir import report_context
 
 
+def _private_run_root() -> Path:
+    """User-private state directory; never write default runs into a checkout."""
+    if os.name == "nt":
+        location = os.environ.get("LOCALAPPDATA")
+        root = Path(location) if location else Path.home() / "AppData" / "Local"
+        return root / "VQS" / "runs"
+    location = os.environ.get("XDG_STATE_HOME")
+    root = Path(location) if location else Path.home() / ".local" / "state"
+    return root / "vqs" / "runs"
+
+
 def _default_ledger() -> Path | None:
     """Locate roadmap/work_packages.json by searching upward from the CWD."""
     candidate = Path.cwd()
@@ -497,9 +508,19 @@ def _run(args) -> int:
         if not isinstance(facts, dict):
             return _verdict_exit(blocked_envelope(
                 "vqs.run", ["facts file is not an object"]))
+    from .agent_summary import summarize
+    from .source_paths import resolve_project_input
+
+    report_path = str(args.report) if args.report is not None else None
+    model_path = str(args.model) if args.model is not None else None
+    if report_path is not None and Path(report_path).exists():
+        try:
+            report_path, model_path = resolve_project_input(report_path, model_path)
+        except ValueError as exc:
+            return _verdict_exit(blocked_envelope("vqs.run", [str(exc)]))
     envelope = run_workflow(
-        report_dir=str(args.report) if args.report is not None else None,
-        model_dir=str(args.model) if args.model is not None else None,
+        report_dir=report_path,
+        model_dir=model_path,
         facts=facts, mode=args.mode, scope=args.scope, config=config,
         run_root=str(args.run_root), run_id=args.run_id,
         resume_from=args.resume_from,
@@ -519,6 +540,9 @@ def _run(args) -> int:
         except OSError as exc:
             return _verdict_exit(blocked_envelope(
                 "vqs.run", [f"{type(exc).__name__}: {exc}"]))
+    if args.command == "fix" or getattr(args, "summary", False):
+        print(json.dumps(summarize(envelope), indent=2, ensure_ascii=False))
+        return {"pass": 0, "fail": 1, "blocked": 2}[envelope["verdict"]]
     return _verdict_exit(envelope)
 
 
@@ -826,7 +850,7 @@ def _theme(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     from .theme import palette_presets
 
-    parser = argparse.ArgumentParser(prog="vqs", description="Visual Quality System pre-alpha tools")
+    parser = argparse.ArgumentParser(prog="vqs", description="Visual Quality System ? Power BI quality and safe candidate repairs")
     parser.add_argument("--version", action="version",
                         version=f"vqs {package_version() or 'unknown'}")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -1182,6 +1206,23 @@ def main(argv: list[str] | None = None) -> int:
                               "one)")
     run_cmd.add_argument("--report-out", type=Path, default=None,
                          help="Write the run envelope JSON here")
+    run_cmd.add_argument("--summary", action="store_true",
+                         help="Print a concise decision-ready result; full JSON via --report-out")
+    fix_cmd = commands.add_parser(
+        "fix", help="Inspect and safely repair a PBIP to an isolated candidate")
+    fix_cmd.add_argument("report", type=Path, help=".pbip, *.Report or project root")
+    fix_cmd.add_argument("--model", type=Path, default=None)
+    fix_cmd.add_argument("--scope", choices=("static", "desktop", "release"),
+                         default="static")
+    fix_cmd.add_argument("--config", type=Path, default=None)
+    fix_cmd.add_argument("--run-root", type=Path, default=_private_run_root(),
+                         help="Private run evidence (default: user state directory)")
+    fix_cmd.add_argument("--run-id", default=None)
+    fix_cmd.add_argument("--candidate-root", type=Path, default=None)
+    fix_cmd.add_argument("--plan", type=Path, default=None)
+    fix_cmd.add_argument("--authoring-backend",
+                         choices=("auto", "microsoft", "direct"), default="auto")
+    fix_cmd.add_argument("--report-out", type=Path, default=None)
     commands.add_parser("mcp", help="Launch the stdio MCP server (tools vqs_*)")
     args = parser.parse_args(argv)
     if args.command == "theme":
@@ -1238,6 +1279,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "run-status":
         return _run_status(args.run_root, args.run_id)
     if args.command == "run":
+        return _run(args)
+    if args.command == "fix":
+        args.facts = None
+        args.mode = "repair"
+        args.resume_from = None
+        args.renders_dir = None
+        args.fixer_id = "vqs-fix"
+        args.pid = None
+        args.live_answers = False
+        args.reviewer = None
         return _run(args)
     if args.command == "mcp":
         return _mcp()

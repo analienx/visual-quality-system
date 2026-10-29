@@ -6,6 +6,31 @@
 
 VQS `v0.1.0` distributes the **source-bound CLI/MCP and allowlisted candidate-repair core** for operational use; **native Desktop visual acceptance and independent report release remain preview/gated**. It can automatically repair some defects, not every possible visual or semantic problem. A candidate that passes a static repair step is *not* automatically proven production-ready.
 
+## Next-release shortcut: v0.1.1 (development candidate)
+
+After installing the v0.1.1 **candidate wheel** on a supported local
+machine, the default safe source workflow becomes:
+
+```bash
+vqs doctor
+vqs fix "C:/Reports/Sales.pbip" --run-root "C:/private/vqs-runs"
+```
+
+The new `fix` command accepts the PBIP project path directly, discovers
+an unambiguous report and semantic model, never overwrites the source, and
+returns a compact `Fixed / Needs review / Blocked` summary. Underlying
+machine-readable run evidence remains in the private run directory.
+`vqs run ... --mode repair` remains available with its full advanced
+options. An ambiguous inherited font size or deliberate cross-page chart
+reuse is **not** a safe auto-edit; the agent must request the missing design
+decision instead of inventing one.
+
+The next version also exposes `vqs_theme` through MCP and supports the
+modern stateless MCP protocol while preserving legacy clients. This section
+describes an **unreleased candidate**, not a claim that v0.1.1 is already on
+the public Releases page. For an existing v0.1.0 installation, use the
+documented `vqs run` workflow below.
+
 ## 1. Install the local VQS engine once
 
 Requirements: Python 3.11+ and authorized local access to your PBIP/PBIR project.
@@ -87,7 +112,11 @@ The exact module and tool responsibilities—and **why** multiple components are
 
 **Prepare a full release candidate:** tell it, *"Perform VQS candidate repair, verify on real Power BI Desktop with supported controls/DAX and prepare private evidence for an independent reviewer. Don't publish or overwrite the original without explicit authorization."*
 
-The MCP server currently exposes **nine tools** and does **not** have a dedicated `vqs_theme` tool. An MCP-only agent needs an **authorized terminal** to run the separate theme CLI. Also, `vqs_promote` is a separate explicit action and cannot be treated as part of automatic candidate fixing.
+The current published v0.1.0 MCP server has nine tools and no dedicated
+theme tool, so v0.1.0 requires an authorized terminal for theme operations.
+The upcoming v0.1.1 candidate adds `vqs_theme` for inspect/preview/apply/audit,
+requiring an explicit candidate root before any write. `vqs_promote` remains
+a separate explicit action, never part of automatic candidate fixing.
 
 ## 6. Safety and failure behavior
 

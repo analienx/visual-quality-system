@@ -1,4 +1,4 @@
-# VQS command reference (pre-alpha)
+# VQS command reference ? versioned CLI/MCP
 
 **Component boundary:** The CLI below is the primary **Power BI** VQS
 interface. Word/DOCX native steps remain in separately invoked
@@ -8,7 +8,7 @@ supports explicit `release_scope=powerbi-core|word-docx|combined`;
 this field is **not** a documented CLI flag. See
 [architecture](ARCHITECTURE.md) and [acceptance](ACCEPTANCE_MATRIX.md).
 
-Install once (editable): `pip install -e .` — this exposes the `vqs`
+Install from a versioned wheel (or editable source for development): `pip install -e .` — this exposes the `vqs`
 entry point. Every command below was executed against synthetic fixtures
 during development; see `tests/test_pipeline.py` and
 `tests/test_validate_commands.py` for runnable shapes.
@@ -23,6 +23,41 @@ below expose each stage separately for debugging (expert interface).
 `vqs --version` prints the package version and `python -m vqs`
 works anywhere the installed `vqs` does.
 
+
+## Simplified fixing (v0.1.1 candidate)
+
+For a standalone .pbip file, one unambiguous report root, or a `*.Report`
+folder, the new `vqs fix` command resolves the local model where possible,
+runs the **existing** coordinator in static repair mode, and returns a compact
+result while keeping all sealed evidence on disk. It never overwrites the original:
+
+```console
+vqs doctor
+vqs fix "C:/Reports/Sales.pbip"
+vqs fix "C:/Reports/Sales.pbip" --run-root "C:/private/vqs-runs"
+vqs fix "C:/Reports/Sales.pbip" --report-out "C:/private/full-result.json"
+```
+
+By default, `vqs fix` writes private evidence under
+`%LOCALAPPDATA%/VQS/runs` on Windows, or
+`${XDG_STATE_HOME:-~/.local/state}/vqs/runs` on Unix.
+An explicit `--run-root` overrides this. Run directories are never
+automatically published or promoted.
+
+Use `vqs run ... --summary` for a compact output with explicit workflow
+flags. `vqs run` without `--summary` preserves the expert JSON contract.
+Exit codes remain `0` pass, `1` fail and `2` blocked. A no-safe-candidate
+decision is correctly blocked, **not** proof of automatic repair success.
+
+The clean wheel embeds the previously approved, SHA-attested Microsoft authoring
+skill. `vqs doctor` checks that skill and the pinned CLI together before an
+expensive repair attempt; it does not install external tools or weaken validation.
+Missing/nonmatching prerequisites must be corrected rather than silently bypassed.
+
+For recent MCP clients, `vqs_run` supplies a compact typed tool response, and
+`vqs_theme` supports presets, inspect, preview, apply to an explicit separate
+candidate, and audit. The original `2024-11-05` handshake and full JSON tool
+response remain supported for existing consumers.
 
 ## Agent-first automatic candidate fixing
 
