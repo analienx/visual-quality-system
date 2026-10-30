@@ -24,7 +24,7 @@ vqs-mcp = "vqs.mcp.server:main"
 include = ["vqs*"]
 
 [tool.setuptools.package-data]
-vqs = ["palettes/*.json", "approved_skill/*.json", "approved_skill/*.txt", "approved_skill/powerbi-report-cli/**/*.md", "approved_skill/powerbi-report-cli/**/*.json", "approved_skill/powerbi-report-cli/**/*.yaml", "approved_skill/powerbi-report-cli/**/*.yml"]
+vqs = ["powerbi/native_scripts/*.ps1", "palettes/*.json", "approved_skill/*.json", "approved_skill/*.txt", "approved_skill/powerbi-report-cli/**/*.md", "approved_skill/powerbi-report-cli/**/*.json", "approved_skill/powerbi-report-cli/**/*.yaml", "approved_skill/powerbi-report-cli/**/*.yml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

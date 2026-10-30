@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - bounded native Corporate Region interaction
+
+- Added exact-PID native Corporate Sales Region UI Automation and fail-closed DAX comparator.
+- Verified real Europe / Latin America / Europe round trip on a separately saved disposable Corporate PBIP. All three collapsed ComboBox states and rendered KPI percentages matched independent region DAX, distinct from the other region; source remained unchanged.
+- Used TogglePattern on the exact region option followed by ExpandCollapsePattern.Collapse. Invoke or SetValue alone had not committed the selection.
+- Packaged the PowerShell adapter inside the wheel; no simulated mouse coordinates, no false G6 auto-approval.
+- [Native G2/G4 acceptance](docs/V012_NATIVE_G_ACCEPTANCE.md) and [issue #120](https://github.com/analienx/visual-quality-system/issues/120).
+
 ## Unreleased - next G2/G4 evidence and safe native rebaseline
 
 - Added strict read-only two-native-Save provenance auditing: a material first-Save transition stays blocked, while a *separate* second Desktop session may attest a new exact saved source without relaxing the original guard.

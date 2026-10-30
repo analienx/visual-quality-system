@@ -80,3 +80,37 @@ prior-year legend, and limited country-map quantitative value remain G2 P2.
 No private Corporate source, screenshot, semantic cache or unredacted DAX
 receipt may be added to the public repository. This workflow does **not**
 self-certify human or owner approval. See issues #16 and #115-#118.
+
+
+## Corporate Region actual native interaction (30 October candidate)
+
+The private Corporate Spend source contains one named Sales Region ComboBox.
+InvokePattern on its list item and ValuePattern.SetValue did not commit the
+region. The supported sequence is to expand that exact-PID ComboBox, find
+the unique exact-name ListItem, call TogglePattern.Toggle(), verify the other
+Region is unselected, and then call ExpandCollapsePattern.Collapse().
+Only then does the displayed slicer selection update.
+
+The packaged PowerShell adapter is at
+`vqs/powerbi/native_scripts/corporate_region_uia.ps1`.
+Using a private strictly verified saved-source receipt:
+
+```powershell
+python -m vqs.powerbi.corporate_region_acceptance `
+  "C:/scratch/disposable-corporate" `
+  --pid 12345 `
+  --native-save "C:/scratch/native-save.json" `
+  --output "C:/scratch/native-corporate-region-g4.json"
+```
+
+A bounded Europe / Latin America / Europe sequence independently verifies
+native PID, source and model identity, unique region options, committed
+collapsed selection, target on/other off, rendered variance KPI, independent
+scoped live DAX (and distinction from the other region), source snapshots
+before/after each action, and terminal Bridge dirty-state.
+
+All three native steps passed on a fresh disposable Corporate session on
+30 October. This is bounded engineering G4, not an authorized human G2/G4
+signature or owner G6 approval. Corporate raw figures and receipts remain
+outside Git. Shape Map country selection and contextual tooltip hover
+remain separate.
