@@ -89,7 +89,10 @@ def capture(project: Path, pid: int, output_dir: Path, *,
         raise ValueError("native page IDs differ from before-capture inventory")
     assets = []
     for shot in shots:
-        image_path = Path(str(shot["outputPath"])).resolve(strict=True)
+        try:
+            image_path = Path(str(shot["outputPath"])).resolve(strict=True)
+        except OSError as exc:
+            raise ValueError("native screenshot declared by Bridge is missing") from exc
         if image_path.parent != output_dir:
             raise ValueError("native capture escaped destination directory")
         data = _asset(image_path)

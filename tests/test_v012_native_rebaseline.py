@@ -230,3 +230,71 @@ def test_bridge_status_rejects_wrong_pid_report_or_missing_pages(
     good["instances"][0]["pages"] = []
     with pytest.raises(ValueError, match="page inventory missing"):
         _status("fake-bridge", 77, pbip, report)
+
+
+
+@pytest.mark.skipif(__import__("os").name != "nt", reason="native Windows capture only")
+@pytest.mark.parametrize("attack", [
+    "none", "wrong_pid", "extra_png", "changed_source",
+    "foreign_output", "wrong_os_owner",
+])
+def test_native_capture_binds_pid_and_rejects_adversaries(
+    example: Path, tmp_path: Path, monkeypatch, attack: str,
+):
+    import subprocess
+
+    import psutil
+
+    from vqs.powerbi.native_capture_provenance import capture
+
+    pbip = (example / "Example.pbip").resolve()
+    report = (example / "Example.Report").resolve()
+    page_id = "p1"
+    class Process:
+        def name(self):
+            return "PBIDesktop.exe"
+        def cmdline(self):
+            return ["PBIDesktop.exe", str(pbip) if attack != "wrong_os_owner"
+                    else "C:/other/Report.pbip"]
+        def create_time(self):
+            return 100
+    monkeypatch.setattr(psutil, "Process", lambda pid: Process())
+    out = tmp_path / "screenshots"
+    info = {"status": "ready", "instances": [{
+        "pid": 78 if attack == "wrong_pid" else 77,
+        "bridgeStatus": "connected",
+        "currentFilePath": str(pbip), "reportDir": str(report),
+        "pages": [{"id": page_id, "displayName": "Page"}],
+        "hasUnsavedChanges": False,
+    }]}
+    def fake(cmd, **_kwargs):
+        if cmd[1] == "status":
+            return subprocess.CompletedProcess(cmd, 0, json.dumps(info), "")
+        if cmd[1] == "screenshot-all":
+            _png(out / "Page.png")
+            if attack == "extra_png":
+                _png(out / "unrequested.png")
+            if attack == "changed_source":
+                (report / "definition" / "pages" / "pages.json").write_text(
+                    '{"pageOrder":["p2"],"activePageName":"p2"}'
+                )
+            image_path = (tmp_path / "other.png" if attack == "foreign_output"
+                          else out / "Page.png")
+            return subprocess.CompletedProcess(cmd, 0, json.dumps({
+                "status": "ok", "pid": 77, "reportDir": str(report),
+                "screenshots": [{
+                    "pageId": page_id, "pageDisplayName": "Page",
+                    "outputPath": str(image_path),
+                }],
+            }), "")
+        raise AssertionError("unknown Bridge request")
+    monkeypatch.setattr(
+        "vqs.powerbi.native_capture_provenance.subprocess.run", fake)
+    if attack == "none":
+        received = capture(example, 77, out, bridge_cli="fake-bridge")
+        assert len(received["native_pages"]) == 1
+        assert received["source_unchanged_during_capture"] is True
+        assert received["formal_g2_g4_g6"] == "blocked"
+    else:
+        with pytest.raises(ValueError):
+            capture(example, 77, out, bridge_cli="fake-bridge")
