@@ -264,3 +264,14 @@ def test_vqs_fix_default_run_root_is_user_private():
         assert root.parent.name == "VQS"
     else:
         assert root.parent.name == "vqs"
+
+
+def test_bundled_microsoft_license_notice_is_available():
+    from importlib.resources import files
+
+    license_text = (files("vqs").joinpath(
+        "approved_skill/MICROSOFT_SKILLS_FOR_FABRIC_LICENSE.txt"
+    ).read_text(encoding="utf-8"))
+    assert "MIT License" in license_text
+    assert "Copyright (c) 2026 Microsoft Corporation" in license_text
+    assert "Permission is hereby granted" in license_text

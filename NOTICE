@@ -6,10 +6,25 @@ PBIPDocumenter (https://github.com/analienx/pbidocumenter), specifically its
 Visual Quality System and quality-gate implementation in draft PR #12,
 prototype commit 99ae076. This extraction changes the Python package layout,
 removes PBIPDocumenter-specific imports, adds stricter portable CLI inputs,
-and documents its current pre-alpha limitations. The source project carries
+and documents its supported source-only scope and native evidence limits. The source project carries
 Apache License 2.0; see the LICENSE file in this repository.
 
 External projects mentioned in documentation (Fab Inspector, Draco 2, Power BI
 Desktop Bridge CLI, Microsoft's authoring and modeling tools) are NOT vendored
 or included as binaries in this repository. Their own license terms, trademarks
 and optional runtime requirements remain with their respective authors.
+
+Bundled third-party documentation in v0.1.1
+--------------------------------------------
+The VQS wheel and source archive contain a reviewed, SHA-256-attested
+snapshot of the powerbi-report-cli SKILL.md and reference documentation from:
+  https://github.com/microsoft/skills-for-fabric
+  upstream commit bc42aaf734771bf752c1d7082dd91e5a6ca72b9f
+  version 1.0.5, 88 source documents
+Copyright (c) 2026 Microsoft Corporation; licensed under the MIT License.
+The full MIT copyright and license notice is included in the installed wheel:
+  vqs/approved_skill/MICROSOFT_SKILLS_FOR_FABRIC_LICENSE.txt
+and the VQS source archive. The SHA-attested source documents are unmodified.
+VQS is independent of Microsoft and is not endorsed by Microsoft.
+The Microsoft Power BI report authoring CLI binary is NOT included, and must
+be installed separately at the supported pinned version.
