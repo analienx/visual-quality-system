@@ -243,22 +243,20 @@ def test_native_capture_binds_pid_and_rejects_adversaries(
 ):
     import subprocess
 
-    import psutil
-
     from vqs.powerbi.native_capture_provenance import capture
 
     pbip = (example / "Example.pbip").resolve()
     report = (example / "Example.Report").resolve()
     page_id = "p1"
-    class Process:
-        def name(self):
-            return "PBIDesktop.exe"
-        def cmdline(self):
-            return ["PBIDesktop.exe", str(pbip) if attack != "wrong_os_owner"
-                    else "C:/other/Report.pbip"]
-        def create_time(self):
-            return 100
-    monkeypatch.setattr(psutil, "Process", lambda pid: Process())
+
+    def owner(pid, expected):
+        if attack == "wrong_os_owner":
+            raise ValueError("process owns another PBIP")
+        assert pid == 77 and expected == pbip
+        return "2026-10-30T10:00:00.0000000Z"
+
+    monkeypatch.setattr("vqs.powerbi.native_capture_provenance._os_identity",
+                        owner)
     out = tmp_path / "screenshots"
     info = {"status": "ready", "instances": [{
         "pid": 78 if attack == "wrong_pid" else 77,

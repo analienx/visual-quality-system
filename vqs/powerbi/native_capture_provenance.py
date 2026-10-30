@@ -1,4 +1,4 @@
-﻿"""Exact-PID native Power BI Desktop page capture with source-bound receipts.
+"""Exact-PID native Power BI Desktop page capture with source-bound receipts.
 
 A capture with the expected filename is not proof of current source identity.
 This producer checks OS ownership, Desktop Bridge, source snapshot before and
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -38,6 +39,42 @@ def _status(cli: str, pid: int, pbip: Path, report: Path) -> dict[str, Any]:
     return entry
 
 
+def _os_identity(pid: int, expected_pbip: Path) -> str:
+    """Read Windows' own process identity, without optional third-party deps."""
+    shell = shutil.which("powershell.exe")
+    if not shell or type(pid) is not int or pid <= 0:
+        raise ValueError("built-in Windows process identity is unavailable")
+    script = (
+        f'$p=Get-CimInstance Win32_Process -Filter "ProcessId = {pid}";'
+        'if ($null -eq $p) { exit 2 };'
+        '$data=[pscustomobject]@{Name=$p.Name;CommandLine=$p.CommandLine;'
+        'Created=$p.CreationDate.ToUniversalTime().ToString("o")};'
+        '$data | ConvertTo-Json -Compress'
+    )
+    probe = subprocess.run(
+        [shell, "-NoProfile", "-NonInteractive", "-Command", script],
+        capture_output=True, text=True, encoding="utf-8-sig",
+        errors="replace", timeout=25, check=False,
+    )
+    if probe.returncode:
+        raise ValueError("Windows OS could not attest Desktop PID")
+    record = json.loads(probe.stdout)
+    if record.get("Name", "").lower() != "pbidesktop.exe":
+        raise ValueError("OS PID is not a genuine PBIDesktop.exe")
+    command = record.get("CommandLine")
+    if not isinstance(command, str):
+        raise TypeError("Desktop command-line identity missing")
+    paths = re.findall(r'"([^"]+\.pbip)"|([^\s"]+\.pbip)(?=\s|$)',
+                       command, flags=re.IGNORECASE)
+    paths = [left or right for left, right in paths]
+    if len(paths) != 1 or Path(paths[0]).resolve() != expected_pbip:
+        raise ValueError("OS process does not own the exact PBIP")
+    created = record.get("Created")
+    if not isinstance(created, str) or len(created) < 20:
+        raise ValueError("OS process creation timestamp unavailable")
+    return created
+
+
 def capture(project: Path, pid: int, output_dir: Path, *,
             bridge_cli: str | None = None) -> dict[str, Any]:
     """Capture a private disposable report; never substitute stale screenshots."""
@@ -54,16 +91,7 @@ def capture(project: Path, pid: int, output_dir: Path, *,
     cli = bridge_cli or shutil.which("powerbi-desktop")
     if not cli:
         raise ValueError("Power BI Desktop Bridge executable unavailable")
-    try:
-        import psutil
-    except ImportError as exc:
-        raise ValueError("native PID ownership requires psutil") from exc
-    proc = psutil.Process(pid)
-    cmdline = proc.cmdline()
-    if proc.name().lower() != "pbidesktop.exe" or (
-            len(cmdline) < 2 or Path(cmdline[-1]).resolve() != pbip):
-        raise ValueError("OS process does not own exact PBIP")
-    birth = proc.create_time()
+    birth = _os_identity(pid, pbip)
     before = snapshot(project)
     entry = _status(cli, pid, pbip, report)
     if entry.get("hasUnsavedChanges") is not False:
@@ -102,7 +130,7 @@ def capture(project: Path, pid: int, output_dir: Path, *,
     if set(output_dir.iterdir()) != {Path(x["path"]) for x in assets}:
         raise ValueError("unexpected or extra files in native capture folder")
     after_entry = _status(cli, pid, pbip, report)
-    if proc.create_time() != birth or snapshot(project) != before:
+    if _os_identity(pid, pbip) != birth or snapshot(project) != before:
         raise ValueError("native PID/source changed during capture")
     if {x["id"] for x in after_entry["pages"]} != {x["id"] for x in pages}:
         raise ValueError("native page inventory changed during capture")
