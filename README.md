@@ -8,30 +8,44 @@
     <a href="docs/AGENT_AUTOFIX_ARCHITECTURE.md">How it works</a> ·
     <a href="#real-power-bi-showcase">Real report gallery</a> ·
     <a href="docs/CLI.md">CLI</a> ·
-    <a href="docs/RELEASE_NOTES_2026-10-28.md">Engineering release notes</a> ·
+    <a href="docs/RELEASE_NOTES_v0.1.1.md">Release notes</a> ·
     <a href="docs/README.md">All docs</a>
   </p>
   <p>
     <a href="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml"><img src="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml/badge.svg" alt="GitHub CI status"></a>
     <img src="https://img.shields.io/badge/Python-3.11%2B-3270B7" alt="Python 3.11 and newer">
     <img src="https://img.shields.io/badge/License-Apache--2.0-18977A" alt="Apache 2.0">
-    <img src="https://img.shields.io/badge/Status-supported%20CLI%20v0.1.0%20%7C%20native%20preview-E2A744" alt="Supported CLI v0.1.0 distribution; native features retain evidence gates">
+    <img src="https://img.shields.io/badge/Status-supported%20CLI%20v0.1.1%20%7C%20native%20preview-E2A744" alt="Supported CLI v0.1.1 distribution; native features retain evidence gates">
   </p>
 </div>
 
-## Next: v0.1.1 agent-usability candidate
+## Install VQS v0.1.1 - agent-first Power BI repairs
 
-The upcoming release is designed around one safe instruction:
-`vqs fix "Report.pbip"`. The clean wheel embeds the pinned,
-hash-attested Microsoft authoring skill; `vqs doctor` checks readiness,
-and the existing coordinator writes only isolated candidates. Modern
-agent clients get compact results with separately preserved sealed evidence,
-while legacy MCP clients remain supported. Themes can be previewed/applied
-through MCP, always to a separate candidate.
-**v0.1.1 has not been published yet.**
-[See the implementation and acceptance plan](docs/V011_USABILITY_RELEASE_PLAN.md).
+[**Download the verified wheel, source archive and checksums**](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.1)
 
-## Install the supported VQS core · v0.1.0
+```powershell
+pip install visual_quality_system-0.1.1-py3-none-any.whl
+npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
+vqs doctor
+vqs fix "C:/Reports/Sales.pbip"
+```
+
+`vqs fix` accepts a PBIP file, discovers its unique report and model,
+repairs only source-provable defects in a **disposable candidate**, and returns
+a compact result with full private evidence. It does not overwrite or promote
+the original. A **blocked** result when no safe edit is proved and an
+**improved_not_accepted** result when other issues remain are expected.
+
+[Six independently tested Ubuntu/Windows GitHub runner combinations](https://github.com/analienx/visual-quality-system/actions/runs/40966581372)
+on Python 3.11-3.13 passed installed-wheel authoring, repair and MCP checks.
+Native Desktop G2/G4/G6 report acceptance, arbitrary Desktop reload and
+Word/DOCX remain outside the validated release scope.
+
+[Agent quickstart](docs/AI_AGENT_QUICKSTART.md) -
+[Release notes](docs/RELEASE_NOTES_v0.1.1.md) -
+[Runner acceptance workflow](.github/workflows/v011-runner-e2e.yml)
+
+## Previous version - VQS v0.1.0 · v0.1.0
 
 [**Download the verified wheel and release checksums**](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.0) · [Supported features and explicit exclusions](docs/PRODUCTION_DISTRIBUTION_v0.1.0.md)
 

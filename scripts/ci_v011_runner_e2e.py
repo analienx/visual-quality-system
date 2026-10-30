@@ -115,12 +115,21 @@ def main() -> int:
         require(len(reviewed) == 88, f"wheel must contain 88 locked skill files, got {len(reviewed)}")
         require("vqs/approved_skill/powerbi-report-cli-upstream.json" in names,
                 "wheel must contain skill provenance lock")
+        mit = "vqs/approved_skill/MICROSOFT_SKILLS_FOR_FABRIC_LICENSE.txt"
+        require(mit in names, "wheel must carry upstream Microsoft MIT license")
+        lic = z.read(mit).decode("utf-8")
+        require("Copyright (c) 2026 Microsoft Corporation" in lic
+                and "Permission is hereby granted" in lic,
+                "vendored copyright and license not intact")
     with tarfile.open(archive, "r:gz") as z:
         names = z.getnames()
         reviewed = [name for name in names
                     if "/vqs/approved_skill/powerbi-report-cli/" in name
                     and name.endswith((".md", ".json", ".yaml", ".yml"))]
         require(len(reviewed) == 88, "source archive omits reviewed skill files")
+        license_names = [n for n in names if n.endswith(
+            "vqs/approved_skill/MICROSOFT_SKILLS_FOR_FABRIC_LICENSE.txt")]
+        require(len(license_names) == 1, "source archive missing Microsoft license")
     print(f"Verified independent distributions: wheel={hashlib.sha256(wheel.read_bytes()).hexdigest()}, "
           f"sdist={hashlib.sha256(archive.read_bytes()).hexdigest()}", flush=True)
 

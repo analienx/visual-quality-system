@@ -1,4 +1,4 @@
-# VQS command reference ? versioned CLI/MCP
+# VQS command reference - versioned CLI/MCP
 
 **Component boundary:** The CLI below is the primary **Power BI** VQS
 interface. Word/DOCX native steps remain in separately invoked
@@ -8,7 +8,7 @@ supports explicit `release_scope=powerbi-core|word-docx|combined`;
 this field is **not** a documented CLI flag. See
 [architecture](ARCHITECTURE.md) and [acceptance](ACCEPTANCE_MATRIX.md).
 
-Install from a versioned wheel (or editable source for development): `pip install -e .` — this exposes the `vqs`
+Install the [v0.1.1 release wheel](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.1) with `pip install <wheel-file>` (use `pip install -e .` only for development) — this exposes the `vqs`
 entry point. Every command below was executed against synthetic fixtures
 during development; see `tests/test_pipeline.py` and
 `tests/test_validate_commands.py` for runnable shapes.
@@ -24,7 +24,7 @@ below expose each stage separately for debugging (expert interface).
 works anywhere the installed `vqs` does.
 
 
-## Simplified fixing (v0.1.1 candidate)
+## Simplified fixing (v0.1.1 supported scope)
 
 For a standalone .pbip file, one unambiguous report root, or a `*.Report`
 folder, the new `vqs fix` command resolves the local model where possible,

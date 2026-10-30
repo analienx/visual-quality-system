@@ -1,38 +1,50 @@
-# VQS v0.1.1 - agent-first usability release candidate
+# VQS v0.1.1 - accepted supported-scope release record
 
-**Status: implementation candidate, not a published release.**
-The supported source-only v0.1.0 GitHub Release remains untouched.
+**Release:** 30 October 2026. Distribution: versioned wheel and sdist
+from protected main, with SHA-256 checksums at the
+[GitHub Release](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.1).
+This record documents source-only product acceptance; it does not certify
+arbitrary Power BI Desktop interactions or report-owner G2/G4/G6 approval.
 
-## Scope
+## Agreed feature delivery
 
-1. Wheel embeds approved Microsoft skill and upstream metadata lock,
-   verifying 88 reviewed resources against the approved SHA-256 and CLI.
-2. The `vqs fix Report.pbip` CLI resolves PBIP, single-report project
-   root or `*.Report` paths unambiguously. Reuses the original sealed
-   coordinator in repair/static mode; never overwrites the source.
-3. `vqs run --summary` and modern MCP clients receive concise outcomes;
-   complete sealed evidence remains in the private run directory.
-4. MCP maintains 2024-11 legacy compatibility, adds 2025-11 handshake and
-   the 2026-07 stateless lifecycle with structured outputs.
-5. `vqs_theme` surfaces existing theme preset/preview/inspect/apply/audit,
-   with explicit disposable candidate required for apply.
-6. The installed wheel must prove seeded safe fixes and a fail-closed
-   no-safe-candidate result against published synthetic Contoso.
+- [x] Approved Microsoft skill resources and MIT license included in wheel
+      and source archive, pinned SHA and CLI attested without source checkout.
+- [x] `vqs fix` accepts PBIP / unambiguous project paths and invokes the
+      original sealed coordinator; private evidence; no source promotion.
+- [x] Compact default fix / opt-in run summaries with explicit remaining
+      owner-dependent decisions and full evidence available.
+- [x] Modern MCP stateless 2026 protocol and typed results, plus legacy 2024/
+      2025 compatibility.
+- [x] `vqs_theme` preset/inspect/preview/apply/audit tool; apply only
+      to an explicit separate candidate.
+- [x] Positive seeded overlap repair proof and negative ambiguous report
+      refusal, both on installed wheels.
 
-## Release checklist
+## Verified acceptance
 
-- [ ] Full regression and Linux 3.11/3.12/3.13 + Windows CI green.
-- [ ] Wheel/sdist built from intended protected main and audited.
-- [ ] Installed wheel works without an editable checkout or manual skill root.
-- [ ] Modern and legacy MCP interoperability tested via stdio.
-- [ ] Seeded positive repair creates verified disposable candidate and
-      preserves original source bytes and semantics.
-- [ ] Public Contoso no-safe candidate remains blocked, never fake PASS.
-- [ ] Independent review and publication decision; SHA256SUMS verified.
-- [ ] Explicit limitations in README, release notes and consumer docs.
+- [x] Six GitHub-hosted installed-wheel E2E jobs passed on Ubuntu 24.04
+      and Windows Server 2025, Python 3.11, 3.12, 3.13.
+- [x] Real pinned Microsoft authoring preflight and original preservation
+      confirmed in all six uploaded evidence JSON reports.
+- [x] Seeded overlap x=314->320 verified, zero regressions, original
+      source hash unchanged. Remaining typography/insight design choices
+      honestly remain `improved_not_accepted`.
+- [x] Legacy/modern MCP executable and theme apply/audit on GitHub runners.
+- [x] All 14 PR #113 protected gates passed (full OS CI, Microsoft official
+      authoring probes, theme library, R6 oracle, six new E2E jobs).
+- [x] Wheel and source archive built; MIT documentation attribution
+      included; SHA256SUMS supplied with release.
+- [x] Native report acceptance limitations plainly described.
 
-## Deferred
+**Evidence:** [E2E workflow run](https://github.com/analienx/visual-quality-system/actions/runs/40966581372),
+[PR #112](https://github.com/analienx/visual-quality-system/pull/112),
+[PR #113](https://github.com/analienx/visual-quality-system/pull/113),
+[release notes](RELEASE_NOTES_v0.1.1.md).
 
-Arbitrary Desktop repair-candidate reload and independent G2/G4/G6
-certification (#16/#17), Shape Map country clicks, hidden-tooltip hover,
-Word/DOCX (#13), hosted service, new palettes and PyPI deployment.
+## Outside this release
+
+Generalized Desktop-native candidate reload, author-approved G2/G4/G6
+report acceptance, interactive Shape Map and tooltip verification,
+Word/DOCX (issue #13), hosted API, PyPI deployment, new theme families.
+These cannot be silently inferred from source-only acceptance.
