@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - next G2/G4 evidence and safe native rebaseline
+
+- Added strict read-only two-native-Save provenance auditing: a material first-Save transition stays blocked, while a *separate* second Desktop session may attest a new exact saved source without relaxing the original guard.
+- Added exact-PID Desktop Bridge page-capture source binding, including source and model hashes/mtimes before and after screenshot collection and all native page IDs.
+- Added repeatable local-only source/PNG acceptance-subject manifests with explicit distinction between hash-only evidence and native source-bound evidence; all human reviewer and owner G6 fields remain false.
+- Independently reproduced Corporate Spend offline-geo source normalization and verified a second strict Save plus 3/3 source-bound native pages. Additional Corporate region G4 actuation and human/owner approval remain outstanding.
+- [Reproduction and evidence boundaries](docs/V012_NATIVE_G_ACCEPTANCE.md) | [G6 gate issue #16](https://github.com/analienx/visual-quality-system/issues/16).
+
 ## v0.1.1 - agent-first usability (30 October 2026)
 
 - **Clean-install authoring:** distribute the hash-locked Microsoft authoring skill resources inside the wheel; verify the same approved SHA and pinned CLI on preflight. `vqs doctor` now reports the real authoring readiness instead of presence-only success. No validator downgrade or auto-install.

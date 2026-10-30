@@ -2,6 +2,8 @@
 
 Choose the shortest path for what you want to accomplish. **Power BI is the core product**; Word/DOCX is independently scoped. Native evidence is distinct from deterministic source validation.
 
+[**Native G2/G4 rebaseline and exact-PID capture (next-release engineering)**](V012_NATIVE_G_ACCEPTANCE.md)
+
 [**Current v0.1.1 release notes and supported scope**](RELEASE_NOTES_v0.1.1.md) |
 [**Six-platform installed-wheel acceptance record**](V011_USABILITY_RELEASE_PLAN.md)
 
