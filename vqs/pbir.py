@@ -93,13 +93,15 @@ def _visual_shape_problems(visual: dict) -> tuple[str | None, list[str]]:
         return None, []  # reported separately as missing "visual"
     if "visualType" in node and not isinstance(node["visualType"], str):
         return "visual.visualType must be a string", []
+    # Present-but-null counts too: consumers read these with
+    # ``.get(key, {})``, which returns the stored None.
     for key in ("query", "objects", "visualContainerObjects"):
-        if node.get(key) is not None and not isinstance(node[key], dict):
+        if key in node and not isinstance(node[key], dict):
             return f"visual.{key} must be a JSON object", []
     query = node.get("query")
-    state = query.get("queryState") if isinstance(query, dict) else None
-    if state is None:
+    if not isinstance(query, dict) or "queryState" not in query:
         return None, []
+    state = query["queryState"]
     if not isinstance(state, dict):
         return "visual.query.queryState must be a JSON object", []
     incomplete: list[str] = []

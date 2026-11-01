@@ -114,6 +114,9 @@ def _set_visual(report: Path, node: dict) -> None:
     {"visualType": "card", "query": {"queryState": "x"}},
     {"visualType": "card", "objects": [1]},
     {"visualType": "card", "visualContainerObjects": 7},
+    {"visualType": "card", "query": None},
+    {"visualType": "card", "query": {"queryState": None}},
+    {"visualType": "card", "objects": None},
 ])
 def test_f09_wrong_typed_visual_container_is_unreadable(tmp_path: Path,
                                                         node: dict) -> None:
