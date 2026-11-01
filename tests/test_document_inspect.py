@@ -93,3 +93,46 @@ def test_non_zip_is_invalid_package(tmp_path: Path) -> None:
     junk.write_text("not a zip", encoding="utf-8")
     result = inspect_docx(junk)
     assert any(row["rule"] == "invalid_package" for row in result["issues"])
+
+
+def test_absolute_relationship_target_resolves(tmp_path: Path) -> None:
+    """OPC absolute part names (``/word/media/...``) are valid targets."""
+    docx = tmp_path / "absolute.docx"
+    with zipfile.ZipFile(docx, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", CONTENT_TYPES)
+        archive.writestr("word/document.xml", DOCUMENT.format(embed="rId4"))
+        archive.writestr("word/_rels/document.xml.rels",
+                         RELS.replace('Target="media/image1.png"',
+                                      'Target="/word/media/image1.png"'))
+        archive.writestr("word/media/image1.png", IMAGE)
+    result = inspect_docx(docx)
+    assert result["issues"] == []
+    assert result["inventory"]["images"][0]["part"] == "word/media/image1.png"
+
+
+def test_external_target_cannot_satisfy_embed(tmp_path: Path) -> None:
+    docx = tmp_path / "external.docx"
+    with zipfile.ZipFile(docx, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", CONTENT_TYPES)
+        archive.writestr("word/document.xml", DOCUMENT.format(embed="rId4"))
+        archive.writestr("word/_rels/document.xml.rels",
+                         RELS.replace('Target="media/image1.png"',
+                                      'Target="media/image1.png" TargetMode="External"'))
+        archive.writestr("word/media/image1.png", IMAGE)
+    result = inspect_docx(docx)
+    assert any(row["rule"] == "broken_relationship" and row["id"] == "rId4"
+               for row in result["issues"])
+
+
+def test_corrupt_member_is_an_issue_not_a_crash(tmp_path: Path) -> None:
+    docx = tmp_path / "crc.docx"
+    _make_docx(docx)
+    data = bytearray(docx.read_bytes())
+    # Flip bytes inside the stored image payload so its CRC check fails.
+    offset = data.find(b"word/media/image1.png") + len("word/media/image1.png")
+    for index in range(offset, offset + 8):
+        data[index] ^= 0xFF
+    docx.write_bytes(bytes(data))
+    result = inspect_docx(docx)
+    assert any(row["rule"] in ("corrupt_part", "broken_relationship")
+               for row in result["issues"])
