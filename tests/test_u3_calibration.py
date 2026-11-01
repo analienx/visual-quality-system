@@ -411,3 +411,11 @@ def test_measured_bundle_packs_and_verifies(tmp_path: Path) -> None:
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(ValueError, match="calibration_mismatch"):
         pack(str(report), str(renders), str(tmp_path / "b2"), "fixer-1")
+
+
+@pytest.mark.parametrize("value", [float("inf"), float("-inf"), float("nan"),
+                                   "inf", True, 0, -2, "x", None])
+def test_unprovable_effective_scale_is_none_not_a_crash(value: object) -> None:
+    from vqs.evidence import _parse_effective_scale
+
+    assert _parse_effective_scale(value) is None
