@@ -78,6 +78,46 @@ def _read_json_file(path: Path) -> tuple[dict | None, str | None]:
     return data, None
 
 
+def _visual_shape_problems(visual: dict) -> tuple[str | None, list[str]]:
+    """Structural PBIR visual problems: (fatal detail, incomplete fields).
+
+    Valid JSON with a wrong-typed core container (``visual.query`` = 7,
+    ``visualType`` = []) is as unusable as invalid JSON: consumers would
+    crash on it, so the first element marks the visual unreadable.
+    Role-level problems (non-object role content, non-array or non-object
+    projections) keep the visual, because measure/insights record scoped
+    diagnostics for them, but are reported as incomplete metadata.
+    """
+    node = visual.get("visual")
+    if not isinstance(node, dict):
+        return None, []  # reported separately as missing "visual"
+    if "visualType" in node and not isinstance(node["visualType"], str):
+        return "visual.visualType must be a string", []
+    for key in ("query", "objects", "visualContainerObjects"):
+        if node.get(key) is not None and not isinstance(node[key], dict):
+            return f"visual.{key} must be a JSON object", []
+    query = node.get("query")
+    state = query.get("queryState") if isinstance(query, dict) else None
+    if state is None:
+        return None, []
+    if not isinstance(state, dict):
+        return "visual.query.queryState must be a JSON object", []
+    incomplete: list[str] = []
+    for role, content in state.items():
+        if content is None:
+            continue
+        if not isinstance(content, dict):
+            incomplete.append(f"visual.query.queryState.{role}")
+            continue
+        projections = content.get("projections")
+        if projections is None:
+            continue
+        if (not isinstance(projections, list)
+                or any(not isinstance(item, dict) for item in projections)):
+            incomplete.append(f"visual.query.queryState.{role}.projections")
+    return None, incomplete
+
+
 def _read_index_file(path: Path) -> tuple[list[str] | None, list[dict[str, Any]]]:
     """Read one page-order index file; (ids, issues), ids None when absent.
 
@@ -362,6 +402,14 @@ def read_report_files(report_dir: str | Path) -> dict[str, Any]:
                 issues.append({"rule": "visual_doc_unreadable", "page": page_id,
                                "visual": visual_dir.name, "detail": error})
                 continue
+            shape_error, incomplete = _visual_shape_problems(visual)
+            if shape_error is not None:
+                issues.append({"rule": "visual_doc_unreadable", "page": page_id,
+                               "visual": visual_dir.name, "detail": shape_error})
+                continue
+            for field in incomplete:
+                issues.append({"rule": "visual_metadata_incomplete", "page": page_id,
+                               "visual": visual_dir.name, "missing": field})
             if not isinstance(visual.get("name"), str):
                 issues.append({"rule": "visual_metadata_incomplete", "page": page_id,
                                "visual": visual_dir.name, "missing": "name"})
@@ -451,10 +499,17 @@ def _resolve_model_dir(report: Path) -> tuple[Path | None, str | None, str | Non
         data = json.loads(pbir_path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as exc:
         return None, "model_reference_unresolved", f"definition.pbir unreadable: {exc}"
+    # Valid JSON with the wrong shape (array, string, nested non-objects)
+    # is an unresolved reference, never an AttributeError crash.
+    if not isinstance(data, dict):
+        return (None, "model_reference_unresolved",
+                "definition.pbir is not a JSON object")
     dataset_ref = data.get("datasetReference", {}) or {}
+    if not isinstance(dataset_ref, dict):
+        dataset_ref = {}
     ref = dataset_ref.get("byPath", {}) or {}
-    target = ref.get("path", "")
-    if not isinstance(target, str) or not target:
+    target = ref.get("path", "") if isinstance(ref, dict) else ""
+    if not isinstance(target, str) or not target or "\x00" in target:
         if isinstance(dataset_ref.get("byConnection"), dict):
             return (None, "model_reference_remote",
                     ("definition.pbir uses datasetReference.byConnection: "
@@ -567,10 +622,14 @@ def _literals(node: object, prefix: str = "", limit: int = 50) -> list[dict]:
 def visual_context(item: dict) -> dict:
     visual = item.get("visual", {})
     roles = visual.get("query", {}).get("queryState", {})
+    # Malformed roles/projections are already fatal visual_metadata_incomplete
+    # issues for report_context; never crash on them here.
     bindings = {
         name: [{"query_ref": projection.get("queryRef", ""), "field": projection.get("field", {}),
-                "active": projection.get("active", True)} for projection in spec.get("projections", [])]
-        for name, spec in roles.items()
+                "active": projection.get("active", True)}
+               for projection in (spec.get("projections") or [])
+               if isinstance(projection, dict)]
+        for name, spec in roles.items() if isinstance(spec, dict)
     }
     return {"visual_id": item["name"], "visual_type": visual.get("visualType", ""),
             "position": item["position"], "field_bindings": bindings,

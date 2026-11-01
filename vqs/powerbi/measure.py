@@ -423,8 +423,11 @@ def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dic
             visual_type = node.get("visualType", "?")
             state = node.get("query", {}).get("queryState", {})
             for role, content in state.items() if isinstance(state, dict) else []:
-                projections = (content or {}).get("projections", [])
-                if projections is None:
+                # Non-object role content / non-array projections are
+                # reported by read_report_files as incomplete metadata.
+                projections = (content.get("projections", [])
+                               if isinstance(content, dict) else [])
+                if not isinstance(projections, list):
                     projections = []
                 for index, projection in enumerate(projections):
                     if not isinstance(projection, dict):

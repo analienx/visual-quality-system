@@ -201,6 +201,8 @@ def bypath_claim(report: Path) -> tuple[str | None, Any]:
         data = json.loads(pbir_path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as exc:
         raise RepairError(f"definition.pbir unreadable: {exc}") from exc
+    if not isinstance(data, dict):
+        raise RepairError("definition.pbir is not a JSON object")
     ref = data.get("datasetReference", {}) or {}
     if not isinstance(ref, dict):
         raise RepairError("definition.pbir datasetReference is not an object")
