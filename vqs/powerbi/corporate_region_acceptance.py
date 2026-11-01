@@ -1,4 +1,4 @@
-﻿"""Corporate Spend exact-PID native Region G4, with independent live DAX.
+"""Corporate Spend exact-PID native Region G4, with independent live DAX.
 
 Private-only evidence. Never asserts authorized human G2/G4/G6 approvals.
 """
@@ -82,7 +82,9 @@ def run(project: Path, pid: int, save_receipt: Mapping[str, Any],
     if type(pid) is not int or pid < 1:
         raise ValueError("invalid Power BI Desktop PID")
     project = project.resolve(strict=True)
-    pbip = next(project.glob("*.pbip"))
+    # Exactly one physical wrapper; a bare glob() raised StopIteration on
+    # an empty folder and silently picked one of several wrappers.
+    pbip, report = project_artifacts(project)
     _os_identity(pid, pbip.resolve())
     prior_source = snapshot(project)
     if save_receipt.get("native_saved_source_verified") is not True or (
@@ -103,9 +105,10 @@ def run(project: Path, pid: int, save_receipt: Mapping[str, Any],
         for item in reply["rows"]:
             region = item["Country Region[Sales Region]"]
             pct = item["[VarPct]"]
-            if region in values or not isinstance(pct, (int, float)):
+            if (not isinstance(region, str) or region in values
+                    or type(pct) not in (int, float)):
                 raise ValueError("missing or ambiguous DAX region reference")
-            values[str(region)] = float(pct)
+            values[region] = float(pct)
         if not all(k in values for k in ("Europe", "Latin America")):
             raise ValueError("unrelated DAX regional reference missing")
         steps: list[dict[str, Any]] = []
@@ -129,7 +132,6 @@ def run(project: Path, pid: int, save_receipt: Mapping[str, Any],
             if snapshot(project) != prior_source:
                 raise ValueError("source changed during native interaction")
             _os_identity(pid, pbip.resolve())
-        _, report = project_artifacts(project)
         bridge = shutil.which("powerbi-desktop")
         if not bridge:
             raise ValueError("native Desktop Bridge CLI unavailable")

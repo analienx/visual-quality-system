@@ -1,4 +1,4 @@
-﻿"""Read-only audit of an observed Desktop Save followed by a strict rebaseline.
+"""Read-only audit of an observed Desktop Save followed by a strict rebaseline.
 
 First Save never receives retrospective approval. A second, separate Desktop
 session must prove the new exact source is stable before any G4 review.

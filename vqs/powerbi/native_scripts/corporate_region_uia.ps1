@@ -39,9 +39,9 @@ function Get-ExactOption([string]$Name) {
     $cond = New-Object System.Windows.Automation.AndCondition(
       (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty,$Name)),
       (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty,[System.Windows.Automation.ControlType]::ListItem)))
-    $matches = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants,$cond)
-    if($matches.Count -ne 1){throw ('Missing or ambiguous region item: '+$Name)}
-    return $matches[0]
+    $found = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants,$cond)
+    if($found.Count -ne 1){throw ('Missing or ambiguous region item: '+$Name)}
+    return $found[0]
 }
 $targetItem = Get-ExactOption $TargetRegion
 $togglePattern = $targetItem.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)

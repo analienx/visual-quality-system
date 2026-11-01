@@ -1,4 +1,4 @@
-﻿"""Exact source and capture identity for private two-report acceptance subjects.
+"""Exact source and capture identity for private two-report acceptance subjects.
 
 The manifest is intentionally local/private: source paths and screenshots can
 contain personal or financial details. It is not an owner/G6 approval token.

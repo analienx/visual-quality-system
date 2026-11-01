@@ -1,4 +1,4 @@
-﻿"""Native region G4 proof must reject false UIA or DAX matches."""
+"""Native region G4 proof must reject false UIA or DAX matches."""
 from __future__ import annotations
 
 import copy
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from vqs.powerbi.corporate_region_acceptance import validate_step
+from vqs.powerbi.corporate_region_acceptance import run, validate_step
 
 
 @pytest.fixture
@@ -77,3 +77,14 @@ def test_missing_or_indistinguishable_dax_blocks(example):
         with pytest.raises(ValueError):
             validate_step(receipt, fake, expected="Latin America",
                           prior="Europe", pid=88, pbip=pbip)
+
+
+@pytest.mark.parametrize("wrappers", [0, 2])
+def test_run_requires_exactly_one_pbip_before_any_native_action(
+        tmp_path: Path, wrappers: int) -> None:
+    """No/ambiguous wrappers fail as ValueError (a blocked receipt), never
+    StopIteration or an arbitrary first-glob pick."""
+    for index in range(wrappers):
+        (tmp_path / f"R{index}.pbip").write_text("{}", encoding="utf8")
+    with pytest.raises(ValueError, match="exactly one PBIP"):
+        run(tmp_path, 88, {}, adapter=tmp_path / "missing.ps1")
