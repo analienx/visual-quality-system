@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Manual runs let a feature branch use the Windows leg without a PR.
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test:
