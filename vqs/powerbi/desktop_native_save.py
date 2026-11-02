@@ -55,17 +55,17 @@ def _os_process(project: Path, pid: int) -> float:
         raise ValueError("native save requires Windows")
     if type(pid) is not int or pid <= 0:
         raise ValueError("invalid Desktop PID")
+    from .os_process import windows_process
+
     try:
-        import psutil  # type: ignore[import-untyped]
-        proc = psutil.Process(pid)
-        command = proc.cmdline()
-        if (proc.name().lower() != "pbidesktop.exe"
-                or len([c for c in command[1:] if c.lower().endswith(".pbip")]) != 1
-                or not _same_path(command[-1], project_artifacts(project)[0])):
-            raise ValueError("OS process does not own exactly this PBIP")
-        return proc.create_time()
-    except (ImportError, OSError) as exc:
-        raise ValueError("OS Desktop process unavailable") from exc
+        proc = windows_process(pid)
+    except OSError as exc:
+        raise ValueError(f"OS Desktop process unavailable: {exc}") from exc
+    launched = [c for c in proc["cmdline"][1:] if c.lower().endswith(".pbip")]
+    if (proc["name"].lower() != "pbidesktop.exe" or len(launched) != 1
+            or not _same_path(launched[0], project_artifacts(project)[0])):
+        raise ValueError("OS process does not own exactly this PBIP")
+    return proc["create_time"]
 
 
 def save_and_witness(

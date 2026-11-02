@@ -226,12 +226,13 @@ def collect(
         return {"schema": SCHEMA, "status": "blocked",
                 "desktop_pid": pid, "loaded_file_attested": False,
                 "reason": "live Desktop identity requires Windows"}
+    from .os_process import windows_process
+
     try:
-        import psutil  # Optional Windows-host diagnostic; core stays dependency-free.
-        active = psutil.Process(pid)
-        process = {"pid": active.pid, "name": active.name(),
-                   "cmdline": active.cmdline(), "create_time": active.create_time()}
-    except (ImportError, OSError, ValueError) as exc:
+        # Built-in CIM, not psutil: core stays dependency-free and the same
+        # attestation runs on clean installs and CI runners.
+        process = windows_process(pid)
+    except (OSError, ValueError) as exc:
         return {"schema": SCHEMA, "status": "blocked",
                 "desktop_pid": pid, "loaded_file_attested": False,
                 "reason": f"OS process inventory unavailable: {type(exc).__name__}"}
