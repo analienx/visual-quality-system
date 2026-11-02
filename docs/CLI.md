@@ -61,6 +61,9 @@ response remain supported for existing consumers.
 
 ## Answering owner decisions (`--decisions`)
 
+*Step-by-step guide with real output, answers schema and troubleshooting:
+[OWNER_DECISIONS_AND_PR_GATE.md](OWNER_DECISIONS_AND_PR_GATE.md).*
+
 When a fix is blocked because the right answer is a design choice (which
 font size a cohort should use, which of two overlapping visuals moves, or
 whether a repeated breakdown is intentional), VQS never guesses. Every such

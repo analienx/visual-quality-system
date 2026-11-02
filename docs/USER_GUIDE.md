@@ -111,6 +111,34 @@ the verified transport as authority:
 vqs adjudicate-bundle form.json --transport-bundle path/to/bundle --report path/to/Example.Report --run-id adj-02
 ```
 
+## Workflow 4: answer owner decisions (blocked → verified candidate)
+
+When `vqs fix` (or `vqs run --mode repair`) is blocked because the fix is
+a design choice, each finding is a question with options:
+
+```bash
+vqs fix path/to/Example.pbip --run-id fix-01
+vqs decisions template --run-id fix-01 --out answers.json
+# set "owner" and one "option" per question (size:<n>, move:..., or accept)
+vqs fix path/to/Example.pbip --run-id fix-02 --decisions answers.json
+```
+
+Answers are bound to the reviewed source digest; stale, unknown or
+conflicting answers block. `accept` records a waiver (outcome
+`accepted_with_waivers` when every failing check is fully waived), never a
+pass, and missing evidence cannot be waived. Full guide:
+[OWNER_DECISIONS_AND_PR_GATE.md](OWNER_DECISIONS_AND_PR_GATE.md).
+
+## Workflow 5: pull-request gate (CI)
+
+```bash
+vqs gate head/Example.pbip --baseline base/Example.pbip --sarif vqs.sarif --github
+```
+
+Exits `0` when the change introduces nothing new, `1` for new findings,
+`2` when head/baseline cannot be read. Store a baseline once with
+`--emit-baseline vqs-baseline.json` to avoid a second checkout.
+
 ## Verdict semantics
 
 | Verdict | Meaning | Exit |

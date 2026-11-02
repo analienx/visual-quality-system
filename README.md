@@ -48,7 +48,7 @@ vqs fix "C:/Reports/Sales.pbip" --decisions answers.json
 
 For pull requests, `vqs gate head.pbip --baseline base.pbip --sarif vqs.sarif`
 fails only on findings the change introduces.
-[Decisions and PR gate reference](docs/CLI.md#answering-owner-decisions---decisions)
+[Owner decisions and PR gate guide](docs/OWNER_DECISIONS_AND_PR_GATE.md)
 
 [Six independently tested Ubuntu/Windows GitHub runner combinations](https://github.com/analienx/visual-quality-system/actions/runs/40966581372)
 on Python 3.11-3.13 passed installed-wheel authoring, repair and MCP checks.

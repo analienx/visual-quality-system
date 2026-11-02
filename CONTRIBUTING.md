@@ -25,6 +25,22 @@ needs a test proving the exit code and the output shape; see
 pattern. New `vqs` commands also need a `docs/CLI.md` section and,
 when they start a workflow, a `docs/USER_GUIDE.md` passage.
 
+### Real Desktop behaviour (optional, Windows)
+
+Questions that only real Power BI Desktop can answer (saved-state flags,
+command-line casing, Bridge behaviour) go through
+`.github/workflows/windows-desktop-probe.yml`. It installs Desktop, the
+Bridge and the pinned authoring CLI on an **ephemeral** runner, opens a
+*copy* of the fictional Contoso PBIP, and uploads only a JSON summary
+(booleans and counts, never screenshots). It runs when
+`scripts/windows_desktop_probe.py` or the workflow changes, or manually.
+Record findings in
+[V012_NATIVE_G_ACCEPTANCE.md](docs/V012_NATIVE_G_ACCEPTANCE.md); probe
+output is engineering evidence, not G2/G4/G6 acceptance.
+
+The main CI workflow also accepts manual dispatch, so a branch can use the
+Windows leg without opening a PR.
+
 ## PR rules
 
 - Follow [.github/pull_request_template.md](.github/pull_request_template.md):
