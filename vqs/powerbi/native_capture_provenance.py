@@ -21,7 +21,8 @@ from vqs.powerbi.desktop_source import project_artifacts
 
 def _status(cli: str, pid: int, pbip: Path, report: Path) -> dict[str, Any]:
     p = subprocess.run([cli, "status", "--pid", str(pid), "--wait-seconds", "15"],
-                       capture_output=True, text=True, timeout=35, check=False)
+                       capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=35, check=False)
     if p.returncode:
         raise ValueError("Power BI Bridge status failed: " + p.stderr[-250:])
     state = json.loads(p.stdout)
@@ -103,7 +104,8 @@ def capture(project: Path, pid: int, output_dir: Path, *,
         [cli, "screenshot-all", "--pid", str(pid),
          "--output-dir", str(output_dir), "--scale", "2",
          "--settle", "1000", "--wait-seconds", "35"],
-        capture_output=True, text=True, timeout=145, check=False,
+        capture_output=True, text=True,
+        encoding="utf-8", errors="replace", timeout=145, check=False,
     )
     if p.returncode:
         raise ValueError("native screenshot-all failed: " + p.stderr[-300:])

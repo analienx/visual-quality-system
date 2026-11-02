@@ -260,7 +260,8 @@ def collect(
     try:
         result = subprocess.run(
             [cli, "preview", str(wrapper), "--host", "desktop", "--status"],
-            capture_output=True, text=True, timeout=40, check=False,
+            capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=40, check=False,
         )
         if result.returncode:
             raise ValueError("Desktop preview status returned nonzero")

@@ -168,3 +168,35 @@ def test_process_query_forces_utf8_output(module: str, attr: str) -> None:
 
     script = getattr(importlib.import_module(module), attr)
     assert script.startswith("[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;")
+
+
+def test_text_mode_subprocesses_pin_an_encoding() -> None:
+    """Node CLIs (Bridge, authoring, Modeling MCP) emit UTF-8; on Windows a
+    text-mode subprocess without ``encoding=`` decodes with the locale code
+    page and garbles non-ASCII PBIP paths. Proven on a real Desktop 2.159
+    runner (folder ``ContosoPřehledProbe``)."""
+    import ast
+
+    # Native Windows tools / git with their own encodings, deliberately left.
+    allowed = {("vqs/doctor.py", "_version"), ("vqs/doctor.py", "_desktop_process"),
+               ("vqs/install.py", "git_sha")}
+    root = Path(__file__).resolve().parents[1]
+    offenders = []
+    for path in sorted((root / "vqs").rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for func in ast.walk(tree):
+            if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for node in ast.walk(func):
+                if not (isinstance(node, ast.Call)
+                        and isinstance(node.func, ast.Attribute)
+                        and node.func.attr in ("run", "Popen")
+                        and getattr(node.func.value, "id", None) == "subprocess"):
+                    continue
+                kwargs = {kw.arg for kw in node.keywords}
+                text = any(kw.arg == "text" and getattr(kw.value, "value", None) is True
+                           for kw in node.keywords)
+                rel = path.relative_to(root).as_posix()
+                if text and "encoding" not in kwargs and (rel, func.name) not in allowed:
+                    offenders.append(f"{rel}:{node.lineno} in {func.name}")
+    assert offenders == []

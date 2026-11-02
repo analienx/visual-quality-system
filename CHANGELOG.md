@@ -10,6 +10,7 @@ Findings from an independent code review of PR #122, each with a regression test
 - `vqs run --mode review --decisions` accepts the ids from a repair-run template (envelope findings are normalized like sealed findings).
 - Owner-merged plans keep report-wide `affected_pages` for shared theme/palette ops.
 - Windows process and UIA output is forced to UTF-8, so non-ASCII PBIP paths (for example `Přehled.pbip`) attest correctly; the probe now runs from a non-ASCII folder.
+- Found by that non-ASCII probe run: Bridge, authoring CLI and Modeling MCP output (UTF-8 from Node) was decoded with the Windows locale code page, so native Save and capture refused genuine sessions in non-ASCII folders. Every text-mode subprocess now pins its encoding, enforced by a source-scan test.
 - The Windows probe pins `@microsoft/powerbi-desktop-bridge-cli@1.0.0` (no silent upstream-latest installs).
 
 ## Unreleased - answerable owner decisions, PR gate, review fixes

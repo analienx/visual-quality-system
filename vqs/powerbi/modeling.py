@@ -115,7 +115,8 @@ class StdioModelingClient:
         try:
             self._process = subprocess.Popen(
                 command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL, text=True, bufsize=1)
+                stderr=subprocess.DEVNULL, text=True,
+                encoding="utf-8", errors="replace", bufsize=1)
         except OSError as exc:
             raise ModelingError(f"cannot start modeling server: {exc}") from exc
         assert self._process.stdin is not None

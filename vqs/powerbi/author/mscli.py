@@ -26,6 +26,7 @@ def _run(argv: list[str], timeout: int) -> dict[str, Any]:
     """Return command output; Windows npm CMD shims need guarded fallback."""
     try:
         completed = subprocess.run(argv, capture_output=True, text=True,
+                                   encoding="utf-8", errors="replace",
                                    timeout=timeout, check=False)
     except subprocess.TimeoutExpired:
         return {"returncode": None, "stdout": "", "stderr": "", "note": "timeout"}
@@ -37,6 +38,7 @@ def _run(argv: list[str], timeout: int) -> dict[str, Any]:
                         "note": "launch refused: metacharacters"}
             completed = subprocess.run(
                 command, capture_output=True, text=True,
+                encoding="utf-8", errors="replace",
                 timeout=timeout, check=False, shell=True)
         except subprocess.TimeoutExpired:
             return {"returncode": None, "stdout": "", "stderr": "", "note": "timeout"}

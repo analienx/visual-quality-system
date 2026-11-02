@@ -63,6 +63,7 @@ def _bridge(args: list[str], timeout: int) -> tuple[int, str]:
         try:
             completed = subprocess.run(
                 [binary, *args], capture_output=True, text=True,
+                encoding="utf-8", errors="replace",
                 timeout=timeout, check=False)
         except OSError as exc:
             # Fallback for .bat/.cmd shims un-runnable without a shell.
@@ -77,6 +78,7 @@ def _bridge(args: list[str], timeout: int) -> tuple[int, str]:
             command = subprocess.list2cmdline([binary, *args])
             completed = subprocess.run(
                 command, capture_output=True, text=True,
+                encoding="utf-8", errors="replace",
                 timeout=timeout, check=False, shell=True)
     except subprocess.TimeoutExpired as exc:
         raise OSError(f"Bridge timed out: {' '.join(args)}") from exc
