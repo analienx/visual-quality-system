@@ -157,7 +157,7 @@ def _dispatch(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
                                     "resume_from", "candidate_root",
                                     "plan_path", "fixer_id", "reviewer",
                                     "pid", "renders_dir", "authoring_backend",
-                                    "live_answers")
+                                    "live_answers", "decisions")
                            and v is not None})
         config, issues = load_config(arguments.get("config_path"))
         if issues:

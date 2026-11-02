@@ -55,7 +55,12 @@ GEOMETRY_OPS = frozenset({"chart.resize", "spacing.adjust"})
 # sizes, so these recipes address exactly those terminals, and only
 # with a proved effective value plus named provenance — declaration
 # text alone never authorizes an edit.
-FORMAT_OPS = frozenset({"format.unset_override", "format.set_explicit"})
+FORMAT_OPS = frozenset({"format.unset_override", "format.set_explicit",
+                        "format.declare_explicit"})
+# Owner-decision authority marker. format.declare_explicit adds a size
+# that the visual currently inherits, which changes the rendering on
+# purpose; only a sealed owner decision may authorize that.
+OWNER_DECISION_PROOF = "owner-decision:"
 
 # F02: cosmetic recipes may only replace literal scalar leaves.
 _LEAF_BANNED_SEGMENTS = frozenset({
@@ -386,6 +391,48 @@ def bind_format_set(op: dict, visual_doc: dict) -> dict:
             "proof": proof}
 
 
+def bind_format_declare(op: dict, visual_doc: dict) -> dict:
+    """Bind adding an explicit cohort size where the visual inherits one.
+
+    Owner-decision only: the proof must be a sealed ``owner-decision:``
+    reference, the target properties entry must already exist without a
+    selector, and the property must be absent (old is None). The
+    executor writes ``{"expr": {"Literal": {"Value": value}}}``; regress
+    confinement declares exactly that new property entry.
+    """
+    op_type, page, visual, path, proof = _bind_format_common(op)
+    if not proof.startswith(OWNER_DECISION_PROOF):
+        raise RecipeError(
+            f"{op_type}: only a sealed owner decision may add an explicit "
+            "declaration; render evidence alone never invents one")
+    if op.get("old", None) is not None:
+        raise RecipeError(f"{op_type}: old must be null (property absent)")
+    value = op.get("value", None if "value" in op else ...)
+    effective = op.get("effective", None if "effective" in op else ...)
+    if value is ... or effective is ...:
+        raise RecipeError(f"{op_type}: value and effective are required")
+    _check_format_literal(op_type, value, "new")
+    _check_format_literal(op_type, effective, "effective")
+    if not _same_json_type(value, effective) or value != effective:
+        raise RecipeError(
+            f"{op_type}: value must equal the owner-chosen effective value")
+    parent = _walk(visual_doc, path[:-1])
+    entry = _walk(visual_doc, path[:-2])
+    if not isinstance(parent, dict) or not isinstance(entry, dict):
+        raise RecipeError(
+            f"{op_type}: precondition failed: properties entry missing")
+    if "selector" in entry:
+        raise RecipeError(
+            f"{op_type}: selector-scoped entries are never extended")
+    if path[-1] in parent:
+        raise RecipeError(
+            f"{op_type}: precondition failed: {path[-1]!r} is already "
+            "declared; use format.set_explicit")
+    return {"page": page, "visual": visual, "path": list(path),
+            "old": None, "new": {"expr": {"Literal": {"Value": value}}},
+            "effective": effective, "proof": proof}
+
+
 def bind_geometry(op: dict, visual_doc: dict,
                   canvas: tuple[int, int]) -> dict:
     """Bind a position change; the result must stay finite and in-canvas."""
@@ -622,6 +669,8 @@ def bind_operation(op: dict, visual_doc: dict | None,
             raise RecipeError(f"{op_type}: visual document required")
         if op_type == "format.unset_override":
             return {"op": op_type, **bind_format_unset(op, visual_doc)}
+        if op_type == "format.declare_explicit":
+            return {"op": op_type, **bind_format_declare(op, visual_doc)}
         return {"op": op_type, **bind_format_set(op, visual_doc)}
     if op_type in GEOMETRY_OPS:
         if not isinstance(visual_doc, dict):

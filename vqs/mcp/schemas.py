@@ -121,8 +121,13 @@ TOOL_SPECS: tuple[dict[str, Any], ...] = (
      "description": (
          "Agent-led Power BI auto-fix coordinator. Use mode=repair to inspect, "
          "synthesize supported edits, apply only to a disposable candidate, "
-         "verify the diff, and remeasure quality. Native checks need authorized "
-         "Desktop capabilities. Never overwrites the original or auto-promotes."
+         "verify the diff, and remeasure quality. Blocked findings come back "
+         "as answerable questions (needs_review: decision_id + options); show "
+         "them to the owner and re-run with decisions={schema: "
+         "'vqs.decision-answers/1', owner, source_sha256, answers: "
+         "[{decision_id, option}]}. Never choose options on the owner's behalf. "
+         "Native checks need authorized Desktop capabilities. Never overwrites "
+         "the original or auto-promotes."
      ),
      "inputSchema": {
          "type": "object",
@@ -146,7 +151,8 @@ TOOL_SPECS: tuple[dict[str, Any], ...] = (
              "renders_dir": {"type": ["string", "null"]},
              "authoring_backend": {"type": "string",
                                    "enum": ["auto", "microsoft", "direct"]},
-             "live_answers": {"type": "boolean"}},
+             "live_answers": {"type": "boolean"},
+             "decisions": {"type": ["object", "null"]}},
          "required": ["run_root"],
          "additionalProperties": False}},
     {"name": "vqs_theme", "tool": "vqs.theme",
