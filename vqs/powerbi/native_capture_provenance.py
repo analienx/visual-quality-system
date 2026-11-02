@@ -132,6 +132,11 @@ def capture(project: Path, pid: int, output_dir: Path, *,
     after_entry = _status(cli, pid, pbip, report)
     if _os_identity(pid, pbip) != birth or snapshot(project) != before:
         raise ValueError("native PID/source changed during capture")
+    # Verified on real Desktop 2.159: page navigation by screenshot-all
+    # leaves a saved report clean, so a dirty flag afterwards means the
+    # rendered state may no longer be the saved source.
+    if after_entry.get("hasUnsavedChanges") is not False:
+        raise ValueError("Desktop reported unsaved changes after capture")
     if {x["id"] for x in after_entry["pages"]} != {x["id"] for x in pages}:
         raise ValueError("native page inventory changed during capture")
     return {

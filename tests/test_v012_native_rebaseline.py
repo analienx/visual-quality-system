@@ -172,7 +172,14 @@ def test_source_bound_native_receipt_replays_and_rejects_stale_bytes(
         "desktop_pid": 714,
         "source_files": proof["source_files"],
         "native_pages": [{**_asset(shot), "page_id": "p1", "display_name": "Page"}],
+        "post_capture_unsaved_flag": False,
     }
+    dirty = dict(native, post_capture_unsaved_flag=True)
+    with pytest.raises(ValueError, match="unsaved Desktop changes"):
+        bound_subject(example, dirty)
+    with pytest.raises(ValueError, match="unsaved Desktop changes"):
+        bound_subject(example, {k: v for k, v in native.items()
+                                if k != "post_capture_unsaved_flag"})
     pin = bound_subject(example, native)
     assert pin["native_capture_source_bound"] is True
     assert pin["owner_g6_approved"] is False
@@ -201,6 +208,7 @@ def test_native_receipt_rejects_cross_report_source(
             "sha256": "0" * 64, "size": 42,
         }},
         "native_pages": [{**_asset(shot), "page_id": "p1", "display_name": "Page"}],
+        "post_capture_unsaved_flag": False,
     }
     with pytest.raises(ValueError, match="changed since Desktop capture"):
         bound_subject(example, native)
@@ -236,7 +244,7 @@ def test_bridge_status_rejects_wrong_pid_report_or_missing_pages(
 @pytest.mark.skipif(__import__("os").name != "nt", reason="native Windows capture only")
 @pytest.mark.parametrize("attack", [
     "none", "wrong_pid", "extra_png", "changed_source",
-    "foreign_output", "wrong_os_owner",
+    "foreign_output", "wrong_os_owner", "dirty_after_capture",
 ])
 def test_native_capture_binds_pid_and_rejects_adversaries(
     example: Path, tmp_path: Path, monkeypatch, attack: str,
@@ -270,6 +278,8 @@ def test_native_capture_binds_pid_and_rejects_adversaries(
             return subprocess.CompletedProcess(cmd, 0, json.dumps(info), "")
         if cmd[1] == "screenshot-all":
             _png(out / "Page.png")
+            if attack == "dirty_after_capture":
+                info["instances"][0]["hasUnsavedChanges"] = True
             if attack == "extra_png":
                 _png(out / "unrequested.png")
             if attack == "changed_source":
