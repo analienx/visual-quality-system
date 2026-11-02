@@ -102,6 +102,47 @@ def test_owner_waiver_bound_to_head_excuses_only_that_subject(pair) -> None:
     assert result["unmatched_waivers"] == 1
 
 
+def test_owner_waiver_bound_to_base_acknowledges_only_unchanged(pair) -> None:
+    """Zephyrus 2 Nov 2026: the owner answers on the original, `vqs fix`
+    builds the candidate, the PR head is the candidate. Those answers name
+    the base digest; they must still record the waiver for the unchanged
+    subject, and never excuse anything the head introduces."""
+    base, head = pair
+    known = next(item["subject"] for item in gate.evaluate(str(base))["items"]
+                 if item["check"] == "insight.no_cross_page_duplicate_grain")
+    answers = {"schema": ANSWERS_SCHEMA, "owner": "owner",
+               "source_sha256": source_digest(base), "answers": [
+                   {"decision_id": decision_id(known, source_digest(base)),
+                    "option": "accept"},
+                   {"decision_id": decision_id(NEW_SUBJECT, source_digest(base)),
+                    "option": "accept"}]}
+    result = gate.run(str(head), baseline=base, decisions=answers)
+    assert [item["subject"] for item in result["waived"]] == [known]
+    assert [item["subject"] for item in result["new"]] == [NEW_SUBJECT]
+    assert result["verdict"] == "fail"
+    assert result["unmatched_waivers"] == 1  # the NEW_SUBJECT answer
+    assert known not in [item["subject"] for item in result["unchanged"]]
+
+
+def test_base_waivers_need_a_reviewed_base_revision(pair, tmp_path: Path,
+                                                    capsys) -> None:
+    """A stored JSON baseline has no reviewed source, so base-digest answers
+    cannot be verified against it and acknowledge nothing (fail closed)."""
+    base, head = pair
+    stored = tmp_path / "baseline.json"
+    main(["gate", str(base), "--emit-baseline", str(stored)])
+    capsys.readouterr()
+    known = next(item["subject"] for item in gate.evaluate(str(base))["items"]
+                 if item["check"] == "insight.no_cross_page_duplicate_grain")
+    answers = {"schema": ANSWERS_SCHEMA, "owner": "owner",
+               "source_sha256": source_digest(base), "answers": [
+                   {"decision_id": decision_id(known, source_digest(base)),
+                    "option": "accept"}]}
+    result = gate.run(str(head), baseline=stored, decisions=answers)
+    assert result["waived"] == []
+    assert result["unmatched_waivers"] == 1
+
+
 def test_no_baseline_means_everything_is_new(tmp_path: Path) -> None:
     base = _copy(tmp_path, "base")
     result = gate.run(str(base))
