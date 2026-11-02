@@ -91,6 +91,10 @@ def main() -> int:
     if os.name != "nt":
         steps["platform"] = "skipped: not Windows"
         return finish()
+    import importlib.util
+
+    # VQS must attest Desktop without optional third-party modules.
+    steps["psutil_installed"] = importlib.util.find_spec("psutil") is not None
     cli = _bridge()
     steps["bridge_cli"] = bool(cli)
     if cli:
