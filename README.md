@@ -36,6 +36,20 @@ a compact result with full private evidence. It does not overwrite or promote
 the original. A **blocked** result when no safe edit is proved and an
 **improved_not_accepted** result when other issues remain are expected.
 
+**Blocked on a design choice?** Each such finding is an answerable question
+(`decision_id` + options such as "use 10 pt for this cohort" or "keep as
+intentional"). The owner answers once and VQS applies the choice to the
+candidate, then verifies it:
+
+```powershell
+vqs decisions template --run-id <fix-run-id> --out answers.json
+vqs fix "C:/Reports/Sales.pbip" --decisions answers.json
+```
+
+For pull requests, `vqs gate head.pbip --baseline base.pbip --sarif vqs.sarif`
+fails only on findings the change introduces.
+[Decisions and PR gate reference](docs/CLI.md#answering-owner-decisions---decisions)
+
 [Six independently tested Ubuntu/Windows GitHub runner combinations](https://github.com/analienx/visual-quality-system/actions/runs/40966581372)
 on Python 3.11-3.13 passed installed-wheel authoring, repair and MCP checks.
 Native Desktop G2/G4/G6 report acceptance, arbitrary Desktop reload and
