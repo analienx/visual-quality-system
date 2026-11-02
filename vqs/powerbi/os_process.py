@@ -13,7 +13,10 @@ import shutil
 import subprocess
 from typing import Any
 
+# Redirected Windows PowerShell output otherwise uses the OEM code page, which
+# garbles non-ASCII PBIP paths (e.g. "Přehled.pbip") before they reach Python.
 _SCRIPT = (
+    "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;"
     '$p=Get-CimInstance Win32_Process -Filter "ProcessId = {pid}";'
     "if ($null -eq $p) {{ exit 2 }};"
     "$t=[DateTimeOffset]::new($p.CreationDate.ToUniversalTime());"

@@ -69,14 +69,6 @@ def _snapshot(project: Path) -> dict[str, str]:
             if p.is_file() and ".pbi" not in p.relative_to(project).parts}
 
 
-def _command_line(pid: int) -> str | None:
-    script = (f'(Get-CimInstance Win32_Process -Filter "ProcessId = {pid}")'
-              '.CommandLine')
-    code, out, _ = _run(["powershell.exe", "-NoProfile", "-NonInteractive",
-                         "-Command", script], timeout=40)
-    return out.strip() if code == 0 else None
-
-
 def main() -> int:
     summary: dict[str, Any] = {"schema": "vqs.windows-desktop-probe/1",
                                "platform": sys.platform,
@@ -106,10 +98,11 @@ def main() -> int:
         shutil.rmtree(work)
     # Deliberately mixed casing: the OS keeps what was typed on the command
     # line, while Path.resolve() returns the on-disk casing.
-    project = work / "ContosoProbe"
+    # Non-ASCII on purpose: proves UTF-8 process/UIA output end to end.
+    project = work / "ContosoPřehledProbe"
     shutil.copytree(SOURCE, project)
     pbip = next(project.glob("*.pbip"))
-    typed = str(pbip).replace("ContosoProbe", "contosoprobe")
+    typed = str(pbip).replace("ContosoPřehledProbe", "contosopřehledprobe")
     steps["resolve_normalizes_case"] = str(Path(typed).resolve()) == str(pbip.resolve())
     before_source = _snapshot(project)
     if not cli:
@@ -138,10 +131,20 @@ def main() -> int:
     pid = int(entry["pid"])
     steps["ready"] = True
     steps["before_capture"] = _instance_summary(entry)
-    command = _command_line(pid)
-    if command is not None:
-        steps["os_command_line_has_typed_case"] = "contosoprobe" in command
-        steps["os_command_line_has_disk_case"] = "ContosoProbe" in command
+    sys.path.insert(0, str(ROOT))
+    try:
+        from vqs.powerbi.os_process import windows_process
+
+        args = windows_process(pid)["cmdline"]
+        launched = [a for a in args[1:] if a.lower().endswith(".pbip")]
+        steps["os_pbip_args"] = len(launched)
+        steps["os_command_line_has_typed_case"] = any(
+            "contosopřehledprobe" in a for a in launched)
+        steps["os_command_line_has_disk_case"] = any(
+            "ContosoPřehledProbe" in a for a in launched)
+        steps["non_ascii_path_intact"] = bool(launched) and "ř" in launched[0]
+    except Exception as exc:  # noqa: BLE001 - report every refusal
+        steps["os_process"] = f"{type(exc).__name__}: {exc}"[:300]
     # A freshly opened PBIP reports unsaved changes (observed on 2.159), so
     # the capture-flag question needs a clean baseline: perform the repo's
     # own witnessed native UIA Save on this disposable copy first.

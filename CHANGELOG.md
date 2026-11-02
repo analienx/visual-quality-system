@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased - review follow-ups for owner decisions and the PR gate
+
+Findings from an independent code review of PR #122, each with a regression test:
+
+- A check with any still auto-fixable conflict can no longer count as fully waived (previously `accepted_with_waivers` could excuse an unwaived overlap).
+- `vqs gate` fails closed (blocked) when the review produced no findings, instead of reporting "nothing new"; the baseline is reviewed with the same `--config` as the head.
+- Finding subjects always include the page, so identical visual names on duplicated pages no longer share a decision id; automatic candidates and owner decisions for the same conflict share one subject, so gate identity no longer changes with fixability.
+- `vqs run --mode review --decisions` accepts the ids from a repair-run template (envelope findings are normalized like sealed findings).
+- Owner-merged plans keep report-wide `affected_pages` for shared theme/palette ops.
+- Windows process and UIA output is forced to UTF-8, so non-ASCII PBIP paths (for example `Přehled.pbip`) attest correctly; the probe now runs from a non-ASCII folder.
+- The Windows probe pins `@microsoft/powerbi-desktop-bridge-cli@1.0.0` (no silent upstream-latest installs).
+
 ## Unreleased - answerable owner decisions, PR gate, review fixes
 
 - **Answerable owner decisions:** every `needs_owner_decision` now has a stable `decision_id` bound to the reviewed source digest, a question and options (pre-compiled typed edits or an `accept` waiver). `vqs decisions template` + `vqs fix/run --decisions answers.json` (MCP `vqs_run decisions=`) apply the owner's choices to the disposable candidate through the normal repair/verify/remeasure path. Stale, unknown or conflicting answers block. Fully waived runs report `accepted_with_waivers`; missing evidence is never waivable. On the committed Contoso report this turns *blocked, no candidate* into a verified candidate with exactly 7 declared PBIR changes and no regressions.

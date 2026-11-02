@@ -4,6 +4,8 @@
     [Parameter(Mandatory=$true)][ValidateSet('Europe','Latin America')][string]$TargetRegion
 )
 $ErrorActionPreference = 'Stop'
+# Python decodes stdout as UTF-8; the OEM default garbles non-ASCII paths.
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes
 
 $proc = Get-Process -Id $DesktopProcessId -ErrorAction Stop

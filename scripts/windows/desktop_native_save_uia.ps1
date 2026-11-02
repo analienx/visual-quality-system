@@ -5,6 +5,8 @@ param(
     [Parameter(Mandatory=$true)][string]$DisposableRoot
 )
 $ErrorActionPreference='Stop'
+# Python decodes stdout as UTF-8; the OEM default garbles non-ASCII paths.
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 Set-StrictMode -Version Latest
 $root=[IO.Path]::GetFullPath($DisposableRoot).TrimEnd('\') + '\'
 $file=[IO.Path]::GetFullPath($ExpectedPbip)

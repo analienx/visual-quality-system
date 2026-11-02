@@ -45,6 +45,8 @@ def _os_identity(pid: int, expected_pbip: Path) -> str:
     if not shell or type(pid) is not int or pid <= 0:
         raise ValueError("built-in Windows process identity is unavailable")
     script = (
+        # UTF-8 output: OEM code pages garble non-ASCII PBIP paths.
+        "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;"
         f'$p=Get-CimInstance Win32_Process -Filter "ProcessId = {pid}";'
         'if ($null -eq $p) { exit 2 };'
         '$data=[pscustomobject]@{Name=$p.Name;CommandLine=$p.CommandLine;'

@@ -30,7 +30,9 @@ jobs:
       - name: Install VQS and Desktop Bridge CLI
         run: |
           python -m pip install .
-          npm install --global @microsoft/powerbi-desktop-bridge-cli
+          # Pinned to the version the recorded probe evidence used (AGENTS.md:
+          # never silently install upstream latest).
+          npm install --global @microsoft/powerbi-desktop-bridge-cli@1.0.0
           npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
           powerbi-desktop --version
           powerbi-report-author --version

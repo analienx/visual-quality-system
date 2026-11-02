@@ -851,6 +851,16 @@ def _runtime_sequence(run_dir: Any, rid: str, stages: list,
                             params)
 
 
+def _report_pages(facts: Any) -> set[str]:
+    """Page ids measured from the report (layout within-page facts)."""
+    rules = facts.get("rules") if isinstance(facts, dict) else None
+    within = (rules.get("layout.visuals_within_page")
+              if isinstance(rules, dict) else None)
+    pages = within.get("pages") if isinstance(within, dict) else None
+    return {item["page"] for item in pages or []
+            if isinstance(item, dict) and isinstance(item.get("page"), str)}
+
+
 def _sealed_review_source(run_root: str, review_id: Any) -> str | None:
     """The reviewed source digest exactly as the review run sealed it."""
     if not isinstance(review_id, str):
@@ -891,9 +901,12 @@ def _owner_decisions(state: dict, record: Any, params: dict) -> bool:
         source = (_sealed_review_source(params["run_root"],
                                         state.get("review_id"))
                   or state.get("source_sha256"))
+        from vqs.repair.decisions import normalize_findings
+
+        # Envelope findings must yield the same ids the template offered.
         decisions = synthesize_plan(
-            state.get("review_findings") or [], state.get("merged"),
-            source_sha256=source)["decisions"]
+            normalize_findings(state.get("review_findings")),
+            state.get("merged"), source_sha256=source)["decisions"]
     state["decision_source_sha256"] = source
     resolved = resolve(answers, decisions, source)
     issues = list(resolved["issues"])
@@ -917,9 +930,15 @@ def _owner_decisions(state: dict, record: Any, params: dict) -> bool:
             extra.append(op)
         if not issues:
             merged_ops = base + extra
-            pages = sorted({str(op["selector"]["page"]) for op in merged_ops
-                            if isinstance(op.get("selector"), dict)
-                            and isinstance(op["selector"].get("page"), str)})
+            # Every report page, so shared theme/palette ops keep their
+            # report-wide affected scope after owner ops are merged.
+            pages = sorted(
+                {str(op["selector"]["page"]) for op in merged_ops
+                 if isinstance(op.get("selector"), dict)
+                 and isinstance(op["selector"].get("page"), str)}
+                | set(plan.get("affected_pages", [])
+                      if isinstance(plan, dict) else [])
+                | _report_pages(state.get("merged")))
             checks = list(plan.get("finding_checks", [])
                           if isinstance(plan, dict) else [])
             checks += [str(item["check"]) for item in resolved["answered"]
