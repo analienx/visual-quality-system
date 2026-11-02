@@ -119,3 +119,40 @@ def windows_process(pid: int) -> dict[str, Any]:
         raise OSError("Windows process identity incomplete (name/command/creation)")
     return {"pid": pid, "name": name, "cmdline": split_command_line(command),
             "create_time": created_ms / 1000.0, "created_iso": created_iso}
+
+
+# Read-only, separate from the attestation query above so identity proof
+# never depends on version metadata. Only a real PBIDesktop.exe answers.
+_VERSION_SCRIPT = (
+    "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;"
+    '$p=Get-CimInstance Win32_Process -Filter "ProcessId = {pid}";'
+    "if ($null -eq $p -or $p.Name -ne 'PBIDesktop.exe' -or "
+    "-not $p.ExecutablePath) {{ exit 2 }};"
+    "[Diagnostics.FileVersionInfo]::GetVersionInfo($p.ExecutablePath).ProductVersion"
+)
+
+
+def desktop_product_version(pid: int) -> str | None:
+    """ProductVersion of the PID's own ``PBIDesktop.exe``; None if unknown.
+
+    Bridge 1.0.0 status carries no ``desktopVersion``. This is descriptive
+    metadata only: it never raises and never gates or proves identity.
+    """
+    if type(pid) is not int or pid <= 0:
+        return None
+    shell = shutil.which("powershell.exe")
+    if not shell:
+        return None
+    try:
+        probe = subprocess.run(
+            [shell, "-NoProfile", "-NonInteractive", "-Command",
+             _VERSION_SCRIPT.format(pid=pid)],
+            capture_output=True, text=True, encoding="utf-8-sig",
+            errors="replace", stdin=subprocess.DEVNULL, timeout=25,
+            check=False)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    lines = probe.stdout.strip().splitlines()
+    if probe.returncode or not lines or not lines[0].strip():
+        return None
+    return lines[0].strip()[:120]

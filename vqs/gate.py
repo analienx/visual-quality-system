@@ -129,14 +129,21 @@ def load_baseline(path: Path, config: dict[str, Any] | None = None
 
 
 def compare(head: dict[str, Any], baseline: dict[str, Any] | None,
-            waived: list[str] | None = None) -> dict[str, Any]:
-    """Classify head items as new / unchanged / waived; pure."""
+            waived: list[str] | None = None,
+            acknowledged: list[str] | None = None) -> dict[str, Any]:
+    """Classify head items as new / unchanged / waived; pure.
+
+    ``waived`` (head-bound) may excuse any failing item. ``acknowledged``
+    (base-bound) only excuses failing items the baseline already had.
+    """
     known = ({item["subject"] for item in baseline["items"]}
              if baseline is not None else set())
     allowed = set(waived or [])
+    prior = set(acknowledged or []) & known
     new, unchanged, excused = [], [], []
     for item in head["items"]:
-        if item["subject"] in allowed and item["status"] == "fail":
+        if item["status"] == "fail" and (item["subject"] in allowed
+                                         or item["subject"] in prior):
             excused.append(item)
         elif baseline is not None and item["subject"] in known:
             unchanged.append(item)
@@ -244,12 +251,20 @@ def run(head: str, *, baseline: Path | None = None, model: str | None = None,
         if base_eval["status"] != "ok":
             return {"tool": "vqs.gate", "verdict": "blocked",
                     "reason": "baseline: " + base_eval["reason"]}
-    # Waivers name decision ids bound to the reviewed head revision; map
-    # them to subjects through the head decisions so stale ids do nothing.
-    subjects = _waived_subjects(head_eval, waived)
-    result = compare(head_eval, base_eval, subjects)
+    # Waivers name decision ids bound to a reviewed revision; map them to
+    # subjects through that revision's own decisions so stale ids do nothing.
+    head_matched = _waived_subjects(head_eval, waived)
+    # Answers usually come from the owner's run on the *base* (the PR head
+    # is the candidate built from them). Those may acknowledge only findings
+    # that already existed there and still exist: a new finding did not
+    # exist when the owner answered. Stored JSON baselines carry no reviewed
+    # source, so they verify nothing and acknowledge nothing.
+    base_matched = (_waived_subjects(base_eval, waived)
+                    if base_eval is not None and "verdict" in base_eval else {})
+    result = compare(head_eval, base_eval, sorted(set(head_matched.values())),
+                     acknowledged=sorted(set(base_matched.values())))
     verdict = "fail" if result["new"] else "pass"
-    stale = len(waived) - len(subjects)
+    stale = len(set(waived) - set(head_matched) - set(base_matched))
     return {"tool": "vqs.gate", "verdict": verdict,
             "report": head_eval["report"],
             "baseline": (base_eval or {}).get("report"),
@@ -262,21 +277,22 @@ def run(head: str, *, baseline: Path | None = None, model: str | None = None,
                      "acceptance")}
 
 
-def _waived_subjects(head_eval: dict[str, Any], waived: list[str]) -> list[str]:
-    """Subjects of answered ``accept`` options bound to this head revision.
+def _waived_subjects(evaluated: dict[str, Any], waived: list[str]
+                     ) -> dict[str, str]:
+    """``{decision_id: subject}`` for answers bound to this reviewed revision.
 
     Decision ids embed the exact reviewed source digest, so waivers written
     for another revision match nothing and excuse nothing (fail closed).
     """
-    if not waived:
-        return []
+    if not waived or not evaluated.get("report"):
+        return {}
     from vqs.pbir import source_digest
     from vqs.repair.decisions import decision_id
 
     try:
-        source = source_digest(Path(head_eval["report"]))
+        source = source_digest(Path(evaluated["report"]))
     except OSError:
-        return []
+        return {}
     by_id = {decision_id(item["subject"], source): item["subject"]
-             for item in head_eval["items"]}
-    return sorted({by_id[ident] for ident in waived if ident in by_id})
+             for item in evaluated["items"]}
+    return {ident: by_id[ident] for ident in waived if ident in by_id}

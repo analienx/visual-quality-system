@@ -20,7 +20,22 @@ Before any Power BI report content change, run `python scripts/report_skill.py -
 - Power BI Desktop interaction surfaces are **not interchangeable**: Report Author CLI validates report metadata; Modeling MCP handles semantic models; Desktop Bridge handles local PID/state/reload/page capture; native Windows UI Automation handles supported accessibility controls and selected input patterns. Remote Desktop Commander only orchestrates the authorized Windows host and is not itself a VQS quality API. Do not claim Shape Map country clicks from broad Plot-area UIA or lock-screen pixel injection. Microsoft WinApp CLI is optional research, not an installed dependency.
 - For Word: validate OOXML **and** every actually paginated page with backend/fonts/locale recorded. Do not use unsupported non-interactive Word COM for server-style automation or call LibreOffice pagination identical to Word without evidence. Each embedded chart/figure must trace to the current report source.
 - Treat release profiles as independent: `powerbi-core` needs two unrelated PBIPs and G0–G4 plus suite G6, **not Word G5**; `word-docx` needs G0/G1/G5 plus suite G6; historical omitted profile is `combined`. Invalid profile or mixed subjects fail closed. No profile permits a self-authored G6 or fabricated owner promotion.
-- Never have the same model/agent author and independently approve its own patch. A text-only model cannot certify pixels. Missing data, timeout, unsupported driver, stale captures and model disagreement are blocked/unknown, **never pass**. Tests must include deliberate failures/negative controls.
+- Never have the same model/agent author and independently approve its own patch. A review produced by the author's own model family is an author-side review: post it as a `COMMENT` review, never `APPROVE`, and never count it as the independent verifier. Fix verified findings in a follow-up PR; an unavailable bot reviewer (for example Copilot not enabled) is reported, never assumed to have passed. A text-only model cannot certify pixels. Missing data, timeout, unsupported driver, stale captures and model disagreement are blocked/unknown, **never pass**. Tests must include deliberate failures/negative controls.
+
+## Owner decisions, adoption and the PR gate
+
+Guide: [owner decisions and PR gate](docs/OWNER_DECISIONS_AND_PR_GATE.md).
+
+- A blocked `vqs fix`/`vqs_run` returns `needs_review` questions (`decision_id`, options). **Show the options to the owner and wait; never choose an option or an `accept` waiver yourself**, even when one looks obvious. Answers (`vqs.decision-answers/1`) authorize disposable-candidate edits and scoped waivers only. They are never G2/G4 review or G6 promotion, and missing evidence (`blocked`/`unknown`/`unsupported`) is never waivable.
+- A verified result carries `changes` (what was edited) and `adopt` (the exact `vqs promote` / `vqs_promote` step). Report both. Run `adopt` only on the owner's explicit request in the current context, since promotion replaces the original (backup kept as `<report>.vqs-backup`).
+- Use `vqs gate HEAD --baseline BASE` for pull-request regressions (exit 0 nothing new / 1 new / 2 blocked). A green gate is static evidence, not acceptance.
+
+## Native behaviour questions and engineering rules
+
+- Answer "what does real Desktop do?" with `.github/workflows/windows-desktop-probe.yml`: an ephemeral runner, a **copy of fictional demo data** (never customer reports), and a JSON-only summary with no screenshots. Pin every external tool version the probe installs. Record findings in [V012_NATIVE_G_ACCEPTANCE.md](docs/V012_NATIVE_G_ACCEPTANCE.md). Probe output is engineering evidence, not G2/G4/G6.
+- Every text-mode subprocess pins `encoding=` (Node CLIs emit UTF-8, and PowerShell scripts set `[Console]::OutputEncoding` to UTF-8). Non-ASCII PBIP paths must work. A source-scan test enforces this.
+- Attestation paths use built-in OS facilities, never optional third-party modules (for example `psutil`), and compare paths as physical files, never as case-sensitive strings.
+- Wrong-shaped but valid JSON must block, never crash. New readers of PBIR/TMDL/receipts need a malformed-input negative test.
 
 ## Handoff and status reporting
 

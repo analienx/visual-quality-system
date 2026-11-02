@@ -15,18 +15,22 @@ from typing import Any
 
 
 def _version(executable: str, *args: str, timeout: int = 30) -> str | None:
-    """Best-effort ``--version`` probe; None when anything goes wrong."""
+    """Best-effort ``--version`` probe; None when anything goes wrong.
+
+    stdin is always /dev/null: a stdio server (Modeling MCP) that ignores
+    the flag reads EOF and exits instead of blocking on the terminal.
+    """
     try:
         completed = subprocess.run(
             [executable, *args], capture_output=True, text=True,
-            timeout=timeout, check=False)
+            stdin=subprocess.DEVNULL, timeout=timeout, check=False)
     except (OSError, subprocess.SubprocessError):
         try:  # Windows .CMD shims (npm globals) need a shell to launch.
             command = subprocess.list2cmdline([executable, *args])
             if re.search(r'[&|^<>%!`$;\r\n]', command):
                 return None
             completed = subprocess.run(
-                command, capture_output=True,
+                command, capture_output=True, stdin=subprocess.DEVNULL,
                 text=True, timeout=timeout, check=False, shell=True)
         except (OSError, subprocess.SubprocessError):
             return None
@@ -44,6 +48,14 @@ def _tool(name: str, *version_args: str) -> dict[str, Any]:
     version = _version(path, *version_args) if version_args else None
     return {"name": name, "status": "present", "path": path,
             "version": version if version is not None else "unknown"}
+
+
+def _modeling_mcp() -> dict[str, Any]:
+    """Modeling MCP presence plus its ``--version`` (0.5.0-beta.16 answers it)."""
+    mcp = _tool("powerbi-modeling-mcp", "--version")
+    mcp["note"] = ("Presence only: live model connectivity is proven "
+                   "per run via connection_operations ListLocalInstances.")
+    return mcp
 
 
 def _desktop_process() -> dict[str, Any]:
@@ -94,9 +106,7 @@ def report() -> dict[str, Any]:
 
     report_author = _report_author()
     bridge = _tool("powerbi-desktop", "--version")
-    mcp = _tool("powerbi-modeling-mcp")
-    mcp["note"] = ("Presence only: live model connectivity is proven "
-                   "per run via connection_operations ListLocalInstances.")
+    mcp = _modeling_mcp()
     # Report the actual authoring preflight, not just the CLI's presence.
     # Missing or mispackaged approved skill resources must be visible here.
     from .powerbi.author.preflight import check as authoring_check

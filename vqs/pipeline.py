@@ -1944,7 +1944,9 @@ def verify_runtime(*, run_root: str, run_id: str,
         "pid": int(instance["pid"]),
         "owned_by_run": owned,
         "instance": {"report": instance.get("currentFilePath"),
-                     "desktop_version": instance.get("desktopVersion")},
+                     "desktop_version": (
+                         (manifest.get("desktop") or {}).get("desktop_version")
+                         or instance.get("desktopVersion"))},
         "capture": {"renders": "renders",
                     "manifest_sha256": _canonical_sha256(manifest),
                     "calibration": manifest.get("calibration")},

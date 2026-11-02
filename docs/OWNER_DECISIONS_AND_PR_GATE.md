@@ -101,6 +101,22 @@ duplicate breakdown produces exit `0`, a **verified** candidate with exactly 7
 declared PBIR changes, typography resolved, no regressions and the original
 untouched.
 
+### Seeing and adopting the result
+
+A verified run lists every edit in plain terms and gives the one command that
+applies it:
+
+```json
+"changes": [{"page": "Products_brands", "visual": "product-opportunity",
+             "property": "grid.textSize", "from": "11D", "to": "10D"}, "..."],
+"adopt": {"command": "vqs promote --run-root \"...\" --run-id sales-2-repair --owner-approval \"<who: why>\" --scope static",
+          "mcp": {"tool": "vqs_promote", "run_id": "sales-2-repair", "scope": "static"}}
+```
+
+Adopting is the owner's call. It re-checks both digests, replaces the original
+report and keeps it as `<report>.vqs-backup`. Static scope is still not native
+Desktop, G2/G4 or G6 acceptance.
+
 ### Outcomes
 
 | Outcome | Meaning |
@@ -145,8 +161,12 @@ vqs gate head/Sales.pbip --baseline base/Sales.pbip --sarif vqs.sarif --github
   vqs-baseline.json` writes a baseline that is reused with
   `--baseline vqs-baseline.json`, so no second checkout is needed.
 * **Waivers.** `--decisions answers.json` excuses `accept` answers bound to the
-  *head* revision. Answers for another revision match nothing and are counted
-  in `unmatched_waivers`.
+  *head* revision. Answers bound to the reviewed *base* revision (you answered
+  on the original and the PR head is the candidate) excuse only subjects the
+  base already had: a finding the change introduces did not exist when you
+  answered, so it is never excused. A stored JSON baseline carries no reviewed
+  source and accepts no base-bound answers. Answers for any other revision
+  match nothing and are counted in `unmatched_waivers`.
 
 Typical result for a change that alters one card label size:
 
@@ -169,5 +189,5 @@ A ready-to-copy GitHub Actions workflow is in
 | `pass either an owner plan or decision answers, not both` | `--plan` and `--decisions` are exclusive |
 | `run predates answerable decisions` | The template run was made by an older VQS. Re-run `vqs fix` |
 | A question has only `accept` | Not every member was exactly addressable, so a partial edit would leave the cohort inconsistent. Fix it in the source, or waive it |
-| Gate reports `unmatched_waivers > 0` | The answers target another revision. Regenerate them against the head |
+| Gate reports `unmatched_waivers > 0` | The answers target neither the head nor the reviewed base, or a base-bound answer names a finding the change introduced. Regenerate them against the head |
 | Microsoft authoring backend refuses a size edit | The metadata gate admits `fontSize`/`textSize` on `visual.objects` only. Container-title sizes (`vco.title`) can be applied in `--scope static` with `--authoring-backend direct`; Desktop/release scope requires the Microsoft backend and keeps refusing them |

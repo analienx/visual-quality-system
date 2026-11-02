@@ -113,8 +113,11 @@ vqs gate Sales.pbip --baseline vqs-baseline.json --decisions answers.json
 Exit codes: `0` nothing new, `1` new findings, `2` blocked (unreadable head or
 baseline). `--sarif` writes SARIF 2.1.0 with `baselineState` new/unchanged
 for GitHub code scanning; `--github` prints `::error` annotations. `accept`
-answers bound to the head revision excuse only their own subjects; answers for
-another revision match nothing (`unmatched_waivers`).
+answers bound to the head revision excuse only their own subjects. Answers
+bound to the reviewed base revision (the usual flow: answer on the original,
+gate the candidate) excuse only subjects the base already had, never a new
+one; a stored JSON baseline accepts no base-bound answers. Anything else is
+counted in `unmatched_waivers`.
 
 ```yaml
 # .github/workflows/powerbi-quality.yml (example for a PBIP repository)
