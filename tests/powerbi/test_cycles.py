@@ -114,3 +114,17 @@ def test_empty_model_warns_on_stderr(tmp_path, capsys) -> None:
     captured = capsys.readouterr()
     assert json.loads(captured.out)["acyclic"] is True
     assert "nothing to check" in captured.err
+
+
+def test_deep_reference_chain_is_analyzed_not_blocked() -> None:
+    """A legitimate 5000-deep measure chain exceeds Python's recursion
+    limit; the iterative search must still analyze it (and find a cycle
+    closed at the far end)."""
+    from vqs.powerbi.cycles import find_cycles
+
+    chain = {f"m{i:05d}": {f"m{i + 1:05d}"} for i in range(5000)}
+    assert find_cycles(chain) == []
+    chain["m05000"] = {"m00000"}
+    (cycle,) = find_cycles(chain)
+    assert cycle[0] == cycle[-1] == "m00000"
+    assert len(cycle) == 5002
