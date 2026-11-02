@@ -5,7 +5,49 @@ envelopes and run manifests remain available for audits.
 """
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
+
+
+def _changes(envelope: dict[str, Any]) -> list[dict[str, Any]]:
+    """Plain list of the edits in the verified candidate (what changed)."""
+    plan = envelope.get("plan")
+    ops = plan.get("operations") if isinstance(plan, dict) else None
+    out = []
+    for op in ops if isinstance(ops, list) else []:
+        if not isinstance(op, dict):
+            continue
+        selector = op.get("selector") if isinstance(op.get("selector"), dict) else {}
+        path = op.get("path") if isinstance(op.get("path"), list) else []
+        named = [str(step) for step in path
+                 if isinstance(step, str) and step not in (
+                     "visual", "objects", "visualContainerObjects", "properties",
+                     "expr", "Literal", "Value")]
+        out.append({"page": selector.get("page"), "visual": selector.get("visual"),
+                    "property": ".".join(named) or None, "op": op.get("type"),
+                    "from": op.get("old"), "to": op.get("value")})
+    return out[:50]
+
+
+def _adopt(envelope: dict[str, Any], summary: dict[str, Any]) -> dict[str, Any] | None:
+    """The one owner step that applies a verified candidate to the original."""
+    if (summary.get("candidate_status") or {}).get("status") != "verified":
+        return None
+    repair = (summary.get("child_runs") or {}).get("repair") or {}
+    run_id, run_dir = repair.get("run_id"), envelope.get("run_dir")
+    if not isinstance(run_id, str) or not isinstance(run_dir, str):
+        return None
+    root = str(Path(run_dir).parent)
+    return {
+        "command": (f'vqs promote --run-root "{root}" --run-id {run_id} '
+                    '--owner-approval "<who: why>" --scope static'),
+        "mcp": {"tool": "vqs_promote", "run_root": root, "run_id": run_id,
+                "scope": "static"},
+        "note": ("owner decision only: replaces the original report with the "
+                 "verified candidate after re-checking both digests; the "
+                 "original is kept as <report>.vqs-backup. Static scope is "
+                 "not native Desktop, G2/G4 or G6 acceptance"),
+    }
 
 
 def summarize(envelope: dict[str, Any]) -> dict[str, Any]:
@@ -40,6 +82,8 @@ def summarize(envelope: dict[str, Any]) -> dict[str, Any]:
         "owner_decisions": (summary.get("owner_decisions") or {}).get("answered", []),
         "regressions": summary.get("new_regressions") or [],
         "candidate": (summary.get("candidate_status") or {}).get("candidate"),
+        "changes": _changes(envelope),
+        "adopt": _adopt(envelope, summary),
         "candidate_status": (summary.get("candidate_status") or {}).get("status"),
         "promotion_performed": False if not summary else
             bool((summary.get("repair_triage") or {}).get("promotion_performed")),

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased - legible, adoptable fix results
+
+- `vqs fix` / `vqs_run` results now include `changes` (page, visual, property, from → to for every candidate edit) and, for a verified candidate, `adopt`: the exact `vqs promote` command and `vqs_promote` arguments, so neither a person nor an agent has to guess internal run ids. Adoption stays an explicit owner step that keeps `<report>.vqs-backup`.
+- AGENTS.md: rules for owner decisions (agents never pick options), adoption, the PR gate, the disposable Desktop probe, subprocess encoding and author-side reviews.
+
 ## Unreleased - review follow-ups for owner decisions and the PR gate
 
 Findings from an independent code review of PR #122, each with a regression test:

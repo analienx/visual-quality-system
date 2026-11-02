@@ -419,3 +419,43 @@ def test_check_is_waived_only_when_every_subject_is_waived() -> None:
     assert waived_checks([envelope], None, [one, two]) == [TYPO]
     assert waived_checks([dict(finding, status="blocked")], None,
                          [one, two]) == []
+
+
+def test_fix_result_lists_changes_and_a_working_adopt_step(tmp_path: Path,
+                                                           capsys) -> None:
+    """A verified candidate must be legible (what changed) and adoptable
+    (one owner command), without the caller guessing internal run ids."""
+    import shlex
+
+    from vqs.cli import main
+
+    project = tmp_path / "proj"
+    shutil.copytree(REPORT.parent, project)
+    pbip = str(project / "Contoso Retail.pbip")
+    runs = str(tmp_path / "runs")
+    assert main(["fix", pbip, "--run-root", runs, "--run-id", "a1",
+                 "--authoring-backend", "direct"]) == 2
+    first = json.loads(capsys.readouterr().out)
+    assert first["changes"] == [] and first["adopt"] is None
+    out = tmp_path / "answers.json"
+    main(["decisions", "template", "--run-root", runs, "--run-id", "a1",
+          "--out", str(out)])
+    capsys.readouterr()
+    skeleton = json.loads(out.read_text(encoding="utf-8"))
+    skeleton["owner"] = "owner"
+    for row in skeleton["answers"]:
+        row["option"] = "size:10D" if "size:10D" in row["choices"] else "accept"
+    out.write_text(json.dumps(skeleton), encoding="utf-8")
+    assert main(["fix", pbip, "--run-root", runs, "--run-id", "a2",
+                 "--authoring-backend", "direct", "--decisions", str(out)]) == 0
+    done = json.loads(capsys.readouterr().out)
+    assert len(done["changes"]) == 7
+    assert {"page", "visual", "property", "from", "to"} <= set(done["changes"][0])
+    assert {c["to"] for c in done["changes"]} == {"10D"}
+    argv = shlex.split(done["adopt"]["command"].replace("<who: why>", "owner: ok"))
+    assert argv[:2] == ["vqs", "promote"]
+    before = (project / "Contoso Retail.Report").stat().st_mtime_ns
+    assert main(argv[1:]) == 0
+    capsys.readouterr()
+    assert (project / "Contoso Retail.Report.vqs-backup").is_dir()
+    assert (project / "Contoso Retail.Report").stat().st_mtime_ns != before

@@ -101,6 +101,22 @@ duplicate breakdown produces exit `0`, a **verified** candidate with exactly 7
 declared PBIR changes, typography resolved, no regressions and the original
 untouched.
 
+### Seeing and adopting the result
+
+A verified run lists every edit in plain terms and gives the one command that
+applies it:
+
+```json
+"changes": [{"page": "Products_brands", "visual": "product-opportunity",
+             "property": "grid.textSize", "from": "11D", "to": "10D"}, "..."],
+"adopt": {"command": "vqs promote --run-root \"...\" --run-id sales-2-repair --owner-approval \"<who: why>\" --scope static",
+          "mcp": {"tool": "vqs_promote", "run_id": "sales-2-repair", "scope": "static"}}
+```
+
+Adopting is the owner's call. It re-checks both digests, replaces the original
+report and keeps it as `<report>.vqs-backup`. Static scope is still not native
+Desktop, G2/G4 or G6 acceptance.
+
 ### Outcomes
 
 | Outcome | Meaning |
