@@ -19,7 +19,7 @@ VQS is a **quality and safe-repair engine**, not an alternative Power BI report 
 | **Seal** | Source and image hashes, scoped data/oracle evidence, \`vqs bundle pack/verify\` | Another reviewer can check that evidence belongs to the reported PBIP |
 | **Decide** | Independent review plus explicit owner G6 promotion; reject, accept or remain blocked | A tool never approves its own repair |
 
-**Repair is optional, not the default.** Typed, allowlisted edits run against a **disposable candidate** with preconditions and rollback. They require a fresh source/visual/data/interaction comparison before any independent release decision. VQS never silently edits the original PBIP or changes semantic meaning to improve appearances.
+**Repair is optional, not the default.** Typed, allowlisted edits run against a **disposable candidate** with preconditions and rollback. They require a fresh source/visual/data/interaction comparison before any independent release decision. VQS never silently edits the original PBIP or changes semantic meaning to improve appearances. When the right fix is a design choice, VQS returns an answerable question (stable `decision_id`, pre-compiled options or an `accept` waiver); the owner's answer becomes a precondition-bound candidate edit or a recorded waiver, never a guess and never a pass ([owner decisions](OWNER_DECISIONS_AND_PR_GATE.md)). `vqs gate` reuses the same finding identity to fail pull requests only on newly introduced findings.
 
 ## 2 · Where each part runs
 

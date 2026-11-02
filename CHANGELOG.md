@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased - answerable owner decisions, PR gate, review fixes
+
+- **Answerable owner decisions:** every `needs_owner_decision` now has a stable `decision_id` bound to the reviewed source digest, a question and options (pre-compiled typed edits or an `accept` waiver). `vqs decisions template` + `vqs fix/run --decisions answers.json` (MCP `vqs_run decisions=`) apply the owner's choices to the disposable candidate through the normal repair/verify/remeasure path. Stale, unknown or conflicting answers block. Fully waived runs report `accepted_with_waivers`; missing evidence is never waivable. On the committed Contoso report this turns *blocked, no candidate* into a verified candidate with exactly 7 declared PBIR changes and no regressions.
+- New owner-only recipe `format.declare_explicit` adds a size to an existing unscoped properties entry where a visual inherits it; the Microsoft metadata gate admits owner-chosen `fontSize`/`textSize` `D` literals typed by the CLI catalog.
+- **PR gate:** `vqs gate HEAD --baseline BASE` fails only on newly introduced findings, with SARIF 2.1.0, GitHub annotations, stored baselines and head-bound waivers.
+- **Review fixes:** Desktop PID lease released on modeling launch failures; wrong-shaped/`null` PBIR containers block instead of crashing (found by fuzzing every CLI read path); DOCX absolute OPC targets and corrupt parts; corrupt lock files; JSON `Infinity` scale; exactly-one-PBIP for the Corporate region check; physical-file PBIP comparison (Windows launch casing verified on a real Desktop 2.159 runner); iterative DAX/M cycle search for deep chains; least-privilege workflow tokens.
+- **Verified on real Power BI Desktop 2.159 (disposable GitHub Windows runner, `windows-desktop-probe.yml`):** native Save witness and strict attestation no longer require the optional `psutil` package (built-in CIM, `vqs.powerbi.os_process`); native capture now requires Desktop to still be clean after capture (observed: `screenshot-all` leaves a saved report clean); freshly opened PBIPs report unsaved changes and correctly block until a witnessed Save.
+
 ## Unreleased - bounded native Corporate Region interaction
 
 - Added exact-PID native Corporate Sales Region UI Automation and fail-closed DAX comparator.

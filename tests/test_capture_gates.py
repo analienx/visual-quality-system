@@ -308,6 +308,24 @@ def test_held_lease_blocks(tmp_path: Path,
                             lease_dir=str(leases))
 
 
+def test_modeling_launch_failure_releases_lease(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A port that cannot even be constructed must not strand the PID lease."""
+    report = _make_report(tmp_path)
+    leases = tmp_path / "leases"
+    _stub(monkeypatch, report, actions={"p1": "ok"})
+
+    def boom(*_args: Any, **_kwargs: Any) -> tuple[Any, bool]:
+        raise OSError("modeling launcher unavailable")
+
+    monkeypatch.setattr(capture_mod, "_resolve_modeling", boom)
+    with pytest.raises(OSError, match="modeling launcher unavailable"):
+        capture_mod.capture(str(report), str(tmp_path / "r"),
+                            lease_dir=str(leases))
+    assert not (leases / "desktop-pid-111.lock").exists()
+    assert claim_artifact(leases, "desktop-pid-111", "next-capture")
+
+
 def test_target_recheck_blocks_on_report_drift(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     report = _make_report(tmp_path)

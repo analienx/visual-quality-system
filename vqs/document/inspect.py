@@ -15,6 +15,7 @@ import hashlib
 import posixpath
 import xml.etree.ElementTree as ET
 import zipfile
+import zlib
 from pathlib import Path
 
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -23,6 +24,23 @@ R = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
 RELS = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 
 REQUIRED_PARTS = ("[Content_Types].xml", "word/document.xml")
+
+# Member-level corruption (bad CRC/deflate stream, encryption, unsupported
+# compression) surfaces from ZipFile.read, not from opening the archive.
+_MEMBER_ERRORS = (zipfile.BadZipFile, zlib.error, NotImplementedError,
+                  RuntimeError, EOFError, OSError)
+
+
+def _rel_target(source_dir: str, target: str) -> str:
+    """Resolve an OPC relationship target to a package part name.
+
+    ECMA-376 Part 2 allows both relative targets (``media/a.png``,
+    resolved against the source part's folder) and absolute part names
+    (``/word/media/a.png``, resolved against the package root).
+    """
+    if target.startswith("/"):
+        return posixpath.normpath(target.lstrip("/"))
+    return posixpath.normpath(posixpath.join(source_dir, target))
 
 
 def _parse(xml_bytes: bytes) -> ET.Element | None:
@@ -50,7 +68,12 @@ def inspect_docx(path: Path) -> dict:
                 issues.append({"rule": "missing_required_part", "part": required})
         if issues:
             return {"inventory": {"parts": sorted(names)}, "issues": issues}
-        document = _parse(archive.read("word/document.xml"))
+        try:
+            document = _parse(archive.read("word/document.xml"))
+        except _MEMBER_ERRORS as exc:
+            return {"inventory": {"parts": sorted(names)},
+                    "issues": [{"rule": "corrupt_part", "part": "word/document.xml",
+                                "detail": type(exc).__name__}]}
         if document is None:
             return {"inventory": {"parts": sorted(names)},
                     "issues": [{"rule": "unparseable_document"}]}
@@ -64,26 +87,43 @@ def inspect_docx(path: Path) -> dict:
         rels_name = "word/_rels/document.xml.rels"
         targets: dict[str, str] = {}
         if rels_name in names:
-            rels = _parse(archive.read(rels_name))
-            if rels is None:
-                issues.append({"rule": "unparseable_relationships"})
+            try:
+                rels = _parse(archive.read(rels_name))
+            except _MEMBER_ERRORS as exc:
+                rels = None
+                issues.append({"rule": "corrupt_part", "part": rels_name,
+                               "detail": type(exc).__name__})
             else:
+                if rels is None:
+                    issues.append({"rule": "unparseable_relationships"})
+            if rels is not None:
                 for rel in rels.findall(f"{RELS}Relationship"):
                     rid, target = rel.get("Id"), rel.get("Target")
-                    if rid and target:
-                        resolved = posixpath.normpath(posixpath.join("word", target))
-                        targets[rid] = resolved
+                    # External targets (URLs, linked files) are not package
+                    # parts; an r:embed pointing at one stays broken.
+                    if rid and target and rel.get("TargetMode") != "External":
+                        targets[rid] = _rel_target("word", target)
         images: list[dict] = []
         for rid in embeds:
             target = targets.get(rid)
             if target is None or target not in names:
                 issues.append({"rule": "broken_relationship", "id": rid, "target": target})
                 continue
-            digest = hashlib.sha256(archive.read(target)).hexdigest()
+            try:
+                digest = hashlib.sha256(archive.read(target)).hexdigest()
+            except _MEMBER_ERRORS as exc:
+                issues.append({"rule": "corrupt_part", "part": target,
+                               "detail": type(exc).__name__})
+                continue
             images.append({"id": rid, "part": target, "sha256": digest})
         styles: list[str] = []
         if "word/styles.xml" in names:
-            root = _parse(archive.read("word/styles.xml"))
+            try:
+                root = _parse(archive.read("word/styles.xml"))
+            except _MEMBER_ERRORS as exc:
+                root = None
+                issues.append({"rule": "corrupt_part", "part": "word/styles.xml",
+                               "detail": type(exc).__name__})
             if root is not None:
                 styles = sorted({s.get(f"{W}styleId", "") for s in root.findall(f"{W}style")})
         inventory = {"parts": sorted(names), "paragraphs": len(paragraphs),

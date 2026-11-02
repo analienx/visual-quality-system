@@ -705,12 +705,16 @@ def capture(report: str, renders: str, pid: int | None = None,
     if not claim_artifact(locks, lease_id, owner):
         raise OSError(f"Exclusive lease held for Desktop PID "
                       f"{instance['pid']}; another capture holds it")
-    port, owned = _resolve_modeling(
-        modeling, target_pid=int(instance["pid"]), live_data=live_data)
-    scope = ModelingScope(source_sha256=source_before)
+    port: Any = None
+    owned = False
     readiness_before: dict[str, Any] | None = None
     model_warmup: dict[str, Any] | None = None
     try:
+        # Resolve the port inside the try: a launcher/scope failure here
+        # must still release the exclusive Desktop PID lease below.
+        port, owned = _resolve_modeling(
+            modeling, target_pid=int(instance["pid"]), live_data=live_data)
+        scope = ModelingScope(source_sha256=source_before)
         if port is not None:
             # Freshly opened PBIPs can initialize msmdsrv only after their
             # first render. This narrow opt-in warmup is restricted to a

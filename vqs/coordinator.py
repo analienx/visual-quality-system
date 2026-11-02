@@ -32,6 +32,8 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from vqs.repair.decisions import public_view
+
 TOOL_ID = "vqs.run"
 
 MODES = ("review", "propose", "repair")
@@ -259,7 +261,8 @@ def run_workflow(*, report_dir: str | None = None,
                  live_answers: bool = False,
                  dax_questions: list | None = None,
                  modeling: Any = None,
-                 reviewer: Any = None) -> dict[str, Any]:
+                 reviewer: Any = None,
+                 decisions: dict | None = None) -> dict[str, Any]:
     """Run the orchestrated Power BI workflow; never raises on bad input.
 
     Returns a ``vqs.run`` envelope whose ``stages`` ledger records every
@@ -283,6 +286,18 @@ def run_workflow(*, report_dir: str | None = None,
         return blocked_envelope(TOOL_ID, ["report_dir must be a string path"])
     if facts is not None and not isinstance(facts, dict):
         return blocked_envelope(TOOL_ID, ["facts must be an object"])
+    answers: dict | None = None
+    if decisions is not None:
+        from vqs.repair.decisions import load as load_answers
+
+        answers, answer_issues = load_answers(decisions)
+        if answer_issues:
+            return blocked_envelope(TOOL_ID, [
+                "decision answers rejected: " + issue
+                for issue in answer_issues])
+        if plan_path is not None:
+            return blocked_envelope(TOOL_ID, [
+                "pass either an owner plan or decision answers, not both"])
     runtime = scope in RUNTIME_SCOPES
     config = config if isinstance(config, dict) else default_config()
 
@@ -324,6 +339,7 @@ def run_workflow(*, report_dir: str | None = None,
                 "candidate_root": candidate_root,
                 "plan_path": plan_path,
                 "plan_sha256": _optional_file_sha(plan_path),
+                "decisions_sha256": answers["sha256"] if answers else None,
                 "authoring_backend": authoring_backend,
                 "authoring_attestation_sha256": authoring_attestation_sha,
                 "fixer_id": fixer_id}
@@ -348,6 +364,8 @@ def run_workflow(*, report_dir: str | None = None,
                            "candidate_root": candidate_root,
                            "plan_path": plan_path,
                            "plan_sha256": _optional_file_sha(plan_path),
+                           "decisions_sha256": (answers["sha256"]
+                                                if answers else None),
                            "authoring_backend": authoring_backend,
                            "authoring_attestation_sha256": authoring_attestation_sha,
                            "fixer_id": fixer_id},
@@ -358,7 +376,9 @@ def run_workflow(*, report_dir: str | None = None,
     ctx: dict[str, Any] = {"run_root": run_root, "digest": digest,
                            "merged_sha256": None}
     stages: list[dict] = []
-    state: dict[str, Any] = {"adopted": adopted}
+    state: dict[str, Any] = {"adopted": adopted, "answers": answers,
+                             "config": config,
+                             "source_sha256": digest["source_sha256"]}
 
     def record(entry: dict) -> dict:
         stages.append(entry)
@@ -678,7 +698,8 @@ def _runtime_sequence(run_dir: Any, rid: str, stages: list,
         state["plan"] = None
     else:
         triage = propose_candidates(run_root, state["review_id"],
-                                    state["merged"])
+                                    state["merged"],
+                                    source_sha256=state.get("source_sha256"))
         if triage["verdict"] == "blocked":
             record(_stage("propose", "blocked",
                           "; ".join(triage["blocked_reasons"])
@@ -697,7 +718,12 @@ def _runtime_sequence(run_dir: Any, rid: str, stages: list,
                       run_id=triage.get("run_id"),
                       run_dir=triage.get("run_dir"),
                       evidence={"candidates": triage.get("candidates", []),
-                                "decisions": triage.get("decisions", [])}))
+                                "decisions": triage.get("decisions", []),
+                                "source_sha256": triage.get("source_sha256")}))
+    # -- owner decisions (answers to needs_owner_decision questions) ----
+    if not _owner_decisions(state, record, params):
+        return _finish(run_dir, rid, stages, state, mode,
+                       params["scope"], run_root)
     # -- repair (repair mode, needs a plan and a report directory) ------
     # An adopted sealed repair is reused (verify below revalidates it)
     # instead of re-executing against an occupied candidate root.
@@ -730,6 +756,16 @@ def _runtime_sequence(run_dir: Any, rid: str, stages: list,
                               reason=f"unreadable owner plan: {exc}"))
                 return _finish(run_dir, rid, stages, state, mode,
                                params["scope"], run_root)
+        if not isinstance(plan, dict) and _all_failures_waived(
+                state, state.get("review_findings"), state.get("merged")):
+            # Nothing left to edit: the owner waived every failing finding.
+            # Acceptance below is computed on the reviewed original.
+            state["quality_after"] = state.get("review_verdict")
+            record(_stage("repair", "not_run",
+                          reason=("nothing to edit: every failing finding "
+                                  "is waived by a recorded owner decision")))
+            return _finish(run_dir, rid, stages, state, mode,
+                           params["scope"], run_root)
         if not isinstance(plan, dict):
             # Propose ALREADY ran during repair mode. Never tell an AI
             # consumer to re-run it, nor claim an automatic fix occurred.
@@ -813,6 +849,111 @@ def _runtime_sequence(run_dir: Any, rid: str, stages: list,
                                         "affected_pages", [])}))
     return _verify_sequence(run_dir, rid, stages, state, ctx, record,
                             params)
+
+
+def _sealed_review_source(run_root: str, review_id: Any) -> str | None:
+    """The reviewed source digest exactly as the review run sealed it."""
+    if not isinstance(review_id, str):
+        return None
+    try:
+        manifest = json.loads((Path(run_root) / review_id / "manifest.json")
+                              .read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    artifacts = manifest.get("artifacts") if isinstance(manifest, dict) else None
+    source = artifacts.get("source_sha256") if isinstance(artifacts, dict) else None
+    return source if isinstance(source, str) else None
+
+
+def _owner_decisions(state: dict, record: Any, params: dict) -> bool:
+    """Bind owner answers to the current decisions; False means blocked.
+
+    Answers are validated against decisions synthesized from the sealed
+    review of this exact revision (propose output in propose/repair
+    modes). A stale digest, unknown id/option or conflicting edits block
+    the run instead of applying a partial choice. Apply options extend
+    the candidate plan (propose/repair); waivers are recorded for the
+    acceptance decision. Nothing here edits the original report.
+    """
+    from vqs.repair.decisions import resolve
+    from vqs.repair.synthesize import build_plan, synthesize_plan
+
+    answers = state.get("answers")
+    if not answers:
+        record(_stage("owner_decisions", "not_run",
+                      reason="no decision answers supplied"))
+        return True
+    triage = state.get("triage")
+    if isinstance(triage, dict):
+        decisions = triage.get("decisions", [])
+        source = triage.get("source_sha256")
+    else:
+        source = (_sealed_review_source(params["run_root"],
+                                        state.get("review_id"))
+                  or state.get("source_sha256"))
+        decisions = synthesize_plan(
+            state.get("review_findings") or [], state.get("merged"),
+            source_sha256=source)["decisions"]
+    state["decision_source_sha256"] = source
+    resolved = resolve(answers, decisions, source)
+    issues = list(resolved["issues"])
+    operations = resolved["operations"]
+    if operations and params["mode"] != "review" and not issues:
+        plan = state.get("plan")
+        base = list(plan.get("operations", [])) if isinstance(plan, dict) else []
+        claimed = {(op["writes"][0], tuple(op["path"])): op.get("value")
+                   for op in base if isinstance(op, dict)
+                   and isinstance(op.get("writes"), list) and op["writes"]
+                   and isinstance(op.get("path"), list)}
+        extra = []
+        for op in operations:
+            key = (op["writes"][0], tuple(op["path"]))
+            if key in claimed:
+                if claimed[key] != op.get("value"):
+                    issues.append(
+                        "an answered option conflicts with an automatic "
+                        f"candidate at {op['writes'][0]} {list(op['path'])}")
+                continue
+            extra.append(op)
+        if not issues:
+            merged_ops = base + extra
+            pages = sorted({str(op["selector"]["page"]) for op in merged_ops
+                            if isinstance(op.get("selector"), dict)
+                            and isinstance(op["selector"].get("page"), str)})
+            checks = list(plan.get("finding_checks", [])
+                          if isinstance(plan, dict) else [])
+            checks += [str(item["check"]) for item in resolved["answered"]
+                       if item["effect"] == "apply"]
+            state["plan"] = build_plan(
+                merged_ops, pages,
+                source_run_id=state.get("review_id"), source_sha256=source,
+                facts_sha256=(plan.get("facts_sha256")
+                              if isinstance(plan, dict) else None),
+                finding_checks=checks)
+            state["owner_decisions_applied"] = bool(extra)
+    evidence = {"owner": answers["owner"],
+                "answers_sha256": answers["sha256"],
+                "source_sha256": source,
+                "answered": resolved["answered"],
+                "waived_subjects": resolved["waived"],
+                "edits": len(operations),
+                "authority": ("owner decision for a disposable candidate "
+                              "and scoped waivers only; not G2/G4 review "
+                              "or G6 promotion")}
+    if issues:
+        record(_stage("owner_decisions", "blocked",
+                      reason="; ".join(issues[:6]), evidence=evidence))
+        return False
+    state["waived_subjects"] = resolved["waived"]
+    state["answered"] = resolved["answered"]
+    note = ("" if params["mode"] != "review" or not operations
+            else "; edits apply only in propose/repair mode")
+    record(_stage("owner_decisions", "pass",
+                  reason=(f"{len(resolved['answered'])} answer(s): "
+                          f"{len(operations)} edit(s), "
+                          f"{len(resolved['waived'])} waiver(s){note}"),
+                  evidence=evidence))
+    return True
 
 
 def _verify_sequence(run_dir: Any, rid: str, stages: list,
@@ -1200,6 +1341,26 @@ def _reconcile_quality(before: Any, after: Any) -> dict[str, Any]:
             "complete": True}
 
 
+def _failing_checks(findings: Any) -> set[str]:
+    states, _complete = _finding_states(findings)
+    return {check for check, status in states.items() if status == "fail"}
+
+
+def _waived(state: dict, findings: Any, facts: Any) -> list[str]:
+    """Failing checks fully covered by recorded owner waivers."""
+    subjects = state.get("waived_subjects")
+    if not subjects:
+        return []
+    from vqs.repair.decisions import waived_checks
+
+    return waived_checks(findings, facts, subjects)
+
+
+def _all_failures_waived(state: dict, findings: Any, facts: Any) -> bool:
+    failing = _failing_checks(findings)
+    return bool(failing) and failing <= set(_waived(state, findings, facts))
+
+
 def _candidate_status(stages: list) -> dict[str, Any]:
     """Candidate lifecycle from the stage ledger (pure, P0-U5)."""
     by_stage = {entry["stage"]: entry for entry in stages
@@ -1232,7 +1393,8 @@ def _candidate_status(stages: list) -> dict[str, Any]:
             "candidate": evidence.get("candidate")}
 
 
-OUTCOMES = ("accepted", "proposal_ready", "improved_not_accepted",
+OUTCOMES = ("accepted", "accepted_with_waivers", "proposal_ready",
+            "improved_not_accepted",
             "not_accepted", "regressed", "no_safe_fix", "blocked",
             "failed")
 
@@ -1356,11 +1518,13 @@ def _next_actions(verdict: str, rid: str, scope: str,
         triage = summary.get("repair_triage", {})
         if triage.get("status") == "no_safe_candidate":
             return [
-                ("no safe automatic edit was source-proven; inspect "
-                 "summary.repair_triage.decisions and collect the specific "
-                 "missing render/semantic evidence before a new attempt"),
-                ("use an owner-authorized, source-bound plan only for an "
-                 "unambiguous edit; never retry propose with unchanged facts"),
+                ("no safe automatic edit was source-proven; each entry in "
+                 "summary.repair_triage.decisions is an answerable question "
+                 "with concrete options"),
+                (f"run `vqs decisions template --run-id {rid}` (same "
+                 "--run-root), let the owner pick one option per question, "
+                 "then re-run with --decisions <answers.json>; never retry "
+                 "propose with unchanged facts"),
                 "no original report or model was modified or promoted",
             ]
         return [(f"resolve blocked stage(s): "
@@ -1395,6 +1559,23 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
         after_findings = state.get("review_findings")
     reconcile = _reconcile_quality(state.get("review_findings"),
                                    after_findings)
+    after_facts = state.get("merged")
+    if state.get("waived_subjects") and state.get("remeasure_findings") is not None \
+            and state.get("candidate"):
+        try:
+            from vqs.pipeline import merge_review_facts
+            from vqs.powerbi.measure import measure_report
+
+            after_facts = merge_review_facts(
+                measure_report(str(state["candidate"])),
+                state.get("config") or {})
+        except (OSError, ValueError, TypeError, KeyError):
+            after_facts = None
+    waived = _waived(state, after_findings, after_facts)
+    failing_after = _failing_checks(after_findings)
+    waivers_cover = bool(failing_after) and failing_after <= set(waived)
+    reconcile["remaining"] = [check for check in reconcile["remaining"]
+                              if check not in waived]
     candidate_state = _candidate_status(stages)
     propose_entry = next((entry for entry in stages
                           if isinstance(entry, dict)
@@ -1442,9 +1623,19 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
                                     | set(reviewer_fails))
     reviewer_authority = _reviewer_authority(
         scope, handoff_evidence, visual_acceptance)
+    # Owner waivers lift a "fail" only when every failing check is fully
+    # waived; blocked/unknown evidence is never waivable.
+    review_effective = state.get("review_verdict")
+    quality_effective = state.get("quality_after")
+    if waivers_cover:
+        if quality_effective == "fail":
+            quality_effective = "pass"
+        if review_effective == "fail" and after_findings is state.get(
+                "review_findings"):
+            review_effective = "pass"
     acceptance = _acceptance(
-        mode, review_verdict=state.get("review_verdict"),
-        quality_after=state.get("quality_after"),
+        mode, review_verdict=review_effective,
+        quality_after=quality_effective,
         candidates=candidate_count, regression_failed=regression_failed,
         visual=visual_acceptance["status"],
         runtime=scope in RUNTIME_SCOPES, scope=scope,
@@ -1466,14 +1657,21 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
             "status": ("no_safe_candidate" if state.get("no_safe_fix")
                        else "owner_plan_supplied"
                        if state.get("owner_plan_supplied")
+                       else "owner_decisions_applied"
+                       if state.get("owner_decisions_applied")
                        else "candidates_available" if candidate_count
                        else "not_requested"),
             "decisions": [
-                {k: value for k, value in item.items()
-                 if k in ("check", "status", "reason", "page", "visual")}
+                public_view(item)
                 for item in (propose_evidence.get("decisions", [])
                              if isinstance(propose_evidence, dict) else [])
                 if isinstance(item, dict)],
+            # Ids in "decisions" bind to this reviewed revision. Answer
+            # them with `vqs decisions template` + `--decisions FILE`.
+            "decision_source_sha256": (
+                state.get("decision_source_sha256")
+                or (propose_evidence.get("source_sha256")
+                    if isinstance(propose_evidence, dict) else None)),
             "requires_proven_fix_or_owner_plan": bool(state.get("no_safe_fix")),
             "promotion_performed": False,
         },
@@ -1492,6 +1690,15 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
                                         "run_dir": entry.get("run_dir")}
                        for entry in stages if entry.get("run_id")},
         "candidate": state.get("candidate"),
+        "waived_findings": waived,
+        "owner_decisions": ({
+            "owner": state["answers"]["owner"],
+            "answers_sha256": state["answers"]["sha256"],
+            "answered": state.get("answered", []),
+            "waived_subjects": state.get("waived_subjects", []),
+            "authority": ("owner decision for a disposable candidate and "
+                          "scoped waivers; not G2/G4 review or G6 "
+                          "promotion")} if state.get("answers") else None),
         "acceptance": acceptance,
         "note": ("stages describe execution; outcome and acceptance "
                  "describe report quality. Envelope pass requires the "
@@ -1511,7 +1718,9 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
         mode=mode, execution=execution, acceptance=acceptance,
         resolved=reconcile["resolved"], new=reconcile["new"],
         candidates=candidate_count,
-        review_verdict=state.get("review_verdict"))
+        review_verdict=review_effective)
+    if outcome == "accepted" and waivers_cover:
+        outcome = "accepted_with_waivers"
     summary["outcome"] = outcome
     verdict = "pass" if (execution == "pass" and acceptance) else execution
     if execution == "pass" and not acceptance:

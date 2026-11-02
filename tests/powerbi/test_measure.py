@@ -33,13 +33,21 @@ def test_palette_omitted_without_declared_series_colors() -> None:
 
 def test_cohorts_carry_declared_values_and_default_nulls() -> None:
     rules = measure_report(REPORT)["rules"]
+    # Explicit members carry their exact PBIR address and raw literal;
+    # inheriting members carry the unscoped properties entry an owner
+    # decision may extend. Both feed answerable decision options.
     assert rules["typography.format_declaration_consistency"] == {"readings": [
         {"cohort": "card/labels.fontSize", "page": "P1", "value": 24,
-         "visual": "cardx"},
+         "visual": "cardx", "declarations": [
+             {"path": ["visual", "objects", "labels", 0, "properties",
+                       "fontSize"], "raw": "24D"}]},
         {"cohort": "slicer/header.textSize", "page": "P1", "value": None,
-         "visual": "slicera"},
+         "visual": "slicera", "declare_path": [
+             "visual", "objects", "header", 0, "properties", "textSize"]},
         {"cohort": "slicer/header.textSize", "page": "P1", "value": 11,
-         "visual": "slicerb"}]}
+         "visual": "slicerb", "declarations": [
+             {"path": ["visual", "objects", "header", 0, "properties",
+                       "textSize"], "raw": "11D"}]}]}
 
 
 def test_container_title_typography_detects_mixed_default_declarations(
@@ -75,8 +83,17 @@ def test_container_title_typography_detects_mixed_default_declarations(
     facts = measure_report(str(clone))
     readings = facts["rules"]["typography.format_declaration_consistency"][
         "readings"]
-    cohort = [item for item in readings if item["cohort"] ==
-              "card/vco.title.fontSize"]
+    cohort = [{key: item[key] for key in ("cohort", "page", "value", "visual")}
+              for item in readings
+              if item["cohort"] == "card/vco.title.fontSize"]
+    addresses = {item["visual"]: item.get("declarations", item.get("declare_path"))
+                 for item in readings
+                 if item["cohort"] == "card/vco.title.fontSize"}
+    assert addresses == {
+        "cardx": [{"path": ["visual", "visualContainerObjects", "title", 0,
+                            "properties", "fontSize"], "raw": "14D"}],
+        "cardy": ["visual", "visualContainerObjects", "title", 0,
+                  "properties", "fontSize"]}
     assert cohort == [
         {"cohort": "card/vco.title.fontSize", "page": "P1", "value": 14,
          "visual": "cardx"},
@@ -161,7 +178,9 @@ def test_nulls_only_cover_visuals_declaring_the_owner() -> None:
     # slicera declares header (without textSize) -> proven null.
     # slicerc is a slicer without any header object -> no reading at all.
     assert {"cohort": "slicer/header.textSize", "page": "P1", "value": None,
-            "visual": "slicera"} in readings
+            "visual": "slicera", "declare_path": [
+                "visual", "objects", "header", 0, "properties",
+                "textSize"]} in readings
     assert [r for r in readings if r["visual"] == "slicerc"] == []
 
 

@@ -965,7 +965,8 @@ def run_status_report(run_root: str, run_id: str) -> dict[str, Any]:
 
 
 def propose_candidates(run_root: str, run_id: str,
-                       facts: dict[str, Any] | None = None
+                       facts: dict[str, Any] | None = None, *,
+                       source_sha256: str | None = None
                        ) -> dict[str, Any]:
     """Triage a sealed review run into plan-eligible work items.
 
@@ -1040,6 +1041,10 @@ def propose_candidates(run_root: str, run_id: str,
     from vqs.repair.synthesize import synthesize_plan
 
     source_sha = artifacts.get("source_sha256")
+    if not isinstance(source_sha, str) and _is_hex64(source_sha256):
+        # A facts-only review seals no source digest; the caller's
+        # measured report digest then binds decision ids instead.
+        source_sha = source_sha256
     result = synthesize_plan(
         findings, facts, source_run_id=run_id,
         source_sha256=source_sha if isinstance(source_sha, str) else None,
@@ -1073,7 +1078,10 @@ def propose_candidates(run_root: str, run_id: str,
                      extra={"work_items": items,
                             "candidates": result["candidates"],
                             "decisions": result["decisions"],
-                            "plan": plan})
+                            "plan": plan,
+                            # Decision ids bind to this reviewed revision.
+                            "source_sha256": (source_sha if isinstance(
+                                source_sha, str) else None)})
 
 
 def _repair_bindings(plan_sha: str) -> dict[str, Any]:

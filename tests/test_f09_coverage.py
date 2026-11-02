@@ -9,6 +9,8 @@ caller claim alone.
 import json
 from pathlib import Path
 
+import pytest
+
 from vqs.pipeline import inspect_report, review_report
 from vqs.powerbi.insights import page_insights
 from vqs.powerbi.measure import measure_report
@@ -75,6 +77,81 @@ def test_f09_unresolved_model_reference_blocks(tmp_path: Path) -> None:
     assert envelope["verdict"] == "blocked"
     assert any("model_reference_unresolved" in reason
                for reason in envelope["blocked_reasons"])
+
+
+@pytest.mark.parametrize("payload", ["[]", '"x"', "7", "null",
+                                     '{"datasetReference": "x"}',
+                                     '{"datasetReference": {"byPath": []}}'])
+def test_f09_wrong_shape_pbir_blocks_without_crash(tmp_path: Path,
+                                                   payload: str) -> None:
+    report = _report(tmp_path)
+    (report / "definition.pbir").write_text(payload, encoding="utf-8")
+    envelope = inspect_report(str(report))
+    assert envelope["verdict"] == "blocked"
+    assert any("model_reference_unresolved" in reason
+               for reason in envelope["blocked_reasons"])
+
+
+def test_f09_wrong_shape_pbir_refuses_repair_claim(tmp_path: Path) -> None:
+    from vqs.repair.execute import RepairError, bypath_claim
+
+    report = _report(tmp_path)
+    (report / "definition.pbir").write_text("[]", encoding="utf-8")
+    with pytest.raises(RepairError, match="not a JSON object"):
+        bypath_claim(report)
+
+
+def _set_visual(report: Path, node: dict) -> None:
+    (report / "definition/pages/P1/visuals/cardx/visual.json").write_text(
+        json.dumps({"name": "cardx",
+                    "position": {"x": 1, "y": 2, "width": 3, "height": 4},
+                    "visual": node}), encoding="utf-8")
+
+
+@pytest.mark.parametrize("node", [
+    {"visualType": []},
+    {"visualType": "card", "query": 7},
+    {"visualType": "card", "query": {"queryState": "x"}},
+    {"visualType": "card", "objects": [1]},
+    {"visualType": "card", "visualContainerObjects": 7},
+    {"visualType": "card", "query": None},
+    {"visualType": "card", "query": {"queryState": None}},
+    {"visualType": "card", "objects": None},
+])
+def test_f09_wrong_typed_visual_container_is_unreadable(tmp_path: Path,
+                                                        node: dict) -> None:
+    """Valid JSON with crash-shaped containers blocks like invalid JSON."""
+    from vqs.pbir import report_context
+
+    report = _report(tmp_path)
+    _set_visual(report, node)
+    facts = measure_report(str(report))
+    rules = [(issue["rule"], issue.get("visual"))
+             for issue in facts["coverage"]["issues"]]
+    assert ("visual_doc_unreadable", "cardx") in rules
+    assert review_report(facts=facts)["verdict"] == "blocked"
+    with pytest.raises(ValueError, match="visual_doc_unreadable"):
+        report_context(report)
+
+
+@pytest.mark.parametrize("state", [
+    {"Values": ["not-a-dict"]},
+    {"Values": {"projections": 3}},
+    {"Values": {"projections": ["x"]}},
+])
+def test_f09_malformed_roles_keep_visual_but_block(tmp_path: Path,
+                                                   state: dict) -> None:
+    from vqs.pbir import report_context
+
+    report = _report(tmp_path)
+    _set_visual(report, {"visualType": "card", "query": {"queryState": state}})
+    facts = measure_report(str(report))
+    rules = [(issue["rule"], issue.get("visual"))
+             for issue in facts["coverage"]["issues"]]
+    assert ("visual_metadata_incomplete", "cardx") in rules
+    assert review_report(facts=facts)["verdict"] == "blocked"
+    with pytest.raises(ValueError, match="visual_metadata_incomplete"):
+        report_context(report)
 
 
 def test_f09_model_resolves_from_report_reference(tmp_path: Path) -> None:

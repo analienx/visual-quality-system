@@ -37,6 +37,15 @@ def test_concurrent_artifact_claim_refused_and_released(tmp_path: Path) -> None:
     assert run_store.claim_artifact(locks, "PowerBI-pid-1", "agent-b") is True
 
 
+def test_corrupt_lock_release_refuses_instead_of_crashing(tmp_path: Path) -> None:
+    locks = tmp_path / "locks"
+    locks.mkdir()
+    for body in (b"", b"{half", b"[]", b"\xff\xfe"):
+        (locks / "PowerBI-pid-2.lock").write_bytes(body)
+        assert run_store.release_artifact(locks, "PowerBI-pid-2", "agent-a") is False
+        assert (locks / "PowerBI-pid-2.lock").exists()
+
+
 def test_seal_pins_status_artifacts_and_count(tmp_path: Path) -> None:
     run_dir = run_store.create_run(tmp_path, "run-9", {"spike": "WP-04"})
     run_store.append_event(run_dir, {"kind": "started"})

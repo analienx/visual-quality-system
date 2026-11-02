@@ -391,7 +391,8 @@ def _parse_effective_scale(value: object) -> Fraction | None:
         if isinstance(value, bool):
             return None
         ratio = Fraction(value) if not isinstance(value, Fraction) else value
-    except (ValueError, ZeroDivisionError, TypeError):
+    except (ValueError, ZeroDivisionError, TypeError, OverflowError):
+        # OverflowError: JSON ``Infinity`` parses to float('inf').
         return None
     if ratio <= 0:
         return None

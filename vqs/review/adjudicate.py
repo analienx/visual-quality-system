@@ -1,4 +1,4 @@
-﻿"""Review-bundle adjudication (WP-07 static half, issue #12).
+"""Review-bundle adjudication (WP-07 static half, issue #12).
 
 Decides a structured review bundle without looking at pixels: reviewer
 separation (CORE-06), image-capability presence (DES-10), capture calibration

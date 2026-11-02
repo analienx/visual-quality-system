@@ -242,21 +242,30 @@ def find_cycles(edges: dict[str, set[str]]) -> list[list[str]]:
     stack: list[str] = []
     cycles: list[list[str]] = []
 
-    def visit(node: str) -> None:
-        visiting.add(node)
-        stack.append(node)
-        for dep in sorted(edges.get(node, ())):
-            if dep in visiting:
-                cycles.append(stack[stack.index(dep):] + [dep])
-            elif dep not in done:
-                visit(dep)
-        stack.pop()
-        visiting.discard(node)
-        done.add(node)
-
-    for node in sorted(edges):
-        if node not in done:
-            visit(node)
+    # Iterative DFS with the exact visiting order of the former recursive
+    # version: a legitimately long measure chain (>~1000 deep) must be
+    # analyzed, not blocked by Python's recursion limit.
+    for root in sorted(edges):
+        if root in done:
+            continue
+        frames = [(root, iter(sorted(edges.get(root, ()))))]
+        visiting.add(root)
+        stack.append(root)
+        while frames:
+            node, deps = frames[-1]
+            for dep in deps:
+                if dep in visiting:
+                    cycles.append(stack[stack.index(dep):] + [dep])
+                elif dep not in done:
+                    visiting.add(dep)
+                    stack.append(dep)
+                    frames.append((dep, iter(sorted(edges.get(dep, ())))))
+                    break
+            else:
+                frames.pop()
+                stack.pop()
+                visiting.discard(node)
+                done.add(node)
     seen: set[frozenset[str]] = set()
     unique = []
     for cycle in cycles:

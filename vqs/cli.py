@@ -490,6 +490,107 @@ def _run_status(run_root: Path, run_id: str) -> int:
     return _verdict_exit(run_status_report(str(run_root), run_id))
 
 
+def _gate(args) -> int:
+    """Pull-request gate: fail only on findings the change introduces."""
+    from vqs import gate
+
+    config, issues = _tool_config(args.config)
+    if issues:
+        print(json.dumps({"tool": "vqs.gate", "verdict": "blocked",
+                          "reason": "; ".join(issues)}))
+        return 2
+    decisions = None
+    if args.decisions is not None:
+        try:
+            decisions = json.loads(args.decisions.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as exc:
+            print(json.dumps({"tool": "vqs.gate", "verdict": "blocked",
+                              "reason": f"unreadable decision answers: {exc}"}))
+            return 2
+    result = gate.run(str(args.report), baseline=args.baseline,
+                      model=str(args.model) if args.model else None,
+                      decisions=decisions, config=config)
+    root = args.sarif_root or Path.cwd()
+    try:
+        if args.emit_baseline is not None and result["verdict"] != "blocked":
+            items = result["new"] + result["unchanged"] + result["waived"]
+            args.emit_baseline.write_text(json.dumps({
+                "schema": gate.BASELINE_SCHEMA, "report": result["report"],
+                "items": sorted(({"subject": i["subject"], "check": i["check"],
+                                  "status": i["status"]} for i in items),
+                                key=lambda i: i["subject"])},
+                indent=2) + "\n", encoding="utf-8")
+        if args.sarif is not None and result["verdict"] != "blocked":
+            args.sarif.write_text(json.dumps(gate.sarif(result, root), indent=2)
+                                  + "\n", encoding="utf-8")
+        if args.out is not None:
+            args.out.write_text(json.dumps(result, indent=2, ensure_ascii=False)
+                                + "\n", encoding="utf-8")
+    except OSError as exc:
+        print(json.dumps({"tool": "vqs.gate", "verdict": "blocked",
+                          "reason": f"{type(exc).__name__}: {exc}"}))
+        return 2
+    if args.github and result["verdict"] != "blocked":
+        for line in gate.github_annotations(result, root):
+            print(line)
+    compact = {key: result.get(key) for key in
+               ("tool", "verdict", "reason", "report", "baseline",
+                "head_verdict", "counts", "unmatched_waivers", "note")
+               if key in result}
+    compact["new"] = [{"check": i["check"], "subject": i["subject"],
+                       "message": i["message"]} for i in result.get("new", [])][:50]
+    compact["fixed"] = result.get("fixed", [])[:50]
+    print(json.dumps(compact, indent=2, ensure_ascii=False))
+    return {"pass": 0, "fail": 1}.get(result["verdict"], 2)
+
+
+def _decisions_template(args) -> int:
+    """Answers skeleton for a sealed coordinator run's owner decisions."""
+    from vqs.repair.decisions import template
+    from vqs.run_store import _validate_name, verify_seal
+
+    try:
+        _validate_name(args.run_id, "run_id")
+        run_dir = args.run_root / args.run_id
+        problems = verify_seal(run_dir)
+        if problems:
+            raise ValueError(f"run seal invalid: {problems[0].get('rule')}")
+        stages = json.loads((run_dir / "stages.json").read_text(encoding="utf-8"))
+        propose = next(entry for entry in stages
+                       if isinstance(entry, dict) and entry.get("stage") == "propose")
+        evidence = propose.get("evidence") or {}
+        decisions = evidence.get("decisions") or []
+        source = evidence.get("source_sha256")
+        if not isinstance(source, str):
+            raise TypeError("run predates answerable decisions; re-run vqs fix")
+    except StopIteration:
+        print(json.dumps({"status": "blocked",
+                          "reason": "run has no propose stage (use --mode repair or propose)"}))
+        return 2
+    except (OSError, ValueError, TypeError, AttributeError) as exc:
+        print(json.dumps({"status": "blocked", "reason": f"{type(exc).__name__}: {exc}"}))
+        return 2
+    skeleton = template(decisions, source)
+    if not skeleton["answers"]:
+        print(json.dumps({"status": "pass", "reason": "no open owner decisions",
+                          "answers": []}))
+        return 0
+    text = json.dumps(skeleton, indent=2, ensure_ascii=False) + "\n"
+    if args.out is not None:
+        if args.out.exists():
+            print(json.dumps({"status": "blocked",
+                              "reason": f"refusing to overwrite {args.out}"}))
+            return 2
+        args.out.write_text(text, encoding="utf-8")
+        print(json.dumps({"status": "pass", "questions": len(skeleton["answers"]),
+                          "out": str(args.out),
+                          "next": "fill owner + one option per question, then "
+                                  "re-run with --decisions"}))
+        return 0
+    print(text, end="")
+    return 0
+
+
 def _run(args) -> int:
     """Run the orchestrated Power BI workflow; same engine as vqs_run."""
     from vqs.coordinator import run_workflow
@@ -508,6 +609,13 @@ def _run(args) -> int:
         if not isinstance(facts, dict):
             return _verdict_exit(blocked_envelope(
                 "vqs.run", ["facts file is not an object"]))
+    decisions = None
+    if getattr(args, "decisions", None) is not None:
+        try:
+            decisions = json.loads(args.decisions.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as exc:
+            return _verdict_exit(blocked_envelope(
+                "vqs.run", [f"unreadable decision answers: {exc}"]))
     from .agent_summary import summarize
     from .source_paths import resolve_project_input
 
@@ -531,7 +639,8 @@ def _run(args) -> int:
         plan_path=str(args.plan) if args.plan is not None else None,
         fixer_id=args.fixer_id, pid=args.pid,
         authoring_backend=args.authoring_backend,
-        live_answers=args.live_answers, reviewer=args.reviewer)
+        live_answers=args.live_answers, reviewer=args.reviewer,
+        decisions=decisions)
     if args.report_out is not None:
         try:
             args.report_out.write_text(
@@ -1190,6 +1299,9 @@ def main(argv: list[str] | None = None) -> int:
                          help="Baseline renders dir (else a run-owned dir)")
     run_cmd.add_argument("--plan", type=Path, default=None,
                          help="Owner-authored plan (else the synthesized one)")
+    run_cmd.add_argument("--decisions", type=Path, default=None,
+                         help="Owner answers (vqs.decision-answers/1) to the "
+                              "run's needs_owner_decision questions")
     run_cmd.add_argument("--fixer-id", default="vqs-run",
                          help="Fixer identity sealed into review handoffs")
     run_cmd.add_argument("--pid", type=int, default=None,
@@ -1220,6 +1332,39 @@ def main(argv: list[str] | None = None) -> int:
     fix_cmd.add_argument("--run-id", default=None)
     fix_cmd.add_argument("--candidate-root", type=Path, default=None)
     fix_cmd.add_argument("--plan", type=Path, default=None)
+    fix_cmd.add_argument("--decisions", type=Path, default=None,
+                         help="Owner answers from `vqs decisions template`")
+    gate_cmd = commands.add_parser(
+        "gate", help="PR gate: fail only on findings a change introduces (SARIF/GitHub)")
+    gate_cmd.add_argument("report", type=Path, help="Head .pbip, project root or *.Report")
+    gate_cmd.add_argument("--baseline", type=Path, default=None,
+                          help="Base revision (.pbip/*.Report) or vqs.gate-baseline/1 JSON; "
+                               "without it every current finding is new")
+    gate_cmd.add_argument("--model", type=Path, default=None)
+    gate_cmd.add_argument("--config", type=Path, default=None)
+    gate_cmd.add_argument("--decisions", type=Path, default=None,
+                          help="Owner answers; 'accept' waivers excuse their subjects")
+    gate_cmd.add_argument("--sarif", type=Path, default=None,
+                          help="Write SARIF 2.1.0 (GitHub code scanning)")
+    gate_cmd.add_argument("--sarif-root", type=Path, default=None,
+                          help="Repository root for SARIF/annotation paths (default: cwd)")
+    gate_cmd.add_argument("--github", action="store_true",
+                          help="Print ::error workflow annotations for new findings")
+    gate_cmd.add_argument("--emit-baseline", type=Path, default=None,
+                          help="Write the head findings as a reusable baseline JSON")
+    gate_cmd.add_argument("--out", type=Path, default=None,
+                          help="Write the full gate result JSON")
+    decisions_cmd = commands.add_parser(
+        "decisions", help="Answer owner decisions from a sealed fix/run")
+    decisions_sub = decisions_cmd.add_subparsers(dest="decisions_action",
+                                                 required=True)
+    template_cmd = decisions_sub.add_parser(
+        "template", help="Write an answers skeleton for a run's open questions")
+    template_cmd.add_argument("--run-id", required=True)
+    template_cmd.add_argument("--run-root", type=Path, default=_private_run_root(),
+                              help="Same run root the fix/run used")
+    template_cmd.add_argument("--out", type=Path, default=None,
+                              help="Write here (refuses to overwrite) instead of stdout")
     fix_cmd.add_argument("--authoring-backend",
                          choices=("auto", "microsoft", "direct"), default="auto")
     fix_cmd.add_argument("--report-out", type=Path, default=None)
@@ -1290,6 +1435,10 @@ def main(argv: list[str] | None = None) -> int:
         args.live_answers = False
         args.reviewer = None
         return _run(args)
+    if args.command == "decisions":
+        return _decisions_template(args)
+    if args.command == "gate":
+        return _gate(args)
     if args.command == "mcp":
         return _mcp()
     try:

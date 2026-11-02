@@ -153,14 +153,160 @@ def _geometry_index(facts: Any) -> tuple[dict, dict, str | None]:
 
 def _decision(check: str, status: str, reason: str,
               page: str | None = None,
-              visual: str | None = None) -> dict:
+              visual: str | None = None, **extra: Any) -> dict:
     record: dict[str, Any] = {"check": check, "status": status,
                               "reason": reason}
     if page is not None:
         record["page"] = page
     if visual is not None:
         record["visual"] = visual
+    for key, value in extra.items():
+        if value is not None:
+            record[key] = value
     return record
+
+
+_TYPOGRAPHY_CHECK = "typography.format_declaration_consistency"
+
+
+def _size_number(raw: Any) -> float | None:
+    """Numeric value of a PBIR size literal ("12D", "10.5D", 12)."""
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, (int, float)):
+        return float(raw) if math.isfinite(raw) else None
+    if isinstance(raw, str):
+        match = re.fullmatch(r"'?(\d{1,3}(?:\.\d+)?)D?'?", raw.strip())
+        if match:
+            return float(match.group(1))
+    return None
+
+
+def _typography_options(cohort: str, facts: Any) -> list[dict] | None:
+    """Owner-choosable "use size N for the whole cohort" options.
+
+    Each option is a complete set of precondition-bound ops: explicit
+    members whose size differs get ``format.set_explicit``; members that
+    inherit get ``format.declare_explicit`` on their measured, unscoped
+    properties entry. When any member is not exactly addressable no
+    edit option is offered (only the waiver), because a partial edit
+    would leave the cohort inconsistent.
+    """
+    rules = facts.get("rules") if isinstance(facts, dict) else None
+    entry = rules.get(_TYPOGRAPHY_CHECK) if isinstance(rules, dict) else None
+    readings = entry.get("readings") if isinstance(entry, dict) else None
+    if not isinstance(readings, list):
+        return None
+    members = [item for item in readings
+               if isinstance(item, dict) and item.get("cohort") == cohort]
+    if not members:
+        return None
+    explicit: list[tuple[str, str, dict]] = []
+    inherited: list[tuple[str, str, list]] = []
+    for item in members:
+        page, visual = item.get("page"), item.get("visual")
+        if not (_safe_segment(page) and _safe_segment(visual)):
+            return None
+        if item.get("value") is None:
+            target = item.get("declare_path")
+            if not isinstance(target, list):
+                return None
+            try:
+                validate_format_path("format.declare_explicit", target)
+            except RecipeError:
+                return None
+            inherited.append((page, visual, list(target)))
+            continue
+        declarations = item.get("declarations")
+        if not isinstance(declarations, list) or not declarations:
+            return None
+        for declaration in declarations:
+            if not (isinstance(declaration, dict)
+                    and isinstance(declaration.get("raw"), str)
+                    and _size_number(declaration["raw"]) is not None):
+                return None
+            try:
+                validate_format_path("format.set_explicit",
+                                     declaration.get("path"))
+            except RecipeError:
+                return None
+            explicit.append((page, visual, declaration))
+    if not explicit:
+        return None
+    choices: dict[float, str] = {}
+    for _page, _visual, declaration in explicit:
+        number = _size_number(declaration["raw"])
+        assert number is not None
+        choices.setdefault(number, declaration["raw"])
+    options = []
+    for number in sorted(choices):
+        raw = choices[number]
+        ops = []
+        for page, visual, declaration in explicit:
+            if _size_number(declaration["raw"]) == number:
+                continue
+            rel = _visual_rel(page, visual)
+            ops.append({"type": "format.set_explicit",
+                        "selector": {"page": page, "visual": visual},
+                        "target": "visual", "path": list(declaration["path"]),
+                        "old": declaration["raw"], "value": raw,
+                        "effective": raw, "proof": "", "writes": [rel]})
+        for page, visual, target in inherited:
+            rel = _visual_rel(page, visual)
+            ops.append({"type": "format.declare_explicit",
+                        "selector": {"page": page, "visual": visual},
+                        "target": "visual", "path": target, "old": None,
+                        "value": raw, "effective": raw, "proof": "",
+                        "writes": [rel]})
+        if not ops:
+            continue
+        shown = f"{number:g}"
+        options.append({
+            "id": f"size:{raw}",
+            "label": (f"Use {shown} for all {len(members)} visuals in "
+                      f"{cohort} ({len(ops)} edit(s) in the candidate)"),
+            "operations": ops})
+    return options or None
+
+
+def _move_options(page: str, pair: list[str], tracked: dict,
+                  canvas: tuple | None) -> list[dict] | None:
+    """Owner-choosable single-axis moves that clear an overlap.
+
+    Either visual may move flush to one side of the other; each option
+    is verified in-canvas and overlap-free against every measured page
+    neighbor, exactly like the automatic nudge.
+    """
+    if canvas is None or len(pair) != 2:
+        return None
+    options = []
+    for mover_id, other_id in ((pair[1], pair[0]), (pair[0], pair[1])):
+        mover = tracked.get((page, mover_id))
+        other = tracked.get((page, other_id))
+        rel = _visual_rel(page, mover_id)
+        if mover is None or other is None or rel is None:
+            continue
+        spots = (("x", other["x"] + other["width"], "right of"),
+                 ("x", other["x"] - mover["width"], "left of"),
+                 ("y", other["y"] + other["height"], "below"),
+                 ("y", other["y"] - mover["height"], "above"))
+        for axis, value, where in spots:
+            new = _as_int(mover[axis], value)
+            placed = dict(mover)
+            placed[axis] = new
+            if not _clear_of(placed, page, tracked, (page, mover_id), canvas):
+                continue
+            options.append((abs(new - mover[axis]), {
+                "id": f"move:{mover_id}:{axis}:{new}",
+                "label": (f"Move {mover_id} {where} {other_id} "
+                          f"({axis} {mover[axis]} -> {new})"),
+                "operations": [{
+                    "type": "spacing.adjust",
+                    "selector": {"page": page, "visual": mover_id},
+                    "target": "visual", "path": ["position", axis],
+                    "old": mover[axis], "value": new, "writes": [rel]}]}))
+    options.sort(key=lambda item: (item[0], item[1]["id"]))
+    return [option for _distance, option in options[:4]] or None
 
 
 def _candidate(check: str, page: str, visual: str, op: dict, old: Any,
@@ -238,7 +384,10 @@ def _plan_overlap_conflict(check: str, conflict: dict, canvases: dict,
         return [], [_decision(check, "needs_owner_decision",
                               "large ambiguous overlap: covers more than "
                               "half of the moved visual; the owner chooses "
-                              "which visual moves", page, second)]
+                              "which visual moves", page, second,
+                              pair=[first, second],
+                              _options=_move_options(page, [first, second],
+                                                     tracked, canvas))]
     mover_key = (page, second)
     attempts = sorted((("x", dims["width"]), ("y", dims["height"])),
                       key=lambda item: (item[1], item[0]))
@@ -281,7 +430,10 @@ def _plan_overlap_conflict(check: str, conflict: dict, canvases: dict,
                 "measured page neighbor")], []
     return [], [_decision(check, "needs_owner_decision",
                           "no free slot: neither single-axis shift stays "
-                          "in-canvas and overlap-free", page, second)]
+                          "in-canvas and overlap-free", page, second,
+                          pair=[first, second],
+                          _options=_move_options(page, [first, second],
+                                                 tracked, canvas))]
 
 
 def _plan_within_conflict(check: str, conflict: dict, tracked: dict,
@@ -605,10 +757,12 @@ def _plan_format_binding(check: str, binding: Any, all_pages: list[str]
     op_type = binding.get("op")
     page, visual = binding.get("page"), binding.get("visual")
     path = binding.get("path")
-    if op_type not in FORMAT_OPS:
+    if op_type not in FORMAT_OPS or op_type == "format.declare_explicit":
         return [], [_decision(check, "unsupported",
                               f"unsupported: leaf op {op_type!r} is not a "
-                              "supported cosmetic recipe")]
+                              "supported cosmetic recipe for proven "
+                              "bindings (declarations need an owner "
+                              "decision)")]
     if not (_safe_segment(page) and _safe_segment(visual)):
         return [], [_decision(check, "needs_owner_decision",
                               "missing source binding: unsafe page/visual "
@@ -698,8 +852,42 @@ def synthesize_plan(findings: Any, facts: Any, *,
 
     Only ``fail``/``blocked`` findings are considered; anything that
     cannot be bound exactly becomes ``needs_owner_decision`` or
-    ``unsupported``. Never raises on bad input.
+    ``unsupported``. Every owner decision is annotated with a stable
+    ``decision_id`` and answerable ``options`` (see
+    :mod:`vqs.repair.decisions`). Never raises on bad input.
     """
+    from .decisions import annotate
+
+    result = _synthesize(findings, facts, source_run_id=source_run_id,
+                         source_sha256=source_sha256,
+                         facts_sha256=facts_sha256)
+    result["decisions"] = annotate(result["decisions"], source_sha256)
+    return result
+
+
+def build_plan(operations: list[dict], all_pages: list[str], *,
+               source_run_id: str | None, source_sha256: str | None,
+               facts_sha256: str | None,
+               finding_checks: list[str]) -> dict[str, Any]:
+    """A plan document for already-bound operations (owner answers)."""
+    targets = sorted({target for op in operations
+                      for target in op.get("writes", [])})
+    pages = sorted({page for op in operations
+                    for page in affected_pages(op, all_pages)["pages"]})
+    return {"schema_version": PLAN_SCHEMA_VERSION,
+            "source_run_id": source_run_id,
+            "source_sha256": source_sha256,
+            "facts_sha256": facts_sha256,
+            "operations": [dict(op) for op in operations],
+            "write_targets": targets, "rollback": _ROLLBACK_RECIPE,
+            "affected_pages": pages,
+            "finding_checks": sorted(set(finding_checks))}
+
+
+def _synthesize(findings: Any, facts: Any, *,
+                source_run_id: str | None = None,
+                source_sha256: str | None = None,
+                facts_sha256: str | None = None) -> dict[str, Any]:
     candidates: list[dict] = []
     decisions: list[dict] = []
     if not isinstance(findings, list):
@@ -723,14 +911,17 @@ def synthesize_plan(findings: Any, facts: Any, *,
             continue
         check = item.get("check", "?")
         status = item.get("status")
-        if status == "unknown" and _unknown_render_evidence(item):
+        if (status == "unknown" and _unknown_render_evidence(item)
+                and check != _TYPOGRAPHY_CHECK):
             decisions.append(_decision(
                 check if isinstance(check, str) else "?",
                 "needs_owner_decision",
                 "needs_owner_decision: unknown inherited default; "
                 "effective values need render evidence, never guesses"))
             continue
-        if status not in ("fail", "blocked"):
+        if status not in ("fail", "blocked") and not (
+                status == "unknown" and check == _TYPOGRAPHY_CHECK
+                and _unknown_render_evidence(item)):
             continue
         if not isinstance(check, str):
             decisions.append(_decision("?", "unsupported",
@@ -757,7 +948,9 @@ def synthesize_plan(findings: Any, facts: Any, *,
                             check, "needs_owner_decision", geometry_issue,
                             str(conflict.get("page"))
                             if isinstance(conflict.get("page"), str)
-                            else None, second))
+                            else None, second,
+                            pair=(sorted(pair) if second is not None
+                                  else None)))
                     continue
                 for conflict in conflicts:
                     made, held = _plan_overlap_conflict(
@@ -814,7 +1007,8 @@ def synthesize_plan(findings: Any, facts: Any, *,
                         + ", ".join(str(name) for name in names[:2])
                         + "; may be deliberate overview/detail; "
                           "no source-proven choice of which to remove, "
-                          "rebind or retain"))
+                          "rebind or retain",
+                        pair=[str(name) for name in names[:2]] or None))
             elif check == "typography.format_declaration_consistency":
                 detail = item.get("detail")
                 evidence = (detail.get("evidence")
@@ -831,21 +1025,31 @@ def synthesize_plan(findings: Any, facts: Any, *,
                 if isinstance(conflicts, list):
                     for conflict in conflicts:
                         if isinstance(conflict, dict):
+                            cohort = conflict.get("cohort")
+                            cohort = cohort if isinstance(cohort, str) else None
                             decisions.append(_decision(
                                 check, "needs_owner_decision",
-                                f"cohort {conflict.get('cohort', '?')!s}: "
+                                f"cohort {cohort or '?'}: "
                                 "explicit visual-size declarations diverge; "
                                 "which design size is correct is not "
-                                "proved by the PBIR"))
+                                "proved by the PBIR",
+                                cohort=cohort,
+                                _options=(_typography_options(cohort, facts)
+                                          if cohort else None)))
                 if isinstance(pending, list):
                     for unknown in pending:
                         if isinstance(unknown, dict):
+                            cohort = unknown.get("cohort")
+                            cohort = cohort if isinstance(cohort, str) else None
                             decisions.append(_decision(
                                 check, "needs_owner_decision",
-                                f"cohort {unknown.get('cohort', '?')!s}: "
+                                f"cohort {cohort or '?'}: "
                                 "unknown inherited default: mixed explicit/inherited font sizes; "
                                 "collect actual rendered effective style "
-                                "evidence before any edit"))
+                                "evidence before any edit",
+                                cohort=cohort,
+                                _options=(_typography_options(cohort, facts)
+                                          if cohort else None)))
                 if len(decisions) == before_item_decisions:
                     # Each sealed finding is accounted for, even when
                     # another finding with the *same check* already had

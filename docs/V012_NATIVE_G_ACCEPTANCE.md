@@ -114,3 +114,22 @@ All three native steps passed on a fresh disposable Corporate session on
 signature or owner G6 approval. Corporate raw figures and receipts remain
 outside Git. Shape Map country selection and contextual tooltip hover
 remain separate.
+
+## Disposable-runner Desktop probe (Power BI Desktop 2.159, November 2026)
+
+`.github/workflows/windows-desktop-probe.yml` installs Power BI Desktop, the
+Desktop Bridge CLI and the pinned authoring CLI on an ephemeral GitHub Windows
+runner, opens a **copy** of the fictional Contoso PBIP and publishes only a
+JSON summary (booleans, counts, no screenshots). Observed, run 41399601781:
+
+| Question | Observation | Consequence in code |
+| --- | --- | --- |
+| Is a freshly opened PBIP clean? | No: `hasUnsavedChanges: true` before any action | Capture correctly refuses until a witnessed native Save |
+| Does the first native Save verify? | Saved (`unsaved_before: true` -> `unsaved_after: false`) but `verified: false` | Expected: first Save stays a blocked transition; rebaseline flow applies |
+| Does `screenshot-all` dirty a saved report? | No: `false` before and after; source bytes unchanged | `native_capture_provenance.capture` now **requires** a clean flag after capture; `bound_subject` refuses receipts without it |
+| Full VQS native capture on the saved copy | `pass`, 5/5 pages, post-capture flag `false` | - |
+| Command-line casing | OS keeps the launch casing; `Path.resolve()` returns disk casing | Region receipts compare physical files (`normcase(realpath())`) |
+| Attestation dependencies | Worked with `psutil` **absent** | Save witness and strict attestation use built-in CIM (`vqs.powerbi.os_process`) |
+
+This is engineering evidence about Desktop behaviour on a disposable copy. It
+is not G2/G4 review, G6 promotion or acceptance of any customer report.

@@ -286,9 +286,11 @@ def release_artifact(lock_dir: Path, artifact_id: str, owner: str) -> bool:
         raise ValueError(f"artifact_id escapes the lock directory: {artifact_id!r}")
     try:
         record = json.loads(lock.read_text(encoding="utf-8"))
-    except OSError:
+    except (OSError, ValueError):
+        # Unreadable, half-written or non-UTF-8 lock: ownership cannot be
+        # proved, so refuse the release instead of crashing the caller.
         return False
-    if record.get("owner") != owner:
+    if not isinstance(record, dict) or record.get("owner") != owner:
         return False
     lock.unlink()
     return True

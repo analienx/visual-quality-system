@@ -1,4 +1,4 @@
-﻿"""Exact source and capture identity for private two-report acceptance subjects.
+"""Exact source and capture identity for private two-report acceptance subjects.
 
 The manifest is intentionally local/private: source paths and screenshots can
 contain personal or financial details. It is not an owner/G6 approval token.
@@ -58,6 +58,8 @@ def bound_subject(project: Path, native_receipt: dict[str, Any]) -> dict[str, An
     if native_receipt.get("schema") != "vqs.native-capture-identity/1" or (
             native_receipt.get("source_unchanged_during_capture") is not True):
         raise ValueError("native capture identity receipt unavailable")
+    if native_receipt.get("post_capture_unsaved_flag") is not False:
+        raise ValueError("native capture ended with unsaved Desktop changes")
     project = project.resolve(strict=True)
     pbip, report = project_artifacts(project)
     if (native_receipt.get("project") != str(project)

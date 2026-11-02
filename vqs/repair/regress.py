@@ -114,7 +114,8 @@ def _declared_values(original: Path, candidate: Path,
                 break
             actual = _node_at(doc, path)
             if (edit.get("op") in ("card.category_label.hide",
-                                      "textbox.padding.compact")
+                                      "textbox.padding.compact",
+                                      "format.declare_explicit")
                     and side == "original"
                     and edit[key] is None and actual is _MISSING):
                 continue
@@ -204,7 +205,7 @@ def _declared_for(edits: list[dict]) -> dict[str, dict[str, set]]:
                 except RecipeError as exc:
                     raise _Unreadable(f"edit {index} declares a path "
                         f"outside the {op} recipe: {exc}")
-            elif op == "format.unset_override":
+            elif op in ("format.unset_override", "format.declare_explicit"):
                 try:
                     validate_format_path(op, path)
                 except RecipeError as exc:

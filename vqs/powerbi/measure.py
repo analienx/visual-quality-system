@@ -402,6 +402,45 @@ def _literal(raw: Any) -> Any:
     return text
 
 
+def _path_steps(path: str) -> list:
+    """``/labels[0]/properties/fontSize`` -> ``["labels", 0, "properties", ...]``."""
+    steps: list = []
+    for segment in path.split("/"):
+        if not segment:
+            continue
+        name, _, rest = segment.partition("[")
+        if name:
+            steps.append(name)
+        for index in re.findall(r"(\d+)\]", "[" + rest if rest else ""):
+            steps.append(int(index))
+    return steps
+
+
+def _declarable_path(node: dict, cohort: str) -> list | None:
+    """Properties entry where an owner decision may *add* the cohort size.
+
+    Only the first unscoped (selector-free) entry of an already declared
+    owner object qualifies, and only while the size is still absent.
+    """
+    _type, _, rest = cohort.partition("/")
+    owner, _, prop = rest.rpartition(".")
+    layer = "objects"
+    if owner.startswith("vco."):
+        layer, owner = "visualContainerObjects", owner[4:]
+    container = node.get(layer)
+    entries = container.get(owner) if isinstance(container, dict) else None
+    if not isinstance(entries, list):
+        return None
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict) or "selector" in entry:
+            continue
+        properties = entry.get("properties")
+        if isinstance(properties, dict) and prop not in properties:
+            return ["visual", layer, owner, index, "properties", prop]
+        return None
+    return None
+
+
 def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dict]]:
     from .insights import _aggregation_function, _ref_parts
 
@@ -413,6 +452,8 @@ def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dic
     bindings: list[dict] = []
     units: list[dict] = []
     cohorts: dict[str, dict[str, Any]] = {}
+    declarations: dict[tuple[str, str], list[dict]] = {}
+    incomplete: set[tuple[str, str]] = set()
     for page_id in found["order"]:
         for (pid, visual_id), visual in sorted(found["visuals"].items()):
             if pid != page_id:
@@ -423,8 +464,11 @@ def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dic
             visual_type = node.get("visualType", "?")
             state = node.get("query", {}).get("queryState", {})
             for role, content in state.items() if isinstance(state, dict) else []:
-                projections = (content or {}).get("projections", [])
-                if projections is None:
+                # Non-object role content / non-array projections are
+                # reported by read_report_files as incomplete metadata.
+                projections = (content.get("projections", [])
+                               if isinstance(content, dict) else [])
+                if not isinstance(projections, list):
                     projections = []
                 for index, projection in enumerate(projections):
                     if not isinstance(projection, dict):
@@ -491,13 +535,32 @@ def _bindings_and_cohorts(found: dict) -> tuple[list[dict], list[dict], list[dic
                     owner = segments[0]
                     cohort = f"{visual_type}/{prefix}{owner}.{size[0]}"
                     slot = cohorts.setdefault(cohort, {})
-                    slot[f'{page_id}/{visual_id}'] = _literal(value)
+                    key = f'{page_id}/{visual_id}'
+                    slot[key] = _literal(value)
+                    # Exact source address of every explicit declaration,
+                    # so an owner decision compiles to precondition-bound
+                    # ops instead of guessed paths.
+                    layer = ("visualContainerObjects" if prefix
+                             else "objects")
+                    steps = _path_steps(path)
+                    entries = declarations.setdefault((cohort, key), [])
+                    if (isinstance(value, str) and len(steps) == 7
+                            and isinstance(steps[1], int)
+                            and steps[2] == "properties"
+                            and steps[4:] == ["expr", "Literal", "Value"]):
+                        entries.append({"path": ["visual", layer, *steps[:4]],
+                                        "raw": value})
+                    else:
+                        incomplete.add((cohort, key))
     readings: list[dict] = []
     for cohort in sorted(cohorts):
         for key in sorted(cohorts[cohort]):
             page_id, visual_id = key.split("/", 1)
-            readings.append({"cohort": cohort, "visual": visual_id,
-                             "page": page_id, "value": cohorts[cohort][key]})
+            reading = {"cohort": cohort, "visual": visual_id,
+                       "page": page_id, "value": cohorts[cohort][key]}
+            if (cohort, key) not in incomplete:
+                reading["declarations"] = declarations.get((cohort, key), [])
+            readings.append(reading)
     return bindings, units, readings
 
 
@@ -512,6 +575,7 @@ def _cohort_nulls(found: dict, readings: list[dict]) -> list[dict]:
     names = sorted({reading["cohort"] for reading in readings})
     nulls = []
     owners: dict[tuple[str, str, str], set[str]] = {}
+    nodes: dict[tuple[str, str], dict] = {}
     for page_id in found["order"]:
         for (pid, visual_id), visual in sorted(found["visuals"].items()):
             if pid != page_id:
@@ -528,6 +592,7 @@ def _cohort_nulls(found: dict, readings: list[dict]) -> list[dict]:
             if isinstance(vcos, dict):
                 declared.update(f"vco.{name}" for name in vcos)
             owners[(visual_type, page_id, visual_id)] = declared
+            nodes[(page_id, visual_id)] = node
     seen = {(r["cohort"], r["page"], r["visual"]) for r in readings}
     # Cohort ids embed "{visual_type}/{owner}.{prop}"; real PBIR
     # visualType values never contain "/", so partition is exact.
@@ -538,8 +603,12 @@ def _cohort_nulls(found: dict, readings: list[dict]) -> list[dict]:
             if member_type != visual_type or owner not in declared:
                 continue
             if (cohort, page_id, visual_id) not in seen:
-                nulls.append({"cohort": cohort, "visual": visual_id,
-                              "page": page_id, "value": None})
+                entry = {"cohort": cohort, "visual": visual_id,
+                         "page": page_id, "value": None}
+                target = _declarable_path(nodes[(page_id, visual_id)], cohort)
+                if target is not None:
+                    entry["declare_path"] = target
+                nulls.append(entry)
     return sorted(readings + nulls,
                   key=lambda item: (item["cohort"], item["page"], item["visual"]))
 

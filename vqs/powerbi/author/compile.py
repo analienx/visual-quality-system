@@ -19,6 +19,12 @@ from . import metadata
 
 CONTRACT = "vqs.metadata-repair-gate/1"
 DECIMAL = re.compile(r"(0|[1-9][0-9]{0,14})\Z")
+# PBIR double literal for a text size, e.g. "12D" or "10.5D" (1-399 pt).
+SIZE_LITERAL = re.compile(r"[1-9][0-9]{0,2}(\.[0-9]{1,2})?D\Z")
+# Microsoft catalog types observed for size terminals (CLI 0.5.0):
+# <visual> <object> fontSize -> "formatting"; textSize -> "numeric".
+SIZE_TYPES = {"fontSize": frozenset({"formatting", "numeric"}),
+              "textSize": frozenset({"formatting", "numeric"})}
 SEGMENT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_-]{0,119}\Z")
 
 
@@ -133,13 +139,22 @@ def evaluate(
         new_value = bound.get("new")
         if kind == "format.unset_override":
             new_value = bound.get("old")
-        supported = (
+        elif kind == "format.declare_explicit":
+            new_value = bound.get("effective")
+        precision = (
             field_type == "integer"
             and property_name in {"labelPrecision", "precision"}
             and isinstance(new_value, str)
             and DECIMAL.fullmatch(new_value) is not None
             and int(new_value) <= 15
         )
+        size = (
+            kind in FORMAT_OPS
+            and field_type in SIZE_TYPES.get(property_name, frozenset())
+            and isinstance(new_value, str)
+            and SIZE_LITERAL.fullmatch(new_value) is not None
+        )
+        supported = precision or size
         if not supported:
             return _refusal(f"Microsoft {field_type!r} property encoding not proven", index)
         records.append({

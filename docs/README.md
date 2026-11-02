@@ -11,17 +11,32 @@ Choose the shortest path for what you want to accomplish. **Power BI is the core
 
 | Your goal | Guide | Evidence / limitations |
 | :--- | :--- | :--- |
-| Install supported VQS v0.1.0 core | [Production distribution](PRODUCTION_DISTRIBUTION_v0.1.0.md) | [GitHub wheel and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.0); native/report G2/G4/G6 excluded |
+| Install VQS (current v0.1.1) | [Install section](../README.md#install-vqs-v011---agent-first-power-bi-repairs), [v0.1.1 release notes](RELEASE_NOTES_v0.1.1.md) | [GitHub wheel and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.1); native/report G2/G4/G6 excluded · [v0.1.0 distribution](PRODUCTION_DISTRIBUTION_v0.1.0.md) |
+| **Fix a report that came back "blocked"** | [Owner decisions guide](OWNER_DECISIONS_AND_PR_GATE.md) | Answers drive a disposable, verified candidate; waivers are recorded, never a pass |
+| **Stop new report regressions in pull requests** | [PR gate guide](OWNER_DECISIONS_AND_PR_GATE.md#pull-request-gate-vqs-gate), [workflow example](CLI.md#pull-request-gate-vqs-gate) | Static source gate with SARIF/annotations; not native acceptance |
 | Understand VQS in 5 minutes | [Project overview](../README.md), [User guide](USER_GUIDE.md) | [Current engineering release notes](RELEASE_NOTES_2026-10-28.md) |
 | Ask an AI agent to fix supported report issues | [AI auto-fix quickstart](AI_AGENT_QUICKSTART.md) and [Component architecture](AGENT_AUTOFIX_ARCHITECTURE.md) | [Source-bound repair triage and real blockers](AUTO_REPAIR_TRIAGE_2026-10-28.md); disposable candidate, separate promotion approval |
 | Check a PBIP for actual source defects | [CLI reference](CLI.md), [Quality guidance](PREMIUM_POWERBI.md) | [Acceptance matrix](ACCEPTANCE_MATRIX.md) |
 | Create a source-safe Light/Dark report | [Theme engine](THEME_ENGINE.md), [28-mode palette library](APPROVED_THEME_LIBRARY.md) | [Native report screenshots](REAL_THEME_SHOWCASE.md) |
 | Review the architecture | [Architecture](ARCHITECTURE.md) | [Simplified product flow](diagrams/product-flow.svg) |
-| Run native Power BI checks | [P16 Desktop UIA](VISUAL_QA_V2_P16_NATIVE_DESKTOP_UIA.md), [Loaded-source attestation](DESKTOP_SOURCE_ATTESTATION.md) | [**Current two-PBIP G2/G4/G6 evidence and release decision**](POWER_BI_CORE_ACCEPTANCE_2026-10-28.md) · [Gate #16](https://github.com/analienx/visual-quality-system/issues/16) |
+| Run native Power BI checks | [P16 Desktop UIA](VISUAL_QA_V2_P16_NATIVE_DESKTOP_UIA.md), [Loaded-source attestation](DESKTOP_SOURCE_ATTESTATION.md), [disposable-runner Desktop probe](V012_NATIVE_G_ACCEPTANCE.md#disposable-runner-desktop-probe-power-bi-desktop-2159-november-2026) | [**Current two-PBIP G2/G4/G6 evidence and release decision**](POWER_BI_CORE_ACCEPTANCE_2026-10-28.md) · [Gate #16](https://github.com/analienx/visual-quality-system/issues/16) |
 | Inspect the final synthetic Power BI Desktop report | [Five-page native Contoso showcase](VERIFIED_CONTOSO_SHOWCASE.md), [downloadable PBIP](../examples/contoso-retail-verified/README.md) | [Exact source / image hashes](media/contoso-verified/PROVENANCE.json); automated G2 and bounded G4 only |
 | Inspect all historical Light/Dark themes | [14-family native gallery](REAL_THEME_SHOWCASE.md) | [Separate theme-candidate hashes](images/adaptive-showcase/PROVENANCE.json) |
 | Integrate VQS into PBIPDocumenter | [Consumer integration](CONSUMER_INTEGRATION.md), [CLI reference](CLI.md) | Power BI-only integration may proceed; independent release acceptance remains [#16](https://github.com/analienx/visual-quality-system/issues/16) |
 | Contribute or review changes | [Contributor guide](../CONTRIBUTING.md), [Changelog](../CHANGELOG.md) | [28 October repair correction](RELEASE_NOTES_2026-10-28.md) · [27 October evidence](RELEASE_NOTES_2026-10-27.md) · [26 October release history](RELEASE_NOTES_2026-10-26.md) |
+
+## The everyday loop
+
+```console
+vqs doctor                                                # what is installed; never installs
+vqs fix Sales.pbip                                        # safe fixes in a disposable candidate
+vqs decisions template --run-id <id> --out answers.json   # if blocked on design choices
+vqs fix Sales.pbip --decisions answers.json               # apply the owner's choices, verify
+vqs gate Sales.pbip --baseline main/Sales.pbip            # in CI: fail only on new findings
+```
+
+Exit codes everywhere: `0` pass · `1` demonstrated problem · `2` blocked
+(missing evidence or capability; never a soft pass).
 
 ## The evidence contract
 

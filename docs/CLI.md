@@ -59,6 +59,86 @@ For recent MCP clients, `vqs_run` supplies a compact typed tool response, and
 candidate, and audit. The original `2024-11-05` handshake and full JSON tool
 response remain supported for existing consumers.
 
+## Answering owner decisions (`--decisions`)
+
+*Step-by-step guide with real output, answers schema and troubleshooting:
+[OWNER_DECISIONS_AND_PR_GATE.md](OWNER_DECISIONS_AND_PR_GATE.md).*
+
+When a fix is blocked because the right answer is a design choice (which
+font size a cohort should use, which of two overlapping visuals moves, or
+whether a repeated breakdown is intentional), VQS never guesses. Every such
+finding comes back as an **answerable question** with a stable
+`decision_id` and concrete options:
+
+* `size:<literal>` / `move:<visual>:<axis>:<value>`: pre-compiled,
+  precondition-checked edits applied **only to the disposable candidate**;
+* `accept`: keep the current design as intentional. This is a recorded
+  owner waiver, **never** a pass.
+
+```console
+vqs fix "C:/Reports/Sales.pbip" --run-id sales-1          # blocked: N questions
+vqs decisions template --run-id sales-1 --out answers.json
+# owner fills "owner" and one "option" per question (empty rows are skipped)
+vqs fix "C:/Reports/Sales.pbip" --run-id sales-2 --decisions answers.json
+```
+
+`answers.json` (`vqs.decision-answers/1`) pins the reviewed
+`source_sha256`. A changed report, an unknown decision or option, or two
+options writing different values to the same property **block** before
+anything is applied. Applied options run through the normal repair, exact-diff
+verification and remeasure. When every remaining failing check is fully
+waived, the outcome is `accepted_with_waivers`; `quality_after` still reports
+the literal rule result. Missing evidence (`blocked`/`unsupported` coverage,
+oracle or model findings) can never be waived. MCP clients pass the same
+document as `vqs_run` `decisions=`; agents must show the options to the owner
+rather than choose them.
+
+Answers authorize a disposable candidate and scoped waivers only. They are
+not G2/G4 review, G6 promotion or release approval, and nothing promotes the
+original.
+
+## Pull-request gate (`vqs gate`)
+
+`vqs gate` reviews a head and a baseline revision with the same static engine
+and fails **only on findings the change introduces**. Comparison uses
+finding *subjects* (check + page/visual/cohort/pair), so pre-existing issues
+never block unrelated pull requests.
+
+```console
+vqs gate head/Sales.pbip --baseline base/Sales.pbip --sarif vqs.sarif --github
+vqs gate Sales.pbip --emit-baseline vqs-baseline.json      # store a baseline
+vqs gate Sales.pbip --baseline vqs-baseline.json --decisions answers.json
+```
+
+Exit codes: `0` nothing new, `1` new findings, `2` blocked (unreadable head or
+baseline). `--sarif` writes SARIF 2.1.0 with `baselineState` new/unchanged
+for GitHub code scanning; `--github` prints `::error` annotations. `accept`
+answers bound to the head revision excuse only their own subjects; answers for
+another revision match nothing (`unmatched_waivers`).
+
+```yaml
+# .github/workflows/powerbi-quality.yml (example for a PBIP repository)
+on: pull_request
+permissions: {contents: read, security-events: write}
+jobs:
+  vqs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with: {ref: "${{ github.base_ref }}", path: base}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install visual-quality-system
+      - run: vqs gate Sales.pbip --baseline base/Sales.pbip --sarif vqs.sarif --github
+      - if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with: {sarif_file: vqs.sarif}
+```
+
+The gate is static source evidence; a green gate is not native Desktop, G2/G4
+or G6 acceptance.
+
 ## Agent-first automatic candidate fixing
 
 If an AI agent owns the task, use the **existing coordinator** rather than
