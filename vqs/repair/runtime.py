@@ -70,6 +70,7 @@ class LocalBridgePort(BridgePort):
         try:
             completed = subprocess.run(
                 [self.binary, *args], capture_output=True, text=True,
+                encoding="utf-8", errors="replace",
                 timeout=self.timeout, check=False)
         except subprocess.TimeoutExpired as exc:
             raise BridgeUnavailable(

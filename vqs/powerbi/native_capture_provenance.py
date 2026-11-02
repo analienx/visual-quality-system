@@ -21,7 +21,8 @@ from vqs.powerbi.desktop_source import project_artifacts
 
 def _status(cli: str, pid: int, pbip: Path, report: Path) -> dict[str, Any]:
     p = subprocess.run([cli, "status", "--pid", str(pid), "--wait-seconds", "15"],
-                       capture_output=True, text=True, timeout=35, check=False)
+                       capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=35, check=False)
     if p.returncode:
         raise ValueError("Power BI Bridge status failed: " + p.stderr[-250:])
     state = json.loads(p.stdout)
@@ -45,6 +46,8 @@ def _os_identity(pid: int, expected_pbip: Path) -> str:
     if not shell or type(pid) is not int or pid <= 0:
         raise ValueError("built-in Windows process identity is unavailable")
     script = (
+        # UTF-8 output: OEM code pages garble non-ASCII PBIP paths.
+        "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;"
         f'$p=Get-CimInstance Win32_Process -Filter "ProcessId = {pid}";'
         'if ($null -eq $p) { exit 2 };'
         '$data=[pscustomobject]@{Name=$p.Name;CommandLine=$p.CommandLine;'
@@ -101,7 +104,8 @@ def capture(project: Path, pid: int, output_dir: Path, *,
         [cli, "screenshot-all", "--pid", str(pid),
          "--output-dir", str(output_dir), "--scale", "2",
          "--settle", "1000", "--wait-seconds", "35"],
-        capture_output=True, text=True, timeout=145, check=False,
+        capture_output=True, text=True,
+        encoding="utf-8", errors="replace", timeout=145, check=False,
     )
     if p.returncode:
         raise ValueError("native screenshot-all failed: " + p.stderr[-300:])

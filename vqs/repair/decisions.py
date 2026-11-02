@@ -36,18 +36,39 @@ _MAX_NOTE = 2000
 
 
 def subject_of(decision: dict[str, Any]) -> str:
-    """Revision-independent identity of the decided finding."""
+    """Revision-independent identity of the decided finding.
+
+    The page always participates when known: visual folder names repeat
+    across duplicated pages, so an overlap pair alone is not unique.
+    Candidates and decisions for the same conflict share one subject, so
+    identity never depends on whether VQS could plan an automatic fix.
+    """
     parts = [str(decision.get("check", "?"))]
     if decision.get("cohort"):
         parts.append("cohort=" + str(decision["cohort"]))
+    if decision.get("page"):
+        parts.append(f"page={decision['page']}")
     pair = decision.get("pair")
     if isinstance(pair, list) and pair:
         parts.append("pair=" + "+".join(sorted(str(item) for item in pair)))
-    else:
-        for key in ("page", "visual"):
-            if decision.get(key):
-                parts.append(f"{key}={decision[key]}")
+    elif decision.get("visual"):
+        parts.append(f"visual={decision['visual']}")
     return "|".join(parts)
+
+
+def normalize_findings(findings: Any) -> list[dict[str, Any]]:
+    """Sealed-findings shape for synthesis.
+
+    Review envelopes expose rule evidence as ``evidence_basis``; sealed
+    findings artifacts use ``detail``. Synthesis reads ``detail``, so both
+    shapes must yield the same decisions, subjects and ids.
+    """
+    if not isinstance(findings, list):
+        return []
+    return [{**item, "detail": item["evidence_basis"]}
+            if (isinstance(item, dict) and "detail" not in item
+                and isinstance(item.get("evidence_basis"), dict)) else item
+            for item in findings if isinstance(item, dict)]
 
 
 def decision_id(subject: str, source_sha256: str | None) -> str:
@@ -254,13 +275,7 @@ def waived_checks(findings: Any, facts: Any, waived: list[str],
         return []
     from .synthesize import synthesize_plan
 
-    # Review envelopes expose rule evidence as ``evidence_basis``; sealed
-    # findings artifacts use ``detail``. Synthesis reads ``detail``.
-    findings = [
-        {**item, "detail": item["evidence_basis"]}
-        if (isinstance(item, dict) and "detail" not in item
-            and isinstance(item.get("evidence_basis"), dict)) else item
-        for item in findings]
+    findings = normalize_findings(findings)
     result = synthesize_plan(findings, facts, source_sha256=source_sha256)
     failing = {item.get("check") for item in findings
                if isinstance(item, dict) and item.get("status") == "fail"
@@ -269,9 +284,15 @@ def waived_checks(findings: Any, facts: Any, waived: list[str],
     for item in result["decisions"]:
         if isinstance(item, dict) and item.get("check") in failing:
             by_check.setdefault(item["check"], []).append(item)
+    # A check with any still auto-fixable (candidate) conflict was never
+    # fully decided by the owner, so it can never be fully waived.
+    fixable = {item.get("check") for item in result["candidates"]
+               if isinstance(item, dict)}
     allowed = set(waived)
     out = []
     for check, items in by_check.items():
+        if check in fixable:
+            continue
         owner = [item for item in items
                  if item.get("status") != "covered_by_candidate"]
         if owner and all(item.get("status") == "needs_owner_decision"

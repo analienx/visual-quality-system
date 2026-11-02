@@ -422,12 +422,14 @@ def _plan_overlap_conflict(check: str, conflict: dict, canvases: dict,
                 f"(overlap {dims['width']}x{dims['height']} at "
                 f"{dims['x']},{dims['y']}); {first} stays fixed; "
                 "single-axis minimal shift, edge-touch passes the rule")
-            return [_candidate(
+            record = _candidate(
                 check, page, second, op, old, new, rel,
                 affected["pages"], rationale, "high",
                 "geometry-stays-in-canvas",
                 "verified in-canvas and overlap-free against every "
-                "measured page neighbor")], []
+                "measured page neighbor")
+            record["pair"] = [first, second]
+            return [record], []
     return [], [_decision(check, "needs_owner_decision",
                           "no free slot: neither single-axis shift stays "
                           "in-canvas and overlap-free", page, second,

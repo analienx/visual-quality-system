@@ -34,7 +34,8 @@ def _bridge_state(project: Path, pid: int) -> bool:
     wrapper, report = project_artifacts(project)
     result = subprocess.run(
         [cli, "preview", str(wrapper), "--host", "desktop", "--status"],
-        capture_output=True, text=True, timeout=45, check=False,
+        capture_output=True, text=True,
+        encoding="utf-8", errors="replace", timeout=45, check=False,
     )
     if result.returncode:
         raise ValueError("Desktop Bridge status failed")

@@ -33,20 +33,13 @@ SARIF_SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json"
 _GATED = ("fail", "blocked")
 
 
-def _normalized(findings: list[Any]) -> list[dict[str, Any]]:
-    return [{**item, "detail": item["evidence_basis"]}
-            if (isinstance(item, dict) and "detail" not in item
-                and isinstance(item.get("evidence_basis"), dict)) else item
-            for item in findings if isinstance(item, dict)]
-
-
 def _items(findings: list[dict[str, Any]], facts: Any) -> list[dict[str, Any]]:
     """Subject-level items for every failing/blocked finding."""
-    from vqs.repair.decisions import subject_of
+    from vqs.repair.decisions import normalize_findings, subject_of
     from vqs.repair.synthesize import synthesize_plan
 
     out: dict[str, dict[str, Any]] = {}
-    for finding in _normalized(findings):
+    for finding in normalize_findings(findings):
         status, check = finding.get("status"), finding.get("check")
         if status not in _GATED or not isinstance(check, str):
             continue
@@ -103,11 +96,18 @@ def evaluate(report: str, model: str | None = None,
     with tempfile.TemporaryDirectory(prefix="vqs-gate-") as runs:
         reviewed = review_report(facts=facts, config=config, run_root=runs)
     findings = reviewed.get("findings") or []
+    if reviewed["verdict"] == "blocked" and not findings:
+        # A review refused before producing findings proves nothing:
+        # an empty item list must not read as "nothing new" (fail open).
+        return {"status": "blocked", "report": report, "items": [],
+                "reason": "review blocked: " + ("; ".join(
+                    reviewed.get("blocked_reasons") or []) or "no findings")}
     return {"status": "ok", "report": report, "verdict": reviewed["verdict"],
             "items": _items(findings, facts)}
 
 
-def load_baseline(path: Path) -> dict[str, Any]:
+def load_baseline(path: Path, config: dict[str, Any] | None = None
+                  ) -> dict[str, Any]:
     """A baseline report revision (dir/.pbip) or an emitted baseline JSON."""
     if path.is_file() and path.suffix.lower() == ".json":
         try:
@@ -123,7 +123,9 @@ def load_baseline(path: Path) -> dict[str, Any]:
             return {"status": "blocked", "items": [],
                     "reason": f"baseline JSON must be {BASELINE_SCHEMA}"}
         return {"status": "ok", "items": data["items"], "report": data.get("report")}
-    return evaluate(str(path))
+    # Same rules as the head: a different config would invent "new" and
+    # "fixed" findings between identical revisions.
+    return evaluate(str(path), None, config)
 
 
 def compare(head: dict[str, Any], baseline: dict[str, Any] | None,
@@ -238,7 +240,7 @@ def run(head: str, *, baseline: Path | None = None, model: str | None = None,
                 "reason": "head: " + head_eval["reason"]}
     base_eval = None
     if baseline is not None:
-        base_eval = load_baseline(baseline)
+        base_eval = load_baseline(baseline, config)
         if base_eval["status"] != "ok":
             return {"tool": "vqs.gate", "verdict": "blocked",
                     "reason": "baseline: " + base_eval["reason"]}
