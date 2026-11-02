@@ -51,7 +51,19 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
+from .powerbi.os_process import desktop_product_version
+
 MIN_REVIEWABLE_PIXELS = 450
+
+
+def _desktop_version(instance: dict[str, Any]) -> tuple[str | None, str | None]:
+    """(version, source): Bridge first, else the PID's own executable."""
+    reported = instance.get("desktopVersion")
+    if isinstance(reported, str) and reported.strip():
+        return reported, "bridge"
+    pid = instance.get("pid")
+    version = desktop_product_version(pid) if type(pid) is int else None
+    return version, ("os-executable" if version else None)
 
 
 def _bridge(args: list[str], timeout: int) -> tuple[int, str]:
@@ -859,6 +871,7 @@ def capture(report: str, renders: str, pid: int | None = None,
                 canvas_width=canvas_width, canvas_height=canvas_height,
                 scale=scale, ordered_pages=expected,
                 pixels_by_page=pixels, viewports_by_page=shot_viewports)
+        desktop_version, version_source = _desktop_version(instance)
         manifest: dict[str, Any] = {
             "source_sha256": source_after,
             "page_images": page_images,
@@ -867,7 +880,8 @@ def capture(report: str, renders: str, pid: int | None = None,
                         "report": instance.get("currentFilePath"),
                         "scale": scale,
                         "bridge_version": bridge_version,
-                        "desktop_version": instance.get("desktopVersion"),
+                        "desktop_version": desktop_version,
+                        "desktop_version_source": version_source,
                         "save_state": {
                             "reported_unsaved": bool(instance.get(
                                 "hasUnsavedChanges")),
@@ -925,10 +939,15 @@ def capture(report: str, renders: str, pid: int | None = None,
             if model_warmup is not None:
                 manifest["model_warmup"] = model_warmup
         else:
+            # Render identity only: a cache-less candidate renders (Blank)
+            # everywhere and still captures. Say so; never imply data.
             manifest["modeling"] = {
                 "status": "skipped",
                 "reason": "no modeling port supplied (pass one or set "
-                          "VQS_MODELING_AUTO=1)"}
+                          "VQS_MODELING_AUTO=1)",
+                "data_population": "unproven",
+                "next_action": ("re-run with --live-data before any visual "
+                                "or data review; pages may render (Blank)")}
         (renders_path / "capture-manifest.json").write_text(
             json.dumps(manifest, indent=2), encoding="utf-8")
         return manifest

@@ -5,6 +5,9 @@
 - `vqs fix` / `vqs_run` results now include `changes` (page, visual, property, from → to for every candidate edit) and, for a verified candidate, `adopt`: the exact `vqs promote` command and `vqs_promote` arguments, so neither a person nor an agent has to guess internal run ids. Adoption stays an explicit owner step that keeps `<report>.vqs-backup`.
 - AGENTS.md: rules for owner decisions (agents never pick options), adoption, the PR gate, the disposable Desktop probe, subprocess encoding and author-side reviews.
 - `vqs doctor` reports the installed Modeling MCP version (it showed `unknown` although `0.5.0-beta.16` answers `--version`); every doctor version probe now runs with stdin closed so a stdio server cannot block it.
+- `vqs gate --decisions`: answers written on the original (base) revision now acknowledge the findings that still exist in the candidate head instead of counting as `unmatched_waivers`. They never excuse a finding the change introduces, and a stored JSON baseline accepts none.
+- `vqs capture` without `--live-data` says what it does not prove: `modeling` carries `data_population: unproven` and a `--live-data` next action (a cache-less candidate renders `(Blank)` everywhere and still captures). No `data_readiness` is fabricated.
+- Capture manifests fill `desktop_version` from the PID's own `PBIDesktop.exe` ProductVersion when the Bridge omits it (Bridge 1.0.0 does), with `desktop_version_source` `bridge` / `os-executable`.
 - Native owner-laptop run on Power BI Desktop with a non-ASCII scratch folder: see the table in `docs/V012_NATIVE_G_ACCEPTANCE.md`.
 
 ## Unreleased - review follow-ups for owner decisions and the PR gate

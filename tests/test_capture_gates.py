@@ -431,6 +431,60 @@ def test_multipage_success_manifest_shape(
     assert on_disk == manifest
 
 
+def test_capture_without_modeling_says_data_is_unproven(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Zephyrus 2 Nov 2026: a cache-less candidate rendered (Blank) on
+    every page and plain capture still passed with only ``skipped``.
+    The record must say the render is not review evidence."""
+    report = _make_report(tmp_path)
+    _stub(monkeypatch, report, actions={"p1": "ok"})
+    monkeypatch.delenv("VQS_MODELING_AUTO", raising=False)
+    manifest = capture_mod.capture(str(report), str(tmp_path / "renders"))
+    modeling = manifest["modeling"]
+    assert modeling["status"] == "skipped"
+    assert modeling["data_population"] == "unproven"
+    assert "--live-data" in modeling["next_action"]
+    assert "data_readiness" not in manifest  # never a fabricated readiness
+
+
+def test_desktop_version_falls_back_to_the_attested_executable(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Bridge 1.0.0 status carries no desktopVersion (Zephyrus run): use
+    the PID's own PBIDesktop.exe ProductVersion and say where it came from."""
+    report = _make_report(tmp_path)
+    bare = _instance(report)
+    del bare["desktopVersion"]
+    _stub(monkeypatch, report, statuses=[[bare]], actions={"p1": "ok"})
+    seen: list[int] = []
+    monkeypatch.setattr(capture_mod, "desktop_product_version",
+                        lambda pid: seen.append(pid) or "2.159.883.0 (26.10)")
+    manifest = capture_mod.capture(str(report), str(tmp_path / "renders"),
+                                   modeling=FakePort([_ready()]))
+    assert seen == [111]
+    assert manifest["desktop"]["desktop_version"] == "2.159.883.0 (26.10)"
+    assert manifest["desktop"]["desktop_version_source"] == "os-executable"
+
+
+def test_bridge_desktop_version_wins_and_unknown_stays_null(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    report = _make_report(tmp_path)
+    _stub(monkeypatch, report, actions={"p1": "ok"})
+    monkeypatch.setattr(capture_mod, "desktop_product_version",
+                        lambda pid: pytest.fail("Bridge value must win"))
+    manifest = capture_mod.capture(str(report), str(tmp_path / "r1"),
+                                   modeling=FakePort([_ready()]))
+    assert manifest["desktop"]["desktop_version"] == "2.0-test"
+    assert manifest["desktop"]["desktop_version_source"] == "bridge"
+    bare = _instance(report)
+    del bare["desktopVersion"]
+    _stub(monkeypatch, report, statuses=[[bare]], actions={"p1": "ok"})
+    monkeypatch.setattr(capture_mod, "desktop_product_version", lambda pid: None)
+    manifest = capture_mod.capture(str(report), str(tmp_path / "r2"),
+                                   modeling=FakePort([_ready()]))
+    assert manifest["desktop"]["desktop_version"] is None
+    assert manifest["desktop"]["desktop_version_source"] is None
+
+
 def test_short_ihdr_blocks_without_crash(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     report = _make_report(tmp_path)

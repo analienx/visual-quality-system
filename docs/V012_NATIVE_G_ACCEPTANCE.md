@@ -147,12 +147,14 @@ screenshots stay outside Git.
 | Test suite | 2189 passed, 15 skipped; `test_installed_*` need the venv `vqs` first on `PATH` (a stale global editable install otherwise answers) | Run the suite from an activated venv |
 | `vqs fix` → template → `--decisions` | Blocked with 5 questions, then `accepted_with_waivers`, 7 `changes`, `adopt` present; `auto` and `microsoft` backends identical, `validate` pass | - |
 | Native Save keeps VQS edits | First Save reserialized 30 files (rebaseline transition, `verified: false`), all 7 `10D` declarations survived | - |
-| Candidate has no data | `examples/contoso-retail` ships no model cache, so the native render shows `(Blank)` and empty visuals; plain `vqs capture` still passes as render identity (`modeling: skipped`) | Use `--live-data` (refuses unpopulated data) before any visual review |
+| Candidate has no data | `examples/contoso-retail` ships no model cache, so the native render shows `(Blank)` and empty visuals; plain `vqs capture` still passes as render identity | `modeling` now records `data_population: unproven` with a `--live-data` next action; `--live-data` refuses unpopulated data |
 | Refresh via exact-PID Modeling MCP | `RefreshWithXMLA` returns `content: []` on success; all 12 tables blank before, populated after; Bridge reports unsaved afterwards | A new Save is needed after a refresh |
-| Modeling MCP leaves a source fingerprint | The next Save adds `"MCP-PBIModeling"` to `PBI_ProTooling` in `model.tmdl`; the witness blocks that model change | Rebaseline once in a separate Desktop session |
+| Modeling MCP leaves a source fingerprint | After a refresh, the next Save adds `"MCP-PBIModeling"` to `PBI_ProTooling` in `model.tmdl`; the witness blocks that model change. Ad-hoc `Get` plus a query on an *unpopulated* model also marked Desktop unsaved | Rebaseline once in a separate Desktop session |
+| `--live-data` on a never-touched report | Copy of `contoso-retail-verified` (cache, no marker): witnessed Save verified, then `vqs capture --live-data` 5/5, `modeling: ready`, Desktop still clean, source unchanged | VQS's own readiness path does not dirty a populated report |
+| Desktop version | Bridge 1.0.0 status has no `desktopVersion` | Capture falls back to the PID's `PBIDesktop.exe` ProductVersion (`desktop_version_source: os-executable`) |
 | Same-session second Save | Witness refuses before invoking Save: source changed after launch | As designed: use a new Desktop process |
 | Stabilized session | Refresh + witnessed Save `verified: true`, 0 changed files; `--live-data` capture 5/5, `modeling: ready`; strict provenance 5/5, clean after capture; rebaseline audit `stabilized_candidate_needs_independent_acceptance` | - |
-| `vqs gate` | Candidate vs original: 0 new, 4 fixed; natively saved candidate identical (no spurious findings); deliberate 14D regression: exactly 1 new, exit 1 | Waivers bind to the head digest (`unmatched_waivers` for answers written on the base) |
+| `vqs gate` | Candidate vs original: 0 new, 4 fixed; natively saved candidate identical (no spurious findings); deliberate 14D regression: exactly 1 new, exit 1 | Base-bound answers now acknowledge unchanged findings only; never a new one |
 | `adopt` on the scratch copy | Promote pass, backup byte-identical to the original; repeat promote refused on digest drift | - |
 
 Engineering evidence on a disposable fictional copy only: not G2/G4 review,
