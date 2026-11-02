@@ -136,6 +136,28 @@ def main() -> int:
     if command is not None:
         steps["os_command_line_has_typed_case"] = "contosoprobe" in command
         steps["os_command_line_has_disk_case"] = "ContosoProbe" in command
+    # A freshly opened PBIP reports unsaved changes (observed on 2.159), so
+    # the capture-flag question needs a clean baseline: perform the repo's
+    # own witnessed native UIA Save on this disposable copy first.
+    sys.path.insert(0, str(ROOT))
+    try:
+        from vqs.powerbi.desktop_native_save import save_and_witness
+
+        witness = save_and_witness(project, pid, disposable_root=work)
+        steps["native_save"] = {
+            "verified": witness.get("native_saved_source_verified"),
+            "unsaved_before": witness.get("unsaved_before"),
+            "unsaved_after": witness.get("unsaved_after"),
+            "reason": str(witness.get("reason", ""))[:300]}
+    except Exception as exc:  # noqa: BLE001 - report every refusal
+        steps["native_save"] = {"verified": False,
+                                "reason": f"{type(exc).__name__}: {exc}"[:400]}
+    time.sleep(5)
+    saved = _status(cli, pid)
+    inst = saved.get("instances")
+    if isinstance(inst, list) and inst:
+        steps["after_native_save"] = _instance_summary(inst[0])
+    before_source = _snapshot(project)
     shots = work / "bridge-shots"
     code, out, err = _run([cli, "screenshot-all", "--pid", str(pid),
                            "--output-dir", str(shots), "--scale", "2",
@@ -152,7 +174,6 @@ def main() -> int:
         steps["after_capture"] = _instance_summary(inst[0])
     steps["source_changed_by_capture"] = _snapshot(project) != before_source
     # The real VQS producer, unchanged: it must refuse or pass honestly.
-    sys.path.insert(0, str(ROOT))
     try:
         from vqs.powerbi.native_capture_provenance import capture
 
