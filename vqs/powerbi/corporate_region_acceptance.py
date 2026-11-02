@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import shutil
 import subprocess
 from collections.abc import Mapping
@@ -26,6 +27,23 @@ DAX = (
 STEPS = ("Europe", "Latin America", "Europe")
 
 
+def _same_file(reported: Any, expected: Path) -> bool:
+    """Same physical PBIP, regardless of command-line casing.
+
+    Verified on a real Windows runner (Desktop 2.159): the OS keeps the
+    casing a PBIP was *launched* with, while ``Path.resolve()`` returns
+    the on-disk casing, so an exact string match refused genuine sessions.
+    """
+    if not isinstance(reported, str) or not reported:
+        return False
+    try:
+        left = os.path.normcase(os.path.realpath(reported))
+        right = os.path.normcase(os.path.realpath(str(expected)))
+    except (OSError, ValueError):
+        return False
+    return left == right
+
+
 def validate_step(
     receipt: Mapping[str, Any],
     values: Mapping[str, float],
@@ -40,7 +58,7 @@ def validate_step(
         raise ValueError("unapproved Region value")
     if (receipt.get("schema") != "vqs.native-corporate-region-uia/1"
             or receipt.get("pid") != pid
-            or receipt.get("pbip") != str(pbip)
+            or not _same_file(receipt.get("pbip"), pbip)
             or receipt.get("target") != expected
             or receipt.get("control_name") != "Sales Region"
             or receipt.get("action") != (

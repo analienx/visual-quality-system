@@ -88,3 +88,26 @@ def test_run_requires_exactly_one_pbip_before_any_native_action(
         (tmp_path / f"R{index}.pbip").write_text("{}", encoding="utf8")
     with pytest.raises(ValueError, match="exactly one PBIP"):
         run(tmp_path, 88, {}, adapter=tmp_path / "missing.ps1")
+
+
+def test_receipt_path_compares_physical_file_not_string(example, tmp_path: Path) -> None:
+    """The OS reports the launch casing; Path.resolve() the on-disk one."""
+    pbip, record, model = example
+    other = tmp_path / "Other.pbip"
+    other.write_text("{}", encoding="utf8")
+    record["pbip"] = str(pbip.parent / "." / pbip.name)
+    assert validate_step(record, model, expected="Latin America",
+                         prior="Europe", pid=88, pbip=pbip)
+    record["pbip"] = str(other)
+    with pytest.raises(ValueError, match="target selection"):
+        validate_step(record, model, expected="Latin America",
+                      prior="Europe", pid=88, pbip=pbip)
+
+
+@pytest.mark.skipif(__import__("os").name != "nt",
+                    reason="case-insensitive Windows filesystem only")
+def test_receipt_accepts_launch_casing_on_windows(example) -> None:
+    pbip, record, model = example
+    record["pbip"] = str(pbip).swapcase()
+    assert validate_step(record, model, expected="Latin America",
+                         prior="Europe", pid=88, pbip=pbip)
