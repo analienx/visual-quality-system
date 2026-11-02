@@ -4,6 +4,8 @@
 
 - `vqs fix` / `vqs_run` results now include `changes` (page, visual, property, from → to for every candidate edit) and, for a verified candidate, `adopt`: the exact `vqs promote` command and `vqs_promote` arguments, so neither a person nor an agent has to guess internal run ids. Adoption stays an explicit owner step that keeps `<report>.vqs-backup`.
 - AGENTS.md: rules for owner decisions (agents never pick options), adoption, the PR gate, the disposable Desktop probe, subprocess encoding and author-side reviews.
+- `vqs doctor` reports the installed Modeling MCP version (it showed `unknown` although `0.5.0-beta.16` answers `--version`); every doctor version probe now runs with stdin closed so a stdio server cannot block it.
+- Native owner-laptop run on Power BI Desktop with a non-ASCII scratch folder: see the table in `docs/V012_NATIVE_G_ACCEPTANCE.md`.
 
 ## Unreleased - review follow-ups for owner decisions and the PR gate
 
