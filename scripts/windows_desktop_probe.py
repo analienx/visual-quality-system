@@ -79,7 +79,9 @@ def _command_line(pid: int) -> str | None:
 
 def main() -> int:
     summary: dict[str, Any] = {"schema": "vqs.windows-desktop-probe/1",
-                               "platform": sys.platform, "steps": {}}
+                               "platform": sys.platform,
+                               "vqs_revision": os.environ.get("GITHUB_SHA"),
+                               "steps": {}}
     steps = summary["steps"]
     out_path = Path(os.environ.get("PROBE_OUT", "desktop-probe.json"))
 
