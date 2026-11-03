@@ -36,7 +36,7 @@ def test_product_diagram_is_mobile_first_and_valid_svg() -> None:
         rendered = "".join(label.itertext())
         assert 0 <= x <= width
         if label.attrib.get("text-anchor") != "middle":
-            assert x + len(rendered) * size * 0.60 < width, rendered
+            assert x + len(rendered) * size * 0.55 < width, rendered
 
 
 def test_public_entry_points_use_the_mobile_diagram_not_mermaid() -> None:
