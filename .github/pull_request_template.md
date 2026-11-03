@@ -34,6 +34,7 @@ Negative controls exercised: <!-- source stale / empty data / cropped page / wro
 ## Independent review and release
 
 Independent verifier (not the author), exact evidence and result: <!-- name/lane, review URL -->
+Or owner-authorized self-approval (code only; see AGENTS.md): <!-- quoted owner authorization + date; highest-effort code review link (e.g. /code-review max) on head SHA; each finding → fix commit + test, or answer; final-head CI. Never human G2/G4, pixels or G6. -->
 Unresolved failures, blocked gates, model disagreement and limitations:
 Proposed ledger transition: <!-- planned→review; review→verified only after independent proof and merged SHA -->
 Does this PR change release scope / user-story semantics / renderer support? If yes, link owner decision.

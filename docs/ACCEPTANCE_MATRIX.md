@@ -54,7 +54,7 @@ For any mandatory criterion: `pass` requires directly relevant current evidence;
 | CORE-03 | Two agents claim same artifact or Desktop PID | second claim refused/queued, no cross-report capture | G0 |
 | CORE-04 | Kill runner between event write and index commit | run replay preserves previous events; incomplete attempt becomes blocked | G0 |
 | CORE-05 | Missing capability, timeout, unsupported major schema | explicit blocked with missing capability and rerun action | G0 |
-| CORE-06 | Same model edits and approves its own candidate | independent reviewer requirement fails | G6 |
+| CORE-06 | Same model edits and approves its own candidate | independent reviewer requirement fails, unless owner-authorized self-approval of code is recorded with a highest-effort code review and every finding resolved (AGENTS.md); even then G2/G4 human review, pixel approval and G6 still fail | G6 |
 | CORE-07 | Raw evidence contains secret, real data screenshot, username or cache | pre-publication leak check blocks commit/issue attachment | G0 |
 | CORE-08 | Old `vqs inventory` and request-review usage | contract upgrade preserves documented existing behavior or documents migration with tests | G0 |
 | CORE-09 | Issue marked closed, tests failed, no evidence manifest | ledger cannot become verified by issue state alone | G0,G6 |

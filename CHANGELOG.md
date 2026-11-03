@@ -3,6 +3,7 @@
 ## Unreleased - legible, adoptable fix results
 
 - `vqs fix` / `vqs_run` results now include `changes` (page, visual, property, from → to for every candidate edit) and, for a verified candidate, `adopt`: the exact `vqs promote` command and `vqs_promote` arguments, so neither a person nor an agent has to guess internal run ids. Adoption stays an explicit owner step that keeps `<report>.vqs-backup`.
+- AGENTS.md: **owner-authorized self-approval** of code. Only with the owner's explicit, quoted authorization, a highest-effort code review (`/code-review max`) on the exact head with every finding fixed or answered, and green CI on the final head; recorded as such, never as independent or human G2/G4 review, pixel approval or G6. Mirrored in the ledger protocol, PR template and CORE-06.
 - AGENTS.md: rules for owner decisions (agents never pick options), adoption, the PR gate, the disposable Desktop probe, subprocess encoding and author-side reviews.
 - `vqs doctor` reports the installed Modeling MCP version (it showed `unknown` although `0.5.0-beta.16` answers `--version`); every doctor version probe now runs with stdin closed so a stdio server cannot block it.
 - `vqs gate --decisions`: answers written on the original (base) revision now acknowledge the findings that still exist in the candidate head instead of counting as `unmatched_waivers`. They never excuse a finding the change introduces, and a stored JSON baseline accepts none.
