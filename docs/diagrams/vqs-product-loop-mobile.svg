@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1448" viewBox="0 0 720 1448" role="img" aria-labelledby="title description">
+<title id="title">VQS: from a Power BI report request to a reviewable, verified improvement</title>
+<desc id="description">Vertical mobile-friendly product flow. User and AI agent ask for improvement. Microsoft tooling authors and renders the report. VQS inspects, safely repairs a copy and verifies changes. When evidence supports the result, it produces a reviewable candidate for independent review and owner adoption. Otherwise it reports blocked or asks for a decision.</desc>
+<defs>
+  <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#9BB0CE" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+<rect width="720" height="1448" rx="24" fill="#0B1220"/>
+<rect x="30" y="34" width="8" height="94" rx="4" fill="#4EAAFA"/>
+<text x="58" y="68" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="700" fill="#91C9FF" letter-spacing="1">THE VQS PRODUCT LOOP</text>
+<text x="58" y="120" font-family="Arial,Helvetica,sans-serif" font-size="45" font-weight="700" fill="#F8FAFC">Make reports better.</text>
+<text x="58" y="159" font-family="Arial,Helvetica,sans-serif" font-size="31" fill="#CBD5E1">And prove what actually improved.</text>
+<rect x="32" y="202" width="656" height="127" rx="18" fill="#1C2A3D" stroke="#4C6486" stroke-width="2"/>
+<rect x="52" y="227" width="66" height="66" rx="16" fill="#354B69"/>
+<text x="85" y="272" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="37" font-weight="700" fill="#EFF6FF">1</text>
+<text x="139" y="254" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" fill="#F8FAFC">User + AI agent</text>
+<text x="139" y="294" font-family="Arial,Helvetica,sans-serif" font-size="30" fill="#D8E3EF">Improve my Power BI report</text>
+<path d="M360 333 V367" fill="none" stroke="#9BB0CE" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="32" y="384" width="656" height="160" rx="18" fill="#19293A" stroke="#5686A5" stroke-width="2"/>
+<rect x="52" y="408" width="66" height="66" rx="16" fill="#274663"/>
+<text x="85" y="453" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="37" font-weight="700" fill="#EFF6FF">2</text>
+<text x="139" y="436" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" fill="#F8FAFC">Microsoft tooling</text>
+<text x="139" y="478" font-family="Arial,Helvetica,sans-serif" font-size="31" fill="#D8E3EF">Design, author, render</text>
+<text x="139" y="516" font-family="Arial,Helvetica,sans-serif" font-size="29" fill="#ACC5D7">PBIR / TMDL report source</text>
+<path d="M360 548 V580" fill="none" stroke="#9BB0CE" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="32" y="597" width="656" height="176" rx="18" fill="#102F42" stroke="#32B4CC" stroke-width="3"/>
+<rect x="52" y="623" width="66" height="66" rx="16" fill="#16586A"/>
+<text x="85" y="668" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="37" font-weight="700" fill="#E5FCFF">3</text>
+<text x="139" y="651" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" fill="#F8FAFC">VQS quality layer</text>
+<text x="139" y="695" font-family="Arial,Helvetica,sans-serif" font-size="31" fill="#D8F6FA">Inspect · repair safely · verify</text>
+<text x="139" y="737" font-family="Arial,Helvetica,sans-serif" font-size="29" fill="#B2DFE7">Evidence and regression checks</text>
+<path d="M360 777 V811" fill="none" stroke="#9BB0CE" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="32" y="828" width="656" height="135" rx="18" fill="#263246" stroke="#7286A5" stroke-width="2"/>
+<text x="56" y="880" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" fill="#F8FAFC">Is the improvement proven?</text>
+<text x="56" y="928" font-family="Arial,Helvetica,sans-serif" font-size="30" fill="#CBD5E1">Only within supported evidence scope</text>
+<path d="M360 967 V996" fill="none" stroke="#9BB0CE" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="32" y="1012" width="656" height="175" rx="18" fill="#133B33" stroke="#38B88D" stroke-width="3"/>
+<text x="55" y="1054" font-family="Arial,Helvetica,sans-serif" font-size="27" font-weight="700" fill="#93EAC6" letter-spacing="1.2">IF VERIFIED</text>
+<text x="55" y="1103" font-family="Arial,Helvetica,sans-serif" font-size="39" font-weight="700" fill="#F8FAFC">Reviewable candidate</text>
+<text x="55" y="1144" font-family="Arial,Helvetica,sans-serif" font-size="29" fill="#D7F8EC">Changes · evidence · rollback</text>
+<text x="55" y="1176" font-family="Arial,Helvetica,sans-serif" font-size="27" fill="#BCE8D7">Independent review + owner adoption</text>
+<rect x="32" y="1255" width="656" height="157" rx="18" fill="#3B2C26" stroke="#D8A168" stroke-width="3"/>
+<text x="55" y="1300" font-family="Arial,Helvetica,sans-serif" font-size="27" font-weight="700" fill="#FFD5A4" letter-spacing="1.1">IF NOT PROVEN</text>
+<text x="55" y="1350" font-family="Arial,Helvetica,sans-serif" font-size="37" font-weight="700" fill="#F8FAFC">Blocked / needs decision</text>
+<text x="55" y="1393" font-family="Arial,Helvetica,sans-serif" font-size="29" fill="#FFE4D1">No fabricated success or approval</text>
+</svg>

@@ -10,23 +10,9 @@ VQS is the evidence-driven quality and safe-repair layer for AI-authored Power B
 
 ## Product direction
 
-```mermaid
-flowchart TB
-    U["USER + AI AGENT<br/>Make this Power BI report better"]
-    subgraph E["Complementary tools"]
-      direction LR
-      M["MICROSOFT TOOLING<br/>Design · author · validate · render"]
-      V["VQS<br/>Measure · critique · safe candidate repair · verify"]
-    end
-    U --> M
-    U --> V
-    M -->|"PBIR / TMDL + available native evidence"| V
-    V --> G{"Is the change independently verifiable?"}
-    G -->|"Verified within supported scope"| C["REVIEWABLE CANDIDATE<br/>Readable changes · sealed evidence · rollback path"]
-    G -->|"Unproven or owner-dependent"| B["BLOCKED / NEEDS DECISION<br/>No invented success"]
-    B -.->|"Explicit owner answer when applicable"| V
-    C --> R["INDEPENDENT REVIEW + EXPLICIT OWNER ADOPTION"]
-```
+<img src="../docs/diagrams/vqs-product-loop-mobile.svg" alt="Vertical VQS product flow: user and agent, Microsoft tooling, VQS quality checks, then either verified candidate with owner approval or blocked pending evidence" width="720">
+
+_Designed for phone-width viewing. [Open the vector diagram](../docs/diagrams/vqs-product-loop-mobile.svg) or read the [accessible text explanation](../docs/AGENT_AUTOFIX_ARCHITECTURE.md). The SVG source remains editable in Git._
 
 **Why this separation exists:** Microsoft tooling supplies supported report authoring and structural checks, while VQS detects defects, constrains changes to disposable candidates, measures regressions and records what is—and is not—proven. A source-verified candidate is **not** a report-level G2/G4/G6 signoff. Native captures, interactions and live data are available only when the relevant host, report and evidence gates are satisfied.
 
