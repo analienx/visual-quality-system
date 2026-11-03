@@ -24,17 +24,9 @@
 
 **Microsoft tools help author and render. VQS makes improvements measurable, reversible and independently checkable.** The two work together; VQS is not a replacement for Microsoft's report authoring tooling.
 
-```mermaid
-flowchart TB
-    U["USER + AI AGENT<br/>Improve my Power BI report"]
-    U --> M["MICROSOFT TOOLING<br/>Design · author · validate · render"]
-    U --> V["VQS<br/>Critique · safely repair · verify"]
-    M -->|"Report source + available native evidence"| V
-    V --> Q{"Supported evidence?"}
-    Q -->|"Verified"| C["REVIEWABLE CANDIDATE<br/>Changes · evidence · rollback"]
-    Q -->|"Unknown / needs owner"| B["BLOCKED / DECISION REQUIRED<br/>Never a fabricated PASS"]
-    C --> A["INDEPENDENT REVIEW + EXPLICIT ADOPTION"]
-```
+<img src="docs/diagrams/vqs-product-loop-mobile.svg" alt="Vertical VQS product flow: user and agent, Microsoft tooling, VQS quality checks, then either verified candidate with owner approval or blocked pending evidence" width="720">
+
+_Designed for phone-width viewing. [Open the vector diagram](docs/diagrams/vqs-product-loop-mobile.svg) or read the [accessible text explanation](roadmap/README.md). The SVG source remains editable in Git._
 
 [**Explore the living product roadmap →**](roadmap/README.md) · [Current implementation boundaries](docs/AGENT_AUTOFIX_ARCHITECTURE.md)
 
