@@ -1,6 +1,6 @@
 # Delivery status ledger — review-candidate snapshot
 
-**Archived 2026-10-03 ledger snapshot, not current October PR status.**
+**Archived 2026-10-03 ledger snapshot, not current October PR status.** For the current product direction and release plan, see [the product roadmap](README.md).
 **Program:** [#4](https://github.com/analienx/visual-quality-system/issues/4).
 **Machine source:** [work_packages.json](work_packages.json).
 **Baseline:** [BASELINE.md](../docs/BASELINE.md) at `5fda4e5`.
