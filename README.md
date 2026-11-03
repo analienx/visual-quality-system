@@ -4,6 +4,7 @@
   <p><strong>Give your AI agent a Power BI project. Get an independently checkable repair candidate—not another issues-only report.</strong></p>
   <p>Deterministic PBIR &amp; TMDL analysis · Reversible auto-fixes · Real Power BI Desktop evidence</p>
   <p>
+    <a href="roadmap/README.md"><strong>Roadmap</strong></a> ·
     <a href="docs/AI_AGENT_QUICKSTART.md"><strong>Start with an AI agent</strong></a> ·
     <a href="docs/AGENT_AUTOFIX_ARCHITECTURE.md">How it works</a> ·
     <a href="#real-power-bi-showcase">Real report gallery</a> ·
@@ -18,6 +19,26 @@
     <img src="https://img.shields.io/badge/Status-supported%20CLI%20v0.1.1%20%7C%20native%20preview-E2A744" alt="Supported CLI v0.1.1 distribution; native features retain evidence gates">
   </p>
 </div>
+
+## Product direction · the roadmap at a glance
+
+**Microsoft tools help author and render. VQS makes improvements measurable, reversible and independently checkable.** The two work together; VQS is not a replacement for Microsoft's report authoring tooling.
+
+```mermaid
+flowchart TB
+    U["USER + AI AGENT<br/>Improve my Power BI report"]
+    U --> M["MICROSOFT TOOLING<br/>Design · author · validate · render"]
+    U --> V["VQS<br/>Critique · safely repair · verify"]
+    M -->|"Report source + available native evidence"| V
+    V --> Q{"Supported evidence?"}
+    Q -->|"Verified"| C["REVIEWABLE CANDIDATE<br/>Changes · evidence · rollback"]
+    Q -->|"Unknown / needs owner"| B["BLOCKED / DECISION REQUIRED<br/>Never a fabricated PASS"]
+    C --> A["INDEPENDENT REVIEW + EXPLICIT ADOPTION"]
+```
+
+[**Explore the living product roadmap →**](roadmap/README.md) · [Current implementation boundaries](docs/AGENT_AUTOFIX_ARCHITECTURE.md)
+
+The diagram is a **product direction**, not a guarantee of native Desktop coverage. The published v0.1.1 wheel has a bounded source-only repair scope; newer decisions and gate capabilities on `main` remain unreleased until versioned.
 
 ## Install VQS v0.1.1 - agent-first Power BI repairs
 
@@ -239,7 +260,7 @@ The 14 approved theme families include **28 Light/Dark modes** with real source-
 | **Power BI report authors** | [Getting started](docs/USER_GUIDE.md) · [Premium design guide](docs/PREMIUM_POWERBI.md) · [Theme palette library](docs/APPROVED_THEME_LIBRARY.md) |
 | **BI platform engineers** | [Architecture](docs/ARCHITECTURE.md) · [CLI](docs/CLI.md) · [Power BI integration & native evidence](docs/VISUAL_QA_V2_P16_NATIVE_DESKTOP_UIA.md) |
 | **Quality reviewers** | [Acceptance matrix](docs/ACCEPTANCE_MATRIX.md) · [Screenshot provenance](docs/images/adaptive-showcase/PROVENANCE.json) · [Native gallery](docs/REAL_THEME_SHOWCASE.md) |
-| **Contributors** | [Contributor guide](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [All documentation](docs/README.md) |
+| **Contributors** | [Product roadmap](roadmap/README.md) · [Contributor guide](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [All documentation](docs/README.md) |
 
 VQS focuses on **Power BI**. Word/DOCX assurance is a separate optional component, not a blocker for a Power BI-only release. Source inspection is local by default; private customer screenshots and caches must not be checked in or uploaded without explicit authorization.
 
