@@ -4,17 +4,15 @@ The main and roadmap READMEs deliberately use a fixed-aspect, vertical SVG
 rather than Mermaid: GitHub Mermaid's fit-to-screen canvas was illegible on
 320-390px mobile screens. The SVG is vector and stays editable in Git.
 """
+from pathlib import Path
+from xml.etree import ElementTree as ET
 
-import pathlib
 
-
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[1]
 SVG = ROOT / "docs" / "diagrams" / "vqs-product-loop-mobile.svg"
 
 
 def test_product_diagram_is_mobile_first_and_valid_svg() -> None:
-    import xml.etree.ElementTree as ET
-
     root = ET.parse(SVG).getroot()
     assert root.tag == "{http://www.w3.org/2000/svg}svg"
     width, height = (int(part) for part in root.attrib["viewBox"].split()[2:])
