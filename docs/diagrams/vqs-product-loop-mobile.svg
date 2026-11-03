@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1490" viewBox="0 0 720 1490" role="img" aria-labelledby="title description">
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1448" viewBox="0 0 720 1448" role="img" aria-labelledby="title description">
 <title id="title">VQS: from a Power BI report request to a reviewable, verified improvement</title>
 <desc id="description">Vertical mobile-friendly product flow. User and AI agent ask for improvement. Microsoft tooling authors and renders the report. VQS inspects, safely repairs a copy and verifies changes. When evidence supports the result, it produces a reviewable candidate for independent review and owner adoption. Otherwise it reports blocked or asks for a decision.</desc>
 <defs>
   <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#9BB0CE" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker>
 </defs>
-<rect width="720" height="1490" rx="24" fill="#0B1220"/>
+<rect width="720" height="1448" rx="24" fill="#0B1220"/>
 <rect x="30" y="34" width="8" height="94" rx="4" fill="#4EAAFA"/>
 <text x="58" y="68" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="700" fill="#91C9FF" letter-spacing="1">THE VQS PRODUCT LOOP</text>
 <text x="58" y="120" font-family="Arial,Helvetica,sans-serif" font-size="45" font-weight="700" fill="#F8FAFC">Make reports better.</text>
@@ -38,11 +38,8 @@
 <text x="55" y="1103" font-family="Arial,Helvetica,sans-serif" font-size="39" font-weight="700" fill="#F8FAFC">Reviewable candidate</text>
 <text x="55" y="1144" font-family="Arial,Helvetica,sans-serif" font-size="29" fill="#D7F8EC">Changes · evidence · rollback</text>
 <text x="55" y="1176" font-family="Arial,Helvetica,sans-serif" font-size="27" fill="#BCE8D7">Independent review + owner adoption</text>
-<line x1="44" y1="1230" x2="676" y2="1230" stroke="#516177" stroke-width="2" stroke-dasharray="9 10"/>
-<text x="360" y="1217" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="26" fill="#B5C6DB">ALTERNATIVE OUTCOME</text>
 <rect x="32" y="1255" width="656" height="157" rx="18" fill="#3B2C26" stroke="#D8A168" stroke-width="3"/>
 <text x="55" y="1300" font-family="Arial,Helvetica,sans-serif" font-size="27" font-weight="700" fill="#FFD5A4" letter-spacing="1.1">IF NOT PROVEN</text>
 <text x="55" y="1350" font-family="Arial,Helvetica,sans-serif" font-size="37" font-weight="700" fill="#F8FAFC">Blocked / needs decision</text>
 <text x="55" y="1393" font-family="Arial,Helvetica,sans-serif" font-size="29" fill="#FFE4D1">No fabricated success or approval</text>
-<text x="360" y="1454" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="26" fill="#AFC2D9">Published features and future goals are separate.</text>
 </svg>
