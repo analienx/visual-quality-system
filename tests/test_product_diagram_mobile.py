@@ -7,7 +7,6 @@ rather than Mermaid: GitHub Mermaid's fit-to-screen canvas was illegible on
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SVG = ROOT / "docs" / "diagrams" / "vqs-product-loop-mobile.svg"
 
