@@ -2,7 +2,7 @@
 
 Choose the shortest path for what you want to accomplish. **Power BI is the core product**; Word/DOCX is independently scoped. Native evidence is distinct from deterministic source validation.
 
-[**Native G2/G4 rebaseline and exact-PID capture (next-release engineering)**](V012_NATIVE_G_ACCEPTANCE.md)
+[**Product roadmap and editable architecture diagram**](../roadmap/README.md) · [Native G2/G4 engineering evidence](V012_NATIVE_G_ACCEPTANCE.md)
 
 [**Current v0.1.1 release notes and supported scope**](RELEASE_NOTES_v0.1.1.md) |
 [**Six-platform installed-wheel acceptance record**](V011_USABILITY_RELEASE_PLAN.md)
@@ -11,6 +11,7 @@ Choose the shortest path for what you want to accomplish. **Power BI is the core
 
 | Your goal | Guide | Evidence / limitations |
 | :--- | :--- | :--- |
+| **See the product vision and release roadmap** | [Roadmap and diagram](../roadmap/README.md) | Published vs merged vs proposed capabilities, with clear acceptance boundaries |
 | Install VQS (current v0.1.1) | [Install section](../README.md#install-vqs-v011---agent-first-power-bi-repairs), [v0.1.1 release notes](RELEASE_NOTES_v0.1.1.md) | [GitHub wheel and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.1); native/report G2/G4/G6 excluded · [v0.1.0 distribution](PRODUCTION_DISTRIBUTION_v0.1.0.md) |
 | **Fix a report that came back "blocked"** | [Owner decisions guide](OWNER_DECISIONS_AND_PR_GATE.md) | Answers drive a disposable, verified candidate; waivers are recorded, never a pass |
 | **Stop new report regressions in pull requests** | [PR gate guide](OWNER_DECISIONS_AND_PR_GATE.md#pull-request-gate-vqs-gate), [workflow example](CLI.md#pull-request-gate-vqs-gate) | Static source gate with SARIF/annotations; not native acceptance |
