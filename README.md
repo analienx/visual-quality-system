@@ -25,15 +25,33 @@
 **Microsoft tools help author and render. VQS makes improvements measurable, reversible and independently checkable.** The two work together; VQS is not a replacement for Microsoft's report authoring tooling.
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"fontSize": "15px", "lineColor": "#8c959f", "textColor": "#ffffff", "edgeLabelBackground": "#57606a"}, "flowchart": {"padding": 16, "nodeSpacing": 36, "rankSpacing": 44, "curve": "basis"}}}%%
 flowchart TB
-    U["USER + AI AGENT<br/>Improve my Power BI report"]
-    U --> M["MICROSOFT TOOLING<br/>Design · author · validate · render"]
-    U --> V["VQS<br/>Critique · safely repair · verify"]
-    M -->|"Report source + available native evidence"| V
-    V --> Q{"Supported evidence?"}
-    Q -->|"Verified"| C["REVIEWABLE CANDIDATE<br/>Changes · evidence · rollback"]
-    Q -->|"Unknown / needs owner"| B["BLOCKED / DECISION REQUIRED<br/>Never a fabricated PASS"]
-    C --> A["INDEPENDENT REVIEW + EXPLICIT ADOPTION"]
+    U(["<b>You + your AI agent</b><br/>“Improve my Power BI report”"])
+    M["<b>Microsoft tooling</b><br/>design · author ·<br/>validate · render"]
+    V["<b>VQS</b><br/>critique · safely repair ·<br/>verify"]
+    C["<b>Reviewable candidate</b><br/>changes · evidence · rollback"]
+    B["<b>Decision needed</b><br/>blocked, never a fake PASS"]
+    A(["<b>Independent review</b><br/>explicit adoption"])
+
+    U --> M
+    U --> V
+    M -- "report source +<br/>native evidence" --> V
+    V -- "evidence verified" --> C
+    V -- "unknown or<br/>needs owner" --> B
+    C --> A
+    B -. "answer once" .-> V
+
+    classDef user fill:#8250df,stroke:#a475f9,color:#ffffff
+    classDef ms fill:#0969da,stroke:#4493f8,color:#ffffff
+    classDef vqs fill:#1a7f37,stroke:#3fb950,color:#ffffff
+    classDef ok fill:#0e6e7e,stroke:#1b9aaa,color:#ffffff
+    classDef stop fill:#9a6700,stroke:#d29922,color:#ffffff
+    class U,A user
+    class M ms
+    class V vqs
+    class C ok
+    class B stop
 ```
 
 [**Explore the living product roadmap →**](roadmap/README.md) · [Current implementation boundaries](docs/AGENT_AUTOFIX_ARCHITECTURE.md)
