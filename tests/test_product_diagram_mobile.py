@@ -5,11 +5,11 @@ rather than Mermaid: GitHub Mermaid's fit-to-screen canvas was illegible on
 320-390px mobile screens. The SVG is vector and stays editable in Git.
 """
 
-from pathlib import Path
-from xml.etree import ElementTree as ET
+import pathlib
+import xml.etree.ElementTree as ET
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(__file__).resolve().parents[1]
 SVG = ROOT / "docs" / "diagrams" / "vqs-product-loop-mobile.svg"
 
 
