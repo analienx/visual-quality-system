@@ -248,19 +248,31 @@ def sarif(result: dict[str, Any], root: Path) -> dict[str, Any]:
 
 
 def github_annotations(result: dict[str, Any], root: Path) -> list[str]:
+    """``::error`` workflow commands, one per new item (or one if blocked).
+
+    The runner reads the command name up to the first space, so the
+    properties must follow ``::error `` after a space; ``::error,title=``
+    is an unknown command that GitHub prints as plain log text.
+    """
     def escape(text: str) -> str:
         return (text.replace("%", "%25").replace("\r", "%0D")
                 .replace("\n", "%0A"))
 
-    lines = []
+    def prop(text: str) -> str:
+        return escape(text).replace(":", "%3A").replace(",", "%2C")
+
+    def command(properties: list[str], message: str) -> str:
+        return f"::error {','.join(properties)}::{escape(message)}"
+
     if result.get("verdict") == "blocked" or "new" not in result:
-        reason = escape(str(result.get("reason") or "gate blocked"))
-        return [f"::error,title=vqs.gate.blocked::{reason}"]
+        return [command([f"title={prop(BLOCKED_RULE)}"],
+                        str(result.get("reason") or "gate blocked"))]
+    lines = []
     for item in result["new"]:
         uri = _artifact(result.get("report"), item, root)
-        where = f" file={escape(uri).replace(',', '%2C')}" if uri else ""
-        title = escape(item["check"]).replace(",", "%2C").replace(":", "%3A")
-        lines.append(f"::error{where},title={title}::{escape(item['message'])}")
+        properties = [f"file={prop(uri)}"] if uri else []
+        properties.append(f"title={prop(item['check'])}")
+        lines.append(command(properties, item["message"]))
     return lines
 
 
