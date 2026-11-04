@@ -144,12 +144,13 @@ class FakePort:
 
 
 def _ready(populated: bool = True, rowcount: int = 5,
-           query_hash: str = "h", model: str = "fake/model",
+           query_hash: str = "a" * 64, model: str = "fake/model",
            **extra: Any) -> dict[str, Any]:
     doc: dict[str, Any] = {"populated": populated,
                            "method": "modeling-mcp:repeat-query",
                            "scope_echo": {"model": model},
-                           "rowcount": rowcount, "query_hash": query_hash}
+                           "rowcount": rowcount, "query_hash": query_hash,
+                           "probe_table": "Sales", "data_rows": 42}
     doc.update(extra)
     return doc
 
@@ -351,6 +352,92 @@ def test_unpopulated_and_drifted_readiness_block(
                             modeling=drifting)
 
 
+@pytest.mark.parametrize("field,value", [
+    ("populated", "false"), ("populated", 1), ("rowcount", 0), ("rowcount", True),
+    ("rowcount", "1"), ("data_rows", 0), ("data_rows", False), ("data_rows", "42"),
+    ("data_rows", None), ("probe_table", ""), ("probe_table", None),
+    ("query_hash", "h"), ("query_hash", None), ("method", ""), ("scope_echo", []),
+])
+def test_invalid_readiness_blocks_before_screenshot(tmp_path, monkeypatch, field, value):
+    report = _make_report(tmp_path)
+    _stub(monkeypatch, report, actions={"p1": "ok"})
+    bridge = capture_mod._bridge
+
+    def no_screenshot(args, timeout):
+        assert args[0] != "screenshot-all", "invalid readiness reached the screenshot call"
+        return bridge(args, timeout)
+
+    monkeypatch.setattr(capture_mod, "_bridge", no_screenshot)
+    readiness = _ready(query_hash="a" * 64, probe_table="Sales", data_rows=42)
+    readiness[field] = value
+    with pytest.raises(OSError):
+        capture_mod.capture(str(report), str(tmp_path / "renders"), modeling=FakePort([readiness]))
+    assert not (tmp_path / "renders" / "capture-manifest.json").exists()
+
+
+@pytest.mark.parametrize("malformed", [None, [], "ready", True])
+def test_non_object_readiness_blocks_without_screenshot(tmp_path, monkeypatch, malformed):
+    report = _make_report(tmp_path)
+    _stub(monkeypatch, report, actions={"p1": "ok"})
+    bridge = capture_mod._bridge
+
+    def no_screenshot(args, timeout):
+        assert args[0] != "screenshot-all"
+        return bridge(args, timeout)
+
+    class RawPort(FakePort):
+        def readiness(self, scope):
+            return malformed
+
+    monkeypatch.setattr(capture_mod, "_bridge", no_screenshot)
+    with pytest.raises(OSError, match="incomplete or invalid"):
+        capture_mod.capture(str(report), str(tmp_path / "renders"), modeling=RawPort([]))
+    assert not (tmp_path / "renders" / "capture-manifest.json").exists()
+
+
+@pytest.mark.parametrize("field,value", [("data_rows", 43), ("probe_table", "Costs"),
+                                        ("scope_echo", {"model": "other/model"})])
+def test_readiness_context_drift_blocks_manifest(tmp_path, monkeypatch, field, value):
+    report = _make_report(tmp_path)
+    _stub(monkeypatch, report, actions={"p1": "ok"})
+    before = _ready(query_hash="a" * 64, probe_table="Sales", data_rows=42)
+    after = dict(before)
+    after[field] = value
+    with pytest.raises(OSError, match="changed during capture"):
+        capture_mod.capture(str(report), str(tmp_path / "renders"), modeling=FakePort([before, after]))
+    assert not (tmp_path / "renders" / "capture-manifest.json").exists()
+
+
+def test_mutated_shared_scope_still_blocks_manifest(tmp_path, monkeypatch):
+    report = _make_report(tmp_path)
+    _stub(monkeypatch, report, actions={"p1": "ok"})
+    shared = _ready()
+
+    class MutatingPort(FakePort):
+        def readiness(self, scope):
+            if self.calls:
+                shared["scope_echo"]["model"] = "changed/model"
+            self.calls.append(scope.as_dict())
+            return shared
+
+    with pytest.raises(OSError, match="changed during capture"):
+        capture_mod.capture(str(report), str(tmp_path / "renders"), modeling=MutatingPort([]))
+    assert not (tmp_path / "renders" / "capture-manifest.json").exists()
+
+
+@pytest.mark.parametrize("field,value", [("populated", "false"), ("data_rows", 0),
+                                        ("rowcount", True), ("query_hash", "bad")])
+def test_invalid_post_capture_readiness_blocks_manifest(tmp_path, monkeypatch, field, value):
+    report = _make_report(tmp_path)
+    _stub(monkeypatch, report, actions={"p1": "ok"})
+    before = _ready()
+    after = dict(before)
+    after[field] = value
+    with pytest.raises(OSError):
+        capture_mod.capture(str(report), str(tmp_path / "renders"), modeling=FakePort([before, after]))
+    assert not (tmp_path / "renders" / "capture-manifest.json").exists()
+
+
 def test_expected_scope_mismatch_blocks(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     report = _make_report(tmp_path)
@@ -422,7 +509,7 @@ def test_multipage_success_manifest_shape(
         "no-bridge-viewport")
     assert manifest["data_readiness"] == {
         "populated": True, "method": "modeling-mcp:repeat-query",
-        "scope": {"model": "fake/model"}, "rowcount": 5, "query_hash": "h",
+        "scope": {"model": "fake/model"}, "rowcount": 5, "query_hash": "a" * 64,
         "probe_table": "Sales", "data_rows": 42}
     assert manifest["modeling"] == {"status": "ready"}
     assert len(port.calls) == 2  # pre + post readiness probes
