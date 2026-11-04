@@ -114,6 +114,37 @@ def test_many_owner_questions_and_options_are_not_truncated(tmp_path, capsys):
     assert all(f'"option-{n}"' in text for n in range(16))
 
 
+def test_terminal_controls_and_bidi_overrides_are_escaped(tmp_path, capsys):
+    """Report-derived text must not drive the terminal or reorder options.
+
+    json.dumps escapes ESC (control) but not DEL, the 8-bit CSI U+009B, a
+    right-to-left override or an isolate, which can recolour, clear or
+    visually rearrange what the owner reads before choosing.
+    """
+    hostile = "keep\x1b[2J\x7f\x9b31m\u202eevil\u2066\u200b\U000e0041end"
+    stages = _stages()
+    decision = stages[1]["evidence"]["decisions"][0]
+    decision["question"] = hostile
+    decision["options"][0]["label"] = hostile
+    _sealed(tmp_path, stages)
+    assert main(["evidence-report", "--run-root", str(tmp_path), "--run-id", "test-run"]) == 0
+    text = capsys.readouterr().out
+    for char in "\x1b\x7f\x9b\u202e\u2066\u200b\U000e0041":
+        assert char not in text
+    for escaped in ("\\u001b", "\\u007f", "\\u009b", "\\u202e", "\\u2066", "\\u200b",
+                    "\\U000e0041"):
+        assert escaped in text
+    assert "keep" in text and "evil" in text and "end" in text
+
+
+def test_line_separators_cannot_split_a_report_line():
+    from vqs.evidence_report import _literal
+
+    rendered = _literal("one\u2028two\u2029three\x85four\ud800five")
+    assert rendered == '"one\\u2028two\\u2029three\\u0085four\\ud800five"'
+    assert len(rendered.splitlines()) == 1
+
+
 def test_output_refuses_overwrite_and_run_directory(tmp_path, capsys):
     run = _sealed(tmp_path, _stages())
     existing = tmp_path / "existing.txt"

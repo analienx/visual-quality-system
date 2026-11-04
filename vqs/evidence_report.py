@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -9,10 +10,24 @@ from .pbir import source_inventory
 from .pipeline import _model_digest
 from .run_store import _has_link, _resolve_artifact, _validate_name, digest_bytes, read_events, verify_seal
 
+# json.dumps escapes C0 controls but leaves these raw: DEL and C1 controls
+# (U+009B is an 8-bit CSI), bidirectional overrides/isolates and other
+# invisible format characters, line/paragraph separators, surrogates,
+# private-use and unassigned code points. Report-derived text (page, visual
+# and option names) reaches the owner's terminal through this report.
+_UNSAFE = frozenset({"Cc", "Cf", "Zl", "Zp", "Cs", "Co", "Cn"})
+
 
 def _literal(value: str) -> str:
-    """Keep control characters in evidence from becoming terminal commands."""
-    return json.dumps(value, ensure_ascii=False)
+    """Keep control characters in evidence from becoming terminal commands.
+
+    Also escapes characters that can reorder or hide what the owner reads,
+    so an option label cannot visually impersonate another option.
+    """
+    return "".join(
+        (f"\\u{ord(char):04x}" if ord(char) <= 0xFFFF else f"\\U{ord(char):08x}")
+        if unicodedata.category(char) in _UNSAFE else char
+        for char in json.dumps(value, ensure_ascii=False))
 
 
 def _states(stage: dict[str, Any] | None) -> dict[str, str] | None:
