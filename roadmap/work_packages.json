@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "snapshot_utc": "2026-10-03T21:00:00Z",
+  "snapshot_utc": "2026-11-04T08:26:43Z",
   "program_issue": "https://github.com/analienx/visual-quality-system/issues/4",
   "product_scope": [
     "powerbi-desktop",
@@ -9,7 +9,7 @@
   "deferred_scope": [
     "fabric-apps-rayfin"
   ],
-  "assertion": "Review-candidate snapshot: 10 packages carry draft-PR evidence pointers with green hosted portable CI (unmerged); workflow states stay planned/active per the DAG prerequisite gate; 0 independently verified; live Desktop/Word gates not_run. Only the integrator advances states after Codex review and merge, in dependency order.",
+  "assertion": "WP-00 through WP-19 retain the archived 3 October snapshot; WP-30 records the proposed v0.2.0 candidate separately. Historical entries are not a current release dashboard. No package is newly independently verified by this ledger edit.",
   "status_vocabulary": [
     "planned",
     "ready",
@@ -513,6 +513,26 @@
       "candidate_head": "2e26fa1",
       "candidate_counts": "225 passed + ruff x3",
       "candidate_pr": "https://github.com/analienx/visual-quality-system/pull/26"
+    },
+    {
+      "id": "WP-30",
+      "stage": "S10",
+      "title": "v0.2.0 source-bound rendered comparison evidence integrity",
+      "issue": 130,
+      "depends_on": ["WP-05", "WP-07"],
+      "lane": "powerbi-visual-evidence",
+      "owned_paths": ["vqs/visual/compare.py", "tests/test_render_comparison.py", "docs/CLI.md"],
+      "state": "planned",
+      "verification": "not_run",
+      "required_gate": "G0-G2-G4",
+      "evidence_required": [
+        "synthetic-capture-hash-and-page-negative-controls",
+        "scope-bound-data-evidence-contract-review",
+        "independent-real-render-review"
+      ],
+      "pull_request": null,
+      "verified_commit": null,
+      "evidence_uri": null
     }
   ],
   "first_ready_package": "WP-00",

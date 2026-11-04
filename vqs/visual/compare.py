@@ -1,16 +1,12 @@
 """Deterministic rendered before/after regression review.
 
-Compares two exact-source page captures of the same report at pixel level
-and requires every changed pixel to be explained by a PBIR visual that
-actually changed. This is a *measurement*, not a similarity score: the
-report is `pass` only when the rendered difference is confined to the
-visuals the candidate edited, `fail` when pixels changed somewhere the
-source did not, and `blocked` whenever the comparison cannot be trusted.
+Compares two source-bound page captures at pixel level. The page results
+describe where pixels differ; the overall result remains blocked until
+equivalent report data and interaction scope have independent evidence.
+The current readiness probe only counts one table and cannot prove that.
 
-Why a strict pixel comparison is sound here: two separate Desktop
-processes rendering the same populated source produce byte-identical
-canvas pixels, so an unedited page must compare equal. Anything else is
-a real difference, not noise.
+Pixel differences are observations, not necessarily regressions. Data,
+rendering nondeterminism, and interaction state can also change pixels.
 
 What blocks, and never passes (AGENTS.md: missing data, stale captures
 and unproven evidence are `blocked`, never a pass):
@@ -20,8 +16,7 @@ and unproven evidence are `blocked`, never a pass):
 * either capture declares ``data_population: unproven`` - a cache-less
   candidate renders ``(Blank)`` everywhere and still captures, so an
   "identical" comparison of two blank reports proves nothing;
-* the two captures saw different data (differing ``query_hash``) or one
-  was not populated;
+* the population probe hashes differ or one capture was not populated;
 * the page sets, PBIR canvas or capture scale differ;
 * the report canvas cannot be located in a capture, or the two located
   canvases differ in size.
@@ -37,7 +32,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import Any
 
-from ..evidence import _decode_png, _unfilter_scanlines
+from ..evidence import _decode_png, _unfilter_scanlines, digest, safe_render_name
 from .canvas import CanvasUnproven, locate_desktop_canvas
 
 SCHEMA = "vqs.render-comparison/1"
@@ -63,12 +58,12 @@ def _load_manifest(renders: Path, label: str) -> dict[str, Any]:
     images = data.get("page_images")
     canvas = data.get("canvas")
     if (not isinstance(digest, str) or len(digest) != 64
+            or any(c not in "0123456789abcdef" for c in digest)
             or not isinstance(images, dict) or not images
             or not all(isinstance(k, str) and isinstance(v, str)
                        for k, v in images.items())
-            or not isinstance(canvas, list) or len(canvas) != 2
-            or any(isinstance(v, bool) or not isinstance(v, int) or v <= 0
-                   for v in canvas)):
+            or ("canvas" in data and (not isinstance(canvas, list) or len(canvas) != 2
+                or any(type(v) is not int or v <= 0 for v in canvas)))):
         raise ComparisonBlocked(
             f"{label}: {MANIFEST} lacks a usable source digest, page images "
             "or PBIR canvas")
@@ -92,7 +87,12 @@ def _require_bound(manifest: dict[str, Any], report: Path, label: str) -> None:
 
 
 def _require_data(baseline: dict[str, Any], candidate: dict[str, Any]) -> dict:
-    """Both captures must be populated, and populated with the same data."""
+    """Check populatedness probes without claiming report data parity.
+
+    The current producer hashes COUNTROWS on one table, not the query
+    definitions, answers, filters, roles, or other relevant tables.
+    Matching hashes are insufficient to prove data equality.
+    """
     proofs = {}
     for label, manifest in (("baseline", baseline), ("candidate", candidate)):
         modeling = manifest.get("modeling")
@@ -112,20 +112,138 @@ def _require_data(baseline: dict[str, Any], candidate: dict[str, Any]) -> dict:
             raise ComparisonBlocked(
                 f"{label}: data_readiness says the report was not populated")
         query_hash = readiness.get("query_hash")
-        if not isinstance(query_hash, str) or not query_hash:
+        if (not isinstance(query_hash, str) or len(query_hash) != 64
+                or any(c not in "0123456789abcdef" for c in query_hash)):
             raise ComparisonBlocked(
                 f"{label}: data_readiness carries no query_hash, so the two "
-                "captures cannot be shown to have seen the same data")
+                "readiness probes cannot be compared")
         proofs[label] = query_hash
     if proofs["baseline"] != proofs["candidate"]:
         raise ComparisonBlocked(
-            "the two captures saw different data (data_readiness.query_hash "
+            "the two captures have different readiness probe results "
+            "(data_readiness.query_hash "
             f"{proofs['baseline'][:12]} vs {proofs['candidate'][:12]}); a "
-            "pixel difference would not be attributable to the source change")
+            "pixel difference cannot be attributed to the source change")
     return {"query_hash": proofs["baseline"], "populated": True}
 
 
-def _canvas_window(image: Path, canvas: tuple[int, int], label: str
+def _page_inventory(report: Path, label: str) -> dict[str, tuple[int, int]]:
+    """Require the same complete source inventory as capture itself."""
+    from ..pbir import report_context
+
+    try:
+        context = report_context(report, allow_unresolved_model=True)
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        raise ComparisonBlocked(f"{label}: report page inventory invalid: {exc}") from exc
+    pages = context.get("pages")
+    if not isinstance(pages, list) or not pages:
+        raise ComparisonBlocked(f"{label}: report page inventory is empty")
+    ids = [page.get("id") if isinstance(page, dict) else None for page in pages]
+    if (any(not isinstance(page, str) or not page for page in ids)
+            or len(set(ids)) != len(ids)):
+        raise ComparisonBlocked(f"{label}: report page inventory is malformed")
+    inventory = {}
+    for page in pages:
+        canvas = page.get("canvas")
+        if (not isinstance(canvas, list) or len(canvas) != 2
+                or any(type(value) is not int or value <= 0 for value in canvas)):
+            raise ComparisonBlocked(f"{label}/{page['id']}: source canvas is malformed")
+        inventory[page["id"]] = (canvas[0], canvas[1])
+    return inventory
+
+
+def _manifest_geometry(manifest: dict[str, Any], inventory: dict[str, tuple[int, int]],
+                       label: str) -> int:
+    """Validate actual capture calibration against every source page."""
+    calibration = manifest.get("calibration")
+    desktop = manifest.get("desktop")
+    if calibration is None:
+        calibration = {}
+    if desktop is None:
+        desktop = {}
+    if not isinstance(calibration, dict) or not isinstance(desktop, dict):
+        raise ComparisonBlocked(f"{label}: capture geometry metadata is malformed")
+
+    scales = [container["scale"] for container in (manifest, calibration, desktop)
+              if "scale" in container]
+    if (not scales or any(type(value) is not int or value not in (1, 2) for value in scales)
+            or len(set(scales)) != 1):
+        raise ComparisonBlocked(f"{label}: capture scale differs or is missing/malformed")
+
+    canvases = []
+    if "canvas" in manifest:
+        canvases.append(manifest["canvas"])
+    if "canvas_width" in calibration or "canvas_height" in calibration:
+        canvases.append([calibration.get("canvas_width"), calibration.get("canvas_height")])
+    if (not canvases or any(not isinstance(value, list) or len(value) != 2
+                            or any(type(x) is not int or x <= 0 for x in value)
+                            for value in canvases)):
+        raise ComparisonBlocked(f"{label}: PBIR canvas missing or malformed")
+    if any(value != canvases[0] for value in canvases[1:]):
+        raise ComparisonBlocked(f"{label}: PBIR canvas differs between manifest declarations")
+    primary = tuple(canvases[0])
+    if primary != next(iter(inventory.values())):
+        raise ComparisonBlocked(f"{label}: capture canvas differs from source page inventory")
+
+    declared = calibration.get("page_canvases")
+    if "page_canvases" not in calibration:
+        if any(size != primary for size in inventory.values()):
+            raise ComparisonBlocked(f"{label}: mixed source page inventory needs per-page canvases")
+    elif not isinstance(declared, dict) or set(declared) != set(inventory):
+        raise ComparisonBlocked(f"{label}: per-page canvas inventory is missing or malformed")
+    else:
+        for page, size in inventory.items():
+            value = declared[page]
+            if (not isinstance(value, list) or len(value) != 2
+                    or any(type(x) is not int or x <= 0 for x in value)
+                    or tuple(value) != size):
+                raise ComparisonBlocked(f"{label}/{page}: capture canvas differs from source page inventory")
+    return scales[0]
+
+
+def _capture_files(renders: Path, manifest: dict[str, Any], pages: set[str],
+                   label: str) -> dict[str, tuple[Path, str]]:
+    """Verify every page is mapped to one contained, hash-bound PNG."""
+    mapping = manifest["page_images"]
+    if set(mapping) != pages:
+        raise ComparisonBlocked(
+            f"{label}: capture differs from report page inventory; "
+            f"missing pages: {sorted(pages - set(mapping))}; "
+            f"unexpected pages: {sorted(set(mapping) - pages)}")
+    files = manifest.get("files")
+    if not isinstance(files, dict):
+        raise ComparisonBlocked(f"{label}: capture file hashes are missing or malformed")
+    root = renders.resolve()
+    out: dict[str, tuple[Path, str]] = {}
+    names: set[str] = set()
+    for page in sorted(pages):
+        name = mapping[page]
+        if safe_render_name(name) is None or not name.lower().endswith(".png"):
+            raise ComparisonBlocked(f"{label}/{page}: unsafe capture filename")
+        if name.casefold() in names:
+            raise ComparisonBlocked(f"{label}/{page}: duplicate capture filename")
+        names.add(name.casefold())
+        expected = files.get(name)
+        if (not isinstance(expected, str) or len(expected) != 64
+                or any(c not in "0123456789abcdef" for c in expected)):
+            raise ComparisonBlocked(f"{label}/{page}: missing or malformed capture hash")
+        image = renders / name
+        try:
+            if image.is_symlink() or not image.is_file() or image.resolve().parent != root:
+                raise ComparisonBlocked(f"{label}/{page}: missing or unsafe capture file")
+            if any(image.samefile(previous[0]) for previous in out.values()):
+                raise ComparisonBlocked(f"{label}/{page}: duplicate capture file")
+            if digest(image) != expected:
+                raise ComparisonBlocked(f"{label}/{page}: capture hash mismatch")
+        except (OSError, ValueError) as exc:
+            if isinstance(exc, ComparisonBlocked):
+                raise
+            raise ComparisonBlocked(f"{label}/{page}: unreadable capture file: {exc}") from exc
+        out[page] = (image, expected)
+    return out
+
+
+def _canvas_window(image: Path, canvas: tuple[int, int], label: str, expected: str
                    ) -> tuple[dict[str, Any], int, int, int, bytes]:
     """Located canvas plus the decoded raw scanlines of its capture."""
     try:
@@ -136,6 +254,8 @@ def _canvas_window(image: Path, canvas: tuple[int, int], label: str
             "a changed page is blocked, never passed") from exc
     width, height, channels, png = _decode_png(image)
     raw = _unfilter_scanlines(width, channels, png)
+    if located.get("source_sha256") != expected or digest(image) != expected:
+        raise ComparisonBlocked(f"{label}: capture hash changed during comparison")
     return located, width, height, channels, raw
 
 
@@ -226,8 +346,16 @@ def _compare_page(page: str, base: tuple, cand: tuple,
         if b_line == c_line and b_ch == c_ch:
             continue
         for col in range(cw):
-            b_px = b_line[col * b_ch:col * b_ch + 3]
-            c_px = c_line[col * c_ch:col * c_ch + 3]
+            b_px = b_line[col * b_ch:(col + 1) * b_ch]
+            c_px = c_line[col * c_ch:(col + 1) * c_ch]
+            if b_ch == 1:
+                b_px = b_px * 3 + b"\xff"
+            elif b_ch == 3:
+                b_px += b"\xff"
+            if c_ch == 1:
+                c_px = c_px * 3 + b"\xff"
+            elif c_ch == 3:
+                c_px += b"\xff"
             if b_px == c_px:
                 continue
             changed += 1
@@ -257,7 +385,7 @@ def _compare_page(page: str, base: tuple, cand: tuple,
         result["status"] = "fail"
         result["reason"] = (
             f"{unexplained} pixel(s) changed outside every visual the "
-            "candidate edited: an undocumented rendered regression")
+            "candidate edited: an unexplained pixel difference")
     elif changed:
         result["status"] = "pass"
         result["reason"] = (
@@ -272,14 +400,15 @@ def compare_renders(baseline_renders: str | Path, candidate_renders: str | Path,
                     *, baseline_report: str | Path,
                     candidate_report: str | Path,
                     margin: int = 0) -> dict[str, Any]:
-    """Compare two exact-source captures; attribute every changed pixel.
+    """Locate pixel differences in two source-bound captures.
 
     ``margin`` dilates each edited visual's rectangle by that many canvas
     pixels before attribution. It is a **declared tolerance**, not a
     measurement, so it defaults to 0: a non-zero value must be justified
     by real render evidence that Desktop draws a visual's border or
     shadow outside its declared rectangle, and it is recorded in the
-    result so a reviewer can see what was allowed.
+    result so a reviewer can see what was allowed. Overall data-bound
+    regression acceptance remains blocked until answer parity is proven.
     """
     baseline_renders = Path(baseline_renders)
     candidate_renders = Path(candidate_renders)
@@ -298,15 +427,6 @@ def compare_renders(baseline_renders: str | Path, candidate_renders: str | Path,
             "no before/after to review")
     data_proof = _require_data(base_manifest, cand_manifest)
 
-    if base_manifest["canvas"] != cand_manifest["canvas"]:
-        raise ComparisonBlocked(
-            f"PBIR canvas differs ({base_manifest['canvas']} vs "
-            f"{cand_manifest['canvas']}); a resized report is not a "
-            "like-for-like comparison")
-    if base_manifest.get("scale") != cand_manifest.get("scale"):
-        raise ComparisonBlocked(
-            f"capture scale differs ({base_manifest.get('scale')} vs "
-            f"{cand_manifest.get('scale')})")
     base_pages = set(base_manifest["page_images"])
     cand_pages = set(cand_manifest["page_images"])
     if base_pages != cand_pages:
@@ -317,17 +437,27 @@ def compare_renders(baseline_renders: str | Path, candidate_renders: str | Path,
             f"{sorted(cand_pages - base_pages)})")
 
     pages = sorted(base_pages)
-    canvas = (base_manifest["canvas"][0], base_manifest["canvas"][1])
+    baseline_inventory = _page_inventory(baseline_report, "baseline")
+    candidate_inventory = _page_inventory(candidate_report, "candidate")
+    base_files = _capture_files(baseline_renders, base_manifest, set(baseline_inventory), "baseline")
+    cand_files = _capture_files(candidate_renders, cand_manifest, set(candidate_inventory), "candidate")
+    base_scale = _manifest_geometry(base_manifest, baseline_inventory, "baseline")
+    cand_scale = _manifest_geometry(cand_manifest, candidate_inventory, "candidate")
+    if base_scale != cand_scale:
+        raise ComparisonBlocked(f"capture scale differs ({base_scale} vs {cand_scale})")
+    if baseline_inventory != candidate_inventory:
+        raise ComparisonBlocked("PBIR canvas differs between source page inventories")
     changed_visuals = _changed_visuals(baseline_report, candidate_report, pages)
     base_rects = _rects(baseline_report)
     cand_rects = _rects(candidate_report)
 
     page_results = []
     for page in pages:
-        base_image = baseline_renders / base_manifest["page_images"][page]
-        cand_image = candidate_renders / cand_manifest["page_images"][page]
-        base = _canvas_window(base_image, canvas, f"baseline/{page}")
-        cand = _canvas_window(cand_image, canvas, f"candidate/{page}")
+        base_image, base_hash = base_files[page]
+        cand_image, cand_hash = cand_files[page]
+        page_canvas = baseline_inventory[page]
+        base = _canvas_window(base_image, page_canvas, f"baseline/{page}", base_hash)
+        cand = _canvas_window(cand_image, page_canvas, f"candidate/{page}", cand_hash)
         scale = Fraction(base[0]["effective_scale"])
         if Fraction(cand[0]["effective_scale"]) != scale:
             raise ComparisonBlocked(
@@ -356,7 +486,16 @@ def compare_renders(baseline_renders: str | Path, candidate_renders: str | Path,
 
     failed = [p["page"] for p in page_results if p["status"] == "fail"]
     changed_pages = [p["page"] for p in page_results if p["pixels_changed"]]
-    verdict = "fail" if failed else "pass"
+    # Matching COUNTROWS hashes do not prove equal answers, model, roles,
+    # filters, or interaction state. Report pixel observations while
+    # refusing an overall regression verdict until those are evidenced.
+    _require_bound(base_manifest, baseline_report, "baseline")
+    _require_bound(cand_manifest, candidate_report, "candidate")
+    # A capture that changed after its page was measured must not leave a
+    # result pointing at stale evidence. Recheck the complete inventories.
+    _capture_files(baseline_renders, base_manifest, set(baseline_inventory), "baseline")
+    _capture_files(candidate_renders, cand_manifest, set(candidate_inventory), "candidate")
+    verdict = "blocked"
     return {
         "schema": SCHEMA,
         "verdict": verdict,
@@ -368,9 +507,10 @@ def compare_renders(baseline_renders: str | Path, candidate_renders: str | Path,
         "data_proof": data_proof,
         "declared_margin_px": margin,
         "pages": page_results,
-        "note": ("rendered difference confined to the edited visuals is not "
-                 "design approval: it shows no *unexplained* regression. "
-                 "Independent G2/G4 review and owner G6 are separate."),
+        "note": ("Data parity and interaction scope are unproven: matching "
+                 "row-count probes do not prove equal report answers. Page "
+                 "results describe pixel differences only, not data-bound "
+                 "regression or independent G2/G4 review or owner G6."),
     }
 
 

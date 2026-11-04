@@ -21,8 +21,24 @@ def test_published_ledger_is_acyclic_and_has_valid_status_claims() -> None:
     result = summarize(data)
     assert result["independently_verified"] == 0
     assert result["initial_release_packages"] == 14
+    v020 = next(item for item in data["packages"] if item["id"] == "WP-30")
+    assert v020["issue"] == 130
+    assert v020["stage"] == "S10"
+    assert {"WP-05", "WP-07"} == set(v020["depends_on"])
+    assert v020["state"] == "planned"
+    assert v020["verification"] == "not_run"
     assert result["deferred"] == 1
     assert result["next_runnable"] == ["WP-00"]
+
+
+def test_future_package_does_not_inflate_initial_or_deferred_counts() -> None:
+    data = deepcopy(_ledger())
+    future = next(item for item in data["packages"] if item["id"] == "WP-30")
+    future["depends_on"] = []
+    result = summarize(data)
+    assert result["initial_release_packages"] == 14
+    assert result["deferred"] == 1
+    assert "WP-30" in result["next_runnable"]
 
 
 def test_issue_closure_or_invented_verified_status_cannot_replace_evidence() -> None:
