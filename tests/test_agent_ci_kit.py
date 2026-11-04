@@ -40,7 +40,7 @@ def test_installed_gate_on_fictional_revisions(
     env["PYTHONIOENCODING"] = "utf-8"
     completed = subprocess.run(
         [sys.executable, "-m", "vqs", "gate", str(head / "Contoso Retail.pbip"),
-         "--baseline", str(baseline), "--sarif", str(sarif), "--sarif-root", str(workspace),
+         "--baseline", str(baseline), "--sarif", str(sarif), "--sarif-root", str(head),
          "--out", str(result), "--github"],
         cwd=tmp_path, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace",
         check=False,
@@ -53,8 +53,11 @@ def test_installed_gate_on_fictional_revisions(
     if scenario == "new":
         introduced = next(item for item in results if item.get("baselineState") == "new")
         location = introduced["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
-        assert location == "head/Contoso Retail.Report/definition/report.json"
-        assert "file=head/Contoso Retail.Report/definition/report.json" in completed.stdout
+        # Repository-relative, as in the consumer's repo: the checkout's
+        # `head/` directory exists only on the runner, so a `head/...` path
+        # could never be placed on the pull request's changed files.
+        assert location == "Contoso Retail.Report/definition/report.json"
+        assert "file=Contoso Retail.Report/definition/report.json" in completed.stdout
         assert "::error" in completed.stdout
     elif scenario == "missing-base":
         assert results[0]["ruleId"] == "vqs.gate.blocked"
@@ -101,4 +104,15 @@ def test_workflow_validation_and_quoting(tmp_path: Path) -> None:
     assert run(_workflow_script("Compare static findings")).returncode == 0
     args = (tmp_path / "args").read_text(encoding="utf-8").splitlines()
     assert args[1] == f"{tmp_path}/head/{env['HEAD_REPORT']}"
+    assert args[args.index("--sarif-root") + 1] == f"{tmp_path}/head"
     assert not (tmp_path / "injected").exists()
+
+
+def test_workflow_is_bounded_and_annotates_repository_paths() -> None:
+    """Platform-independent checks of the copyable sample itself."""
+    content = WORKFLOW.read_text(encoding="utf-8")
+    # A hung gate must not hold a hosted runner for the 6-hour default.
+    assert "    timeout-minutes: 20\n" in content
+    # Annotations must name repository paths, not the runner's checkout dir.
+    assert '--sarif-root "$GITHUB_WORKSPACE/head"' in content
+    assert '--sarif-root "$GITHUB_WORKSPACE" ' not in content
