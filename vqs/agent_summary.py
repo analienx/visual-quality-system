@@ -110,5 +110,6 @@ def summarize(envelope: dict[str, Any]) -> dict[str, Any]:
         "acceptance": bool(summary.get("acceptance")),
         "blocked_reasons": (envelope.get("blocked_reasons") or [])[:12],
         "next_actions": (envelope.get("next_actions") or [])[:8],
-        "evidence": "Full sealed envelope available in run_dir; never infer native approval from static checks",
+        "evidence": ("Sealed stage ledger available in run_dir; the returned envelope is not "
+                     "sealed there. Never infer native approval from static checks"),
     }

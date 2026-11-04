@@ -52,6 +52,11 @@ def test_published_ledger_is_acyclic_and_has_valid_status_claims() -> None:
     assert intent["depends_on"] == ["WP-33"]
     assert intent["state"] == "planned"
     assert intent["verification"] == "not_run"
+    evidence = next(item for item in data["packages"] if item["id"] == "WP-36")
+    assert evidence["issue"] == 145
+    assert evidence["depends_on"] == ["WP-35"]
+    assert evidence["state"] == "planned"
+    assert evidence["verification"] == "not_run"
     assert result["deferred"] == 1
     assert result["next_runnable"] == ["WP-00"]
 
