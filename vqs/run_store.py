@@ -335,6 +335,72 @@ def _publish_lock(lock: Path, payload: str) -> bool:
     return True
 
 
+def _guard_path(lock: Path) -> Path:
+    # Kept, never deleted: removing it would let a second guard file with a
+    # different identity be locked while the first is still held.
+    return lock.with_name(lock.name + ".takeover")
+
+
+def _lock_guard(stream: Any) -> bool:
+    """Exclusive, non-blocking OS byte-range lock on an open guard file.
+
+    Built-in locking (msvcrt on Windows, fcntl elsewhere) is released by the
+    OS when its holder exits, so the guard can never go stale. False when
+    another handle holds it or locking is unsupported.
+    """
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            stream.seek(0)
+            msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return False
+    return True
+
+
+def _unlock_guard(stream: Any) -> None:
+    # Closing the file also drops a POSIX flock.
+    if os.name == "nt":
+        import msvcrt
+
+        try:
+            stream.seek(0)
+            msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+        except OSError:
+            pass
+
+
+def _take_over_abandoned(lock: Path) -> bool:
+    """Remove an abandoned lock under the takeover guard; True if removed.
+
+    Only a takeover ever deletes a lock it does not own, and each one
+    re-checks the lock while holding the guard, so it can never delete a
+    claim that another takeover published in the meantime. Ordinary
+    contention (a live, owned lock) never touches the guard.
+    """
+    if _stale_lock(lock) is None:
+        return False
+    try:
+        with open(_guard_path(lock), "a+b") as guard:
+            if not _lock_guard(guard):
+                return False
+            try:
+                identity = _stale_lock(lock)
+                if identity is None or _lock_identity(lock) != identity:
+                    return False
+                lock.unlink()
+                return True
+            finally:
+                _unlock_guard(guard)
+    except OSError:
+        return False
+
+
 def claim_artifact(lock_dir: Path, artifact_id: str, owner: str) -> bool:
     """Claim exclusive ownership; False means another owner holds it (queue)."""
     _validate_name(artifact_id, "artifact_id")
@@ -350,12 +416,7 @@ def claim_artifact(lock_dir: Path, artifact_id: str, owner: str) -> bool:
         # owner record, which would block this artifact for good. Take it
         # over once, and only if it is old and still the same file; a lock
         # with a readable owner is always respected.
-        identity = _stale_lock(lock) if attempt == 0 else None
-        if identity is None or _lock_identity(lock) != identity:
-            return False
-        try:
-            lock.unlink()
-        except OSError:
+        if attempt or not _take_over_abandoned(lock):
             return False
     return False
 

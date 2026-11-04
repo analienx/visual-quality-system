@@ -143,6 +143,58 @@ def test_abandoned_ownerless_lock_is_recovered_only_once_stale(
     assert run_store.release_artifact(locks, "desktop-pid-7", "next") is True
 
 
+def test_two_takeovers_of_one_abandoned_lock_leave_one_owner(
+        tmp_path: Path, monkeypatch) -> None:
+    """Negative control: a takeover must never delete a newer claim.
+
+    B2 finds the abandoned lock and checks it; before B2 unlinks it, B1
+    takes the same lock over and publishes its own claim. Unless takeovers
+    are serialised, B2's unlink then removes B1's fresh lock and both
+    believe they hold the lease.
+    """
+    locks = tmp_path / "locks"
+    locks.mkdir()
+    lock = locks / "desktop-pid-12.lock"
+    lock.write_bytes(b"")
+    _age(lock, run_store.STALE_LOCK_SECONDS + 5)
+    results: dict[str, bool] = {}
+    armed = [True]
+    real_unlink = Path.unlink
+
+    def unlink(self, *args, **kwargs):
+        if self == lock and armed[0]:
+            armed[0] = False
+            results["B1"] = run_store.claim_artifact(locks, "desktop-pid-12", "B1")
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+    results["B2"] = run_store.claim_artifact(locks, "desktop-pid-12", "B2")
+    monkeypatch.undo()
+    winners = sorted(name for name, claimed in results.items() if claimed)
+    assert len(winners) == 1, results
+    assert winners == [json.loads(lock.read_text(encoding="utf-8"))["owner"]]
+
+
+def test_takeover_waits_for_the_os_guard(tmp_path: Path) -> None:
+    """The guard is a real OS byte-range lock, exclusive across handles."""
+    locks = tmp_path / "locks"
+    locks.mkdir()
+    lock = locks / "desktop-pid-13.lock"
+    lock.write_bytes(b"")
+    _age(lock, run_store.STALE_LOCK_SECONDS + 5)
+    with open(run_store._guard_path(lock), "a+b") as held:
+        assert run_store._lock_guard(held)
+        try:
+            with open(run_store._guard_path(lock), "a+b") as other:
+                assert not run_store._lock_guard(other)
+            assert run_store.claim_artifact(locks, "desktop-pid-13", "B") is False
+            assert lock.read_bytes() == b""
+        finally:
+            run_store._unlock_guard(held)
+    assert run_store.claim_artifact(locks, "desktop-pid-13", "B") is True
+    assert json.loads(lock.read_text(encoding="utf-8"))["owner"] == "B"
+
+
 def test_old_lock_with_an_owner_is_always_respected(tmp_path: Path) -> None:
     locks = tmp_path / "locks"
     assert run_store.claim_artifact(locks, "desktop-pid-8", "A") is True

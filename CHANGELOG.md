@@ -63,8 +63,9 @@ Each was reproduced before being fixed and carries a negative control.
   `claim_artifact` publishes its owner record atomically (a complete file,
   hard-linked into place), so a live claim is never visible without an
   owner, and takes over an ownerless lock only once it is
-  `STALE_LOCK_SECONDS` (60 s) old and still the same file. A lock naming an
-  owner is never taken over.
+  `STALE_LOCK_SECONDS` (60 s) old and still the same file. Takeovers are
+  serialised by a built-in OS file lock, so two claimants can never both take
+  over one abandoned lock. A lock naming an owner is never taken over.
 - A report name containing U+2028, U+2029 or U+0085 no longer crashes a run.
   Events are written with those characters raw inside JSON strings, and the
   event log was read with `str.splitlines()`, which also breaks there; `vqs fix`
