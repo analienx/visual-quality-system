@@ -299,10 +299,15 @@ def main() -> int:
         env.pop(name, None)
     env["PYTHONNOUSERSITE"] = "1"
 
-    wheel_files = list(dist.glob("visual_quality_system-0.1.1-*.whl"))
-    archives = list(dist.glob("visual_quality_system-0.1.1.tar.gz"))
+    # Derived from EXPECTED_VERSION so a version bump cannot leave this
+    # gate globbing for the previous release's filenames.
+    wheel_files = list(
+        dist.glob(f"visual_quality_system-{EXPECTED_VERSION}-*.whl"))
+    archives = list(
+        dist.glob(f"visual_quality_system-{EXPECTED_VERSION}.tar.gz"))
     require(len(wheel_files) == 1 and len(archives) == 1,
-            "must build exactly one v0.1.1 wheel and source archive")
+            f"must build exactly one v{EXPECTED_VERSION} wheel and source "
+            f"archive; found {sorted(p.name for p in dist.glob('*'))}")
     wheel, archive = wheel_files[0], archives[0]
     with zipfile.ZipFile(wheel) as z:
         names = z.namelist()
