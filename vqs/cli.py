@@ -1372,8 +1372,8 @@ def main(argv: list[str] | None = None) -> int:
                          choices=("auto", "microsoft", "direct"),
                          default="auto")
     run_cmd.add_argument("--live-answers", action="store_true",
-                         help="Opt into live DAX answer collection when a "
-                              "model is reachable")
+                         help="Request live DAX answer collection; currently "
+                              "blocked until source/model binding is proven")
     run_cmd.add_argument("--reviewer", default=None,
                          help="Reviewer provider dotted path for visual "
                               "acceptance (runtime handoff blocks without "

@@ -132,6 +132,8 @@ def test_e2e_status_snapshot_matches_machine_ledger() -> None:
     assert ledger_issues == list(range(5, 19)) + [19]
     assert any(item["issue"] == 130 and item.get("stage") == "S10"
                for item in data["packages"])
+    assert any(item["issue"] == 133 and item.get("stage") == "S10"
+               for item in data["packages"])
 
 
 def test_e2e_program_docs_link_issue4_and_ledger() -> None:

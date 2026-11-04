@@ -97,6 +97,19 @@ Answers authorize a disposable candidate and scoped waivers only. They are
 not G2/G4 review, G6 promotion or release approval, and nothing promotes the
 original.
 
+## Live answer regression (v0.2 candidate)
+
+`vqs run --live-answers` currently records the answer baseline as **blocked**
+without opening the modeling connection. Existing answer artifacts do not
+independently bind the queried model and Desktop PID to the reviewed source;
+equal rows or a reachable server are insufficient. Legacy baselines are not
+reused. [Issue #131](https://github.com/analienx/visual-quality-system/issues/131)
+tracks the reviewed evidence contract needed to restore this capability.
+
+Candidate reload and recapture also require Desktop readiness and permission;
+recapture uses the PID from the latest successful candidate reload. A blocked
+reload prevents recapture and live answer regression.
+
 ## Rendered before/after review (`vqs compare-renders`)
 
 Compares source-bound page captures at pixel level and reports whether changed
