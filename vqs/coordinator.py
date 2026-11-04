@@ -756,6 +756,17 @@ def _runtime_sequence(run_dir: Any, rid: str, stages: list,
                               reason=f"unreadable owner plan: {exc}"))
                 return _finish(run_dir, rid, stages, state, mode,
                                params["scope"], run_root)
+            forged = _forged_owner_proofs(plan)
+            if forged:
+                record(_stage("repair", "blocked",
+                              reason=("owner plan claims decision authority "
+                                      "it cannot carry: " + ", ".join(forged)
+                                      + ". A plan file is not a sealed "
+                                      "owner decision; answer the question "
+                                      "with `vqs decisions template` and "
+                                      "`--decisions`")))
+                return _finish(run_dir, rid, stages, state, mode,
+                               params["scope"], run_root)
         if not isinstance(plan, dict) and _all_failures_waived(
                 state, state.get("review_findings"), state.get("merged")):
             # Nothing left to edit: the owner waived every failing finding.
@@ -1365,6 +1376,48 @@ def _failing_checks(findings: Any) -> set[str]:
     return {check for check, status in states.items() if status == "fail"}
 
 
+def _forged_owner_proofs(plan: Any) -> list[str]:
+    """Owner-decision proofs in a hand-written plan, which cannot exist.
+
+    ``owner-decision:<id>:<option>`` is minted by ``decisions.annotate``
+    for a sealed, source-bound question and only ever reaches the
+    executor through ``--decisions``. ``--plan`` and ``--decisions`` are
+    mutually exclusive, so a plan file carrying that marker is asserting
+    an owner authority no sealed answer backs — the string prefix alone
+    is not authority (AGENTS.md: agents never choose an option or waiver
+    themselves).
+    """
+    from vqs.repair.recipes import OWNER_DECISION_PROOF
+
+    if not isinstance(plan, dict):
+        return []
+    operations = plan.get("operations")
+    if not isinstance(operations, list):
+        return []
+    forged = []
+    for index, op in enumerate(operations):
+        if not isinstance(op, dict):
+            continue
+        proof = op.get("proof")
+        if isinstance(proof, str) and proof.startswith(OWNER_DECISION_PROOF):
+            forged.append(f"operations[{index}].proof={proof!r}")
+    return forged
+
+
+def _unwaivable_checks(findings: Any) -> set[str]:
+    """Checks whose evidence is missing, so no waiver may clear them.
+
+    AGENTS.md: missing evidence (``blocked``/``unknown``/``unsupported``)
+    is never waivable, and blocked/unknown never pass. ``run_check``
+    reports ``fail`` whenever any check fails, which masks a co-existing
+    ``blocked`` finding in the verdict, so the waiver path must look at
+    the findings themselves rather than at the verdict.
+    """
+    states, _complete = _finding_states(findings)
+    return {check for check, status in states.items()
+            if status not in ("pass", "fail")}
+
+
 def _waived(state: dict, findings: Any, facts: Any) -> list[str]:
     """Failing checks fully covered by recorded owner waivers."""
     subjects = state.get("waived_subjects")
@@ -1592,7 +1645,14 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
             after_facts = None
     waived = _waived(state, after_findings, after_facts)
     failing_after = _failing_checks(after_findings)
+    unwaivable = _unwaivable_checks(after_findings)
     waivers_cover = bool(failing_after) and failing_after <= set(waived)
+    # Owner waivers may clear demonstrated failures, never missing
+    # evidence. A run whose only remaining obstacle is blocked/unknown
+    # evidence is blocked, not accepted.
+    waivers_need_evidence = waivers_cover and bool(unwaivable)
+    if waivers_need_evidence:
+        waivers_cover = False
     reconcile["remaining"] = [check for check in reconcile["remaining"]
                               if check not in waived]
     candidate_state = _candidate_status(stages)
@@ -1710,6 +1770,7 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
                        for entry in stages if entry.get("run_id")},
         "candidate": state.get("candidate"),
         "waived_findings": waived,
+        "unwaivable_findings": sorted(unwaivable),
         "owner_decisions": ({
             "owner": state["answers"]["owner"],
             "answers_sha256": state["answers"]["sha256"],
@@ -1744,10 +1805,21 @@ def _finish(run_dir: Any, rid: str, stages: list, state: dict,
     verdict = "pass" if (execution == "pass" and acceptance) else execution
     if execution == "pass" and not acceptance:
         verdict = "fail"
+    # Every demonstrated failure is waived, but evidence is still
+    # missing: report the honest blocked verdict instead of a failure
+    # the owner already answered for.
+    evidence_reason = ""
+    if waivers_need_evidence:
+        verdict = "blocked"
+        evidence_reason = ("owner waivers cover every failing check, but "
+                           "evidence is missing and is never waivable: "
+                           + ", ".join(sorted(unwaivable)))
+        summary["blocked_reason"] = evidence_reason
     record = _stage("summary", verdict,
                     reason=(f"outcome={outcome}; "
-                            + ("; ".join(summary["blocked_stages"]
-                                         + summary["failed_stages"])
+                            + (evidence_reason
+                               or "; ".join(summary["blocked_stages"]
+                                            + summary["failed_stages"])
                                or f"{mode}/{scope} workflow {verdict}")),
                     evidence={"summary": summary["blocked_stages"],
                               "outcome": outcome})

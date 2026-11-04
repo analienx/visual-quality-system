@@ -353,31 +353,34 @@ def _plan_overlap_conflict(check: str, conflict: dict, canvases: dict,
     if rel is None:
         return [], [_decision(check, "needs_owner_decision",
                               "missing source binding: unsafe page/visual "
-                              "segment", page, second)]
+                              "segment", page, second,
+                              pair=[first, second])]
     if (page, first) not in tracked or (page, second) not in tracked:
         return [], [_decision(check, "needs_owner_decision",
                               "missing source binding: sealed facts carry "
                               "no measured rect for the overlapping pair",
-                              page, second)]
+                              page, second, pair=[first, second])]
     canvas = canvases.get(page)
     if canvas is None:
         return [], [_decision(check, "needs_owner_decision",
                               "missing source binding: no measurable page "
                               "canvas for the overlapping pair",
-                              page, second)]
+                              page, second, pair=[first, second])]
     dims = {key: overlap.get(key)
             for key in ("x", "y", "width", "height")}
     if (not all(_is_num(dims[key]) for key in dims)
             or dims["width"] <= 0 or dims["height"] <= 0):
         return [], [_decision(check, "unsupported",
                               "unsupported: overlap rect is not a "
-                              "positive-area rect", page, second)]
+                              "positive-area rect", page, second,
+                              pair=[first, second])]
     mover = tracked[(page, second)]
     current = _positive_overlap(tracked[(page, first)], mover)
     if current is None:
         return [], [_decision(check, "covered_by_candidate",
                               "already resolved by an earlier candidate "
-                              "move on this page", page, second)]
+                              "move on this page", page, second,
+                              pair=[first, second])]
     area = mover["width"] * mover["height"]
     if area > 0 and dims["width"] * dims["height"] > (
             _LARGE_OVERLAP_FRACTION * area):
@@ -401,12 +404,13 @@ def _plan_overlap_conflict(check: str, conflict: dict, canvases: dict,
             if planned[key] == new:
                 return [], [_decision(
                     check, "covered_by_candidate",
-                    "identical move already planned", page, second)]
+                    "identical move already planned", page, second,
+                    pair=[first, second])]
             return [], [_decision(
                 check, "needs_owner_decision",
                 "conflicting plans: this visual already has a different "
                 f"planned {axis} move from an earlier finding",
-                page, second)]
+                page, second, pair=[first, second])]
         if _clear_of(placed, page, tracked, mover_key, canvas):
             op = {"type": "spacing.adjust",
                   "selector": {"page": page, "visual": second},
