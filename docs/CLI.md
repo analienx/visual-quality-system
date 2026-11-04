@@ -353,6 +353,15 @@ Viewport-less captures (the actual Bridge 1.0.0 contract) bind render
 identity for whole-page review with geometry calibration honestly
 blocked — no pixel-to-PBIR coordinate transform is claimed.
 
+With live data enabled, capture requires a valid positive modeling readiness
+probe both before and after screenshots. Missing, malformed, empty or drifting
+probe data blocks the capture rather than coercing it into `populated: true`.
+The current native probe counts rows in one named table; it does not prove that
+every visual is populated. Matching counts and hashes do not prove the same
+values, model, answers or filters across different report versions.
+Historical readiness receipts require separate review under the data-evidence
+contract; this producer hardening does not retroactively validate them.
+
 ```console
 vqs capture path/to/Example.Report path/to/renders
 vqs capture path/to/Example.Report path/to/renders --pid 1234 --scale 2

@@ -65,7 +65,7 @@ body:
     id: tests
     attributes:
       label: "Positive and negative test matrix"
-      description: "Name synthetic fixtures and show pass, fail and blocked outcomes, including malformed or stale inputs, evidence seals, Unicode shell quoting, PID boundaries and exact CI revisions when relevant."
+      description: "Name synthetic fixtures and show pass, fail and blocked outcomes, including malformed or stale inputs, data-readiness drift, evidence seals, shell/PID boundaries and exact CI revisions when relevant."
       placeholder: "Real/synthetic fixture, expected pass, expected fail, expected blocked, exact verification command"
     validations:
       required: true
