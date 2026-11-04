@@ -113,6 +113,11 @@ applies it:
           "mcp": {"tool": "vqs_promote", "run_id": "sales-2-repair", "scope": "static"}}
 ```
 
+Run the generated command in **PowerShell** on Windows, or in a POSIX shell
+on Linux/macOS. Windows Command Prompt uses different quoting; open PowerShell
+or use the structured `vqs_promote` MCP arguments there. Replace the owner
+approval placeholder only after the owner explicitly decides to adopt.
+
 Adopting is the owner's call. It re-checks both digests, replaces the original
 report and keeps it as `<report>.vqs-backup`. Static scope is still not native
 Desktop, G2/G4 or G6 acceptance.

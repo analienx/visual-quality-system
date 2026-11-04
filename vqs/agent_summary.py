@@ -5,6 +5,7 @@ envelopes and run manifests remain available for audits.
 """
 from __future__ import annotations
 
+import os
 import shlex
 from pathlib import Path
 from typing import Any
@@ -27,7 +28,16 @@ def _changes(envelope: dict[str, Any]) -> list[dict[str, Any]]:
         out.append({"page": selector.get("page"), "visual": selector.get("visual"),
                     "property": ".".join(named) or None, "op": op.get("type"),
                     "from": op.get("old"), "to": op.get("value")})
-    return out[:50]
+    return out
+
+
+def _shell_quote(value: str, *, windows: bool) -> str:
+    """Quote one literal argument for the documented shell on this host."""
+    if windows:
+        # PowerShell single-quoted strings do not expand $, backticks, or
+        # subexpressions; an embedded apostrophe is doubled.
+        return "'" + value.replace("'", "''") + "'"
+    return shlex.quote(value)
 
 
 def _adopt(envelope: dict[str, Any], summary: dict[str, Any]) -> dict[str, Any] | None:
@@ -39,17 +49,19 @@ def _adopt(envelope: dict[str, Any], summary: dict[str, Any]) -> dict[str, Any] 
     if not isinstance(run_id, str) or not isinstance(run_dir, str):
         return None
     root = str(Path(run_dir).parent)
-    # AGENTS.md has the owner run this command verbatim, so it must be
-    # shell-safe: a run root holding a quote, `$(...)`, a backtick or a
-    # trailing backslash would otherwise break the command or add words
-    # to it. The `mcp` form below needs no quoting at all.
+    # The owner runs this after their explicit decision. POSIX shlex
+    # quoting is not PowerShell quoting, especially around apostrophes.
+    # The MCP form needs no shell quoting at all.
+    windows = os.name == "nt"
+    shell = "PowerShell" if windows else "a POSIX shell"
     return {
-        "command": (f"vqs promote --run-root {shlex.quote(root)} "
-                    f"--run-id {shlex.quote(run_id)} "
+        "command": (f"vqs promote --run-root {_shell_quote(root, windows=windows)} "
+                    f"--run-id {_shell_quote(run_id, windows=windows)} "
                     '--owner-approval "<who: why>" --scope static'),
         "mcp": {"tool": "vqs_promote", "run_root": root, "run_id": run_id,
                 "scope": "static"},
-        "note": ("owner decision only: replaces the original report with the "
+        "note": (f"Run the command in {shell}. Owner decision only: replaces "
+                 "the original report with the "
                  "verified candidate after re-checking both digests; the "
                  "original is kept as <report>.vqs-backup. Static scope is "
                  "not native Desktop, G2/G4 or G6 acceptance"),
@@ -82,7 +94,7 @@ def summarize(envelope: dict[str, Any]) -> dict[str, Any]:
         "source_sha256": (envelope.get("provenance") or {}).get("source_sha256"),
         "fixed": summary.get("resolved_findings") or [],
         "remaining": remaining,
-        "needs_review": needs_review[:12],
+        "needs_review": needs_review,
         "decision_source_sha256": triage.get("decision_source_sha256"),
         "waived": summary.get("waived_findings") or [],
         "owner_decisions": (summary.get("owner_decisions") or {}).get("answered", []),

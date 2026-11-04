@@ -134,6 +134,8 @@ def test_e2e_status_snapshot_matches_machine_ledger() -> None:
                for item in data["packages"])
     assert any(item["issue"] == 133 and item.get("stage") == "S10"
                for item in data["packages"])
+    assert any(item["issue"] == 135 and item.get("stage") == "S10"
+               for item in data["packages"])
 
 
 def test_e2e_program_docs_link_issue4_and_ledger() -> None:
