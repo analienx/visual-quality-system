@@ -92,7 +92,8 @@ conflict keeps one subject identity regardless of how much geometry the facts
 carry; the Microsoft metadata gate admits both real PBIR formatting layers instead
 of discarding a whole answered plan; native capture compares content identity
 rather than timestamps; an interrupted Desktop PID lease is recoverable without
-ever taking over a live claim; PID attestation shares one probe and one
+ever taking over a live claim; a report name containing a Unicode line
+separator no longer corrupts the run's event log; PID attestation shares one probe and one
 command-line parser; the Windows Desktop probe pins its Desktop version and
 refuses an unverified installer.
 

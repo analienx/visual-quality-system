@@ -10,6 +10,7 @@ from __future__ import annotations
 import errno
 import json
 import os
+import shutil
 import time
 from pathlib import Path
 
@@ -31,6 +32,51 @@ def test_interrupted_run_replays_all_events_and_stays_blocked(tmp_path: Path) ->
     run_store.append_event(run_dir, {"kind": "completed", "seq": 3})
     assert run_store.run_status(run_dir) == "completed"
     assert len(run_store.read_events(run_dir)) == 3
+
+
+# LINE SEPARATOR, PARAGRAPH SEPARATOR and NEL: str.splitlines() breaks at
+# each, but JSON keeps them raw inside a string written ensure_ascii=False.
+_SEPARATORS = "".join(map(chr, (0x2028, 0x2029, 0x85)))
+_CONTOSO = Path(__file__).resolve().parents[1] / "examples" / "contoso-retail"
+
+
+def test_unicode_line_separators_stay_inside_their_event(tmp_path: Path) -> None:
+    """Negative control: one report-derived name must not corrupt the log."""
+    run_dir = run_store.create_run(tmp_path, "run-u", {"artifact": "report-a"})
+    name = "Page" + "|".join(_SEPARATORS) + "end"
+    run_store.append_event(run_dir, {"kind": "stage", "reason": name})
+    run_store.append_event(run_dir, {"kind": "stage", "reason": "next"})
+    assert [event["reason"] for event in run_store.read_events(run_dir)] == [name, "next"]
+
+
+def test_report_page_named_with_a_line_separator_runs_to_a_sealed_verdict(
+        tmp_path: Path) -> None:
+    """`vqs fix` crashed with a JSONDecodeError traceback on such a report.
+
+    A page folder name is report-controlled and reaches the stage events
+    raw; the run must finish with a sealed, readable ledger instead.
+    """
+    from vqs.coordinator import run_workflow
+
+    project = tmp_path / "Contoso copy"
+    shutil.copytree(_CONTOSO, project)
+    pages = project / "Contoso Retail.Report" / "definition" / "pages"
+    meta = json.loads((pages / "pages.json").read_text(encoding="utf-8-sig"))
+    old = meta["pageOrder"][0]
+    new = old + chr(0x2028) + "x"
+    (pages / old).rename(pages / new)
+    meta["pageOrder"][0] = new
+    if meta.get("activePageName") == old:
+        meta["activePageName"] = new
+    (pages / "pages.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    result = run_workflow(report_dir=str(project / "Contoso Retail.Report"),
+                          mode="repair", scope="static", run_root=str(tmp_path / "runs"),
+                          run_id="separator", authoring_backend="direct")
+    assert result["verdict"] in ("pass", "fail", "blocked")
+    run_dir = tmp_path / "runs" / "separator"
+    events = run_store.read_events(run_dir)
+    assert any(new in json.dumps(event, ensure_ascii=False) for event in events)
+    assert run_store.verify_seal(run_dir) == []
 
 
 def test_concurrent_artifact_claim_refused_and_released(tmp_path: Path) -> None:

@@ -135,9 +135,15 @@ def append_event(run_dir: Path, event: dict) -> None:
 
 
 def read_events(run_dir: Path) -> list[dict]:
-    """Replay every event in order; corrupt lines raise instead of skipping."""
+    """Replay every event in order; corrupt lines raise instead of skipping.
+
+    Events end at ``\\n`` only. ``str.splitlines`` also breaks at U+2028,
+    U+2029 and U+0085, which ``append_event`` leaves raw inside JSON
+    strings, so one report-derived name holding them split an event and
+    made the whole log unreadable.
+    """
     events = []
-    for line in (Path(run_dir) / "events.jsonl").read_text(encoding="utf-8").splitlines():
+    for line in (Path(run_dir) / "events.jsonl").read_text(encoding="utf-8").split("\n"):
         if line.strip():
             value = json.loads(line)
             if not isinstance(value, dict):

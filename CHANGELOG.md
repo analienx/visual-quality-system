@@ -65,6 +65,11 @@ Each was reproduced before being fixed and carries a negative control.
   owner, and takes over an ownerless lock only once it is
   `STALE_LOCK_SECONDS` (60 s) old and still the same file. A lock naming an
   owner is never taken over.
+- A report name containing U+2028, U+2029 or U+0085 no longer crashes a run.
+  Events are written with those characters raw inside JSON strings, and the
+  event log was read with `str.splitlines()`, which also breaks there; `vqs fix`
+  stopped with a `JSONDecodeError` traceback and left an unreadable ledger
+  (present since v0.1.1). The log is now split on `\n` only.
 - Desktop PID attestation shares one CIM probe and one
   `CommandLineToArgvW`-correct parser (`vqs.powerbi.os_process`) instead of a
   second script and a quote-matching regex.
