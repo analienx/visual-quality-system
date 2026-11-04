@@ -9,7 +9,7 @@
   "deferred_scope": [
     "fabric-apps-rayfin"
   ],
-  "assertion": "WP-00 through WP-19 retain the archived 3 October snapshot; WP-30 through WP-32 and WP-34 record proposed v0.2.0 candidates separately. Historical entries are not a current release dashboard. No package is newly independently verified by this ledger edit.",
+  "assertion": "WP-00 through WP-19 retain the archived 3 October snapshot; WP-30 through WP-34 record proposed v0.2.0 candidates separately. Historical entries are not a current release dashboard. No package is newly independently verified by this ledger edit.",
   "status_vocabulary": [
     "planned",
     "ready",
@@ -589,6 +589,26 @@
       "evidence_required": [
         "powershell-smart-quote-injection-negative-controls",
         "powershell-5-and-7-argument-roundtrips",
+        "independent-review"
+      ],
+      "pull_request": null,
+      "verified_commit": null,
+      "evidence_uri": null
+    },
+    {
+      "id": "WP-33",
+      "stage": "S10",
+      "title": "v0.2.0 reproducible agent and pull-request gate adoption",
+      "issue": 137,
+      "depends_on": ["WP-34"],
+      "lane": "agent-ci-adoption",
+      "owned_paths": ["docs/CLI.md", "docs/AI_AGENT_QUICKSTART.md", "examples/ci/powerbi-quality.yml", "tests/test_agent_ci_kit.py"],
+      "state": "planned",
+      "verification": "not_run",
+      "required_gate": "G0",
+      "evidence_required": [
+        "fictional-cli-exit-and-sarif-negative-controls",
+        "pinned-workflow-and-install-validation",
         "independent-review"
       ],
       "pull_request": null,
