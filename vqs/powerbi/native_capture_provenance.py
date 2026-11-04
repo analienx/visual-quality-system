@@ -8,14 +8,13 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
 
 from vqs.powerbi.acceptance_subjects import _asset
-from vqs.powerbi.desktop_native_provenance import snapshot
+from vqs.powerbi.desktop_native_provenance import content_identity, snapshot
 from vqs.powerbi.desktop_source import project_artifacts
 
 
@@ -41,38 +40,28 @@ def _status(cli: str, pid: int, pbip: Path, report: Path) -> dict[str, Any]:
 
 
 def _os_identity(pid: int, expected_pbip: Path) -> str:
-    """Read Windows' own process identity, without optional third-party deps."""
-    shell = shutil.which("powershell.exe")
-    if not shell or type(pid) is not int or pid <= 0:
-        raise ValueError("built-in Windows process identity is unavailable")
-    script = (
-        # UTF-8 output: OEM code pages garble non-ASCII PBIP paths.
-        "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8;"
-        f'$p=Get-CimInstance Win32_Process -Filter "ProcessId = {pid}";'
-        'if ($null -eq $p) { exit 2 };'
-        '$data=[pscustomobject]@{Name=$p.Name;CommandLine=$p.CommandLine;'
-        'Created=$p.CreationDate.ToUniversalTime().ToString("o")};'
-        '$data | ConvertTo-Json -Compress'
-    )
-    probe = subprocess.run(
-        [shell, "-NoProfile", "-NonInteractive", "-Command", script],
-        capture_output=True, text=True, encoding="utf-8-sig",
-        errors="replace", timeout=25, check=False,
-    )
-    if probe.returncode:
-        raise ValueError("Windows OS could not attest Desktop PID")
-    record = json.loads(probe.stdout)
-    if record.get("Name", "").lower() != "pbidesktop.exe":
+    """Windows' own process identity for this PID, via the shared CIM probe.
+
+    Uses ``vqs.powerbi.os_process`` rather than a second PowerShell script
+    and a second command-line parser: ``split_command_line`` implements
+    ``CommandLineToArgvW``'s ``\\"`` and 2n/2n+1-backslash rules, which a
+    quote-matching regex cannot, so one attestation no longer depends on
+    keeping two parsers in step.
+    """
+    from vqs.powerbi.os_process import windows_process
+
+    try:
+        record = windows_process(pid)
+    except OSError as exc:
+        raise ValueError(
+            f"built-in Windows process identity is unavailable: {exc}") from exc
+    if record["name"].lower() != "pbidesktop.exe":
         raise ValueError("OS PID is not a genuine PBIDesktop.exe")
-    command = record.get("CommandLine")
-    if not isinstance(command, str):
-        raise TypeError("Desktop command-line identity missing")
-    paths = re.findall(r'"([^"]+\.pbip)"|([^\s"]+\.pbip)(?=\s|$)',
-                       command, flags=re.IGNORECASE)
-    paths = [left or right for left, right in paths]
+    paths = [arg for arg in record["cmdline"][1:]
+             if arg.lower().endswith(".pbip")]
     if len(paths) != 1 or Path(paths[0]).resolve() != expected_pbip:
         raise ValueError("OS process does not own the exact PBIP")
-    created = record.get("Created")
+    created = record["created_iso"]
     if not isinstance(created, str) or len(created) < 20:
         raise ValueError("OS process creation timestamp unavailable")
     return created
@@ -134,7 +123,8 @@ def capture(project: Path, pid: int, output_dir: Path, *,
     if set(output_dir.iterdir()) != {Path(x["path"]) for x in assets}:
         raise ValueError("unexpected or extra files in native capture folder")
     after_entry = _status(cli, pid, pbip, report)
-    if _os_identity(pid, pbip) != birth or snapshot(project) != before:
+    if (_os_identity(pid, pbip) != birth
+            or content_identity(snapshot(project)) != content_identity(before)):
         raise ValueError("native PID/source changed during capture")
     # Verified on real Desktop 2.159: page navigation by screenshot-all
     # leaves a saved report clean, so a dirty flag afterwards means the

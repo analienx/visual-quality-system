@@ -30,7 +30,10 @@ def test_real_contoso_only_owner_dependent_fixes_remain(tmp_path: Path) -> None:
     assert len(decisions) >= 3
     assert all(d["status"] == "needs_owner_decision" for d in decisions)
     assert any("overview/detail" in d["reason"] for d in decisions)
-    assert any("rendered effective style" in d["reason"] for d in decisions)
+    # The reason must not tell the owner to gather evidence "before any
+    # edit" while the same decision carries concrete size options.
+    assert any("collect rendered evidence" in d["reason"] for d in decisions)
+    assert not any("before any edit" in d["reason"] for d in decisions)
     assert any("explicit visual-size declarations diverge" in d["reason"]
                for d in decisions)
     assert not any("layout.no_visual_overlap" == d["check"]

@@ -199,3 +199,66 @@ def test_source_changes_after_metadata_evaluation_block_before_run(
     assert "source changed" in result["blocked_reasons"][0]
     assert not candidate.exists()
     assert not runs.exists()
+
+
+def _vco_project(tmp_path: Path, layer: str) -> Path:
+    """Minimal PBIR whose title size lives in the requested layer."""
+    root = tmp_path / f"{layer}.Report"
+    visual_dir = root / "definition" / "pages" / "P1" / "visuals" / "card-1"
+    visual_dir.mkdir(parents=True)
+    (visual_dir / "visual.json").write_text(json.dumps({
+        "name": "card-1",
+        "visual": {"visualType": "card", layer: {"title": [{"properties": {
+            "fontSize": {"expr": {"Literal": {"Value": "14D"}}}}}]}}}),
+        encoding="utf-8")
+    return root
+
+
+def _vco_plan(layer: str) -> dict:
+    return {"operations": [{
+        "type": "format.set_explicit",
+        "selector": {"page": "P1", "visual": "card-1"}, "target": "visual",
+        "path": ["visual", layer, "title", 0, "properties", "fontSize"],
+        "old": "14D", "value": "20D", "effective": "20D",
+        "proof": "render-adapter:measured"}]}
+
+
+def _size_metadata(_att, operation: str, *args):
+    """Catalog stub for a size terminal (type "formatting", not integer)."""
+    if operation == "catalog.describe":
+        return {"status": "pass", "sha256": "b" * 64,
+                "data": {"deprecated": False, "requiredRoles": []}}
+    return {"status": "pass", "sha256": "c" * 64,
+            "data": {"property": {"type": "formatting"}}}
+
+
+@pytest.mark.parametrize("layer", ["objects", "visualContainerObjects"])
+def test_gate_admits_every_layer_the_binder_addresses(
+        tmp_path: Path, monkeypatch, layer: str) -> None:
+    """Capability is Microsoft's catalog answer, not a hard-coded layer list.
+
+    `bind_leaf`/`validate_format_path` accept
+    `visual.visualContainerObjects*` and the measurer emits it (`vco.`
+    cohorts — a visual title normally lives there), but the gate required
+    `path[0:2] == ["visual", "objects"]` and raised "formatting object
+    path outside metadata pilot". Because a refusal rejects the *whole*
+    plan, one owner-answered container-title size discarded every other
+    answered edit in the run.
+    """
+    root = _vco_project(tmp_path, layer)
+    monkeypatch.setattr(gate.metadata, "query", _size_metadata)
+    receipt = gate.evaluate(_vco_plan(layer), str(root), _attested())
+    assert receipt["status"] == "pass", receipt
+    assert receipt["operations"][0]["property"] == "title.fontSize"
+    assert receipt["operations"][0]["old"] == "14D"
+    assert receipt["operations"][0]["new"] == "20D"
+
+
+def test_gate_still_refuses_an_unknown_formatting_layer(
+        tmp_path: Path, monkeypatch) -> None:
+    """Negative control: only the two real PBIR layers are admitted."""
+    root = _vco_project(tmp_path, "madeUpObjects")
+    monkeypatch.setattr(gate.metadata, "query", _size_metadata)
+    receipt = gate.evaluate(_vco_plan("madeUpObjects"), str(root), _attested())
+    assert receipt["status"] == "blocked"
+    assert "visual.visualContainerObjects*" in receipt["reason"]

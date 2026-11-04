@@ -137,7 +137,9 @@ vqs gate head/Example.pbip --baseline base/Example.pbip --sarif vqs.sarif --gith
 
 Exits `0` when the change introduces nothing new, `1` for new findings,
 `2` when head/baseline cannot be read. Store a baseline once with
-`--emit-baseline vqs-baseline.json` to avoid a second checkout.
+`--emit-baseline vqs-baseline.json` to avoid a second checkout; that
+capture exits `0` on success. A blocked gate still writes `--sarif` and
+`--github` output naming why it could not compare.
 
 ## Verdict semantics
 

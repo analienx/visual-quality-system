@@ -5,6 +5,7 @@ envelopes and run manifests remain available for audits.
 """
 from __future__ import annotations
 
+import shlex
 from pathlib import Path
 from typing import Any
 
@@ -38,8 +39,13 @@ def _adopt(envelope: dict[str, Any], summary: dict[str, Any]) -> dict[str, Any] 
     if not isinstance(run_id, str) or not isinstance(run_dir, str):
         return None
     root = str(Path(run_dir).parent)
+    # AGENTS.md has the owner run this command verbatim, so it must be
+    # shell-safe: a run root holding a quote, `$(...)`, a backtick or a
+    # trailing backslash would otherwise break the command or add words
+    # to it. The `mcp` form below needs no quoting at all.
     return {
-        "command": (f'vqs promote --run-root "{root}" --run-id {run_id} '
+        "command": (f"vqs promote --run-root {shlex.quote(root)} "
+                    f"--run-id {shlex.quote(run_id)} "
                     '--owner-approval "<who: why>" --scope static'),
         "mcp": {"tool": "vqs_promote", "run_root": root, "run_id": run_id,
                 "scope": "static"},

@@ -51,6 +51,28 @@ def snapshot(project: Path) -> dict[str, dict[str, int | str]]:
     return result
 
 
+def content_identity(rows: Mapping[str, Any]) -> dict[str, tuple[str, int]]:
+    """Content identity of a source inventory: sha256 and size only.
+
+    ``snapshot`` also records ``mtime_ns`` so a Save witness can prove
+    chronology, but a *content* comparison must ignore it: Power BI
+    Desktop re-writing identical PBIR bytes, or any touch/copy/restore
+    between two snapshots, changes only the timestamp and would
+    otherwise abort a genuine capture as "source changed".
+    """
+    out: dict[str, tuple[str, int]] = {}
+    for rel, info in rows.items():
+        if not isinstance(rel, str) or not isinstance(info, Mapping):
+            raise TypeError("malformed source inventory")
+        digest, size = info.get("sha256"), info.get("size")
+        if not isinstance(digest, str) or len(digest) != 64 or (
+                any(c not in "0123456789abcdef" for c in digest)
+                or type(size) is not int or size < 0):
+            raise ValueError("invalid source file fingerprint")
+        out[rel] = (digest, size)
+    return out
+
+
 def _metadata_pair(project: Path) -> list[Path]:
     wrapper, report = project_artifacts(project)
     return [wrapper, report / "definition.pbir"]

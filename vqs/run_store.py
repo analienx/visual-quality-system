@@ -262,6 +262,16 @@ def run_status(run_dir: Path) -> str:
     return "blocked"
 
 
+def _stale_lock(lock: Path) -> bool:
+    """True when a lock file exists but names no owner (interrupted claim)."""
+    try:
+        record = json.loads(lock.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return True
+    return not (isinstance(record, dict)
+                and isinstance(record.get("owner"), str))
+
+
 def claim_artifact(lock_dir: Path, artifact_id: str, owner: str) -> bool:
     """Claim exclusive ownership; False means another owner holds it (queue)."""
     _validate_name(artifact_id, "artifact_id")
@@ -269,13 +279,27 @@ def claim_artifact(lock_dir: Path, artifact_id: str, owner: str) -> bool:
     lock = Path(lock_dir) / (artifact_id + ".lock")
     if not _within(Path(lock_dir), lock):
         raise ValueError(f"artifact_id escapes the lock directory: {artifact_id!r}")
-    try:
-        fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-    except FileExistsError:
-        return False
-    with os.fdopen(fd, "w", encoding="utf-8") as stream:
-        stream.write(json.dumps({"artifact": artifact_id, "owner": owner}))
-    return True
+    for attempt in (0, 1):
+        try:
+            fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            # An interrupted claim (kill, full disk) can leave a lock with
+            # no owner record. Such a lock proves no ownership and would
+            # otherwise block this artifact for good, so take it over
+            # once; a lock with a readable owner is always respected.
+            if attempt == 0 and _stale_lock(lock):
+                try:
+                    lock.unlink()
+                except OSError:
+                    return False
+                continue
+            return False
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps({"artifact": artifact_id, "owner": owner}))
+            stream.flush()
+            os.fsync(stream.fileno())
+        return True
+    return False
 
 
 def release_artifact(lock_dir: Path, artifact_id: str, owner: str) -> bool:
@@ -289,6 +313,8 @@ def release_artifact(lock_dir: Path, artifact_id: str, owner: str) -> bool:
     except (OSError, ValueError):
         # Unreadable, half-written or non-UTF-8 lock: ownership cannot be
         # proved, so refuse the release instead of crashing the caller.
+        # The file is kept as evidence; `claim_artifact` is what recovers
+        # from it, by taking over a lock that names no owner.
         return False
     if not isinstance(record, dict) or record.get("owner") != owner:
         return False

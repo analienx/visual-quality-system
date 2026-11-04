@@ -10,21 +10,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from vqs.powerbi.desktop_native_provenance import snapshot, verify
+from vqs.powerbi.desktop_native_provenance import content_identity, snapshot, verify
 
 
 def _hash_size(rows: Mapping[str, Any]) -> dict[str, tuple[str, int]]:
-    out = {}
-    for rel, info in rows.items():
-        if not isinstance(rel, str) or not isinstance(info, Mapping):
-            raise TypeError("malformed source inventory")
-        digest, size = info.get("sha256"), info.get("size")
-        if not isinstance(digest, str) or len(digest) != 64 or (
-                any(c not in "0123456789abcdef" for c in digest)
-                or type(size) is not int or size < 0):
-            raise ValueError("invalid source file fingerprint")
-        out[rel] = (digest, size)
-    return out
+    """Content identity (sha256 + size), ignoring mtime."""
+    return content_identity(rows)
 
 
 def _change_kind(path: str) -> str:

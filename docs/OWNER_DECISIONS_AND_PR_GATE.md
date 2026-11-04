@@ -153,13 +153,19 @@ vqs gate head/Sales.pbip --baseline base/Sales.pbip --sarif vqs.sarif --github
   A new one always does, including missing evidence that the change introduces
   (`coverage:*`).
 * **Exit codes.** `0` nothing new · `1` new findings · `2` head or baseline
-  unreadable.
+  unreadable. A coverage issue severe enough to stop measurement (an
+  unreadable visual or model document) refuses the comparison rather than
+  counting as new: the gate blocks with exit `2`, because an unprovable
+  revision must never read as "nothing new".
 * **Outputs.** `--sarif` writes SARIF 2.1.0 with `baselineState` new/unchanged
   for GitHub code scanning. `--github` prints `::error` annotations. `--out`
-  writes the full JSON.
+  writes the full JSON. A **blocked** gate still writes SARIF and
+  annotations, as one `vqs.gate.blocked` error carrying the reason, so the
+  most severe outcome is the one CI can actually see.
 * **Stored baselines.** `vqs gate main/Sales.pbip --emit-baseline
   vqs-baseline.json` writes a baseline that is reused with
-  `--baseline vqs-baseline.json`, so no second checkout is needed.
+  `--baseline vqs-baseline.json`, so no second checkout is needed. Without
+  `--baseline` that call is a capture, not a comparison, and exits `0`.
 * **Waivers.** `--decisions answers.json` excuses `accept` answers bound to the
   *head* revision. Answers bound to the reviewed *base* revision (you answered
   on the original and the PR head is the candidate) excuse only subjects the

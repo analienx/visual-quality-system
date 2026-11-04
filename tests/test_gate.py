@@ -76,8 +76,11 @@ def test_fixed_issue_is_reported_and_passes(tmp_path: Path) -> None:
 def test_emitted_baseline_round_trips(pair, tmp_path: Path, capsys) -> None:
     base, head = pair
     stored = tmp_path / "baseline.json"
-    assert main(["gate", str(base), "--emit-baseline", str(stored)]) == 1
-    capsys.readouterr()
+    # Capturing a baseline is its own operation, not a comparison: the
+    # documented "store a baseline" command must not fail the CI step
+    # that just wrote the file.
+    assert main(["gate", str(base), "--emit-baseline", str(stored)]) == 0
+    assert json.loads(capsys.readouterr().out)["baseline_written"] == str(stored)
     data = json.loads(stored.read_text(encoding="utf-8"))
     assert data["schema"] == gate.BASELINE_SCHEMA and len(data["items"]) == 5
     from_json = gate.run(str(head), baseline=stored)
@@ -184,3 +187,33 @@ def test_cli_exit_codes_and_sarif(pair, tmp_path: Path, capsys) -> None:
     assert main(["gate", str(base), "--baseline", str(base)]) == 0
     capsys.readouterr()
     assert main(["gate", str(tmp_path / "nope")]) == 2
+
+
+def test_blocked_gate_still_annotates_ci(pair, tmp_path: Path, capsys) -> None:
+    """A gate that cannot compare is the most severe outcome, not a silent one.
+
+    An unreadable visual document blocks `inspect_report`, so `evaluate`
+    never reaches `_items` and the result carries no `new` list. The gate
+    previously skipped `--sarif` and `--github` entirely, so CI got exit 2
+    with nothing to annotate — it could not tell "the PR broke the report"
+    from "the head path is unreadable".
+    """
+    base, head = pair
+    visual = min(Path(head).rglob("visual.json"))
+    doc = json.loads(visual.read_text(encoding="utf-8-sig"))
+    doc.setdefault("visual", {})["query"] = 7
+    visual.write_text(json.dumps(doc), encoding="utf-8")
+    sarif_out = tmp_path / "out.sarif"
+    code = main(["gate", str(head), "--baseline", str(base),
+                 "--sarif", str(sarif_out), "--github"])
+    out = capsys.readouterr().out
+    assert code == 2
+    assert "::error" in out and "vqs.gate.blocked" in out
+    assert "visual_doc_unreadable" in out
+    log = json.loads(sarif_out.read_text(encoding="utf-8"))
+    results = log["runs"][0]["results"]
+    assert len(results) == 1
+    assert results[0]["ruleId"] == gate.BLOCKED_RULE
+    assert results[0]["level"] == "error"
+    assert "no regression claim is possible" in results[0]["message"]["text"]
+    assert log["runs"][0]["tool"]["driver"]["rules"][0]["id"] == gate.BLOCKED_RULE

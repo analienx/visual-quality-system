@@ -1050,9 +1050,10 @@ def _synthesize(findings: Any, facts: Any, *,
                             decisions.append(_decision(
                                 check, "needs_owner_decision",
                                 f"cohort {cohort or '?'}: "
-                                "unknown inherited default: mixed explicit/inherited font sizes; "
-                                "collect actual rendered effective style "
-                                "evidence before any edit",
+                                "unknown inherited default: mixed "
+                                "explicit/inherited font sizes; confirm "
+                                "an offered size or collect rendered "
+                                "evidence",
                                 cohort=cohort,
                                 _options=(_typography_options(cohort, facts)
                                           if cohort else None)))
