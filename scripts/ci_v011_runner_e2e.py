@@ -20,6 +20,8 @@ import venv
 import zipfile
 from pathlib import Path
 
+EXPECTED_VERSION = "0.1.2"
+
 
 def require(condition: bool, message: str) -> None:
     if not condition:
@@ -81,6 +83,201 @@ def mcp_exchange(binary: Path, requests: list[dict], cwd: Path,
         require("error" not in response,
                 f"unexpected MCP protocol error: {response}")
     return responses
+
+
+def owner_decisions_and_gate(vqs: Path, project: Path, pbip_file: str,
+                             report_subpath: Path, private: Path,
+                             env: dict) -> dict:
+    """The v0.1.2 chain on the installed wheel, on a disposable copy.
+
+    fix -> decisions template -> answered fix -> changes -> explicit
+    adoption, plus gate -> SARIF. Asserts original preservation, the
+    kept backup, stale-answer rejection and fail-closed behaviour.
+    """
+    runs = private / "decision-runs"
+    before = fingerprint(project)
+
+    # 1. An unseen report blocks with answerable questions.
+    _, blocked = json_command(
+        [str(vqs), "fix", str(project / pbip_file), "--run-root", str(runs),
+         "--run-id", "d1"], private, env, allowed=(2,), timeout=120)
+    require(blocked["verdict"] == "blocked" and blocked["candidate"] is None,
+            f"unseen report must block without a candidate: {blocked}")
+    questions = blocked.get("needs_review") or []
+    require(bool(questions), "blocked run exposed no answerable question")
+    for item in questions:
+        require(str(item.get("decision_id", "")).startswith("dec-")
+                and bool(item.get("question")),
+                f"question missing a stable id or text: {item}")
+
+    # 2. The answers skeleton, which must refuse to overwrite.
+    answers_path = private / "answers.json"
+    run(([str(vqs), "decisions", "template", "--run-id", "d1",
+          "--run-root", str(runs), "--out", str(answers_path)]),
+        private, env, allowed=(0,), timeout=60)
+    answers = json.loads(answers_path.read_text(encoding="utf-8"))
+    require(answers["schema"] == "vqs.decision-answers/1",
+            f"unexpected answers schema: {answers.get('schema')}")
+    require(len(answers["source_sha256"]) == 64, "answers carry no source digest")
+    run(([str(vqs), "decisions", "template", "--run-id", "d1",
+          "--run-root", str(runs), "--out", str(answers_path)]),
+        private, env, allowed=(2,), timeout=60)
+
+    # 3. The owner picks the smallest offered size, else waives.
+    answers["owner"] = "installed-wheel release gate (disposable copy)"
+    for item in answers["answers"]:
+        sizes = [c for c in (item.get("choices") or [])
+                 if str(c).startswith("size:")]
+        item["option"] = sizes[0] if sizes else "accept"
+    answers_path.write_text(json.dumps(answers, indent=2), encoding="utf-8")
+    require(any(a["option"] != "accept" for a in answers["answers"]),
+            "fixture offered no typed size option; revisit this proof")
+
+    # 4. The answered run produces a verified candidate, changes and adopt.
+    _, answered = json_command(
+        [str(vqs), "fix", str(project / pbip_file), "--run-root", str(runs),
+         "--run-id", "d2", "--decisions", str(answers_path)],
+        private, env, allowed=(0,), timeout=180)
+    require(answered["verdict"] == "pass", f"answered run not accepted: {answered}")
+    changes = answered.get("changes") or []
+    require(bool(changes), f"answered run reported no changes: {answered}")
+    for change in changes:
+        require({"page", "visual", "property", "op", "from", "to"} <= set(change),
+                f"change is not decision-ready: {change}")
+    adopt = answered.get("adopt") or {}
+    require("vqs promote" in str(adopt.get("command")),
+            f"verified candidate carries no adopt command: {answered}")
+    require(adopt.get("mcp", {}).get("tool") == "vqs_promote",
+            "adopt step omits the MCP promote arguments")
+    require(answered["promotion_performed"] is False,
+            "a fix run promoted without an explicit owner step")
+    # The compact result omits this key entirely when nothing is unprovable;
+    # a non-empty list would mean a waiver had cleared missing evidence.
+    require(not answered.get("unwaivable_findings"),
+            f"accepted run still carries unprovable checks: {answered}")
+    require(fingerprint(project) == before,
+            "answered repair mutated the original project!")
+
+    # 5. Stale answers are refused on a changed source.
+    probe = project / report_subpath / "definition" / "pages"
+    victim = min(probe.rglob("visual.json"))
+    original_bytes = victim.read_bytes()
+    doc = json.loads(original_bytes.decode("utf-8-sig"))
+    doc["_vqsStaleProbe"] = True
+    victim.write_text(json.dumps(doc), encoding="utf-8")
+    _, stale = json_command(
+        [str(vqs), "fix", str(project / pbip_file), "--run-root", str(runs),
+         "--run-id", "d3", "--decisions", str(answers_path)],
+        private, env, allowed=(2,), timeout=120)
+    require(stale["verdict"] == "blocked", f"stale answers were accepted: {stale}")
+    require(any("different source revision" in str(reason)
+                for reason in stale.get("blocked_reasons") or []),
+            f"stale refusal does not name the revision mismatch: {stale}")
+    victim.write_bytes(original_bytes)
+    require(fingerprint(project) == before, "stale probe was not restored")
+
+    # 6. Fail closed on unusable answers.
+    bogus = private / "bogus-answers.json"
+    bogus.write_text(json.dumps({
+        "schema": "vqs.decision-answers/1", "owner": "x",
+        "source_sha256": "0" * 64,
+        "answers": [{"decision_id": "dec-0000000000000000",
+                     "option": "no-such-option"}]}), encoding="utf-8")
+    json_command([str(vqs), "fix", str(project / pbip_file), "--run-root",
+                  str(runs), "--run-id", "d4", "--decisions", str(bogus)],
+                 private, env, allowed=(2,), timeout=120)
+    unparseable = private / "not-json.json"
+    unparseable.write_text("not json at all", encoding="utf-8")
+    json_command([str(vqs), "fix", str(project / pbip_file), "--run-root",
+                  str(runs), "--run-id", "d5", "--decisions",
+                  str(unparseable)], private, env, allowed=(2,), timeout=120)
+
+    # 7. A hand-written plan may not claim owner-decision authority.
+    forged = private / "forged-plan.json"
+    forged.write_text(json.dumps({
+        "schema": "vqs.repair-plan/1", "affected_pages": ["P1"],
+        "operations": [{
+            "type": "format.declare_explicit",
+            "selector": {"page": "P1", "visual": "v"}, "target": "visual",
+            "path": ["visual", "objects", "header", 0, "properties",
+                     "textSize"],
+            "old": None, "value": "11D", "effective": "11D",
+            "proof": "owner-decision:dec-ffffffffffffffff:size:11D"}]}),
+        encoding="utf-8")
+    _, plan_blocked = json_command(
+        [str(vqs), "fix", str(project / pbip_file), "--run-root", str(runs),
+         "--run-id", "d6", "--plan", str(forged)],
+        private, env, allowed=(2,), timeout=120)
+    require(plan_blocked["verdict"] == "blocked",
+            f"forged owner-decision proof was accepted: {plan_blocked}")
+
+    # 8. gate -> SARIF, and the stored-baseline round trip.
+    candidate = Path(answered["candidate"])
+    sarif_path = private / "gate.sarif"
+    gate_code, _out = run(
+        [str(vqs), "gate", str(candidate), "--baseline",
+         str(project / report_subpath), "--sarif", str(sarif_path),
+         "--github"], private, env, allowed=(0, 1), timeout=150)
+    log = json.loads(sarif_path.read_text(encoding="utf-8"))
+    require(log["version"] == "2.1.0", "gate did not write SARIF 2.1.0")
+    driver = log["runs"][0]["tool"]["driver"]
+    require(driver["version"] == EXPECTED_VERSION,
+            f"SARIF driver version {driver['version']} is not the installed one")
+    for entry in log["runs"][0]["results"]:
+        require(entry["baselineState"] in ("new", "unchanged"),
+                f"unexpected SARIF baselineState: {entry}")
+    stored = private / "gate-baseline.json"
+    run([str(vqs), "gate", str(project / report_subpath),
+         "--emit-baseline", str(stored)], private, env, allowed=(0,),
+        timeout=150)
+    run([str(vqs), "gate", str(project / report_subpath),
+         "--baseline", str(stored)], private, env, allowed=(0,), timeout=150)
+
+    # 9. Explicit adoption, on a separate disposable copy only.
+    adopt_copy = private / "adoption copy"
+    shutil.copytree(project, adopt_copy)
+    arun = private / "adoption-runs"
+    json_command([str(vqs), "fix", str(adopt_copy / pbip_file), "--run-root",
+                  str(arun), "--run-id", "a1"], private, env, allowed=(2,),
+                 timeout=120)
+    a_answers = private / "adoption-answers.json"
+    run([str(vqs), "decisions", "template", "--run-id", "a1", "--run-root",
+         str(arun), "--out", str(a_answers)], private, env, allowed=(0,),
+        timeout=60)
+    payload = json.loads(a_answers.read_text(encoding="utf-8"))
+    payload["owner"] = "installed-wheel release gate (disposable copy)"
+    for item in payload["answers"]:
+        sizes = [c for c in (item.get("choices") or [])
+                 if str(c).startswith("size:")]
+        item["option"] = sizes[0] if sizes else "accept"
+    a_answers.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    _, a_done = json_command(
+        [str(vqs), "fix", str(adopt_copy / pbip_file), "--run-root", str(arun),
+         "--run-id", "a2", "--decisions", str(a_answers)],
+        private, env, allowed=(0,), timeout=180)
+    pre_adopt = fingerprint(adopt_copy)
+    run([str(vqs), "promote", "--run-root", str(arun), "--run-id",
+         str(a_done["adopt"]["mcp"]["run_id"]), "--owner-approval",
+         "installed-wheel release gate: disposable copy", "--scope", "static"],
+        private, env, allowed=(0,), timeout=150)
+    backups = list(adopt_copy.glob("*.vqs-backup"))
+    require(len(backups) == 1,
+            f"promotion did not keep exactly one backup: {backups}")
+    require(fingerprint(adopt_copy) != pre_adopt,
+            "promotion changed nothing on the adopted copy")
+    return {
+        "questions": len(questions),
+        "declared_changes": len(changes),
+        "answered_verdict": answered["verdict"],
+        "answered_outcome": answered["outcome"],
+        "stale_answers": "blocked",
+        "bogus_answers": "blocked",
+        "forged_owner_proof": "blocked",
+        "gate_exit": gate_code,
+        "sarif_results": len(log["runs"][0]["results"]),
+        "adoption_backup": backups[0].name,
+        "original_unchanged": True,
+    }
 
 
 def main() -> int:
@@ -146,7 +343,8 @@ def main() -> int:
                            "import json, pathlib, vqs; print(json.dumps({'path': str(pathlib.Path(vqs.__file__).resolve()), 'version': vqs.__version__}))"],
                           private, env)
     installed = json.loads(installation)
-    require(installed["version"] == "0.1.1", "installed code must be version 0.1.1")
+    require(installed["version"] == EXPECTED_VERSION,
+            f"installed code must be version {EXPECTED_VERSION}")
     require(Path(installed["path"]).is_relative_to(venv_dir.resolve()),
             "runtime is importing source checkout rather than installed wheel")
     _, doctor = json_command([str(vqs), "doctor"], private, env, timeout=55)
@@ -221,6 +419,13 @@ def main() -> int:
             f"not every required static repair gate passed: {stages}")
     require(len(json.dumps(fixed).encode("utf-8")) < 6000,
             "compact CLI output grew beyond the agent context budget")
+    # v0.1.2: the owner-decision, gate and explicit-adoption chain, on the
+    # installed wheel and on its own disposable copy of the fictional report.
+    decisions_project = private / "owner decisions project"
+    shutil.copytree(fixture, decisions_project)
+    decisions_proof = owner_decisions_and_gate(
+        vqs, decisions_project, pbip_file, report_subpath, private, env)
+
     # The result contract supports advanced full run output without losing evidence.
     _, reviewed = json_command(
         [str(vqs), "run", str(clean / pbip_file), "--mode", "review",
@@ -336,6 +541,7 @@ def main() -> int:
             "regressions": fixed["regressions"],
             "candidate_x": candidate_visual["position"]["x"],
             "stages": stages},
+        "owner_decisions_gate_adoption": decisions_proof,
         "modern_mcp": "discovery/list/presets/preview/denial/apply/audit PASS",
         "legacy_mcp": "initialize/list/full text envelope PASS",
         "source_unchanged": True,
@@ -354,6 +560,8 @@ def main() -> int:
                        "- Seeded geometry: x=314 to x>=320, no new regressions\n"
                        "- Original project: unchanged; no promotion\n"
                        "- MCP modern + legacy + theme apply/audit: PASS\n"
+                       "- Owner decisions -> changes -> adoption, gate/SARIF: PASS\n"
+                       "- Stale answers, bogus answers, forged owner proof: BLOCKED\n"
                        "- Native Desktop acceptance: NOT RUN\n")
     print(json.dumps(report, indent=2, ensure_ascii=False), flush=True)
     return 0
