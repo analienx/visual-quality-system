@@ -248,6 +248,8 @@ def _premium(args) -> int:
             return 0
         policy = (json.loads(args.contract.read_text(encoding="utf-8-sig"))
                   if args.contract is not None else None)
+        if args.contract is not None and not isinstance(policy, dict):
+            raise ValueError("premium design contract must be a JSON object")
         result = audit(str(args.report), contract=policy)
     except (OSError, ValueError, TypeError, KeyError) as exc:
         print(json.dumps({"status": "blocked", "reason": str(exc)}))

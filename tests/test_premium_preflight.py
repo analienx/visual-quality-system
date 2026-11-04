@@ -5,6 +5,8 @@ import json
 import shutil
 from pathlib import Path
 
+import pytest
+
 from vqs.cli import main
 from vqs.pbir import report_context
 from vqs.premium import audit, contract_template, markdown
@@ -95,6 +97,29 @@ def test_stale_and_malformed_contracts_block_instead_of_pass(tmp_path):
     template["pages"][0]["focal_visual_id"] = "ghost"
     with pytest.raises(ValueError, match="not present"):
         audit(str(report), contract=template)
+
+
+@pytest.mark.parametrize("invalid", [None, [], 1, "contract", False])
+def test_explicit_non_object_contract_blocks_cli(tmp_path, capsys, invalid):
+    report = _report(tmp_path)
+    policy = tmp_path / "intent.json"
+    policy.write_text(json.dumps(invalid), encoding="utf-8")
+    assert main(["premium", str(report), "--contract", str(policy), "--format", "json"]) == 2
+    result = json.loads(capsys.readouterr().out)
+    assert result["status"] == "blocked"
+
+
+@pytest.mark.parametrize("invalid", [[], {}, None, 1])
+def test_wrong_shaped_archetype_is_a_contract_error(tmp_path, capsys, invalid):
+    report = _report(tmp_path)
+    policy = contract_template(report_context(report))
+    policy["pages"][0]["archetype"] = invalid
+    with pytest.raises(ValueError, match="archetype"):
+        audit(str(report), contract=policy)
+    path = tmp_path / "intent.json"
+    path.write_text(json.dumps(policy), encoding="utf-8")
+    assert main(["premium", str(report), "--contract", str(path), "--format", "json"]) == 2
+    assert json.loads(capsys.readouterr().out)["status"] == "blocked"
 
 
 def test_cli_init_contract_and_advisory_report_never_overwrite(tmp_path, capsys):
