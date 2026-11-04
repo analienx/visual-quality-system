@@ -7,8 +7,13 @@ No Desktop, cloud, or Actions are exercised.
 """
 from __future__ import annotations
 
+import errno
 import json
+import os
+import time
 from pathlib import Path
+
+import pytest
 
 from scripts.roadmap_report import DEFAULT_LEDGER, summarize
 from vqs import run_store
@@ -44,6 +49,87 @@ def test_corrupt_lock_release_refuses_instead_of_crashing(tmp_path: Path) -> Non
         (locks / "PowerBI-pid-2.lock").write_bytes(body)
         assert run_store.release_artifact(locks, "PowerBI-pid-2", "agent-a") is False
         assert (locks / "PowerBI-pid-2.lock").exists()
+
+
+def _age(lock: Path, seconds: float) -> None:
+    then = time.time() - seconds
+    os.utime(lock, (then, then))
+
+
+def test_claim_in_flight_is_never_taken_over(tmp_path: Path, monkeypatch) -> None:
+    """Negative control: two claimants must never both hold one lease.
+
+    A creates the lock exclusively and has not yet written its owner; B
+    finds it, reads it while still empty, then A finishes. Treating that
+    empty file as an abandoned claim let B unlink A's completed lock, so
+    both believed they held the Desktop PID lease and A could not release.
+    """
+    locks = tmp_path / "locks"
+    locks.mkdir()
+    fd_a = os.open(str(locks / "desktop-pid-4242.lock"),
+                   os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    original = run_store._stale_lock
+
+    def interleaved(path):
+        verdict = original(path)
+        with os.fdopen(fd_a, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps({"artifact": "desktop-pid-4242", "owner": "A"}))
+        return verdict
+
+    monkeypatch.setattr(run_store, "_stale_lock", interleaved)
+    assert run_store.claim_artifact(locks, "desktop-pid-4242", "B") is False
+    assert run_store.release_artifact(locks, "desktop-pid-4242", "A") is True
+
+
+@pytest.mark.parametrize("body", [b"", b"{half", b"[]", b'{"owner": 3}', b"\xff\xfe"])
+def test_abandoned_ownerless_lock_is_recovered_only_once_stale(
+        tmp_path: Path, body: bytes) -> None:
+    locks = tmp_path / "locks"
+    locks.mkdir()
+    lock = locks / "desktop-pid-7.lock"
+    lock.write_bytes(body)
+    # Fresh: indistinguishable from a claim still being written.
+    assert run_store.claim_artifact(locks, "desktop-pid-7", "next") is False
+    assert lock.read_bytes() == body
+    _age(lock, run_store.STALE_LOCK_SECONDS + 5)
+    assert run_store.claim_artifact(locks, "desktop-pid-7", "next") is True
+    assert json.loads(lock.read_text(encoding="utf-8"))["owner"] == "next"
+    assert run_store.release_artifact(locks, "desktop-pid-7", "next") is True
+
+
+def test_old_lock_with_an_owner_is_always_respected(tmp_path: Path) -> None:
+    locks = tmp_path / "locks"
+    assert run_store.claim_artifact(locks, "desktop-pid-8", "A") is True
+    _age(locks / "desktop-pid-8.lock", run_store.STALE_LOCK_SECONDS * 10)
+    assert run_store.claim_artifact(locks, "desktop-pid-8", "B") is False
+    assert run_store.release_artifact(locks, "desktop-pid-8", "A") is True
+
+
+def test_claim_is_visible_only_with_its_owner(tmp_path: Path, monkeypatch) -> None:
+    locks = tmp_path / "locks"
+    published = []
+    real_link = os.link
+
+    def spy(source, target, *args, **kwargs):
+        published.append(json.loads(Path(source).read_text(encoding="utf-8")))
+        return real_link(source, target, *args, **kwargs)
+
+    monkeypatch.setattr(run_store.os, "link", spy)
+    assert run_store.claim_artifact(locks, "desktop-pid-9", "A") is True
+    assert published == [{"artifact": "desktop-pid-9", "owner": "A"}]
+    assert [path.name for path in locks.iterdir()] == ["desktop-pid-9.lock"]
+
+
+def test_claim_without_hard_links_stays_exclusive(tmp_path: Path, monkeypatch) -> None:
+    def unsupported(*_args, **_kwargs):
+        raise OSError(errno.EPERM, "hard links unsupported on this volume")
+
+    monkeypatch.setattr(run_store.os, "link", unsupported)
+    locks = tmp_path / "locks"
+    assert run_store.claim_artifact(locks, "desktop-pid-10", "A") is True
+    assert run_store.claim_artifact(locks, "desktop-pid-10", "B") is False
+    assert [path.name for path in locks.iterdir()] == ["desktop-pid-10.lock"]
+    assert run_store.release_artifact(locks, "desktop-pid-10", "A") is True
 
 
 def test_seal_pins_status_artifacts_and_count(tmp_path: Path) -> None:
