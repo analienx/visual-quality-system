@@ -41,6 +41,30 @@ def test_windows_adopt_command_preserves_path_as_one_literal_argument(tmp_path, 
                          "--owner-approval", "owner: test", "--scope", "static"]
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows PowerShell hosts required")
+@pytest.mark.parametrize("host", ["powershell.exe", "pwsh.exe"])
+@pytest.mark.parametrize("where", ["root", "run_id"])
+@pytest.mark.parametrize("quote", ["'", "\u2018", "\u2019", "\u201a", "\u201b", "'\u2018\u2019\u201a\u201b'"])
+def test_powershell_smart_quotes_cannot_escape_adoption_arguments(tmp_path, host, where, quote):
+    if not shutil.which(host):
+        pytest.skip(f"{host} is not installed")
+    payload = f"cut{quote}; Write-Output VQS_INJECTION_EXECUTED; #"
+    root = tmp_path / (payload if where == "root" else "safe root")
+    run_id = payload if where == "run_id" else "repair-1"
+    command = summarize(_envelope(str(root / "run-1"), run_id))["adopt"]["command"]
+    command = command.replace("<who: why>", "owner: test")
+    script = ("[Console]::OutputEncoding=[Text.UTF8Encoding]::new(); "
+              "function vqs { $args | ConvertTo-Json -Compress }; " + command)
+    result = subprocess.run([host, "-NoProfile", "-NonInteractive", "-Command", script],
+                            capture_output=True, text=True, encoding="utf-8", errors="replace",
+                            timeout=30, check=False)
+    assert "VQS_INJECTION_EXECUTED\n" not in result.stdout
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [
+        "promote", "--run-root", str(root), "--run-id", run_id,
+        "--owner-approval", "owner: test", "--scope", "static"]
+
+
 @pytest.mark.parametrize("value", ["plain", "space path", "O'Brien", "$HOME/$(throw)",
                                    "`literal` & ; č", "line\nnext", ""])
 def test_posix_quoting_preserves_exact_argument(value):

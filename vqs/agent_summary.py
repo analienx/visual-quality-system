@@ -34,9 +34,11 @@ def _changes(envelope: dict[str, Any]) -> list[dict[str, Any]]:
 def _shell_quote(value: str, *, windows: bool) -> str:
     """Quote one literal argument for the documented shell on this host."""
     if windows:
-        # PowerShell single-quoted strings do not expand $, backticks, or
-        # subexpressions; an embedded apostrophe is doubled.
-        return "'" + value.replace("'", "''") + "'"
+        # PowerShell treats these five characters as single-quote delimiters.
+        # Doubling each preserves its literal value inside a verbatim string.
+        # This also prevents smart quotes from ending the argument early.
+        quotes = "'\u2018\u2019\u201a\u201b"
+        return "'" + value.translate({ord(char): char * 2 for char in quotes}) + "'"
     return shlex.quote(value)
 
 
