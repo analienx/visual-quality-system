@@ -223,9 +223,12 @@ as a PyPI distribution. Select and review the source commit yourself, or use a
 future published release artifact after verifying its digest and capabilities.
 
 The job deliberately uses `pull_request`, read-only repository permissions,
-and no secrets or automatic SARIF upload. It writes SARIF to the runner's
-temporary directory and emits GitHub annotations; retain or upload the SARIF
-only after reviewing your repository's permissions and data policy. CI sends
+no secrets or automatic SARIF upload, and a 20-minute job timeout. It writes
+SARIF to the runner's temporary directory and emits GitHub annotations;
+`--sarif-root` is the head checkout, so both name repository-relative paths
+that GitHub can place on the pull request's changed files (a path under the
+runner's `head/` directory exists in no repository). Retain or upload the
+SARIF only after reviewing your repository's permissions and data policy. CI sends
 the report source to the runner and may expose names and findings in logs and
 annotations, so use it only where that processing is authorized. Forked PRs
 have restricted tokens and must not be given privileged secrets to make this
