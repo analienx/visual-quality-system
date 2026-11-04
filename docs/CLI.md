@@ -97,6 +97,44 @@ Answers authorize a disposable candidate and scoped waivers only. They are
 not G2/G4 review, G6 promotion or release approval, and nothing promotes the
 original.
 
+## Rendered before/after review (`vqs compare-renders`)
+
+Compares two exact-source page captures of the same report at pixel level and
+requires **every changed pixel to fall inside a visual the candidate actually
+edited**. It answers "did this repair change anything it was not supposed to?",
+which a structural diff and a screenshot hash both cannot.
+
+```console
+vqs capture "base/Sales.pbip"      base-renders  --live-data
+vqs capture "cand/Sales.pbip"      cand-renders  --live-data
+vqs compare-renders base-renders cand-renders \
+  --baseline-report base/Sales.pbip --candidate-report cand/Sales.pbip
+```
+
+Exit codes: `0` no unexplained difference · `1` a rendered regression ·
+`2` blocked. Per page the result carries the changed-pixel count and fraction,
+the changed bounding box, the visuals the candidate edited, the rectangles the
+difference was attributed to, and — when something is wrong — the
+`unexplained_box` where pixels moved with no source change to explain them.
+
+**It blocks rather than guesses.** A comparison is refused when either capture
+declares `data_population: unproven` (a cache-less report renders `(Blank)`
+everywhere and still captures, so comparing two blank pages proves nothing),
+when the captures saw different data (`data_readiness.query_hash` differs) or
+one was not populated, when a capture is bound to a different source revision
+than the report it is compared as, when the page sets, PBIR canvas or capture
+scale differ, or when the report canvas cannot be measured in a capture. A
+changed page whose canvas cannot be located is blocked, never passed.
+
+`--margin N` dilates each edited visual's rectangle by N canvas pixels before
+attribution. It is a **declared tolerance, not a measurement**, so it defaults
+to `0` and the value used is recorded in the result. Raise it only with real
+render evidence that Desktop draws a border or shadow outside a visual's
+declared rectangle.
+
+A clean comparison shows there is no *unexplained* rendered regression. It is
+not design approval, and not independent G2/G4 review or owner G6.
+
 ## Pull-request gate (`vqs gate`)
 
 `vqs gate` reviews a head and a baseline revision with the same static engine

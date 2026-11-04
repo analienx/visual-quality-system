@@ -557,6 +557,46 @@ def _gate(args) -> int:
     return code
 
 
+def _compare_renders(args) -> int:
+    """Rendered before/after review; exit 0 pass, 1 regression, 2 blocked."""
+    from vqs.source_paths import resolve_project_input
+    from vqs.visual.compare import ComparisonBlocked, compare_renders
+
+    try:
+        baseline_report, _ = resolve_project_input(str(args.baseline_report), None)
+        candidate_report, _ = resolve_project_input(str(args.candidate_report), None)
+    except ValueError as exc:
+        print(json.dumps({"tool": "vqs.compare-renders", "verdict": "blocked",
+                          "reason": str(exc)}))
+        return 2
+    try:
+        result = compare_renders(
+            args.baseline_renders, args.candidate_renders,
+            baseline_report=baseline_report,
+            candidate_report=candidate_report,
+            margin=args.margin)
+    except ComparisonBlocked as exc:
+        print(json.dumps({"tool": "vqs.compare-renders", "verdict": "blocked",
+                          "reason": str(exc)}, indent=2, ensure_ascii=False))
+        return 2
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        print(json.dumps({"tool": "vqs.compare-renders", "verdict": "blocked",
+                          "reason": f"{type(exc).__name__}: {exc}"}, indent=2))
+        return 2
+    if args.out is not None:
+        try:
+            args.out.write_text(
+                json.dumps(result, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8")
+        except OSError as exc:
+            print(json.dumps({"tool": "vqs.compare-renders",
+                              "verdict": "blocked",
+                              "reason": f"cannot write {args.out}: {exc}"}))
+            return 2
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return {"pass": 0, "fail": 1}.get(result["verdict"], 2)
+
+
 def _decisions_template(args) -> int:
     """Answers skeleton for a sealed coordinator run's owner decisions."""
     from vqs.repair.decisions import template
@@ -1376,6 +1416,24 @@ def main(argv: list[str] | None = None) -> int:
                           help="Write the head findings as a reusable baseline JSON")
     gate_cmd.add_argument("--out", type=Path, default=None,
                           help="Write the full gate result JSON")
+    compare_cmd = commands.add_parser(
+        "compare-renders",
+        help="Rendered before/after review: attribute every changed pixel "
+             "to a visual the candidate edited")
+    compare_cmd.add_argument("baseline_renders", type=Path,
+                             help="Capture directory of the baseline revision "
+                                  "(holds capture-manifest.json)")
+    compare_cmd.add_argument("candidate_renders", type=Path,
+                             help="Capture directory of the candidate revision")
+    compare_cmd.add_argument("--baseline-report", type=Path, required=True,
+                             help="Baseline .pbip, project root or *.Report")
+    compare_cmd.add_argument("--candidate-report", type=Path, required=True,
+                             help="Candidate .pbip, project root or *.Report")
+    compare_cmd.add_argument("--margin", type=int, default=0,
+                             help="Declared tolerance in canvas pixels around "
+                                  "each edited visual (default 0: none)")
+    compare_cmd.add_argument("--out", type=Path, default=None,
+                             help="Write the full comparison JSON")
     decisions_cmd = commands.add_parser(
         "decisions", help="Answer owner decisions from a sealed fix/run")
     decisions_sub = decisions_cmd.add_subparsers(dest="decisions_action",
@@ -1461,6 +1519,8 @@ def main(argv: list[str] | None = None) -> int:
         return _decisions_template(args)
     if args.command == "gate":
         return _gate(args)
+    if args.command == "compare-renders":
+        return _compare_renders(args)
     if args.command == "mcp":
         return _mcp()
     try:
