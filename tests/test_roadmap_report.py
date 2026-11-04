@@ -37,6 +37,11 @@ def test_published_ledger_is_acyclic_and_has_valid_status_claims() -> None:
     assert guided["depends_on"] == ["WP-31"]
     assert guided["state"] == "planned"
     assert guided["verification"] == "not_run"
+    quote_safety = next(item for item in data["packages"] if item["id"] == "WP-34")
+    assert quote_safety["issue"] == 139
+    assert quote_safety["depends_on"] == ["WP-32"]
+    assert quote_safety["state"] == "planned"
+    assert quote_safety["verification"] == "not_run"
     assert result["deferred"] == 1
     assert result["next_runnable"] == ["WP-00"]
 
