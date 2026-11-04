@@ -1090,6 +1090,36 @@ def _repair_bindings(plan_sha: str) -> dict[str, Any]:
             "tool": "vqs.repair/1", "config_sha256": None}
 
 
+def owner_operation_key(op: dict[str, Any]) -> str:
+    """Canonical identity of one owner-answered plan operation."""
+    return json.dumps(op, sort_keys=True, ensure_ascii=False,
+                      separators=(",", ":"))
+
+
+def _unsealed_owner_proofs(plan: dict[str, Any], sealed: Any) -> list[str]:
+    """Operations claiming an owner decision the caller did not seal.
+
+    ``owner-decision:<id>:<option>`` is what lets an owner-only recipe
+    (``format.declare_explicit``) run, and the recipe can only check the
+    prefix. Only the coordinator, binding sealed ``vqs.decision-answers/1``
+    to re-synthesized questions, may pass ``sealed`` - a ``frozenset`` no
+    JSON caller (CLI ``vqs repair``, MCP ``vqs_repair``) can supply.
+    """
+    from .repair.recipes import OWNER_DECISION_PROOF
+
+    operations = plan.get("operations")
+    if not isinstance(operations, list):
+        return []
+    allowed = sealed if isinstance(sealed, frozenset) else frozenset()
+    forged = []
+    for index, op in enumerate(operations):
+        proof = op.get("proof") if isinstance(op, dict) else None
+        if (isinstance(proof, str) and proof.startswith(OWNER_DECISION_PROOF)
+                and owner_operation_key(op) not in allowed):
+            forged.append(f"operations[{index}].proof={proof!r}")
+    return forged
+
+
 def repair_candidate(plan_path: str, original: str,
                      candidate_root: str, *,
                      run_root: str = ".vqs-runs",
@@ -1097,7 +1127,9 @@ def repair_candidate(plan_path: str, original: str,
                      authoring_backend: str = "auto",
                      authoring_assurance: str = "portable",
                      authoring_timeout: int = 300,
-                     authoring_allow_warnings: bool = False) -> dict[str, Any]:
+                     authoring_allow_warnings: bool = False,
+                     sealed_owner_operations: frozenset[str] | None = None
+                     ) -> dict[str, Any]:
     """Validate a repair plan, execute it, and seal the repair run.
 
     Validation failures fail here without touching the filesystem.
@@ -1140,6 +1172,13 @@ def repair_candidate(plan_path: str, original: str,
         return blocked_envelope("vqs.repair", [f"unreadable plan: {exc}"])
     if not isinstance(plan, dict):
         return blocked_envelope("vqs.repair", ["plan document is not an object"])
+    forged = _unsealed_owner_proofs(plan, sealed_owner_operations)
+    if forged:
+        return blocked_envelope("vqs.repair", [
+            "plan claims owner-decision authority it cannot carry: "
+            + ", ".join(forged) + ". A plan file is not a sealed owner "
+            "decision; answer the question with `vqs decisions template` "
+            "and `vqs fix --decisions` (or `vqs_run` with decisions)"])
     try:
         issues = validate_plan(plan, original, candidate_root)
     except (OSError, ValueError, TypeError) as exc:

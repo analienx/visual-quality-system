@@ -821,7 +821,10 @@ def _runtime_sequence(run_dir: Any, rid: str, stages: list,
             str(plan_file), report_dir, candidate, run_root=run_root,
             run_id=_child_id(rid, "repair"),
             authoring_backend=params["authoring_backend"],
-            authoring_assurance=("production" if runtime else "portable"))
+            authoring_assurance=("production" if runtime else "portable"),
+            sealed_owner_operations=(
+                state.get("sealed_owner_operations", frozenset())
+                if params["plan_path"] is None else frozenset()))
         state["repair_id"] = repaired.get("run_id")
         state["repair_dir"] = repaired.get("run_dir")
         if repaired["verdict"] == "blocked":
@@ -896,6 +899,7 @@ def _owner_decisions(state: dict, record: Any, params: dict) -> bool:
     the candidate plan (propose/repair); waivers are recorded for the
     acceptance decision. Nothing here edits the original report.
     """
+    from vqs.pipeline import owner_operation_key
     from vqs.repair.decisions import resolve
     from vqs.repair.synthesize import build_plan, synthesize_plan
 
@@ -961,6 +965,10 @@ def _owner_decisions(state: dict, record: Any, params: dict) -> bool:
                               if isinstance(plan, dict) else None),
                 finding_checks=checks)
             state["owner_decisions_applied"] = bool(extra)
+            # The only owner-decision operations repair may execute: the
+            # exact ones bound to these sealed answers.
+            state["sealed_owner_operations"] = frozenset(
+                owner_operation_key(op) for op in extra)
     evidence = {"owner": answers["owner"],
                 "answers_sha256": answers["sha256"],
                 "source_sha256": source,
