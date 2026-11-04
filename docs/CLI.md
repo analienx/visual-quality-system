@@ -361,6 +361,9 @@ every visual is populated. Matching counts and hashes do not prove the same
 values, model, answers or filters across different report versions.
 Historical readiness receipts require separate review under the data-evidence
 contract; this producer hardening does not retroactively validate them.
+Evidence readers reject explicitly present zero, negative or malformed counts.
+Older receipts that omit counts retain their previous compatibility behavior;
+that omission is not proof of populated report-wide data or data parity.
 
 ```console
 vqs capture path/to/Example.Report path/to/renders
