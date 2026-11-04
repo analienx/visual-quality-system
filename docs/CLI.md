@@ -181,25 +181,39 @@ gate the candidate) excuse only subjects the base already had, never a new
 one; a stored JSON baseline accepts no base-bound answers. Anything else is
 counted in `unmatched_waivers`.
 
-```yaml
-# .github/workflows/powerbi-quality.yml (example for a PBIP repository)
-on: pull_request
-permissions: {contents: read, security-events: write}
-jobs:
-  vqs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with: {ref: "${{ github.base_ref }}", path: base}
-      - uses: actions/setup-python@v5
-        with: {python-version: "3.12"}
-      - run: pip install visual-quality-system
-      - run: vqs gate Sales.pbip --baseline base/Sales.pbip --sarif vqs.sarif --github
-      - if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with: {sarif_file: vqs.sarif}
-```
+### Copyable GitHub Actions workflow
+
+Copy [the consumer workflow](../examples/ci/powerbi-quality.yml) to
+`.github/workflows/powerbi-quality.yml` in the report repository. Set
+`VQS_REVISION` to a **reviewed full 40-character commit** that includes
+`vqs gate`, and set `HEAD_REPORT` and `BASE_REPORT` to the report's paths
+relative to each checkout. For a rename, use the appropriate different paths.
+The workflow checks out the exact head and base SHAs from the pull-request
+event, pins its actions, Python and build tools, and installs that VQS source
+revision directly from GitHub. It requires Git and access to the VQS source.
+The runner image and package index remain external inputs; a locked mirror or
+verified release wheel is needed if your environment requires stronger supply
+chain reproducibility.
+
+The current published release is v0.1.1; the gate is post-v0.1.1 source and
+must not be assumed to exist in that release. VQS is not currently published
+as a PyPI distribution. Select and review the source commit yourself, or use a
+future published release artifact after verifying its digest and capabilities.
+
+The job deliberately uses `pull_request`, read-only repository permissions,
+and no secrets or automatic SARIF upload. It writes SARIF to the runner's
+temporary directory and emits GitHub annotations; retain or upload the SARIF
+only after reviewing your repository's permissions and data policy. CI sends
+the report source to the runner and may expose names and findings in logs and
+annotations, so use it only where that processing is authorized. Forked PRs
+have restricted tokens and must not be given privileged secrets to make this
+example work.
+
+The gate exits `0` when it finds no new static subjects, `1` for new findings,
+and `2` when it cannot compare. A missing report, a newly added report without
+a baseline, or an incorrect rename path must be handled explicitly; do not
+turn exit `2` into a pass. If you choose a stored baseline instead, review its
+origin and the different waiver semantics described above.
 
 The gate is static source evidence; a green gate is not native Desktop, G2/G4
 or G6 acceptance.

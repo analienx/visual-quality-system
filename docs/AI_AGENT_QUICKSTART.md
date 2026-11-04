@@ -4,17 +4,17 @@
 
 **[How the complete auto-fix architecture works — components, why each exists, and the end-to-end sequence](AGENT_AUTOFIX_ARCHITECTURE.md)**
 
-VQS **v0.1.2** distributes the supported source-bound CLI/MCP
-and allowlisted candidate-repair core. **Native Desktop visual acceptance and
-independent report-level release remain evidence-gated.**
+The latest published release is **v0.1.1**. This guide also describes
+post-v0.1.1 source features that have not yet been released. Choose and review
+the exact source revision you install and confirm it includes the commands you
+intend to use. **Native Desktop visual acceptance and independent report-level
+release remain evidence-gated.**
 
-## v0.1.2 - the simplest agent-first workflow
+## The agent-first workflow from a selected source revision
 
-Install the [verified release wheel](https://github.com/analienx/visual-quality-system/releases/latest)
-and the pinned official Microsoft authoring CLI, then run:
+After installing a reviewed revision as shown below, start with:
 
 ```bash
-npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
 vqs doctor
 vqs fix "C:/Reports/Sales.pbip"
 ```
@@ -27,9 +27,9 @@ remains in the private run directory. For advanced options use
 
 An ambiguous inherited font size or intentional overview/detail duplicate
 is **not** a source-proven automatic edit; ask for the design decision rather
-than inventing one. The VQS v0.1.2 MCP server provides ten tools including
-`vqs_theme`, preserves legacy compatibility and requires a separate
-candidate for theme application. Promotion requires separate authorization.
+than inventing one. A revision with the current MCP server includes
+`vqs_theme`, preserves legacy compatibility and requires a separate candidate
+for theme application. Promotion requires separate authorization.
 
 ## 1. Install the local VQS engine once
 
@@ -38,11 +38,22 @@ Requirements: Python 3.11+ and authorized local access to your PBIP/PBIR project
 ```bash
 git clone https://github.com/analienx/visual-quality-system.git
 cd visual-quality-system
-python -m pip install -e .
+git checkout --detach YOUR_REVIEWED_FULL_COMMIT_SHA
+git rev-parse HEAD
+python -m pip install .
+# Optional: Microsoft-backed report edits use this pinned authoring CLI
+npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
 vqs doctor
 ```
 
-Static source review and supported candidate repairs need **no Power BI Desktop, Microsoft account, AI API key or cloud subscription**. Native screenshots, live DAX and interaction tests require an authorized Windows Power BI Desktop host and its Microsoft tools. The agent can check capabilities with `vqs doctor` and must report what's unavailable.
+Replace the placeholder with the full commit SHA you reviewed and verify the
+printed commit. VQS is not currently published as a PyPI distribution. For a
+published artifact, consult the [actual releases](https://github.com/analienx/visual-quality-system/releases)
+and verify its digest and supported commands; the v0.1.1 wheel does not imply
+the later gate is available. A pinned CI installation and PR gate are in the
+[CLI guide](CLI.md#copyable-github-actions-workflow).
+
+Static source review and supported candidate repairs need **no Power BI Desktop, Microsoft account, AI API key or cloud subscription**. Native screenshots, live DAX and interaction tests require an authorized Windows Power BI Desktop host and its Microsoft tools. Microsoft-dependent report edits also require that pinned authoring CLI (`vqs doctor` attests its version and the approved skill; a missing or mismatched version blocks those edits but never read-only review). The agent can check capabilities with `vqs doctor` and must report what's unavailable.
 
 ## 2. Connect your agent (MCP is best; terminal also works)
 
@@ -114,7 +125,7 @@ The exact module and tool responsibilities—and **why** multiple components are
 
 **Prepare a full release candidate:** tell it, *"Perform VQS candidate repair, verify on real Power BI Desktop with supported controls/DAX and prepare private evidence for an independent reviewer. Don't publish or overwrite the original without explicit authorization."*
 
-VQS v0.1.2 has ten MCP tools, including `vqs_theme` for
+The current source MCP server includes `vqs_theme` for
 inspect/preview/apply/audit. Theme apply requires an explicit disposable
 candidate; older agents retain the legacy full text-envelope handshake.
 `vqs_promote` remains a separate, explicit owner-authorized operation.
