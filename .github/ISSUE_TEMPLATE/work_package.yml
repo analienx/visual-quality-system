@@ -39,6 +39,14 @@ body:
       placeholder: "WP-01 verified @sha; references to blocked-by issues; explicit first runnable condition"
     validations:
       required: true
+  - type: input
+    id: base_commit
+    attributes:
+      label: "Exact base commit and release train"
+      description: "Pin the source revision; list any unmerged parent PR in hard blockers."
+      placeholder: "full SHA / v0.2.0"
+    validations:
+      required: true
   - type: textarea
     id: ownership
     attributes:
@@ -64,7 +72,7 @@ body:
     id: proof
     attributes:
       label: "Independent acceptance, evidence and rollback"
-      placeholder: "Raw run evidence IDs; independent reviewer; candidate source diff; no data leakage; rollback"
+      placeholder: "Raw evidence IDs; separately identified independent reviewer; fixture IDs; candidate source diff; no data leakage; rollback"
     validations:
       required: true
   - type: checkboxes

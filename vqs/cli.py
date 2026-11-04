@@ -558,7 +558,7 @@ def _gate(args) -> int:
 
 
 def _compare_renders(args) -> int:
-    """Rendered before/after review; exit 0 pass, 1 regression, 2 blocked."""
+    """Locate before/after differences; data-bound verdict remains blocked."""
     from vqs.source_paths import resolve_project_input
     from vqs.visual.compare import ComparisonBlocked, compare_renders
 
@@ -1418,8 +1418,8 @@ def main(argv: list[str] | None = None) -> int:
                           help="Write the full gate result JSON")
     compare_cmd = commands.add_parser(
         "compare-renders",
-        help="Rendered before/after review: attribute every changed pixel "
-             "to a visual the candidate edited")
+        help="Compare rendered pixels; overall result is blocked until "
+             "data parity is proven")
     compare_cmd.add_argument("baseline_renders", type=Path,
                              help="Capture directory of the baseline revision "
                                   "(holds capture-manifest.json)")

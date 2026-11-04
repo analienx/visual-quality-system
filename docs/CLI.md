@@ -99,10 +99,10 @@ original.
 
 ## Rendered before/after review (`vqs compare-renders`)
 
-Compares two exact-source page captures of the same report at pixel level and
-requires **every changed pixel to fall inside a visual the candidate actually
-edited**. It answers "did this repair change anything it was not supposed to?",
-which a structural diff and a screenshot hash both cannot.
+Compares source-bound page captures at pixel level and reports whether changed
+pixels fall inside visual rectangles whose PBIR changed. The per-page findings
+are observations to review; they do not by themselves establish whether a
+repair introduced a regression.
 
 ```console
 vqs capture "base/Sales.pbip"      base-renders  --live-data
@@ -111,20 +111,27 @@ vqs compare-renders base-renders cand-renders \
   --baseline-report base/Sales.pbip --candidate-report cand/Sales.pbip
 ```
 
-Exit codes: `0` no unexplained difference · `1` a rendered regression ·
-`2` blocked. Per page the result carries the changed-pixel count and fraction,
+**Current status: the overall result is always `blocked` (exit 2).** The
+existing capture readiness probe counts rows in one table; equal row counts do
+not prove equal answers, filters, roles or interaction states. A stronger data
+evidence interface needs independent review before a data-bound pass or fail
+can be emitted. [Interface request #131](https://github.com/analienx/visual-quality-system/issues/131)
+tracks that work. Per page the result carries the changed-pixel count and fraction,
 the changed bounding box, the visuals the candidate edited, the rectangles the
-difference was attributed to, and — when something is wrong — the
-`unexplained_box` where pixels moved with no source change to explain them.
+difference was attributed to, and an `unexplained_box` for pixels outside the
+edited rectangles. Page `pass` and `fail` refer only to this pixel-location
+test; neither overrides the overall blocked result.
 
 **It blocks rather than guesses.** A comparison is refused when either capture
 declares `data_population: unproven` (a cache-less report renders `(Blank)`
 everywhere and still captures, so comparing two blank pages proves nothing),
-when the captures saw different data (`data_readiness.query_hash` differs) or
-one was not populated, when a capture is bound to a different source revision
-than the report it is compared as, when the page sets, PBIR canvas or capture
-scale differ, or when the report canvas cannot be measured in a capture. A
-changed page whose canvas cannot be located is blocked, never passed.
+when readiness probe results differ or one capture was not populated, when a
+capture is bound to a different source revision, when a captured PNG no longer
+matches its manifest hash, when either capture omits or adds report pages, when
+the source page canvases or capture scale differ, or when a canvas cannot be
+measured. Mixed-size pages are measured independently against their source
+dimensions. Matching
+readiness hashes are not proof that the captures saw the same data.
 
 `--margin N` dilates each edited visual's rectangle by N canvas pixels before
 attribution. It is a **declared tolerance, not a measurement**, so it defaults
@@ -132,8 +139,7 @@ to `0` and the value used is recorded in the result. Raise it only with real
 render evidence that Desktop draws a border or shadow outside a visual's
 declared rectangle.
 
-A clean comparison shows there is no *unexplained* rendered regression. It is
-not design approval, and not independent G2/G4 review or owner G6.
+The result is not design approval or independent G2/G4 review or owner G6.
 
 ## Pull-request gate (`vqs gate`)
 
