@@ -53,7 +53,9 @@ def _validate_contract(raw: Mapping[str, Any], context: Mapping[str, Any]) -> di
         pid = entry["page_id"]
         if not isinstance(pid, str) or pid not in actual or pid in results:
             raise ValueError("premium design contract has unknown/duplicate page")
-        if entry["archetype"] not in {"unspecified", "executive", "analytical", "operational", "narrative"}:
+        if (not isinstance(entry["archetype"], str)
+                or entry["archetype"] not in {
+                    "unspecified", "executive", "analytical", "operational", "narrative"}):
             raise ValueError("unsupported premium page archetype")
         if any(v is not None and (not isinstance(v, str) or not v.strip())
                for v in (entry["audience"], entry["primary_question"])):

@@ -282,6 +282,10 @@ vqs premium path/to/Example.pbip --format json
 
 Rules: peer-card gutter consistency, explicitly declared peer chart-title size, owner-specified content-area budget and focal prominence. Exceptions must be declared by exact rule and page. Inherited values, actual pixels, semantics and visual beauty remain unverified until native render/independent review. Output/intent files must be new (no silent overwrites). Read [premium usage and acceptance boundaries](PREMIUM_POWERBI.md).
 
+When `--contract` is supplied, the file must contain a valid source-bound JSON
+object. A JSON `null`, scalar, list, malformed or stale contract blocks with
+exit `2`; omitting the option uses the unspecified-intent template instead.
+
 ## vqs measure
 
 Emit check-ready facts for a PBIR `*.Report` folder: text contrast,
