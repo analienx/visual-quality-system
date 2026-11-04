@@ -599,6 +599,30 @@ def _compare_renders(args) -> int:
     return {"pass": 0, "fail": 1}.get(result["verdict"], 2)
 
 
+def _evidence_report(args) -> int:
+    """Render a private, hash-checked stage ledger without granting approval."""
+    from vqs.evidence_report import render
+    from vqs.run_store import _has_link
+
+    try:
+        content, protected = render(args.run_root, args.run_id)
+        if args.out is None:
+            print(content, end="")
+            return 0
+        output = args.out.absolute()
+        if any(_has_link(path) for path in (output, *output.parents)):
+            raise ValueError("report output cannot follow a link")
+        if any(output.resolve().is_relative_to(path.resolve()) for path in protected):
+            raise ValueError("report output must be outside the sealed run and report/model sources")
+        with output.open("x", encoding="utf-8") as handle:
+            handle.write(content)
+        print(json.dumps({"status": "written", "out": str(output)}, ensure_ascii=True))
+        return 0
+    except (OSError, ValueError, TypeError) as exc:
+        print(json.dumps({"status": "blocked", "reason": str(exc)}))
+        return 2
+
+
 def _decisions_template(args) -> int:
     """Answers skeleton for a sealed coordinator run's owner decisions."""
     from vqs.repair.decisions import template
@@ -1418,6 +1442,12 @@ def main(argv: list[str] | None = None) -> int:
                           help="Write the head findings as a reusable baseline JSON")
     gate_cmd.add_argument("--out", type=Path, default=None,
                           help="Write the full gate result JSON")
+    evidence_cmd = commands.add_parser(
+        "evidence-report", help="Present an existing sealed coordinator stage ledger")
+    evidence_cmd.add_argument("--run-id", required=True)
+    evidence_cmd.add_argument("--run-root", type=Path, default=_private_run_root())
+    evidence_cmd.add_argument("--out", type=Path, default=None,
+                              help="Write a new report outside the sealed run")
     compare_cmd = commands.add_parser(
         "compare-renders",
         help="Compare rendered pixels; overall result is blocked until "
@@ -1505,6 +1535,8 @@ def main(argv: list[str] | None = None) -> int:
         return _promote(args)
     if args.command == "run-status":
         return _run_status(args.run_root, args.run_id)
+    if args.command == "evidence-report":
+        return _evidence_report(args)
     if args.command == "run":
         return _run(args)
     if args.command == "fix":

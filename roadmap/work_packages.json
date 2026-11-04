@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "snapshot_utc": "2026-11-04T16:42:47Z",
+  "snapshot_utc": "2026-11-04T16:52:57Z",
   "program_issue": "https://github.com/analienx/visual-quality-system/issues/4",
   "product_scope": [
     "powerbi-desktop",
@@ -9,7 +9,7 @@
   "deferred_scope": [
     "fabric-apps-rayfin"
   ],
-  "assertion": "WP-00 through WP-19 retain the archived 3 October snapshot; WP-30 through WP-35 record proposed v0.2.0 candidates separately. Historical entries are not a current release dashboard. No package is newly independently verified by this ledger edit.",
+  "assertion": "WP-00 through WP-19 retain the archived 3 October snapshot; WP-30 through WP-36 record proposed v0.2.0 candidates separately. Historical entries are not a current release dashboard. No package is newly independently verified by this ledger edit.",
   "status_vocabulary": [
     "planned",
     "ready",
@@ -629,6 +629,26 @@
       "evidence_required": [
         "explicit-null-and-wrong-shape-negative-controls",
         "source-bound-valid-and-stale-contract-fixtures",
+        "independent-review"
+      ],
+      "pull_request": null,
+      "verified_commit": null,
+      "evidence_uri": null
+    },
+    {
+      "id": "WP-36",
+      "stage": "S10",
+      "title": "v0.2.0 human-readable sealed stage evidence report",
+      "issue": 145,
+      "depends_on": ["WP-35"],
+      "lane": "evidence-presentation",
+      "owned_paths": ["vqs/evidence_report.py", "vqs/cli.py", "vqs/agent_summary.py", "tests/test_evidence_report.py"],
+      "state": "planned",
+      "verification": "not_run",
+      "required_gate": "G0",
+      "evidence_required": [
+        "sealed-and-tampered-synthetic-run-fixtures",
+        "source-staleness-and-incomplete-comparison-negative-controls",
         "independent-review"
       ],
       "pull_request": null,

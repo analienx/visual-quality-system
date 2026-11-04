@@ -154,6 +154,28 @@ declared rectangle.
 
 The result is not design approval or independent G2/G4 review or owner G6.
 
+## Human-readable run evidence (`vqs evidence-report`)
+
+Render a private coordinator run's sealed stage ledger as plain text:
+
+```console
+vqs evidence-report --run-root ./private-vqs-runs --run-id sales-1
+vqs evidence-report --run-root ./private-vqs-runs --run-id sales-1 --out ../private-evidence.txt
+```
+
+The command verifies the run seal, stage artifact and current report/model
+source identity before reporting recorded stages and owner questions. Missing,
+tampered, malformed or stale evidence blocks; facts-only runs are not supported.
+If before/after findings cannot be compared completely, the report says
+`unknown`. Candidate contents and native rendered states are not revalidated.
+The optional output must be new, outside the sealed run and original or
+candidate project directories, and cannot follow links. It can contain private paths, questions and report details; keep it
+private. A successful command exit `0` means a report was produced, **not**
+that the report's quality passed or the owner approved promotion. Exit `2`
+means the evidence or output was blocked. A hash seal detects inconsistency;
+it is not a signature, independent G2/G4 review or owner G6 acceptance. The
+separately returned workflow envelope is not bound by the stage-ledger seal.
+
 ## Pull-request gate (`vqs gate`)
 
 `vqs gate` reviews a head and a baseline revision with the same static engine
