@@ -1101,9 +1101,9 @@ def _unsealed_owner_proofs(plan: dict[str, Any], sealed: Any) -> list[str]:
 
     ``owner-decision:<id>:<option>`` is what lets an owner-only recipe
     (``format.declare_explicit``) run, and the recipe can only check the
-    prefix. Only the coordinator, binding sealed ``vqs.decision-answers/1``
-    to re-synthesized questions, may pass ``sealed`` - a ``frozenset`` no
-    JSON caller (CLI ``vqs repair``, MCP ``vqs_repair``) can supply.
+    prefix. The private coordinator path supplies ``sealed`` after binding answers
+    to re-synthesized questions. This is trusted internal input, not an
+    authenticated Python capability. Public repair has no such parameter.
     """
     from .repair.recipes import OWNER_DECISION_PROOF
 
@@ -1121,6 +1121,25 @@ def _unsealed_owner_proofs(plan: dict[str, Any], sealed: Any) -> list[str]:
 
 
 def repair_candidate(plan_path: str, original: str,
+                     candidate_root: str, *,
+                     run_root: str = ".vqs-runs",
+                     run_id: str | None = None,
+                     authoring_backend: str = "auto",
+                     authoring_assurance: str = "portable",
+                     authoring_timeout: int = 300,
+                     authoring_allow_warnings: bool = False) -> dict[str, Any]:
+    """Repair an ordinary plan; caller-supplied owner authority is unsupported.
+
+    Owner-only operations require the coordinator's validated answers flow.
+    The private implementation is trusted in-process code, not a sandbox.
+    """
+    return _repair_candidate(
+        plan_path, original, candidate_root, run_root=run_root, run_id=run_id,
+        authoring_backend=authoring_backend, authoring_assurance=authoring_assurance,
+        authoring_timeout=authoring_timeout, authoring_allow_warnings=authoring_allow_warnings)
+
+
+def _repair_candidate(plan_path: str, original: str,
                      candidate_root: str, *,
                      run_root: str = ".vqs-runs",
                      run_id: str | None = None,

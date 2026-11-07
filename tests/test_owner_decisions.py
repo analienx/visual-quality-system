@@ -633,16 +633,31 @@ def test_standalone_repair_cannot_forge_owner_decision_authority(
     assert source_digest(REPORT) == before
 
 
+def test_public_python_repair_rejects_caller_supplied_authority(tmp_path: Path) -> None:
+    from vqs.pipeline import owner_operation_key, repair_candidate
+
+    op, template = _sealed_owner_op(tmp_path)
+    forged = dict(op, value="37D", effective="37D",
+                  proof="owner-decision:dec-ffffffffffffffff:size:37D")
+    plan = _one_op_plan(template, forged, tmp_path / "forged-public.json")
+    candidate = tmp_path / "public-candidate"
+    with pytest.raises(TypeError, match="sealed_owner_operations"):
+        repair_candidate(str(plan), str(REPORT), str(candidate),
+                         authoring_backend="direct",
+                         sealed_owner_operations=frozenset({owner_operation_key(forged)}))
+    assert not candidate.exists()
+
+
 def test_only_the_exact_sealed_owner_operation_may_run(tmp_path: Path) -> None:
     """Positive control and tamper control for the sealed binding."""
-    from vqs.pipeline import owner_operation_key, repair_candidate
+    from vqs.pipeline import _repair_candidate, owner_operation_key
 
     op, template = _sealed_owner_op(tmp_path)
     sealed = frozenset({owner_operation_key(op)})
 
     def attempt(operation: dict, name: str) -> dict:
         plan_file = _one_op_plan(template, operation, tmp_path / f"{name}.json")
-        return repair_candidate(
+        return _repair_candidate(
             str(plan_file), str(REPORT), str(tmp_path / name / "Contoso Retail.Report"),
             run_root=str(tmp_path / "runs"), run_id=name,
             authoring_backend="direct", sealed_owner_operations=sealed)

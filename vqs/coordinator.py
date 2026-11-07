@@ -659,7 +659,7 @@ def _runtime_sequence(run_dir: Any, rid: str, stages: list,
                       state: dict, ctx: dict, record: Any,
                       params: dict) -> dict:
     """Capture, propose, repair, verify, reload, recapture, handoff, remeasure."""
-    from vqs.pipeline import propose_candidates, repair_candidate
+    from vqs.pipeline import _repair_candidate, propose_candidates, repair_candidate
 
     mode, runtime = params["mode"], params["runtime"]
     run_root = params["run_root"]
@@ -817,14 +817,16 @@ def _runtime_sequence(run_dir: Any, rid: str, stages: list,
                     break
             candidate = str(run_dir / "candidate-project"
                             / f"{stem}.Report")
-        repaired = repair_candidate(
+        owner_operations = (state.get("sealed_owner_operations", frozenset())
+                            if params["plan_path"] is None else frozenset())
+        repair = _repair_candidate if owner_operations else repair_candidate
+        owner_kwargs = {"sealed_owner_operations": owner_operations} if owner_operations else {}
+        repaired = repair(
             str(plan_file), report_dir, candidate, run_root=run_root,
             run_id=_child_id(rid, "repair"),
             authoring_backend=params["authoring_backend"],
             authoring_assurance=("production" if runtime else "portable"),
-            sealed_owner_operations=(
-                state.get("sealed_owner_operations", frozenset())
-                if params["plan_path"] is None else frozenset()))
+            **owner_kwargs)
         state["repair_id"] = repaired.get("run_id")
         state["repair_dir"] = repaired.get("run_dir")
         if repaired["verdict"] == "blocked":
