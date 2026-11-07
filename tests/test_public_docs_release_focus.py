@@ -32,7 +32,7 @@ def test_release_index_and_docs_point_to_current_release() -> None:
     version = tomllib.loads(_read("pyproject.toml"))["project"]["version"]
     versions = _read("docs/RELEASES.md")
     docs = _read("docs/README.md")
-    assert f"**v{version} — latest**" in versions
+    assert f"### v{version} — latest" in versions
     assert f"RELEASE_NOTES_v{version}.md" in versions
     assert "v0.1.1" in versions and "v0.1.0" in versions
     assert f"latest release (v{version})" in docs
