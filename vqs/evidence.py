@@ -490,6 +490,13 @@ def check_data_readiness(readiness: object) -> list[dict[str, Any]]:
     scope = readiness.get("scope")
     if scope is not None and not isinstance(scope, dict):
         return [{"rule": "data_readiness_invalid", "verdict": "blocked"}]
+    # Existing receipts may omit these optional fields. When present, however,
+    # empty or non-integer counts contradict a claim of populated data.
+    for field in ("rowcount", "data_rows"):
+        if field in readiness:
+            count = readiness[field]
+            if type(count) is not int or count <= 0:
+                return [{"rule": "data_readiness_invalid", "verdict": "blocked"}]
     return []
 
 

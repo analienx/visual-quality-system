@@ -1,0 +1,66 @@
+name: Power BI static quality gate
+
+on:
+  pull_request:
+
+# Before using this example, review the code and choose a full VQS commit that
+# includes `vqs gate`. Set both paths relative to their respective checkouts.
+env:
+  VQS_REVISION: REPLACE_WITH_REVIEWED_40_HEX_COMMIT
+  HEAD_REPORT: reports/Sales.pbip
+  BASE_REPORT: reports/Sales.pbip
+
+permissions:
+  contents: read
+
+jobs:
+  vqs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: head
+          persist-credentials: false
+      - name: Check out PR base
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12.10'
+      - name: Validate configuration
+        shell: bash
+        run: |
+          if [[ ! "$VQS_REVISION" =~ ^[0-9a-f]{40}$ ]]; then
+            echo 'Set VQS_REVISION to a reviewed full 40-character commit SHA.' >&2
+            exit 2
+          fi
+          for report in "$HEAD_REPORT" "$BASE_REPORT"; do
+            case "$report" in
+              ''|/*|..|../*|*/../*|*/..)
+                echo 'Report paths must be relative to their checkout.' >&2
+                exit 2
+                ;;
+            esac
+          done
+      - name: Install the selected VQS source revision
+        shell: bash
+        run: |
+          python -m pip install 'pip==25.1.1' 'setuptools==80.9.0' 'wheel==0.45.1'
+          python -m pip install --no-deps --no-build-isolation \
+            "git+https://github.com/analienx/visual-quality-system.git@${VQS_REVISION}"
+      # --sarif-root is the head checkout, so SARIF and annotation paths are
+      # repository-relative and land on the pull request's changed files.
+      - name: Compare static findings
+        shell: bash
+        run: |
+          vqs gate "$GITHUB_WORKSPACE/head/$HEAD_REPORT" \
+            --baseline "$GITHUB_WORKSPACE/base/$BASE_REPORT" \
+            --sarif "$RUNNER_TEMP/vqs.sarif" \
+            --sarif-root "$GITHUB_WORKSPACE/head" --github

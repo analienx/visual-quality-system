@@ -97,6 +97,85 @@ Answers authorize a disposable candidate and scoped waivers only. They are
 not G2/G4 review, G6 promotion or release approval, and nothing promotes the
 original.
 
+## Live answer regression (v0.2 candidate)
+
+`vqs run --live-answers` currently records the answer baseline as **blocked**
+without opening the modeling connection. Existing answer artifacts do not
+independently bind the queried model and Desktop PID to the reviewed source;
+equal rows or a reachable server are insufficient. Legacy baselines are not
+reused. [Issue #131](https://github.com/analienx/visual-quality-system/issues/131)
+tracks the reviewed evidence contract needed to restore this capability.
+
+Candidate reload and recapture also require Desktop readiness and permission;
+recapture uses the PID from the latest successful candidate reload. A blocked
+reload prevents recapture and live answer regression.
+
+## Rendered before/after review (`vqs compare-renders`)
+
+Compares source-bound page captures at pixel level and reports whether changed
+pixels fall inside visual rectangles whose PBIR changed. The per-page findings
+are observations to review; they do not by themselves establish whether a
+repair introduced a regression.
+
+```console
+vqs capture "base/Sales.pbip"      base-renders  --live-data
+vqs capture "cand/Sales.pbip"      cand-renders  --live-data
+vqs compare-renders base-renders cand-renders \
+  --baseline-report base/Sales.pbip --candidate-report cand/Sales.pbip
+```
+
+**Current status: the overall result is always `blocked` (exit 2).** The
+existing capture readiness probe counts rows in one table; equal row counts do
+not prove equal answers, filters, roles or interaction states. A stronger data
+evidence interface needs independent review before a data-bound pass or fail
+can be emitted. [Interface request #131](https://github.com/analienx/visual-quality-system/issues/131)
+tracks that work. Per page the result carries the changed-pixel count and fraction,
+the changed bounding box, the visuals the candidate edited, the rectangles the
+difference was attributed to, and an `unexplained_box` for pixels outside the
+edited rectangles. Page `pass` and `fail` refer only to this pixel-location
+test; neither overrides the overall blocked result.
+
+**It blocks rather than guesses.** A comparison is refused when either capture
+declares `data_population: unproven` (a cache-less report renders `(Blank)`
+everywhere and still captures, so comparing two blank pages proves nothing),
+when readiness probe results differ or one capture was not populated, when a
+capture is bound to a different source revision, when a captured PNG no longer
+matches its manifest hash, when either capture omits or adds report pages, when
+the source page canvases or capture scale differ, or when a canvas cannot be
+measured. Mixed-size pages are measured independently against their source
+dimensions. Matching
+readiness hashes are not proof that the captures saw the same data.
+
+`--margin N` dilates each edited visual's rectangle by N canvas pixels before
+attribution. It is a **declared tolerance, not a measurement**, so it defaults
+to `0` and the value used is recorded in the result. Raise it only with real
+render evidence that Desktop draws a border or shadow outside a visual's
+declared rectangle.
+
+The result is not design approval or independent G2/G4 review or owner G6.
+
+## Human-readable run evidence (`vqs evidence-report`)
+
+Render a private coordinator run's sealed stage ledger as plain text:
+
+```console
+vqs evidence-report --run-root ./private-vqs-runs --run-id sales-1
+vqs evidence-report --run-root ./private-vqs-runs --run-id sales-1 --out ../private-evidence.txt
+```
+
+The command verifies the run seal, stage artifact and current report/model
+source identity before reporting recorded stages and owner questions. Missing,
+tampered, malformed or stale evidence blocks; facts-only runs are not supported.
+If before/after findings cannot be compared completely, the report says
+`unknown`. Candidate contents and native rendered states are not revalidated.
+The optional output must be new, outside the sealed run and original or
+candidate project directories, and cannot follow links. It can contain private paths, questions and report details; keep it
+private. A successful command exit `0` means a report was produced, **not**
+that the report's quality passed or the owner approved promotion. Exit `2`
+means the evidence or output was blocked. A hash seal detects inconsistency;
+it is not a signature, independent G2/G4 review or owner G6 acceptance. The
+separately returned workflow envelope is not bound by the stage-ledger seal.
+
 ## Pull-request gate (`vqs gate`)
 
 `vqs gate` reviews a head and a baseline revision with the same static engine
@@ -124,25 +203,42 @@ gate the candidate) excuse only subjects the base already had, never a new
 one; a stored JSON baseline accepts no base-bound answers. Anything else is
 counted in `unmatched_waivers`.
 
-```yaml
-# .github/workflows/powerbi-quality.yml (example for a PBIP repository)
-on: pull_request
-permissions: {contents: read, security-events: write}
-jobs:
-  vqs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
-        with: {ref: "${{ github.base_ref }}", path: base}
-      - uses: actions/setup-python@v5
-        with: {python-version: "3.12"}
-      - run: pip install visual-quality-system
-      - run: vqs gate Sales.pbip --baseline base/Sales.pbip --sarif vqs.sarif --github
-      - if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with: {sarif_file: vqs.sarif}
-```
+### Copyable GitHub Actions workflow
+
+Copy [the consumer workflow](../examples/ci/powerbi-quality.yml) to
+`.github/workflows/powerbi-quality.yml` in the report repository. Set
+`VQS_REVISION` to a **reviewed full 40-character commit** that includes
+`vqs gate`, and set `HEAD_REPORT` and `BASE_REPORT` to the report's paths
+relative to each checkout. For a rename, use the appropriate different paths.
+The workflow checks out the exact head and base SHAs from the pull-request
+event, pins its actions, Python and build tools, and installs that VQS source
+revision directly from GitHub. It requires Git and access to the VQS source.
+The runner image and package index remain external inputs; a locked mirror or
+verified release wheel is needed if your environment requires stronger supply
+chain reproducibility.
+
+The current published release is v0.1.1; the gate is post-v0.1.1 source and
+must not be assumed to exist in that release. VQS is not currently published
+as a PyPI distribution. Select and review the source commit yourself, or use a
+future published release artifact after verifying its digest and capabilities.
+
+The job deliberately uses `pull_request`, read-only repository permissions,
+no secrets or automatic SARIF upload, and a 20-minute job timeout. It writes
+SARIF to the runner's temporary directory and emits GitHub annotations;
+`--sarif-root` is the head checkout, so both name repository-relative paths
+that GitHub can place on the pull request's changed files (a path under the
+runner's `head/` directory exists in no repository). Retain or upload the
+SARIF only after reviewing your repository's permissions and data policy. CI sends
+the report source to the runner and may expose names and findings in logs and
+annotations, so use it only where that processing is authorized. Forked PRs
+have restricted tokens and must not be given privileged secrets to make this
+example work.
+
+The gate exits `0` when it finds no new static subjects, `1` for new findings,
+and `2` when it cannot compare. A missing report, a newly added report without
+a baseline, or an incorrect rename path must be handled explicitly; do not
+turn exit `2` into a pass. If you choose a stored baseline instead, review its
+origin and the different waiver semantics described above.
 
 The gate is static source evidence; a green gate is not native Desktop, G2/G4
 or G6 acceptance.
@@ -211,6 +307,10 @@ vqs premium path/to/Example.pbip --format json
 
 Rules: peer-card gutter consistency, explicitly declared peer chart-title size, owner-specified content-area budget and focal prominence. Exceptions must be declared by exact rule and page. Inherited values, actual pixels, semantics and visual beauty remain unverified until native render/independent review. Output/intent files must be new (no silent overwrites). Read [premium usage and acceptance boundaries](PREMIUM_POWERBI.md).
 
+When `--contract` is supplied, the file must contain a valid source-bound JSON
+object. A JSON `null`, scalar, list, malformed or stale contract blocks with
+exit `2`; omitting the option uses the unspecified-intent template instead.
+
 ## vqs measure
 
 Emit check-ready facts for a PBIR `*.Report` folder: text contrast,
@@ -255,6 +355,24 @@ the report open — otherwise use `vqs doctor` to see what is missing.
 Viewport-less captures (the actual Bridge 1.0.0 contract) bind render
 identity for whole-page review with geometry calibration honestly
 blocked — no pixel-to-PBIR coordinate transform is claimed.
+
+With live data enabled, capture requires a valid positive modeling readiness
+probe both before and after screenshots. Missing, malformed, empty or drifting
+probe data blocks the capture rather than coercing it into `populated: true`.
+The current native probe counts rows in one named table; it does not prove that
+every visual is populated. Matching counts and hashes do not prove the same
+values, model, answers or filters across different report versions.
+Capture readiness also requires a nonblank echoed model identity and the exact
+run-start report source digest, with roles, filters and period matching the
+requested probe scope. Malformed or missing context blocks before screenshots;
+invalid final context blocks the manifest. An echoed identity is not independent
+process/model attestation or proof that two captures used equal data (#131).
+
+Historical readiness receipts require separate review under the data-evidence
+contract; this producer hardening does not retroactively validate them.
+Evidence readers reject explicitly present zero, negative or malformed counts.
+Older receipts that omit counts retain their previous compatibility behavior;
+that omission is not proof of populated report-wide data or data parity.
 
 ```console
 vqs capture path/to/Example.Report path/to/renders

@@ -95,15 +95,20 @@ def validate(data: dict) -> list[str]:
 def summarize(data: dict) -> dict:
     """Summarize verification counts and dependency-ready packages."""
     packages = data["packages"]
-    initial = [item for item in packages if item["state"] != "deferred"]
+    non_deferred = [item for item in packages if item["state"] != "deferred"]
+    # The historical initial program covers S0-S8. Later product milestones
+    # belong in the same DAG but must not inflate the initial-release count.
+    initial = [item for item in non_deferred
+               if isinstance(item.get("stage"), str)
+               and re.fullmatch(r"S[0-8](?:[A-Z]|-S[0-8])?", item["stage"])]
     verified = [item for item in initial if item["state"] == "verified" and item["verification"] == "verified"]
     by_id = {item["id"]: item for item in packages}
-    runnable = [item["id"] for item in initial if item["state"] in {"planned", "ready"} and all(
+    runnable = [item["id"] for item in non_deferred if item["state"] in {"planned", "ready"} and all(
         by_id[dep]["state"] == "verified" and by_id[dep]["verification"] == "verified"
         for dep in item["depends_on"]
     )]
     return {"snapshot_utc": data.get("snapshot_utc"), "independently_verified": len(verified),
-            "initial_release_packages": len(initial), "deferred": len(packages) - len(initial),
+            "initial_release_packages": len(initial), "deferred": len(packages) - len(non_deferred),
             "next_runnable": runnable, "packages": [
                 {"id": item["id"], "issue": item["issue"], "stage": item["stage"],
                  "state": item["state"], "verification": item["verification"],

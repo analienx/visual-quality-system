@@ -125,8 +125,17 @@ def test_e2e_status_snapshot_matches_machine_ledger() -> None:
     assert summary["snapshot_utc"] in ("2026-09-23T20:40:00Z", data["snapshot_utc"])
     for issue in list(range(5, 19)) + [19]:
         assert f"/issues/{issue}" in status
-    ledger_issues = sorted(item["issue"] for item in data["packages"])
+    # STATUS.md is an archived initial-program snapshot. Later milestones
+    # remain in the DAG without rewriting that historical status table.
+    ledger_issues = sorted(item["issue"] for item in data["packages"]
+                           if item.get("stage") != "S10")
     assert ledger_issues == list(range(5, 19)) + [19]
+    assert any(item["issue"] == 130 and item.get("stage") == "S10"
+               for item in data["packages"])
+    assert any(item["issue"] == 133 and item.get("stage") == "S10"
+               for item in data["packages"])
+    assert any(item["issue"] == 135 and item.get("stage") == "S10"
+               for item in data["packages"])
 
 
 def test_e2e_program_docs_link_issue4_and_ledger() -> None:

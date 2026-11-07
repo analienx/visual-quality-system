@@ -91,3 +91,13 @@ def test_f03_complete_renders_pass(tmp_path: Path) -> None:
     verdict = verify_renders(["P1", "P2"], [renders], "d",
                              {"P1": (500, 500), "P2": (500, 500)})
     assert verdict == {"verdict": "pass", "pages": ["P1", "P2"]}
+
+
+def test_explicit_empty_data_blocks_render_verification(tmp_path: Path) -> None:
+    renders = _renders(tmp_path, "r1", "d", {"P1": "P1.png"})
+    manifest_path = renders / "capture-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["data_readiness"].update({"rowcount": 0, "data_rows": 0})
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    verdict = verify_renders(["P1"], [renders], "d", {"P1": (500, 500)})
+    assert verdict["verdict"] == "blocked"

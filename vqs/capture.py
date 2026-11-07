@@ -651,6 +651,45 @@ def _prime_owned_model(report_path: Path, instance: dict, page_id: str,
                 "evidence": "discarded-before-authoritative-capture"}
 
 
+def _validated_readiness(value: object, *, requested_scope: Any) -> dict[str, Any]:
+    """Snapshot the existing populatedness probe; never coerce its claims."""
+    if not isinstance(value, dict):
+        raise OSError("Readiness evidence incomplete or invalid: expected an object")
+    if value.get("populated") is not True:
+        raise OSError("Data not populated or readiness flag invalid")
+    counts = (value.get("rowcount"), value.get("data_rows"))
+    if any(type(count) is not int or count <= 0 for count in counts):
+        raise OSError("Readiness evidence incomplete or invalid: positive counts required")
+    method, table, digest, scope = (value.get("method"), value.get("probe_table"),
+                                    value.get("query_hash"), value.get("scope_echo"))
+    if (not isinstance(method, str) or not method.strip()
+            or not isinstance(table, str) or not table.strip()
+            or not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)
+            or not isinstance(scope, dict) or any(not isinstance(key, str) for key in scope)):
+        raise OSError("Readiness evidence incomplete or invalid: method, table, hash or scope")
+    try:
+        # Copy nested scope data so a mutable port cannot rewrite the before
+        # observation when the second observation is made.
+        scope_copy = json.loads(json.dumps(scope, allow_nan=False, ensure_ascii=False))
+    except (ValueError, TypeError) as exc:
+        raise OSError("Readiness evidence incomplete or invalid: scope is not JSON") from exc
+    from .powerbi.modeling import scope_from_dict
+
+    try:
+        observed = scope_from_dict(scope_copy)
+    except (TypeError, ValueError) as exc:
+        raise OSError("Readiness evidence incomplete or invalid: malformed scope") from exc
+    if (not observed.model or not observed.model.strip()
+            or not requested_scope.source_sha256
+            or observed.source_sha256 != requested_scope.source_sha256
+            or any(getattr(observed, field) != getattr(requested_scope, field)
+                   for field in ("roles", "filters", "period"))):
+        raise OSError("Readiness evidence incomplete or invalid: unbound or mismatched scope")
+    return {"populated": True, "method": method, "probe_table": table,
+            "query_hash": digest, "scope_echo": scope_copy,
+            "rowcount": counts[0], "data_rows": counts[1]}
+
+
 def capture(report: str, renders: str, pid: int | None = None,
             scale: int = 2, wait_seconds: int = 60,
             state: str = "default",
@@ -738,10 +777,7 @@ def capture(report: str, renders: str, pid: int | None = None,
                 model_warmup = _prime_owned_model(
                     report_path, instance, expected[0], scale,
                     wait_seconds, source_before)
-            readiness_before = port.readiness(scope)
-            if not readiness_before.get("populated"):
-                raise OSError("Data not populated: "
-                              f"{readiness_before.get('detail', 'no rows')}")
+            readiness_before = _validated_readiness(port.readiness(scope), requested_scope=scope)
             if expected_scope is not None:
                 wanted = ModelingScope(
                     model=expected_scope.get("model"),
@@ -776,19 +812,11 @@ def capture(report: str, renders: str, pid: int | None = None,
         (renders_path / "capture-attempts.json").write_text(
             json.dumps(attempts, indent=2), encoding="utf-8")
         if port is not None:
-            readiness_after = port.readiness(scope)
-            if not readiness_after.get("populated"):
-                raise OSError("Data not populated after capture: "
-                              f"{readiness_after.get('detail', 'no rows')}")
+            readiness_after = _validated_readiness(port.readiness(scope), requested_scope=scope)
             if readiness_before is None:
                 raise OSError("Readiness evidence missing; no manifest written")
-            for key in ("rowcount", "query_hash"):
-                if key not in readiness_after or key not in readiness_before:
-                    raise OSError("Readiness evidence incomplete; "
-                                  "no manifest written")
-            if (readiness_after["rowcount"] != readiness_before["rowcount"]
-                    or readiness_after["query_hash"]
-                    != readiness_before["query_hash"]):
+            if any(readiness_after[key] != readiness_before[key] for key in (
+                    "rowcount", "data_rows", "query_hash", "probe_table", "scope_echo", "method")):
                 raise OSError("Data changed during capture; no manifest written")
         recheck = select_instance(str(report_path), instance["pid"],
                                   wait_seconds,
@@ -927,7 +955,7 @@ def capture(report: str, renders: str, pid: int | None = None,
             if readiness_before is None:
                 raise OSError("Readiness evidence missing; no manifest written")
             manifest["data_readiness"] = {
-                "populated": bool(readiness_before.get("populated")),
+                "populated": readiness_before["populated"],
                 "method": readiness_before.get(
                     "method", "modeling-mcp:repeat-query"),
                 "scope": readiness_before.get("scope_echo", {}),

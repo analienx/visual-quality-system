@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "snapshot_utc": "2026-10-03T21:00:00Z",
+  "snapshot_utc": "2026-11-07T09:28:59Z",
   "program_issue": "https://github.com/analienx/visual-quality-system/issues/4",
   "product_scope": [
     "powerbi-desktop",
@@ -9,7 +9,7 @@
   "deferred_scope": [
     "fabric-apps-rayfin"
   ],
-  "assertion": "Review-candidate snapshot: 10 packages carry draft-PR evidence pointers with green hosted portable CI (unmerged); workflow states stay planned/active per the DAG prerequisite gate; 0 independently verified; live Desktop/Word gates not_run. Only the integrator advances states after Codex review and merge, in dependency order.",
+  "assertion": "WP-00 through WP-19 retain the archived 3 October snapshot; WP-30 through WP-39 record proposed v0.2.0 candidates separately. Historical entries are not a current release dashboard. No package is newly independently verified by this ledger edit.",
   "status_vocabulary": [
     "planned",
     "ready",
@@ -513,6 +513,214 @@
       "candidate_head": "2e26fa1",
       "candidate_counts": "225 passed + ruff x3",
       "candidate_pr": "https://github.com/analienx/visual-quality-system/pull/26"
+    },
+    {
+      "id": "WP-30",
+      "stage": "S10",
+      "title": "v0.2.0 source-bound rendered comparison evidence integrity",
+      "issue": 130,
+      "depends_on": ["WP-05", "WP-07"],
+      "lane": "powerbi-visual-evidence",
+      "owned_paths": ["vqs/visual/compare.py", "tests/test_render_comparison.py", "docs/CLI.md"],
+      "state": "planned",
+      "verification": "not_run",
+      "required_gate": "G0-G2-G4",
+      "evidence_required": [
+        "synthetic-capture-hash-and-page-negative-controls",
+        "scope-bound-data-evidence-contract-review",
+        "independent-real-render-review"
+      ],
+      "pull_request": null,
+      "verified_commit": null,
+      "evidence_uri": null
+    },
+    {
+      "id": "WP-31",
+      "stage": "S10",
+      "title": "v0.2.0 scoped answer-regression integrity",
+      "issue": 133,
+      "depends_on": ["WP-30", "WP-10"],
+      "lane": "powerbi-semantic-evidence",
+      "owned_paths": ["vqs/coordinator.py", "tests/test_p1_answer_regression.py", "docs/CLI.md"],
+      "state": "planned",
+      "verification": "not_run",
+      "required_gate": "G0-G1-G4",
+      "evidence_required": [
+        "synthetic-empty-and-mismatched-answer-negative-controls",
+        "candidate-reload-pid-negative-controls",
+        "scope-bound-data-evidence-contract-review",
+        "independent-live-model-review"
+      ],
+      "pull_request": null,
+      "verified_commit": null,
+      "evidence_uri": null
+    },
+    {
+      "id": "WP-32",
+      "stage": "S10",
+      "title": "v0.2.0 complete and shell-safe guided adoption",
+      "issue": 135,
+      "depends_on": ["WP-31"],
+      "lane": "agent-workflow",
+      "owned_paths": ["vqs/agent_summary.py", "tests/test_guided_adoption_summary.py", "docs/OWNER_DECISIONS_AND_PR_GATE.md"],
+      "state": "planned",
+      "verification": "not_run",
+      "required_gate": "G0-G3",
+      "evidence_required": [
+        "shell-argument-roundtrip-negative-controls",
+        "complete-owner-question-and-change-fixtures",
+        "independent-review"
+      ],
+      "pull_request": null,
+      "verified_commit": null,
+      "evidence_uri": null
+    },
+    {
+      "id": "WP-34",
+      "stage": "S10",
+      "title": "v0.2.0 PowerShell smart-quote adoption command safety",
+      "issue": 139,
+      "depends_on": ["WP-32"],
+      "lane": "agent-workflow-security",
+      "owned_paths": ["vqs/agent_summary.py", "tests/test_guided_adoption_summary.py"],
+      "state": "planned",
+      "verification": "not_run",
+      "required_gate": "G0-G3",
+      "evidence_required": [
+        "powershell-smart-quote-injection-negative-controls",
+        "powershell-5-and-7-argument-roundtrips",
+        "independent-review"
+      ],
+      "pull_request": null,
+      "verified_commit": null,
+      "evidence_uri": null
+    },
+    {
+      "id": "WP-33",
+      "stage": "S10",
+      "title": "v0.2.0 reproducible agent and pull-request gate adoption",
+      "issue": 137,
+      "depends_on": ["WP-34"],
+      "lane": "agent-ci-adoption",
+      "owned_paths": ["docs/CLI.md", "docs/AI_AGENT_QUICKSTART.md", "examples/ci/powerbi-quality.yml", "tests/test_agent_ci_kit.py"],
+      "state": "planned",
+      "verification": "not_run",
+      "required_gate": "G0",
+      "evidence_required": [
+        "fictional-cli-exit-and-sarif-negative-controls",
+        "pinned-workflow-and-install-validation",
+        "independent-review"
+      ],
+      "pull_request": null,
+      "verified_commit": null,
+      "evidence_uri": null
+    },
+    {
+      "id": "WP-35",
+      "stage": "S10",
+      "title": "v0.2.0 fail-closed analytical intent contract validation",
+      "issue": 143,
+      "depends_on": ["WP-33"],
+      "lane": "analytical-contract-safety",
+      "owned_paths": ["vqs/cli.py", "vqs/premium.py", "tests/test_premium_preflight.py", "docs/CLI.md"],
+      "state": "planned",
+      "verification": "not_run",
+      "required_gate": "G0",
+      "evidence_required": [
+        "explicit-null-and-wrong-shape-negative-controls",
+        "source-bound-valid-and-stale-contract-fixtures",
+        "independent-review"
+      ],
+      "pull_request": null,
+      "verified_commit": null,
+      "evidence_uri": null
+    },
+    {
+      "id": "WP-36",
+      "stage": "S10",
+      "title": "v0.2.0 human-readable sealed stage evidence report",
+      "issue": 145,
+      "depends_on": ["WP-35"],
+      "lane": "evidence-presentation",
+      "owned_paths": ["vqs/evidence_report.py", "vqs/cli.py", "vqs/agent_summary.py", "tests/test_evidence_report.py"],
+      "state": "planned",
+      "verification": "not_run",
+      "required_gate": "G0",
+      "evidence_required": [
+        "sealed-and-tampered-synthetic-run-fixtures",
+        "source-staleness-and-incomplete-comparison-negative-controls",
+        "independent-review"
+      ],
+      "pull_request": null,
+      "verified_commit": null,
+      "evidence_uri": null
+    },
+    {
+      "id": "WP-37",
+      "stage": "S10",
+      "title": "v0.2.0 fail-closed live capture readiness",
+      "issue": 147,
+      "depends_on": ["WP-36"],
+      "lane": "powerbi-data-evidence",
+      "owned_paths": ["vqs/capture.py", "tests/test_capture_gates.py", "tests/powerbi/test_modeling.py", "docs/CLI.md"],
+      "state": "planned",
+      "verification": "not_run",
+      "required_gate": "G0-G1-G4",
+      "evidence_required": [
+        "malformed-empty-and-drifting-readiness-negative-controls",
+        "independent-live-model-review",
+        "scope-bound-data-evidence-contract-review"
+      ],
+      "pull_request": null,
+      "verified_commit": null,
+      "evidence_uri": null
+    },
+    {
+      "id": "WP-38",
+      "stage": "S10",
+      "title": "v0.2.0 reject contradictory readiness receipt counts",
+      "issue": 150,
+      "depends_on": ["WP-37"],
+      "lane": "powerbi-data-evidence",
+      "owned_paths": ["vqs/evidence.py", "tests/test_f06_populated.py", "tests/test_f03_renders.py", "docs/CLI.md"],
+      "state": "planned",
+      "verification": "not_run",
+      "required_gate": "G0-G1",
+      "evidence_required": [
+        "explicit-zero-and-malformed-count-negative-controls",
+        "downstream-render-verification-fixture",
+        "scope-bound-data-evidence-contract-review"
+      ],
+      "pull_request": null,
+      "verified_commit": null,
+      "evidence_uri": null
+    },
+    {
+      "id": "WP-39",
+      "stage": "S10",
+      "title": "v0.2.0 source-bound model scope for capture readiness",
+      "issue": 153,
+      "depends_on": [
+        "WP-38"
+      ],
+      "lane": "powerbi-data-evidence",
+      "owned_paths": [
+        "vqs/capture.py",
+        "tests/test_capture_gates.py",
+        "tests/powerbi/test_modeling.py",
+        "docs/CLI.md"
+      ],
+      "state": "planned",
+      "verification": "not_run",
+      "required_gate": "G0-G1",
+      "evidence_required": [
+        "unbound-malformed-and-drifting-scope-negative-controls",
+        "native-shaped-fake-mcp-compatibility",
+        "independent-review"
+      ],
+      "pull_request": null,
+      "verified_commit": null,
+      "evidence_uri": null
     }
   ],
   "first_ready_package": "WP-00",

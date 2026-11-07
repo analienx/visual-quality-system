@@ -248,6 +248,8 @@ def _premium(args) -> int:
             return 0
         policy = (json.loads(args.contract.read_text(encoding="utf-8-sig"))
                   if args.contract is not None else None)
+        if args.contract is not None and not isinstance(policy, dict):
+            raise ValueError("premium design contract must be a JSON object")
         result = audit(str(args.report), contract=policy)
     except (OSError, ValueError, TypeError, KeyError) as exc:
         print(json.dumps({"status": "blocked", "reason": str(exc)}))
@@ -555,6 +557,70 @@ def _gate(args) -> int:
     if emitted and args.baseline is None:
         code = 0
     return code
+
+
+def _compare_renders(args) -> int:
+    """Locate before/after differences; data-bound verdict remains blocked."""
+    from vqs.source_paths import resolve_project_input
+    from vqs.visual.compare import ComparisonBlocked, compare_renders
+
+    try:
+        baseline_report, _ = resolve_project_input(str(args.baseline_report), None)
+        candidate_report, _ = resolve_project_input(str(args.candidate_report), None)
+    except ValueError as exc:
+        print(json.dumps({"tool": "vqs.compare-renders", "verdict": "blocked",
+                          "reason": str(exc)}))
+        return 2
+    try:
+        result = compare_renders(
+            args.baseline_renders, args.candidate_renders,
+            baseline_report=baseline_report,
+            candidate_report=candidate_report,
+            margin=args.margin)
+    except ComparisonBlocked as exc:
+        print(json.dumps({"tool": "vqs.compare-renders", "verdict": "blocked",
+                          "reason": str(exc)}, indent=2, ensure_ascii=False))
+        return 2
+    except (OSError, ValueError, TypeError, KeyError) as exc:
+        print(json.dumps({"tool": "vqs.compare-renders", "verdict": "blocked",
+                          "reason": f"{type(exc).__name__}: {exc}"}, indent=2))
+        return 2
+    if args.out is not None:
+        try:
+            args.out.write_text(
+                json.dumps(result, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8")
+        except OSError as exc:
+            print(json.dumps({"tool": "vqs.compare-renders",
+                              "verdict": "blocked",
+                              "reason": f"cannot write {args.out}: {exc}"}))
+            return 2
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return {"pass": 0, "fail": 1}.get(result["verdict"], 2)
+
+
+def _evidence_report(args) -> int:
+    """Render a private, hash-checked stage ledger without granting approval."""
+    from vqs.evidence_report import render
+    from vqs.run_store import _has_link
+
+    try:
+        content, protected = render(args.run_root, args.run_id)
+        if args.out is None:
+            print(content, end="")
+            return 0
+        output = args.out.absolute()
+        if any(_has_link(path) for path in (output, *output.parents)):
+            raise ValueError("report output cannot follow a link")
+        if any(output.resolve().is_relative_to(path.resolve()) for path in protected):
+            raise ValueError("report output must be outside the sealed run and report/model sources")
+        with output.open("x", encoding="utf-8") as handle:
+            handle.write(content)
+        print(json.dumps({"status": "written", "out": str(output)}, ensure_ascii=True))
+        return 0
+    except (OSError, ValueError, TypeError) as exc:
+        print(json.dumps({"status": "blocked", "reason": str(exc)}))
+        return 2
 
 
 def _decisions_template(args) -> int:
@@ -1332,8 +1398,8 @@ def main(argv: list[str] | None = None) -> int:
                          choices=("auto", "microsoft", "direct"),
                          default="auto")
     run_cmd.add_argument("--live-answers", action="store_true",
-                         help="Opt into live DAX answer collection when a "
-                              "model is reachable")
+                         help="Request live DAX answer collection; currently "
+                              "blocked until source/model binding is proven")
     run_cmd.add_argument("--reviewer", default=None,
                          help="Reviewer provider dotted path for visual "
                               "acceptance (runtime handoff blocks without "
@@ -1376,6 +1442,30 @@ def main(argv: list[str] | None = None) -> int:
                           help="Write the head findings as a reusable baseline JSON")
     gate_cmd.add_argument("--out", type=Path, default=None,
                           help="Write the full gate result JSON")
+    evidence_cmd = commands.add_parser(
+        "evidence-report", help="Present an existing sealed coordinator stage ledger")
+    evidence_cmd.add_argument("--run-id", required=True)
+    evidence_cmd.add_argument("--run-root", type=Path, default=_private_run_root())
+    evidence_cmd.add_argument("--out", type=Path, default=None,
+                              help="Write a new report outside the sealed run")
+    compare_cmd = commands.add_parser(
+        "compare-renders",
+        help="Compare rendered pixels; overall result is blocked until "
+             "data parity is proven")
+    compare_cmd.add_argument("baseline_renders", type=Path,
+                             help="Capture directory of the baseline revision "
+                                  "(holds capture-manifest.json)")
+    compare_cmd.add_argument("candidate_renders", type=Path,
+                             help="Capture directory of the candidate revision")
+    compare_cmd.add_argument("--baseline-report", type=Path, required=True,
+                             help="Baseline .pbip, project root or *.Report")
+    compare_cmd.add_argument("--candidate-report", type=Path, required=True,
+                             help="Candidate .pbip, project root or *.Report")
+    compare_cmd.add_argument("--margin", type=int, default=0,
+                             help="Declared tolerance in canvas pixels around "
+                                  "each edited visual (default 0: none)")
+    compare_cmd.add_argument("--out", type=Path, default=None,
+                             help="Write the full comparison JSON")
     decisions_cmd = commands.add_parser(
         "decisions", help="Answer owner decisions from a sealed fix/run")
     decisions_sub = decisions_cmd.add_subparsers(dest="decisions_action",
@@ -1445,6 +1535,8 @@ def main(argv: list[str] | None = None) -> int:
         return _promote(args)
     if args.command == "run-status":
         return _run_status(args.run_root, args.run_id)
+    if args.command == "evidence-report":
+        return _evidence_report(args)
     if args.command == "run":
         return _run(args)
     if args.command == "fix":
@@ -1461,6 +1553,8 @@ def main(argv: list[str] | None = None) -> int:
         return _decisions_template(args)
     if args.command == "gate":
         return _gate(args)
+    if args.command == "compare-renders":
+        return _compare_renders(args)
     if args.command == "mcp":
         return _mcp()
     try:
