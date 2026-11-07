@@ -359,6 +359,12 @@ probe data blocks the capture rather than coercing it into `populated: true`.
 The current native probe counts rows in one named table; it does not prove that
 every visual is populated. Matching counts and hashes do not prove the same
 values, model, answers or filters across different report versions.
+Capture readiness also requires a nonblank echoed model identity and the exact
+run-start report source digest, with roles, filters and period matching the
+requested probe scope. Malformed or missing context blocks before screenshots;
+invalid final context blocks the manifest. An echoed identity is not independent
+process/model attestation or proof that two captures used equal data (#131).
+
 Historical readiness receipts require separate review under the data-evidence
 contract; this producer hardening does not retroactively validate them.
 Evidence readers reject explicitly present zero, negative or malformed counts.

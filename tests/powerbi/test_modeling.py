@@ -133,7 +133,7 @@ def test_readiness_proves_populated_and_repeatable(tmp_path: Path) -> None:
                    default=str).encode("utf-8")).hexdigest()
     assert ready["scope_echo"]["model"] == "localhost:52383/AdventureWorks"
     assert ready["scope_echo"]["source_sha256"] == "abc"
-    accepted = _validated_readiness(ready)
+    accepted = _validated_readiness(ready, requested_scope=scope)
     assert accepted["data_rows"] == 7
     assert accepted["query_hash"] == ready["query_hash"]
     calls = [entry for entry in _logged(client)
