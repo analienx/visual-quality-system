@@ -34,6 +34,9 @@ def test_release_is_scoped_and_preserves_unapproved_report_acceptance():
     assert "**not** a claim" in lower
     assert "v0.1.0" in (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     assert "PRODUCTION_DISTRIBUTION_v0.1.0.md" in (
+        ROOT / "docs" / "RELEASES.md"
+    ).read_text(encoding="utf-8")
+    assert "docs/RELEASES.md" in (
         ROOT / "README.md"
     ).read_text(encoding="utf-8")
     assert "v0.1.0" in (ROOT / "docs/CONSUMER_INTEGRATION.md").read_text(

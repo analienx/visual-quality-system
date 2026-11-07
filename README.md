@@ -9,7 +9,8 @@
     <a href="docs/AGENT_AUTOFIX_ARCHITECTURE.md">How it works</a> ·
     <a href="#real-power-bi-showcase">Real report gallery</a> ·
     <a href="docs/CLI.md">CLI</a> ·
-    <a href="docs/RELEASE_NOTES_v0.1.2.md">Release notes</a> ·
+    <a href="docs/RELEASE_NOTES_v0.1.2.md">Latest release</a> ·
+    <a href="docs/RELEASES.md">Release history</a> ·
     <a href="docs/README.md">All docs</a>
   </p>
   <p>
@@ -20,97 +21,52 @@
   </p>
 </div>
 
-## Product direction · the roadmap at a glance
+## Latest release · v0.1.2
 
-**Microsoft tools help author and render. VQS makes improvements measurable, reversible and independently checkable.** The two work together; VQS is not a replacement for Microsoft's report authoring tooling.
+**Verifiable decisions and regression gates** · Published **7 November 2026** · Python 3.11+ · Local CLI/MCP
 
-<img src="docs/diagrams/vqs-product-loop-mobile.svg" alt="Vertical VQS product flow: user and agent, Microsoft tooling, VQS quality checks, then either verified candidate with owner approval or blocked pending evidence" width="720">
+[**Download v0.1.2 and verify checksums**](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2) · [What's new and supported](docs/RELEASE_NOTES_v0.1.2.md) · [All published releases](docs/RELEASES.md)
 
-_Designed for phone-width viewing. [Open the vector diagram](docs/diagrams/vqs-product-loop-mobile.svg) or read the [accessible text explanation](roadmap/README.md). The SVG source remains editable in Git._
+VQS turns source-provable Power BI defects into **reversible repair candidates**. This release adds owner-answerable design questions, readable changes with explicit adoption, and a pull-request quality gate with SARIF. The original report is not silently changed.
 
-[**Explore the living product roadmap →**](roadmap/README.md) · [Current implementation boundaries](docs/AGENT_AUTOFIX_ARCHITECTURE.md)
+### Get started
 
-The diagram is a **product direction**, not a guarantee of native Desktop coverage. The v0.1.2 wheel has a bounded source-only repair scope: answerable owner decisions, declared changes, one explicit adoption step and the pull-request gate. Native Desktop interaction stays evidence-gated and is not part of that scope.
-
-## Install VQS v0.1.2 - agent-first Power BI repairs
-
-[**Download the verified wheel, source archive and checksums**](https://github.com/analienx/visual-quality-system/releases/latest)
-
-```powershell
-pip install visual_quality_system-0.1.2-py3-none-any.whl
-npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
-vqs doctor
-vqs fix "C:/Reports/Sales.pbip"
-```
-
-`vqs fix` accepts a PBIP file, discovers its unique report and model,
-repairs only source-provable defects in a **disposable candidate**, and returns
-a compact result with full private evidence. It does not overwrite or promote
-the original. A **blocked** result when no safe edit is proved and an
-**improved_not_accepted** result when other issues remain are expected.
-
-**Blocked on a design choice?** Each such finding is an answerable question
-(`decision_id` + options such as "use 10 pt for this cohort" or "keep as
-intentional"). The owner answers once and VQS applies the choice to the
-candidate, then verifies it:
-
-```powershell
-vqs decisions template --run-id <fix-run-id> --out answers.json
-vqs fix "C:/Reports/Sales.pbip" --decisions answers.json
-```
-
-For pull requests, `vqs gate head.pbip --baseline base.pbip --sarif vqs.sarif`
-fails only on findings the change introduces.
-[Owner decisions and PR gate guide](docs/OWNER_DECISIONS_AND_PR_GATE.md)
-
-[Six independently tested Ubuntu/Windows GitHub runner combinations](https://github.com/analienx/visual-quality-system/actions/runs/40966581372)
-on Python 3.11-3.13 passed installed-wheel authoring, repair and MCP checks.
-Native Desktop G2/G4/G6 report acceptance, arbitrary Desktop reload and
-Word/DOCX remain outside the validated release scope.
-
-[Agent quickstart](docs/AI_AGENT_QUICKSTART.md) -
-[Release notes](docs/RELEASE_NOTES_v0.1.2.md) -
-[Owner decisions and the PR gate](docs/OWNER_DECISIONS_AND_PR_GATE.md) -
-[Runner acceptance workflow](.github/workflows/v011-runner-e2e.yml)
-
-## Previous version - VQS v0.1.0 · v0.1.0
-
-[**Download the verified wheel and release checksums**](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.0) · [Supported features and explicit exclusions](docs/PRODUCTION_DISTRIBUTION_v0.1.0.md)
-
-VQS is distributed as a **local Python CLI/MCP** for source-grounded Power BI checks and bounded disposable repairs—not a hosted service or an automatic Power BI tenant deployment. The native Desktop acceptance matrix remains separately governed; software distribution **does not mean your report was certified or edited**.
-
-## AI-driven improvement, with evidence at every step
-
-**Your goal:** *“Make this Power BI report clearer, more consistent and reliable. Fix what you can safely, validate the result, and show me the candidate.”*
-
-**VQS supports that workflow for its source-provable allowlisted repair operations.** If no safe fix can be proved, it returns **blocked with per-finding agent decisions**, rather than manufacturing a candidate. [See the verified auto-repair limits](docs/AUTO_REPAIR_TRIAGE_2026-10-28.md). The agent chooses the work; VQS makes source-grounded changes in an **isolated candidate**, checks them, and records what cannot yet be verified. The original report is never silently overwritten.
-
-**01 / Understand** — Inspect actual PBIR/TMDL pages, fields, layouts and color assignments.
-
-**02 / Repair** — Synthesize supported typed fixes and apply them **only to an isolated candidate**.
-
-**03 / Verify** — Check the exact diff, remeasure quality, and gather native Power BI/DAX evidence where available.
-
-**04 / Deliver** — Return **Fixed · Verified · Still blocked**, backed by private evidence and a separate candidate.
-
-**Agent connected through MCP?** Use `vqs_run` with `mode=repair`. **Agent with terminal access?** Use the same engine:
+Download the wheel from the release above, verify its checksum, then run:
 
 ```bash
-vqs run "path/to/Sales.Report" --mode repair --scope static \
-  --run-root "./private-vqs-runs" --run-id "sales-autofix-001"
+python -m pip install ./visual_quality_system-0.1.2-py3-none-any.whl
+npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
+vqs doctor
+vqs fix "path/to/Sales.pbip"
 ```
 
-`scope=static` proves only supported source checks. Native Power BI Desktop validation needs a separately authorized Windows runtime. A passing candidate edit **does not** mean all visual, filter or release checks passed.
+If a fix needs your decision, VQS returns answerable options; edit the generated answers before rerunning:
 
-**[Get started in 5 minutes · MCP setup and a one-prompt auto-fix workflow](docs/AI_AGENT_QUICKSTART.md)**
+```bash
+vqs decisions template --run-id <fix-run-id> --out answers.json
+# Choose the offered options in answers.json; never invent an answer.
+vqs fix "path/to/Sales.pbip" --decisions answers.json
+```
 
-**[Understand the system · Component responsibilities, architecture and why they exist](docs/AGENT_AUTOFIX_ARCHITECTURE.md)**
+An agent can use the same engine through the `vqs-mcp` entrypoint. In CI, `vqs gate HEAD.pbip --baseline BASE.pbip --sarif vqs.sarif` flags *new* source findings, not every pre-existing issue.
 
-### The system behind the agent
+[**5-minute agent quickstart**](docs/AI_AGENT_QUICKSTART.md) · [CLI reference](docs/CLI.md) · [Decisions and PR gate](docs/OWNER_DECISIONS_AND_PR_GATE.md)
 
-<a href="docs/AGENT_AUTOFIX_ARCHITECTURE.md"><img src="docs/diagrams/product-flow.svg" width="100%" alt="Visual Quality System workflow: report source, quality analysis, repair candidates, Desktop evidence and independent review"></a>
+**Supported boundary:** v0.1.2 is a **source-level** review and safe candidate-repair release. It does not certify arbitrary native Desktop rendering, interactions, live DAX parity, G2/G4/G6 signoff, or Word/DOCX. A blocked result is not a successful repair. [Read the exact limits and test evidence](docs/RELEASE_NOTES_v0.1.2.md#verified-release-scope).
 
-**Agent** orchestrates → **VQS** measures, proposes and repairs → **Microsoft tooling** validates supported changes → **Desktop/Modeling MCP** supplies native evidence → **reviewer** makes the release decision. [Explore each component and its limits](docs/AGENT_AUTOFIX_ARCHITECTURE.md).
+## How VQS works
+
+**Microsoft tooling** helps author and validate Power BI reports. **VQS** measures defects, applies allowed changes to a separate candidate, records evidence and exposes what still needs an owner's decision. These tools complement each other.
+
+<img src="docs/diagrams/vqs-product-loop-mobile.svg" alt="Mobile-friendly flow: user and AI agent, Microsoft authoring, VQS quality checks, then either an evidenced candidate for owner review or an explicitly blocked result" width="720">
+
+[**Full product roadmap**](roadmap/README.md) · [How the agent/repair architecture works](docs/AGENT_AUTOFIX_ARCHITECTURE.md)
+
+```text
+Inspect PBIR/TMDL → Propose bounded changes → Repair a copy → Verify → Review/adopt
+```
+
+A static source check proves only supported static properties; Desktop and modeling evidence require an available and authorized runtime. VQS does not promote a candidate or grant report-level approval by itself.
 
 ## Verified reference report · all five pages
 
@@ -243,7 +199,7 @@ vqs theme audit ./organic-candidate
 | **Native** | Authenticated, source-bound full-page renders and supported interaction/DAX checks when available | Unsupported visuals, inaccessible controls or unverified sign-in |
 | **Release** | Sealed evidence suitable for independent human/agent review | A production approval without an authorized separate decision |
 
-The 14 approved theme families include **28 Light/Dark modes** with real source-bound native previews. Their default-state capture and color checks do **not** certify every dropdown state, cross-report interaction, or production G2/G4/G6. [Latest engineering release notes](docs/RELEASE_NOTES_2026-10-26.md) · [Evidence and acceptance](docs/ACCEPTANCE_MATRIX.md) · [Open release gates](https://github.com/analienx/visual-quality-system/issues/16).
+The 14 approved theme families include **28 Light/Dark modes** with real source-bound native previews. Their default-state capture and color checks do **not** certify every dropdown state, cross-report interaction, or production G2/G4/G6. [Release history and engineering records](docs/RELEASES.md) · [Evidence and acceptance](docs/ACCEPTANCE_MATRIX.md) · [Open release gates](https://github.com/analienx/visual-quality-system/issues/16).
 
 ## Documentation
 
@@ -253,7 +209,8 @@ The 14 approved theme families include **28 Light/Dark modes** with real source-
 | **Power BI report authors** | [Getting started](docs/USER_GUIDE.md) · [Premium design guide](docs/PREMIUM_POWERBI.md) · [Theme palette library](docs/APPROVED_THEME_LIBRARY.md) |
 | **BI platform engineers** | [Architecture](docs/ARCHITECTURE.md) · [CLI](docs/CLI.md) · [Power BI integration & native evidence](docs/VISUAL_QA_V2_P16_NATIVE_DESKTOP_UIA.md) |
 | **Quality reviewers** | [Acceptance matrix](docs/ACCEPTANCE_MATRIX.md) · [Screenshot provenance](docs/images/adaptive-showcase/PROVENANCE.json) · [Native gallery](docs/REAL_THEME_SHOWCASE.md) |
-| **Contributors** | [Product roadmap](roadmap/README.md) · [Contributor guide](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [All documentation](docs/README.md) |
+| **Releases and history** | [Latest v0.1.2 release notes](docs/RELEASE_NOTES_v0.1.2.md) · [All published releases](docs/RELEASES.md) · [Development changelog](CHANGELOG.md) |
+| **Contributors** | [Product roadmap](roadmap/README.md) · [Contributor guide](CONTRIBUTING.md) · [All documentation](docs/README.md) |
 
 VQS focuses on **Power BI**. Word/DOCX assurance is a separate optional component, not a blocker for a Power BI-only release. Source inspection is local by default; private customer screenshots and caches must not be checked in or uploaded without explicit authorization.
 
