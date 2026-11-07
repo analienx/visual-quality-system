@@ -202,3 +202,13 @@ A ready-to-copy GitHub Actions workflow is in
 | A question has only `accept` | Not every member was exactly addressable, so a partial edit would leave the cohort inconsistent. Fix it in the source, or waive it |
 | Gate reports `unmatched_waivers > 0` | The answers target neither the head nor the reviewed base, or a base-bound answer names a finding the change introduced. Regenerate them against the head |
 | Microsoft authoring backend refuses a size edit | The metadata gate admits `fontSize`/`textSize` on `visual.objects` only. Container-title sizes (`vco.title`) can be applied in `--scope static` with `--authoring-backend direct`; Desktop/release scope requires the Microsoft backend and keeps refusing them |
+
+## Python repair API boundary
+
+The public `repair_candidate` API, CLI `vqs repair`, and MCP `vqs_repair`
+do not accept caller-supplied owner-operation authority. Owner-only operations
+use the coordinator's answer-validation flow (`vqs fix --decisions` or
+`run_workflow` with decisions). Its private repair implementation receives the
+exact validated operation set as trusted internal input. Python callers can
+import private functions or modify process state; this separation is not a
+sandbox, cryptographic signature, or authentication of the person answering.

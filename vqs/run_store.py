@@ -23,6 +23,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -134,9 +135,15 @@ def append_event(run_dir: Path, event: dict) -> None:
 
 
 def read_events(run_dir: Path) -> list[dict]:
-    """Replay every event in order; corrupt lines raise instead of skipping."""
+    """Replay every event in order; corrupt lines raise instead of skipping.
+
+    Events end at ``\\n`` only. ``str.splitlines`` also breaks at U+2028,
+    U+2029 and U+0085, which ``append_event`` leaves raw inside JSON
+    strings, so one report-derived name holding them split an event and
+    made the whole log unreadable.
+    """
     events = []
-    for line in (Path(run_dir) / "events.jsonl").read_text(encoding="utf-8").splitlines():
+    for line in (Path(run_dir) / "events.jsonl").read_text(encoding="utf-8").split("\n"):
         if line.strip():
             value = json.loads(line)
             if not isinstance(value, dict):
@@ -262,14 +269,136 @@ def run_status(run_dir: Path) -> str:
     return "blocked"
 
 
-def _stale_lock(lock: Path) -> bool:
-    """True when a lock file exists but names no owner (interrupted claim)."""
+# An ownerless lock may be taken over only after it has gone untouched this
+# long. A claim in flight is younger than this by construction, so a
+# takeover can never steal it, whichever VQS version wrote it.
+STALE_LOCK_SECONDS = 60.0
+
+
+def _lock_identity(lock: Path) -> tuple[int, int, int, int] | None:
+    try:
+        info = lock.stat()
+    except OSError:
+        return None
+    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns)
+
+
+def _stale_lock(lock: Path) -> tuple[int, int, int, int] | None:
+    """Identity of an abandoned lock: no owner and untouched for a while."""
+    identity = _lock_identity(lock)
+    if (identity is None
+            or time.time() - identity[3] / 1e9 < STALE_LOCK_SECONDS):
+        return None
     try:
         record = json.loads(lock.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return True
-    return not (isinstance(record, dict)
-                and isinstance(record.get("owner"), str))
+        record = None
+    if isinstance(record, dict) and isinstance(record.get("owner"), str):
+        return None
+    return identity
+
+
+def _publish_lock(lock: Path, payload: str) -> bool:
+    """Create ``lock`` holding ``payload``; False when it already exists.
+
+    The record is written to a private file first and hard-linked into
+    place, which fails if the lock exists, so no other claimant can ever
+    observe a live claim without its owner. Where hard links are
+    unsupported (FAT, some shares) it falls back to exclusive create.
+    """
+    temp = lock.with_name(f".{lock.name}.{os.getpid()}.{os.urandom(6).hex()}.tmp")
+    try:
+        with open(temp, "x", encoding="utf-8") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        try:
+            os.link(temp, lock)
+            return True
+        except FileExistsError:
+            return False
+        except OSError:
+            pass
+    finally:
+        try:
+            temp.unlink()
+        except OSError:
+            pass
+    try:
+        fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        return False
+    with os.fdopen(fd, "w", encoding="utf-8") as stream:
+        stream.write(payload)
+        stream.flush()
+        os.fsync(stream.fileno())
+    return True
+
+
+def _guard_path(lock: Path) -> Path:
+    # Kept, never deleted: removing it would let a second guard file with a
+    # different identity be locked while the first is still held.
+    return lock.with_name(lock.name + ".takeover")
+
+
+def _lock_guard(stream: Any) -> bool:
+    """Exclusive, non-blocking OS byte-range lock on an open guard file.
+
+    Built-in locking (msvcrt on Windows, fcntl elsewhere) is released by the
+    OS when its holder exits, so the guard can never go stale. False when
+    another handle holds it or locking is unsupported.
+    """
+    try:
+        if os.name == "nt":
+            import msvcrt
+
+            stream.seek(0)
+            msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return False
+    return True
+
+
+def _unlock_guard(stream: Any) -> None:
+    # Closing the file also drops a POSIX flock.
+    if os.name == "nt":
+        import msvcrt
+
+        try:
+            stream.seek(0)
+            msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+        except OSError:
+            pass
+
+
+def _take_over_abandoned(lock: Path) -> bool:
+    """Remove an abandoned lock under the takeover guard; True if removed.
+
+    Only a takeover ever deletes a lock it does not own, and each one
+    re-checks the lock while holding the guard, so it can never delete a
+    claim that another takeover published in the meantime. Ordinary
+    contention (a live, owned lock) never touches the guard.
+    """
+    if _stale_lock(lock) is None:
+        return False
+    try:
+        with open(_guard_path(lock), "a+b") as guard:
+            if not _lock_guard(guard):
+                return False
+            try:
+                identity = _stale_lock(lock)
+                if identity is None or _lock_identity(lock) != identity:
+                    return False
+                lock.unlink()
+                return True
+            finally:
+                _unlock_guard(guard)
+    except OSError:
+        return False
 
 
 def claim_artifact(lock_dir: Path, artifact_id: str, owner: str) -> bool:
@@ -279,26 +408,16 @@ def claim_artifact(lock_dir: Path, artifact_id: str, owner: str) -> bool:
     lock = Path(lock_dir) / (artifact_id + ".lock")
     if not _within(Path(lock_dir), lock):
         raise ValueError(f"artifact_id escapes the lock directory: {artifact_id!r}")
+    payload = json.dumps({"artifact": artifact_id, "owner": owner})
     for attempt in (0, 1):
-        try:
-            fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError:
-            # An interrupted claim (kill, full disk) can leave a lock with
-            # no owner record. Such a lock proves no ownership and would
-            # otherwise block this artifact for good, so take it over
-            # once; a lock with a readable owner is always respected.
-            if attempt == 0 and _stale_lock(lock):
-                try:
-                    lock.unlink()
-                except OSError:
-                    return False
-                continue
+        if _publish_lock(lock, payload):
+            return True
+        # An interrupted claim (kill, full disk) can leave a lock with no
+        # owner record, which would block this artifact for good. Take it
+        # over once, and only if it is old and still the same file; a lock
+        # with a readable owner is always respected.
+        if attempt or not _take_over_abandoned(lock):
             return False
-        with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            stream.write(json.dumps({"artifact": artifact_id, "owner": owner}))
-            stream.flush()
-            os.fsync(stream.fileno())
-        return True
     return False
 
 
@@ -314,7 +433,7 @@ def release_artifact(lock_dir: Path, artifact_id: str, owner: str) -> bool:
         # Unreadable, half-written or non-UTF-8 lock: ownership cannot be
         # proved, so refuse the release instead of crashing the caller.
         # The file is kept as evidence; `claim_artifact` is what recovers
-        # from it, by taking over a lock that names no owner.
+        # from it, by taking over an ownerless lock once it is stale.
         return False
     if not isinstance(record, dict) or record.get("owner") != owner:
         return False

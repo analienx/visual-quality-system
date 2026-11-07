@@ -7,8 +7,14 @@ No Desktop, cloud, or Actions are exercised.
 """
 from __future__ import annotations
 
+import errno
 import json
+import os
+import shutil
+import time
 from pathlib import Path
+
+import pytest
 
 from scripts.roadmap_report import DEFAULT_LEDGER, summarize
 from vqs import run_store
@@ -28,6 +34,51 @@ def test_interrupted_run_replays_all_events_and_stays_blocked(tmp_path: Path) ->
     assert len(run_store.read_events(run_dir)) == 3
 
 
+# LINE SEPARATOR, PARAGRAPH SEPARATOR and NEL: str.splitlines() breaks at
+# each, but JSON keeps them raw inside a string written ensure_ascii=False.
+_SEPARATORS = "".join(map(chr, (0x2028, 0x2029, 0x85)))
+_CONTOSO = Path(__file__).resolve().parents[1] / "examples" / "contoso-retail"
+
+
+def test_unicode_line_separators_stay_inside_their_event(tmp_path: Path) -> None:
+    """Negative control: one report-derived name must not corrupt the log."""
+    run_dir = run_store.create_run(tmp_path, "run-u", {"artifact": "report-a"})
+    name = "Page" + "|".join(_SEPARATORS) + "end"
+    run_store.append_event(run_dir, {"kind": "stage", "reason": name})
+    run_store.append_event(run_dir, {"kind": "stage", "reason": "next"})
+    assert [event["reason"] for event in run_store.read_events(run_dir)] == [name, "next"]
+
+
+def test_report_page_named_with_a_line_separator_runs_to_a_sealed_verdict(
+        tmp_path: Path) -> None:
+    """`vqs fix` crashed with a JSONDecodeError traceback on such a report.
+
+    A page folder name is report-controlled and reaches the stage events
+    raw; the run must finish with a sealed, readable ledger instead.
+    """
+    from vqs.coordinator import run_workflow
+
+    project = tmp_path / "Contoso copy"
+    shutil.copytree(_CONTOSO, project)
+    pages = project / "Contoso Retail.Report" / "definition" / "pages"
+    meta = json.loads((pages / "pages.json").read_text(encoding="utf-8-sig"))
+    old = meta["pageOrder"][0]
+    new = old + chr(0x2028) + "x"
+    (pages / old).rename(pages / new)
+    meta["pageOrder"][0] = new
+    if meta.get("activePageName") == old:
+        meta["activePageName"] = new
+    (pages / "pages.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
+    result = run_workflow(report_dir=str(project / "Contoso Retail.Report"),
+                          mode="repair", scope="static", run_root=str(tmp_path / "runs"),
+                          run_id="separator", authoring_backend="direct")
+    assert result["verdict"] in ("pass", "fail", "blocked")
+    run_dir = tmp_path / "runs" / "separator"
+    events = run_store.read_events(run_dir)
+    assert any(new in json.dumps(event, ensure_ascii=False) for event in events)
+    assert run_store.verify_seal(run_dir) == []
+
+
 def test_concurrent_artifact_claim_refused_and_released(tmp_path: Path) -> None:
     locks = tmp_path / "locks"
     assert run_store.claim_artifact(locks, "PowerBI-pid-1", "agent-a") is True
@@ -44,6 +95,139 @@ def test_corrupt_lock_release_refuses_instead_of_crashing(tmp_path: Path) -> Non
         (locks / "PowerBI-pid-2.lock").write_bytes(body)
         assert run_store.release_artifact(locks, "PowerBI-pid-2", "agent-a") is False
         assert (locks / "PowerBI-pid-2.lock").exists()
+
+
+def _age(lock: Path, seconds: float) -> None:
+    then = time.time() - seconds
+    os.utime(lock, (then, then))
+
+
+def test_claim_in_flight_is_never_taken_over(tmp_path: Path, monkeypatch) -> None:
+    """Negative control: two claimants must never both hold one lease.
+
+    A creates the lock exclusively and has not yet written its owner; B
+    finds it, reads it while still empty, then A finishes. Treating that
+    empty file as an abandoned claim let B unlink A's completed lock, so
+    both believed they held the Desktop PID lease and A could not release.
+    """
+    locks = tmp_path / "locks"
+    locks.mkdir()
+    fd_a = os.open(str(locks / "desktop-pid-4242.lock"),
+                   os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    original = run_store._stale_lock
+
+    def interleaved(path):
+        verdict = original(path)
+        with os.fdopen(fd_a, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps({"artifact": "desktop-pid-4242", "owner": "A"}))
+        return verdict
+
+    monkeypatch.setattr(run_store, "_stale_lock", interleaved)
+    assert run_store.claim_artifact(locks, "desktop-pid-4242", "B") is False
+    assert run_store.release_artifact(locks, "desktop-pid-4242", "A") is True
+
+
+@pytest.mark.parametrize("body", [b"", b"{half", b"[]", b'{"owner": 3}', b"\xff\xfe"])
+def test_abandoned_ownerless_lock_is_recovered_only_once_stale(
+        tmp_path: Path, body: bytes) -> None:
+    locks = tmp_path / "locks"
+    locks.mkdir()
+    lock = locks / "desktop-pid-7.lock"
+    lock.write_bytes(body)
+    # Fresh: indistinguishable from a claim still being written.
+    assert run_store.claim_artifact(locks, "desktop-pid-7", "next") is False
+    assert lock.read_bytes() == body
+    _age(lock, run_store.STALE_LOCK_SECONDS + 5)
+    assert run_store.claim_artifact(locks, "desktop-pid-7", "next") is True
+    assert json.loads(lock.read_text(encoding="utf-8"))["owner"] == "next"
+    assert run_store.release_artifact(locks, "desktop-pid-7", "next") is True
+
+
+def test_two_takeovers_of_one_abandoned_lock_leave_one_owner(
+        tmp_path: Path, monkeypatch) -> None:
+    """Negative control: a takeover must never delete a newer claim.
+
+    B2 finds the abandoned lock and checks it; before B2 unlinks it, B1
+    takes the same lock over and publishes its own claim. Unless takeovers
+    are serialised, B2's unlink then removes B1's fresh lock and both
+    believe they hold the lease.
+    """
+    locks = tmp_path / "locks"
+    locks.mkdir()
+    lock = locks / "desktop-pid-12.lock"
+    lock.write_bytes(b"")
+    _age(lock, run_store.STALE_LOCK_SECONDS + 5)
+    results: dict[str, bool] = {}
+    armed = [True]
+    real_unlink = Path.unlink
+
+    def unlink(self, *args, **kwargs):
+        if self == lock and armed[0]:
+            armed[0] = False
+            results["B1"] = run_store.claim_artifact(locks, "desktop-pid-12", "B1")
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+    results["B2"] = run_store.claim_artifact(locks, "desktop-pid-12", "B2")
+    monkeypatch.undo()
+    winners = sorted(name for name, claimed in results.items() if claimed)
+    assert len(winners) == 1, results
+    assert winners == [json.loads(lock.read_text(encoding="utf-8"))["owner"]]
+
+
+def test_takeover_waits_for_the_os_guard(tmp_path: Path) -> None:
+    """The guard is a real OS byte-range lock, exclusive across handles."""
+    locks = tmp_path / "locks"
+    locks.mkdir()
+    lock = locks / "desktop-pid-13.lock"
+    lock.write_bytes(b"")
+    _age(lock, run_store.STALE_LOCK_SECONDS + 5)
+    with open(run_store._guard_path(lock), "a+b") as held:
+        assert run_store._lock_guard(held)
+        try:
+            with open(run_store._guard_path(lock), "a+b") as other:
+                assert not run_store._lock_guard(other)
+            assert run_store.claim_artifact(locks, "desktop-pid-13", "B") is False
+            assert lock.read_bytes() == b""
+        finally:
+            run_store._unlock_guard(held)
+    assert run_store.claim_artifact(locks, "desktop-pid-13", "B") is True
+    assert json.loads(lock.read_text(encoding="utf-8"))["owner"] == "B"
+
+
+def test_old_lock_with_an_owner_is_always_respected(tmp_path: Path) -> None:
+    locks = tmp_path / "locks"
+    assert run_store.claim_artifact(locks, "desktop-pid-8", "A") is True
+    _age(locks / "desktop-pid-8.lock", run_store.STALE_LOCK_SECONDS * 10)
+    assert run_store.claim_artifact(locks, "desktop-pid-8", "B") is False
+    assert run_store.release_artifact(locks, "desktop-pid-8", "A") is True
+
+
+def test_claim_is_visible_only_with_its_owner(tmp_path: Path, monkeypatch) -> None:
+    locks = tmp_path / "locks"
+    published = []
+    real_link = os.link
+
+    def spy(source, target, *args, **kwargs):
+        published.append(json.loads(Path(source).read_text(encoding="utf-8")))
+        return real_link(source, target, *args, **kwargs)
+
+    monkeypatch.setattr(run_store.os, "link", spy)
+    assert run_store.claim_artifact(locks, "desktop-pid-9", "A") is True
+    assert published == [{"artifact": "desktop-pid-9", "owner": "A"}]
+    assert [path.name for path in locks.iterdir()] == ["desktop-pid-9.lock"]
+
+
+def test_claim_without_hard_links_stays_exclusive(tmp_path: Path, monkeypatch) -> None:
+    def unsupported(*_args, **_kwargs):
+        raise OSError(errno.EPERM, "hard links unsupported on this volume")
+
+    monkeypatch.setattr(run_store.os, "link", unsupported)
+    locks = tmp_path / "locks"
+    assert run_store.claim_artifact(locks, "desktop-pid-10", "A") is True
+    assert run_store.claim_artifact(locks, "desktop-pid-10", "B") is False
+    assert [path.name for path in locks.iterdir()] == ["desktop-pid-10.lock"]
+    assert run_store.release_artifact(locks, "desktop-pid-10", "A") is True
 
 
 def test_seal_pins_status_artifacts_and_count(tmp_path: Path) -> None:

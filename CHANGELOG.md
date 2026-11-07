@@ -25,7 +25,9 @@ Each was reproduced before being fixed and carries a negative control.
 - **`owner-decision:` is authority, not a string prefix.** `--plan` and
   `--decisions` are mutually exclusive, so a hand-written plan carrying that
   marker claimed an authority no sealed answer backs; it now blocks, and the
-  refusal names `--decisions` as the real route.
+  refusal names `--decisions` as the real route. The same refusal covers
+  `vqs repair` and MCP `vqs_repair`, which execute a plan file directly:
+  only the exact operations the coordinator bound to sealed answers may run.
 - **One overlap conflict keeps one subject.** Four branches omitted `pair=`, so
   `subject_of` fell back to `visual=` and identity changed with the facts,
   making `vqs gate` report a spurious `new` plus a spurious `fixed` for an
@@ -33,16 +35,22 @@ Each was reproduced before being fixed and carries a negative control.
 - **A blocked gate is no longer silent.** An unreadable visual document blocks
   the comparison, and `--sarif`/`--github` were skipped entirely, so CI got
   exit 2 with nothing to annotate. A blocked gate now emits one
-  `vqs.gate.blocked` SARIF error and one `::error` annotation; exit codes are
-  unchanged.
+  `vqs.gate.blocked` SARIF error and one `::error title=...` annotation; exit
+  codes are unchanged. Annotations use the runner's `::error <properties>::`
+  syntax: the earlier `::error,title=` form (blocked gate, or a new item
+  without a file) was printed as plain log text, not annotated.
 - **`vqs gate --emit-baseline` without `--baseline` exits 0** and reports
   `baseline_written`. It previously wrote the file and then exited 1, failing
   the documented CI step that had just succeeded.
 - `vqs decisions template --out` refuses symlinks and opens exclusively; it
   previously followed a link and wrote through to its target.
-- The `adopt` command is `shlex.quote`d, so a run root containing a quote,
-  `$(...)`, a backtick or a trailing backslash can no longer break or extend
-  the command the owner is told to run verbatim.
+- The `adopt` command is quoted for the shell the owner runs it in:
+  PowerShell on Windows, with every PowerShell single-quote delimiter
+  (`'`, U+2018, U+2019, U+201A, U+201B) doubled, and `shlex.quote` on
+  Linux/macOS. A POSIX-quoted command pasted into PowerShell truncated a run
+  root containing an apostrophe and executed text after a typographic quote.
+  The guided result also no longer drops owner questions after the twelfth
+  or declared changes after the fiftieth (backported from #136 and #140).
 - The Microsoft metadata gate admits `visual.visualContainerObjects*` as well
   as `visual.objects*` — the two layers the typed binder addresses and the
   measurer emits — so capability is decided by Microsoft's catalog. Because a
@@ -51,9 +59,18 @@ Each was reproduced before being fixed and carries a negative control.
 - Native source-identity guards compare **content identity** (sha256 + size)
   instead of the full snapshot, so Desktop re-writing identical PBIR bytes no
   longer aborts a genuine capture as "source changed".
-- An interrupted Desktop PID lease no longer blocks every later capture:
-  `claim_artifact` fsyncs the owner record and takes over a lock that names no
-  owner, without weakening exclusivity or ownership.
+- An interrupted Desktop PID lease no longer blocks every later capture.
+  `claim_artifact` publishes its owner record atomically (a complete file,
+  hard-linked into place), so a live claim is never visible without an
+  owner, and takes over an ownerless lock only once it is
+  `STALE_LOCK_SECONDS` (60 s) old and still the same file. Takeovers are
+  serialised by a built-in OS file lock, so two claimants can never both take
+  over one abandoned lock. A lock naming an owner is never taken over.
+- A report name containing U+2028, U+2029 or U+0085 no longer crashes a run.
+  Events are written with those characters raw inside JSON strings, and the
+  event log was read with `str.splitlines()`, which also breaks there; `vqs fix`
+  stopped with a `JSONDecodeError` traceback and left an unreadable ledger
+  (present since v0.1.1). The log is now split on `\n` only.
 - Desktop PID attestation shares one CIM probe and one
   `CommandLineToArgvW`-correct parser (`vqs.powerbi.os_process`) instead of a
   second script and a quote-matching regex.

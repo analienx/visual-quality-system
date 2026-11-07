@@ -83,13 +83,19 @@ contract.
    success.
 
 The rest of the review fixes are listed in the [changelog](../CHANGELOG.md): a
-forged `owner-decision:` proof in a hand-written plan is refused; one overlap
+forged `owner-decision:` proof in a hand-written plan is refused on every route
+(`vqs fix --plan`, `vqs repair`, MCP `vqs_repair`); the `adopt` command is quoted
+for PowerShell on Windows (including typographic single quotes) and for a POSIX
+shell elsewhere, and the guided result lists every owner question and change;
+gate annotations use the syntax the Actions runner recognises; one overlap
 conflict keeps one subject identity regardless of how much geometry the facts
 carry; the Microsoft metadata gate admits both real PBIR formatting layers instead
 of discarding a whole answered plan; native capture compares content identity
-rather than timestamps; an interrupted Desktop PID lease is recoverable; PID
-attestation shares one probe and one command-line parser; the Windows Desktop probe
-pins its Desktop version and refuses an unverified installer.
+rather than timestamps; an interrupted Desktop PID lease is recoverable without
+ever taking over a live claim; a report name containing a Unicode line
+separator no longer corrupts the run's event log; PID attestation shares one probe and one
+command-line parser; the Windows Desktop probe pins its Desktop version and
+refuses an unverified installer.
 
 ## Install
 

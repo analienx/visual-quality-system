@@ -566,6 +566,110 @@ def test_owner_plan_without_decision_proof_is_still_accepted(
     assert "cannot carry" not in (repair.get("reason") or "")
 
 
+def _sealed_owner_op(tmp_path: Path) -> tuple[dict, dict]:
+    """One owner-only operation, and its plan, from a really answered run."""
+    first = _blocked(tmp_path)
+    result = run_workflow(report_dir=str(REPORT), mode="repair",
+                          scope="static", run_root=str(tmp_path / "runs"),
+                          run_id="answered", authoring_backend="direct",
+                          decisions=_answers(first, _ten_or_accept))
+    assert result["verdict"] == "pass"
+    plan = json.loads((tmp_path / "runs" / "answered" / "plan.json")
+                      .read_text(encoding="utf-8"))
+    op = next(op for op in plan["operations"]
+              if op["type"] == "format.declare_explicit"
+              and op["proof"].startswith("owner-decision:"))
+    return op, plan
+
+
+def _one_op_plan(template: dict, op: dict, path: Path) -> Path:
+    plan = dict(template, operations=[op], write_targets=list(op["writes"]),
+                affected_pages=[op["selector"]["page"]])
+    path.write_text(json.dumps(plan), encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize("route", ["python", "cli", "mcp"])
+def test_standalone_repair_cannot_forge_owner_decision_authority(
+        tmp_path: Path, route: str, capsys) -> None:
+    """Negative control: the `vqs fix --plan` guard is not the only door.
+
+    `vqs repair` and MCP `vqs_repair` execute a plan file directly, and the
+    owner-only recipe checks nothing but the `owner-decision:` prefix. An
+    agent copying an option's operation into a plan - or inventing a
+    decision id and a value no owner chose - must be refused there too,
+    before anything is written.
+    """
+    from vqs.cli import main
+    from vqs.mcp import server
+    from vqs.pipeline import repair_candidate
+
+    sealed, template = _sealed_owner_op(tmp_path)
+    op = dict(sealed, value="37D", effective="37D",
+              proof="owner-decision:dec-ffffffffffffffff:size:37D")
+    plan_file = _one_op_plan(template, op, tmp_path / "forged.json")
+    candidates = tmp_path / "candidates"
+    before = source_digest(REPORT)
+    args = {"plan_path": str(plan_file), "original": str(REPORT),
+            "candidate_root": str(candidates),
+            "run_root": str(tmp_path / "runs"), "run_id": f"forged-{route}",
+            "authoring_backend": "direct"}
+    if route == "python":
+        result = repair_candidate(**args)
+    elif route == "cli":
+        code = main(["repair", args["plan_path"], "--original", args["original"],
+                     "--candidate-root", args["candidate_root"],
+                     "--run-root", args["run_root"], "--run-id", args["run_id"],
+                     "--authoring-backend", "direct"])
+        assert code == 2
+        result = json.loads(capsys.readouterr().out)
+    else:
+        # A JSON caller cannot supply the coordinator's sealed set either.
+        result = server._dispatch("vqs_repair", dict(
+            args, sealed_owner_operations=[json.dumps(op)]))
+    assert result["verdict"] == "blocked"
+    assert "cannot carry" in result["blocked_reasons"][0]
+    assert not candidates.exists()
+    assert source_digest(REPORT) == before
+
+
+def test_public_python_repair_rejects_caller_supplied_authority(tmp_path: Path) -> None:
+    from vqs.pipeline import owner_operation_key, repair_candidate
+
+    op, template = _sealed_owner_op(tmp_path)
+    forged = dict(op, value="37D", effective="37D",
+                  proof="owner-decision:dec-ffffffffffffffff:size:37D")
+    plan = _one_op_plan(template, forged, tmp_path / "forged-public.json")
+    candidate = tmp_path / "public-candidate"
+    with pytest.raises(TypeError, match="sealed_owner_operations"):
+        repair_candidate(str(plan), str(REPORT), str(candidate),
+                         authoring_backend="direct",
+                         sealed_owner_operations=frozenset({owner_operation_key(forged)}))
+    assert not candidate.exists()
+
+
+def test_only_the_exact_sealed_owner_operation_may_run(tmp_path: Path) -> None:
+    """Positive control and tamper control for the sealed binding."""
+    from vqs.pipeline import _repair_candidate, owner_operation_key
+
+    op, template = _sealed_owner_op(tmp_path)
+    sealed = frozenset({owner_operation_key(op)})
+
+    def attempt(operation: dict, name: str) -> dict:
+        plan_file = _one_op_plan(template, operation, tmp_path / f"{name}.json")
+        return _repair_candidate(
+            str(plan_file), str(REPORT), str(tmp_path / name / "Contoso Retail.Report"),
+            run_root=str(tmp_path / "runs"), run_id=name,
+            authoring_backend="direct", sealed_owner_operations=sealed)
+
+    exact = attempt(op, "exact")
+    assert "cannot carry" not in " ".join(exact.get("blocked_reasons") or [])
+    assert exact["verdict"] == "pass"
+    tampered = attempt(dict(op, value="37D", effective="37D"), "tampered")
+    assert tampered["verdict"] == "blocked"
+    assert "cannot carry" in tampered["blocked_reasons"][0]
+
+
 _OVERLAP = "layout.no_visual_overlap"
 _OVERLAP_FINDING = [{"check": _OVERLAP, "status": "fail", "detail": {
     "evidence": {"conflicts": [{"page": "P1", "visuals": ["a", "b"],
