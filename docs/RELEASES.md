@@ -19,6 +19,7 @@
 The repository contains dated engineering notes, native Desktop probes, candidate reports and draft pull requests. They are valuable evidence but **are not additional published releases**.
 
 - [Changelog](../CHANGELOG.md) — detailed engineering chronology, including unreleased and historical work.
+- [26 October 2026 engineering record](RELEASE_NOTES_2026-10-26.md) — historical theme integration evidence, **not** a versioned GitHub Release.
 - [Roadmap](../roadmap/README.md) — product direction, proposed milestones and explicit acceptance limits.
 - [Documentation directory](README.md) — guides, test evidence and current workflows.
 - [Open issues and acceptance gates](https://github.com/analienx/visual-quality-system/issues) — remaining work; CI success alone does not grant native G2/G4/G6 certification.
