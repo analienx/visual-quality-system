@@ -4,15 +4,17 @@ Choose the shortest path for what you want to accomplish. **Power BI is the core
 
 [**Product roadmap and mobile-readable architecture diagram**](../roadmap/README.md) · [Native G2/G4 engineering evidence](V012_NATIVE_G_ACCEPTANCE.md)
 
-[**Current v0.1.1 release notes and supported scope**](RELEASE_NOTES_v0.1.1.md) |
-[**Six-platform installed-wheel acceptance record**](V011_USABILITY_RELEASE_PLAN.md)
+[**Latest v0.1.2 release notes and supported scope**](RELEASE_NOTES_v0.1.2.md) ·
+[**Release history**](RELEASES.md) ·
+[**v0.1.2 six-platform evidence**](https://github.com/analienx/visual-quality-system/actions/runs/42363560499)
 
 ## Start here
 
 | Your goal | Guide | Evidence / limitations |
 | :--- | :--- | :--- |
 | **See the product vision and release roadmap** | [Roadmap and diagram](../roadmap/README.md) | Published vs merged vs proposed capabilities, with clear acceptance boundaries |
-| Install VQS (current v0.1.1) | [Install section](../README.md#install-vqs-v011---agent-first-power-bi-repairs), [v0.1.1 release notes](RELEASE_NOTES_v0.1.1.md) | [GitHub wheel and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.1); native/report G2/G4/G6 excluded · [v0.1.0 distribution](PRODUCTION_DISTRIBUTION_v0.1.0.md) |
+| **Install the latest release (v0.1.2)** | [Install quickstart](../README.md#get-started), [release notes](RELEASE_NOTES_v0.1.2.md) | [GitHub wheel and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2); report-level G2/G4/G6 still excluded |
+| Browse past releases | [Release history](RELEASES.md) | Versioned assets, archived release notes and changelog |
 | **Fix a report that came back "blocked"** | [Owner decisions guide](OWNER_DECISIONS_AND_PR_GATE.md) | Answers drive a disposable, verified candidate; waivers are recorded, never a pass |
 | **Stop new report regressions in pull requests** | [PR gate guide](OWNER_DECISIONS_AND_PR_GATE.md#pull-request-gate-vqs-gate), [workflow example](CLI.md#pull-request-gate-vqs-gate) | Static source gate with SARIF/annotations; not native acceptance |
 | Understand VQS in 5 minutes | [Project overview](../README.md), [User guide](USER_GUIDE.md) | [Current engineering release notes](RELEASE_NOTES_2026-10-28.md) |
@@ -24,7 +26,7 @@ Choose the shortest path for what you want to accomplish. **Power BI is the core
 | Inspect the final synthetic Power BI Desktop report | [Five-page native Contoso showcase](VERIFIED_CONTOSO_SHOWCASE.md), [downloadable PBIP](../examples/contoso-retail-verified/README.md) | [Exact source / image hashes](media/contoso-verified/PROVENANCE.json); automated G2 and bounded G4 only |
 | Inspect all historical Light/Dark themes | [14-family native gallery](REAL_THEME_SHOWCASE.md) | [Separate theme-candidate hashes](images/adaptive-showcase/PROVENANCE.json) |
 | Integrate VQS into PBIPDocumenter | [Consumer integration](CONSUMER_INTEGRATION.md), [CLI reference](CLI.md) | Power BI-only integration may proceed; independent release acceptance remains [#16](https://github.com/analienx/visual-quality-system/issues/16) |
-| Contribute or review changes | [Contributor guide](../CONTRIBUTING.md), [Changelog](../CHANGELOG.md) | [28 October repair correction](RELEASE_NOTES_2026-10-28.md) · [27 October evidence](RELEASE_NOTES_2026-10-27.md) · [26 October release history](RELEASE_NOTES_2026-10-26.md) |
+| Contribute or review changes | [Contributor guide](../CONTRIBUTING.md), [Changelog](../CHANGELOG.md) | [Historical engineering records](RELEASES.md#engineering-history-versus-published-releases) · [Acceptance matrix](ACCEPTANCE_MATRIX.md) |
 
 ## The everyday loop
 
