@@ -6,11 +6,23 @@
 
 ## Published versions
 
-| Version | Published (UTC) | Focus | Downloads and detailed documentation |
-| :--- | :--- | :--- | :--- |
-| **v0.1.2 — latest** | 7 Nov 2026 | Answerable owner decisions, readable candidate changes, explicit adoption and regression-gated pull requests; static source scope | [GitHub Release / wheel / checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2) · [Release notes](RELEASE_NOTES_v0.1.2.md) |
-| v0.1.1 | 30 Oct 2026 | Agent-first safe PBIP repair, CLI/MCP usability and installed-wheel validation | [GitHub Release / assets](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.1) · [Release notes](RELEASE_NOTES_v0.1.1.md) |
-| v0.1.0 | 28 Oct 2026 | Initial supported source-only CLI/MCP distribution | [GitHub Release / assets](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.0) · [Distribution scope and limitations](PRODUCTION_DISTRIBUTION_v0.1.0.md) |
+### v0.1.2 — latest · 7 November 2026
+
+Owner-answerable design decisions, readable candidate changes, explicit adoption and pull-request regression gates. **Power BI static source scope**; not native Desktop acceptance.
+
+[Download v0.1.2, wheel and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2) · [Detailed release notes](RELEASE_NOTES_v0.1.2.md)
+
+### v0.1.1 · 30 October 2026
+
+Agent-first PBIP repair, local CLI/MCP usability and installed-wheel validation.
+
+[Download v0.1.1 and assets](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.1) · [Detailed release notes](RELEASE_NOTES_v0.1.1.md)
+
+### v0.1.0 · 28 October 2026
+
+Initial supported source-only CLI/MCP distribution.
+
+[Download v0.1.0 and assets](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.0) · [Distribution scope and limitations](PRODUCTION_DISTRIBUTION_v0.1.0.md)
 
 **Version integrity:** download a wheel or source archive from the release matching the version you intend to run, and verify it against the checksums attached to that release. These are GitHub Release artifacts; a PyPI deployment is not implied.
 
