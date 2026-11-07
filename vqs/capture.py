@@ -651,7 +651,7 @@ def _prime_owned_model(report_path: Path, instance: dict, page_id: str,
                 "evidence": "discarded-before-authoritative-capture"}
 
 
-def _validated_readiness(value: object) -> dict[str, Any]:
+def _validated_readiness(value: object, *, requested_scope: Any) -> dict[str, Any]:
     """Snapshot the existing populatedness probe; never coerce its claims."""
     if not isinstance(value, dict):
         raise OSError("Readiness evidence incomplete or invalid: expected an object")
@@ -673,6 +673,18 @@ def _validated_readiness(value: object) -> dict[str, Any]:
         scope_copy = json.loads(json.dumps(scope, allow_nan=False, ensure_ascii=False))
     except (ValueError, TypeError) as exc:
         raise OSError("Readiness evidence incomplete or invalid: scope is not JSON") from exc
+    from .powerbi.modeling import scope_from_dict
+
+    try:
+        observed = scope_from_dict(scope_copy)
+    except (TypeError, ValueError) as exc:
+        raise OSError("Readiness evidence incomplete or invalid: malformed scope") from exc
+    if (not observed.model or not observed.model.strip()
+            or not requested_scope.source_sha256
+            or observed.source_sha256 != requested_scope.source_sha256
+            or any(getattr(observed, field) != getattr(requested_scope, field)
+                   for field in ("roles", "filters", "period"))):
+        raise OSError("Readiness evidence incomplete or invalid: unbound or mismatched scope")
     return {"populated": True, "method": method, "probe_table": table,
             "query_hash": digest, "scope_echo": scope_copy,
             "rowcount": counts[0], "data_rows": counts[1]}
@@ -765,7 +777,7 @@ def capture(report: str, renders: str, pid: int | None = None,
                 model_warmup = _prime_owned_model(
                     report_path, instance, expected[0], scale,
                     wait_seconds, source_before)
-            readiness_before = _validated_readiness(port.readiness(scope))
+            readiness_before = _validated_readiness(port.readiness(scope), requested_scope=scope)
             if expected_scope is not None:
                 wanted = ModelingScope(
                     model=expected_scope.get("model"),
@@ -800,7 +812,7 @@ def capture(report: str, renders: str, pid: int | None = None,
         (renders_path / "capture-attempts.json").write_text(
             json.dumps(attempts, indent=2), encoding="utf-8")
         if port is not None:
-            readiness_after = _validated_readiness(port.readiness(scope))
+            readiness_after = _validated_readiness(port.readiness(scope), requested_scope=scope)
             if readiness_before is None:
                 raise OSError("Readiness evidence missing; no manifest written")
             if any(readiness_after[key] != readiness_before[key] for key in (

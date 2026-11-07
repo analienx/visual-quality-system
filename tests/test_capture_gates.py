@@ -119,6 +119,49 @@ def _instance(report: Path, pid: int = 111) -> dict:
             "pages": [{"id": "p1"}], "desktopVersion": "2.0-test"}
 
 
+@pytest.mark.parametrize("bad_scope", [
+    {}, {"source_sha256": "requested"},
+    {"model": "", "source_sha256": "requested"},
+    {"model": "  ", "source_sha256": "requested"},
+    {"model": 7, "source_sha256": "requested"},
+    {"model": "fake/model"},
+    {"model": "fake/model", "source_sha256": "wrong"},
+    {"model": "fake/model", "source_sha256": 7},
+    *[{"model": "fake/model", "source_sha256": "requested", key: value}
+      for key, value in [("roles", "admin"), ("roles", ["admin"]),
+                         ("filters", []), ("filters", {"region": "EU"}),
+                         ("period", []), ("period", "2026")]],
+])
+@pytest.mark.parametrize("invalid_after", [False, True])
+def test_unbound_or_malformed_scope_blocks_capture(tmp_path, monkeypatch, bad_scope, invalid_after):
+    report = _make_report(tmp_path)
+    _stub(monkeypatch, report, actions={"p1": "ok"})
+    bridge = capture_mod._bridge
+
+    def checked_bridge(args, timeout):
+        if not invalid_after:
+            assert args[0] != "screenshot-all", "invalid scope reached screenshots"
+        return bridge(args, timeout)
+
+    class RawPort(FakePort):
+        def readiness(self, scope):
+            index = len(self.calls)
+            self.calls.append(scope.as_dict())
+            echo = {"model": "fake/model", "source_sha256": scope.source_sha256}
+            if index == int(invalid_after):
+                echo = dict(bad_scope)
+                if echo.get("source_sha256") == "requested":
+                    echo["source_sha256"] = scope.source_sha256
+            return dict(_ready(), scope_echo=echo)
+
+    monkeypatch.setattr(capture_mod, "_bridge", checked_bridge)
+    port = RawPort([])
+    with pytest.raises(OSError):
+        capture_mod.capture(str(report), str(tmp_path / "renders"), modeling=port)
+    assert not port.closed  # caller owns the injected port
+    assert not (tmp_path / "renders" / "capture-manifest.json").exists()
+
+
 class FakePort:
     """Injectable modeling port with scripted readiness answers."""
 
@@ -133,7 +176,11 @@ class FakePort:
     def readiness(self, scope: Any) -> dict[str, Any]:
         self.calls.append(scope.as_dict())
         index = min(len(self.calls) - 1, len(self._readies) - 1)
-        return dict(self._readies[index])
+        result = dict(self._readies[index])
+        if isinstance(result.get("scope_echo"), dict):
+            result["scope_echo"] = dict(result["scope_echo"])
+            result["scope_echo"].setdefault("source_sha256", scope.source_sha256)
+        return result
 
     def query_scoped(self, dax: str, scope: Any,
                      max_rows: int = 100) -> dict[str, Any]:
@@ -418,6 +465,7 @@ def test_mutated_shared_scope_still_blocks_manifest(tmp_path, monkeypatch):
             if self.calls:
                 shared["scope_echo"]["model"] = "changed/model"
             self.calls.append(scope.as_dict())
+            shared["scope_echo"]["source_sha256"] = scope.source_sha256
             return shared
 
     with pytest.raises(OSError, match="changed during capture"):
@@ -509,7 +557,7 @@ def test_multipage_success_manifest_shape(
         "no-bridge-viewport")
     assert manifest["data_readiness"] == {
         "populated": True, "method": "modeling-mcp:repeat-query",
-        "scope": {"model": "fake/model"}, "rowcount": 5, "query_hash": "a" * 64,
+        "scope": {"model": "fake/model", "source_sha256": manifest["source_sha256"]}, "rowcount": 5, "query_hash": "a" * 64,
         "probe_table": "Sales", "data_rows": 42}
     assert manifest["modeling"] == {"status": "ready"}
     assert len(port.calls) == 2  # pre + post readiness probes
