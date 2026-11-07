@@ -16,6 +16,7 @@ permissions:
 jobs:
   vqs:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - name: Check out PR head
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -54,10 +55,12 @@ jobs:
           python -m pip install 'pip==25.1.1' 'setuptools==80.9.0' 'wheel==0.45.1'
           python -m pip install --no-deps --no-build-isolation \
             "git+https://github.com/analienx/visual-quality-system.git@${VQS_REVISION}"
+      # --sarif-root is the head checkout, so SARIF and annotation paths are
+      # repository-relative and land on the pull request's changed files.
       - name: Compare static findings
         shell: bash
         run: |
           vqs gate "$GITHUB_WORKSPACE/head/$HEAD_REPORT" \
             --baseline "$GITHUB_WORKSPACE/base/$BASE_REPORT" \
             --sarif "$RUNNER_TEMP/vqs.sarif" \
-            --sarif-root "$GITHUB_WORKSPACE" --github
+            --sarif-root "$GITHUB_WORKSPACE/head" --github
