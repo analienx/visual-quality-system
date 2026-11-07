@@ -104,7 +104,6 @@ def main() -> int:
     pbip = next(project.glob("*.pbip"))
     typed = str(pbip).replace("ContosoPřehledProbe", "contosopřehledprobe")
     steps["resolve_normalizes_case"] = str(Path(typed).resolve()) == str(pbip.resolve())
-    before_source = _snapshot(project)
     if not cli:
         return finish()
     code, out, err = _run([cli, "open", typed], timeout=600)
@@ -148,7 +147,6 @@ def main() -> int:
     # A freshly opened PBIP reports unsaved changes (observed on 2.159), so
     # the capture-flag question needs a clean baseline: perform the repo's
     # own witnessed native UIA Save on this disposable copy first.
-    sys.path.insert(0, str(ROOT))
     try:
         from vqs.powerbi.desktop_native_save import save_and_witness
 
@@ -166,6 +164,9 @@ def main() -> int:
     inst = saved.get("instances")
     if isinstance(inst, list) and inst:
         steps["after_native_save"] = _instance_summary(inst[0])
+    # Baseline for the capture question only, taken *after* the witnessed
+    # Save: "did screenshot-all change the source" is about the capture,
+    # not about the Save that preceded it.
     before_source = _snapshot(project)
     shots = work / "bridge-shots"
     code, out, err = _run([cli, "screenshot-all", "--pid", str(pid),

@@ -5,13 +5,35 @@ name: Windows Desktop behaviour probe
 # report acceptance or G2/G4/G6 evidence.
 on:
   push:
+    # Branch-scoped on purpose: this job holds a Windows runner for up to
+    # 75 minutes, so iterating on the probe script in a feature branch must
+    # not spend those minutes on every push (AGENTS.md: avoid burning
+    # hosted Actions minutes unnecessarily). Use workflow_dispatch to run
+    # it from any branch on demand.
+    branches:
+      - main
     paths:
       - ".github/workflows/windows-desktop-probe.yml"
       - "scripts/windows_desktop_probe.py"
   workflow_dispatch:
+    inputs:
+      desktop_version:
+        description: >-
+          Exact winget package version of Power BI Desktop to install
+          (for example 2.159.1253.0). Leave empty only to discover the
+          current version; the run then records what it actually got.
+        required: false
+        default: ""
 
 permissions:
   contents: read
+
+env:
+  # The Desktop version the recorded probe evidence in
+  # docs/V012_NATIVE_G_ACCEPTANCE.md was observed on. The run always
+  # publishes the version it actually installed, so evidence can never be
+  # filed under a version it did not come from.
+  EXPECTED_DESKTOP_VERSION: "2.159"
 
 jobs:
   probe:
@@ -36,24 +58,47 @@ jobs:
           npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
           powerbi-desktop --version
           powerbi-report-author --version
-      - name: Install Power BI Desktop (silent)
+      - name: Install Power BI Desktop (silent, version-pinned)
+        shell: pwsh
+        env:
+          DESKTOP_VERSION: ${{ inputs.desktop_version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+            # The previous fallback downloaded PBIDesktopSetup_x64.exe with
+            # no checksum check. AGENTS.md forbids unchecked third-party
+            # executables, so this fails closed instead.
+            throw 'winget unavailable: refusing to fetch an unverified Power BI Desktop installer.'
+          }
+          $args = @('install', '--id', 'Microsoft.PowerBI', '-e',
+                    '--source', 'winget', '--silent',
+                    '--accept-package-agreements', '--accept-source-agreements')
+          if ($env:DESKTOP_VERSION) {
+            # Pin every external tool version the probe installs.
+            $args += @('--version', $env:DESKTOP_VERSION)
+          }
+          winget @args
+          if ($LASTEXITCODE -ne 0) {
+            throw "winget install failed with exit code $LASTEXITCODE"
+          }
+      - name: Record the installed Desktop version
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Continue'
-          $installed = $false
-          if (Get-Command winget -ErrorAction SilentlyContinue) {
-            winget install --id Microsoft.PowerBI -e --source winget --silent `
-              --accept-package-agreements --accept-source-agreements
-            $installed = $LASTEXITCODE -eq 0
+          $ErrorActionPreference = 'Stop'
+          $exe = 'C:\Program Files\Microsoft Power BI Desktop\bin\PBIDesktop.exe'
+          if (-not (Test-Path $exe)) { throw "PBIDesktop.exe not found at $exe" }
+          $version = (Get-Item $exe).VersionInfo.ProductVersion
+          "Installed Power BI Desktop $version"
+          "VQS_DESKTOP_VERSION=$version" | Out-File -Append $env:GITHUB_ENV
+          "desktop_version=$version" | Out-File -Append $env:GITHUB_OUTPUT
+          $expected = $env:EXPECTED_DESKTOP_VERSION
+          if ($expected -and -not $version.StartsWith($expected)) {
+            # Not a silent pass: the recorded evidence names a version, so a
+            # different one must be acknowledged rather than filed under it.
+            throw ("Desktop $version does not match the recorded evidence " +
+                   "version $expected. Re-pin desktop_version and update " +
+                   "docs/V012_NATIVE_G_ACCEPTANCE.md deliberately.")
           }
-          if (-not $installed) {
-            $url = 'https://download.microsoft.com/download/8/8/0/880BCA75-79DD-466A-927D-1ABF1F5454B0/PBIDesktopSetup_x64.exe'
-            $setup = Join-Path $env:RUNNER_TEMP 'PBIDesktopSetup_x64.exe'
-            Invoke-WebRequest -Uri $url -OutFile $setup
-            Start-Process -FilePath $setup -ArgumentList '-quiet','-norestart','ACCEPT_EULA=1' -Wait
-          }
-          Get-ChildItem 'C:\Program Files\Microsoft Power BI Desktop\bin\PBIDesktop.exe' -ErrorAction SilentlyContinue |
-            Select-Object FullName, @{n='Version';e={$_.VersionInfo.ProductVersion}}
       - name: Probe Desktop behaviour
         env:
           PROBE_OUT: ${{ runner.temp }}\desktop-probe.json

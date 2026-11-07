@@ -1,6 +1,105 @@
 # Changelog
 
-## Unreleased - legible, adoptable fix results
+## v0.1.2 - verifiable decisions and regression gates
+
+Packages the functionality merged after v0.1.1 as one release, after a review
+of the whole `v0.1.1..main` delta. **Power BI static source scope only.** No
+native Desktop behaviour, Shape Map country clicking, contextual tooltip hover
+or Word/DOCX certification is added, and no report-level G2/G4/G6 acceptance is
+claimed. See [release notes](docs/RELEASE_NOTES_v0.1.2.md) and the
+[open-issue reconciliation](docs/V012_ISSUE_RECONCILIATION.md).
+
+### Release review fixes
+
+Each was reproduced before being fixed and carries a negative control.
+
+- **Owner waivers can no longer clear missing evidence.** `run_check` reports
+  `fail` whenever any check fails, which masks a co-existing `blocked` finding
+  in the verdict, and the waiver path only looked at `fail`. On the committed
+  Contoso report, `vqs run --mode review --decisions` with every failing check
+  waived returned `verdict=pass`, `acceptance=true` and
+  `outcome=accepted_with_waivers` while two oracles stayed `blocked` in the
+  sealed findings. Waivers now require an empty non-waivable set, the run
+  reports the honest `blocked` verdict, and the summary names the unprovable
+  checks in `unwaivable_findings` plus `blocked_reason`.
+- **`owner-decision:` is authority, not a string prefix.** `--plan` and
+  `--decisions` are mutually exclusive, so a hand-written plan carrying that
+  marker claimed an authority no sealed answer backs; it now blocks, and the
+  refusal names `--decisions` as the real route. The same refusal covers
+  `vqs repair` and MCP `vqs_repair`, which execute a plan file directly:
+  the public Python API also rejects caller-supplied owner-operation authority.
+  The private coordinator implementation accepts trusted internal operation sets;
+  it is not authentication or a sandbox for in-process Python code.
+- **One overlap conflict keeps one subject.** Four branches omitted `pair=`, so
+  `subject_of` fell back to `visual=` and identity changed with the facts,
+  making `vqs gate` report a spurious `new` plus a spurious `fixed` for an
+  unchanged conflict and silently voiding an owner `accept`.
+- **A blocked gate is no longer silent.** An unreadable visual document blocks
+  the comparison, and `--sarif`/`--github` were skipped entirely, so CI got
+  exit 2 with nothing to annotate. A blocked gate now emits one
+  `vqs.gate.blocked` SARIF error and one `::error title=...` annotation; exit
+  codes are unchanged. Annotations use the runner's `::error <properties>::`
+  syntax: the earlier `::error,title=` form (blocked gate, or a new item
+  without a file) was printed as plain log text, not annotated.
+- **`vqs gate --emit-baseline` without `--baseline` exits 0** and reports
+  `baseline_written`. It previously wrote the file and then exited 1, failing
+  the documented CI step that had just succeeded.
+- `vqs decisions template --out` refuses symlinks and opens exclusively; it
+  previously followed a link and wrote through to its target.
+- The `adopt` command is quoted for the shell the owner runs it in:
+  PowerShell on Windows, with every PowerShell single-quote delimiter
+  (`'`, U+2018, U+2019, U+201A, U+201B) doubled, and `shlex.quote` on
+  Linux/macOS. A POSIX-quoted command pasted into PowerShell truncated a run
+  root containing an apostrophe and executed text after a typographic quote.
+  The guided result also no longer drops owner questions after the twelfth
+  or declared changes after the fiftieth (backported from #136 and #140).
+- The Microsoft metadata gate admits `visual.visualContainerObjects*` as well
+  as `visual.objects*` — the two layers the typed binder addresses and the
+  measurer emits — so capability is decided by Microsoft's catalog. Because a
+  refusal rejects the whole plan, one owner-answered container-title size
+  previously discarded every other answered edit in the run.
+- Native source-identity guards compare **content identity** (sha256 + size)
+  instead of the full snapshot, so Desktop re-writing identical PBIR bytes no
+  longer aborts a genuine capture as "source changed".
+- An interrupted Desktop PID lease no longer blocks every later capture.
+  `claim_artifact` publishes its owner record atomically (a complete file,
+  hard-linked into place), so a live claim is never visible without an
+  owner, and takes over an ownerless lock only once it is
+  `STALE_LOCK_SECONDS` (60 s) old and still the same file. Takeovers are
+  serialised by a built-in OS file lock, so two claimants can never both take
+  over one abandoned lock. A lock naming an owner is never taken over.
+- A report name containing U+2028, U+2029 or U+0085 no longer crashes a run.
+  Events are written with those characters raw inside JSON strings, and the
+  event log was read with `str.splitlines()`, which also breaks there; `vqs fix`
+  stopped with a `JSONDecodeError` traceback and left an unreadable ledger
+  (present since v0.1.1). The log is now split on `\n` only.
+- Desktop PID attestation shares one CIM probe and one
+  `CommandLineToArgvW`-correct parser (`vqs.powerbi.os_process`) instead of a
+  second script and a quote-matching regex.
+- The Windows Desktop probe pins the Power BI Desktop version, always records
+  the installed ProductVersion, fails when it disagrees with the version the
+  recorded evidence names, and refuses to fetch an unverified installer. Its
+  push trigger is scoped to `main`.
+- Removed a private session-handover note that had been published in `docs/`.
+
+### Acceptance
+
+The cross-platform clean-wheel runner now exercises the chain this release is
+about — `fix` → `decisions template` → answered `fix` → `changes` → explicit
+adoption, plus `gate` → SARIF — on Ubuntu and Windows across Python
+3.11-3.13, with stale answers, unusable answers and a forged owner proof as
+negative controls. At the reviewed runtime revision `5422e0d`, hosted Windows
+Python 3.12 passed 2,269 tests (7 skipped); Ubuntu Python 3.11–3.13 each passed
+2,230 tests (46 skipped). All 14 hosted checks and six clean-wheel environments
+passed. Final publication changes release documentation only.
+Native Desktop, G2/G4 and G6 acceptance remain separately gated;
+[#115](https://github.com/analienx/visual-quality-system/issues/115),
+[#116](https://github.com/analienx/visual-quality-system/issues/116),
+[#117](https://github.com/analienx/visual-quality-system/issues/117),
+[#120](https://github.com/analienx/visual-quality-system/issues/120) and
+[#16](https://github.com/analienx/visual-quality-system/issues/16) stay open.
+
+### Legible, adoptable fix results
 
 - `vqs fix` / `vqs_run` results now include `changes` (page, visual, property, from → to for every candidate edit) and, for a verified candidate, `adopt`: the exact `vqs promote` command and `vqs_promote` arguments, so neither a person nor an agent has to guess internal run ids. Adoption stays an explicit owner step that keeps `<report>.vqs-backup`.
 - AGENTS.md: rules for owner decisions (agents never pick options), adoption, the PR gate, the disposable Desktop probe, subprocess encoding and author-side reviews.
@@ -10,7 +109,7 @@
 - Capture manifests fill `desktop_version` from the PID's own `PBIDesktop.exe` ProductVersion when the Bridge omits it (Bridge 1.0.0 does), with `desktop_version_source` `bridge` / `os-executable`.
 - Native owner-laptop run on Power BI Desktop with a non-ASCII scratch folder: see the table in `docs/V012_NATIVE_G_ACCEPTANCE.md`.
 
-## Unreleased - review follow-ups for owner decisions and the PR gate
+### Review follow-ups for owner decisions and the PR gate
 
 Findings from an independent code review of PR #122, each with a regression test:
 
@@ -23,7 +122,7 @@ Findings from an independent code review of PR #122, each with a regression test
 - Found by that non-ASCII probe run: Bridge, authoring CLI and Modeling MCP output (UTF-8 from Node) was decoded with the Windows locale code page, so native Save and capture refused genuine sessions in non-ASCII folders. Every text-mode subprocess now pins its encoding, enforced by a source-scan test.
 - The Windows probe pins `@microsoft/powerbi-desktop-bridge-cli@1.0.0` (no silent upstream-latest installs).
 
-## Unreleased - answerable owner decisions, PR gate, review fixes
+### Answerable owner decisions, PR gate, review fixes
 
 - **Answerable owner decisions:** every `needs_owner_decision` now has a stable `decision_id` bound to the reviewed source digest, a question and options (pre-compiled typed edits or an `accept` waiver). `vqs decisions template` + `vqs fix/run --decisions answers.json` (MCP `vqs_run decisions=`) apply the owner's choices to the disposable candidate through the normal repair/verify/remeasure path. Stale, unknown or conflicting answers block. Fully waived runs report `accepted_with_waivers`; missing evidence is never waivable. On the committed Contoso report this turns *blocked, no candidate* into a verified candidate with exactly 7 declared PBIR changes and no regressions.
 - New owner-only recipe `format.declare_explicit` adds a size to an existing unscoped properties entry where a visual inherits it; the Microsoft metadata gate admits owner-chosen `fontSize`/`textSize` `D` literals typed by the CLI catalog.
@@ -31,7 +130,7 @@ Findings from an independent code review of PR #122, each with a regression test
 - **Review fixes:** Desktop PID lease released on modeling launch failures; wrong-shaped/`null` PBIR containers block instead of crashing (found by fuzzing every CLI read path); DOCX absolute OPC targets and corrupt parts; corrupt lock files; JSON `Infinity` scale; exactly-one-PBIP for the Corporate region check; physical-file PBIP comparison (Windows launch casing verified on a real Desktop 2.159 runner); iterative DAX/M cycle search for deep chains; least-privilege workflow tokens.
 - **Verified on real Power BI Desktop 2.159 (disposable GitHub Windows runner, `windows-desktop-probe.yml`):** native Save witness and strict attestation no longer require the optional `psutil` package (built-in CIM, `vqs.powerbi.os_process`); native capture now requires Desktop to still be clean after capture (observed: `screenshot-all` leaves a saved report clean); freshly opened PBIPs report unsaved changes and correctly block until a witnessed Save.
 
-## Unreleased - bounded native Corporate Region interaction
+### Bounded native Corporate Region interaction
 
 - Added exact-PID native Corporate Sales Region UI Automation and fail-closed DAX comparator.
 - Verified real Europe / Latin America / Europe round trip on a separately saved disposable Corporate PBIP. All three collapsed ComboBox states and rendered KPI percentages matched independent region DAX, distinct from the other region; source remained unchanged.
@@ -39,7 +138,7 @@ Findings from an independent code review of PR #122, each with a regression test
 - Packaged the PowerShell adapter inside the wheel; no simulated mouse coordinates, no false G6 auto-approval.
 - [Native G2/G4 acceptance](docs/V012_NATIVE_G_ACCEPTANCE.md) and [issue #120](https://github.com/analienx/visual-quality-system/issues/120).
 
-## Unreleased - next G2/G4 evidence and safe native rebaseline
+### Next G2/G4 evidence and safe native rebaseline
 
 - Added strict read-only two-native-Save provenance auditing: a material first-Save transition stays blocked, while a *separate* second Desktop session may attest a new exact saved source without relaxing the original guard.
 - Added exact-PID Desktop Bridge page-capture source binding, including source and model hashes/mtimes before and after screenshot collection and all native page IDs.

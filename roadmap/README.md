@@ -6,7 +6,12 @@ VQS is the evidence-driven quality and safe-repair layer for AI-authored Power B
 
 [Start with an AI agent](../docs/AI_AGENT_QUICKSTART.md) · [Architecture and current implementation](../docs/AGENT_AUTOFIX_ARCHITECTURE.md) · [Latest published release](https://github.com/analienx/visual-quality-system/releases/latest) · [Acceptance gates](../docs/ACCEPTANCE_MATRIX.md)
 
-> **Status, 3 November 2026.** **v0.1.1** is the latest *published* release. Additional capabilities are merged on `main` but are **not yet a v0.1.2 release**. v0.1.2 and v0.2.0 below are **proposals**, not announcements, dates, or promises of native Power BI certification.
+> **Release scope, 7 November 2026.** v0.1.2 packages source-only owner decisions,
+> candidate repairs, adoption commands and regression gates. Download availability
+> is authoritative on the [GitHub release](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2).
+> The reviewed v0.2 work remains a separate draft integration (#160), with data
+> parity and native acceptance still unresolved.
+
 
 ## Product direction
 
@@ -22,15 +27,15 @@ _Designed for phone-width viewing. [Open the vector diagram](../docs/diagrams/vq
 | :--- | :--- | :--- | :--- |
 | **v0.1.1 — Agent-first repairs** | **Published** · 30 Oct 2026 | Installable CLI/MCP, safe candidate repairs, theme workflow, six-platform installed-wheel proof | [Release notes](../docs/RELEASE_NOTES_v0.1.1.md) |
 | **Post-v0.1.1 on `main`** | **Merged, unreleased** | Answerable owner decisions, `vqs gate` + SARIF, readable changes/adopt command, enhanced native provenance and bounded Region UIA | [Changelog](../CHANGELOG.md) · [PR #122](https://github.com/analienx/visual-quality-system/pull/122) · [#123](https://github.com/analienx/visual-quality-system/pull/123) · [#124](https://github.com/analienx/visual-quality-system/pull/124) |
-| **v0.1.2 — Verifiable decisions and regression gates** | **Proposed next distribution** | Package and independently verify merged functionality; streamline docs; reconcile open engineering issues and preserve native exclusions | [Acceptance evidence](../docs/V012_NATIVE_G_ACCEPTANCE.md) · [Gate #16](https://github.com/analienx/visual-quality-system/issues/16) |
+| **v0.1.2 — Verifiable decisions and regression gates** | **Source-only distribution** · see release assets for availability | Package the merged functionality, fix what the delta review found, verify the installed wheel on Linux and Windows, reconcile the open engineering issues and preserve every native exclusion | [Release notes](../docs/RELEASE_NOTES_v0.1.2.md) · [Issue reconciliation](../docs/V012_ISSUE_RECONCILIATION.md) · [Acceptance evidence](../docs/V012_NATIVE_G_ACCEPTANCE.md) · [Gate #16](https://github.com/analienx/visual-quality-system/issues/16) |
 | **v0.2.0 — Intelligent repair workflow** | **Proposed product milestone** | Guided agent decisions, rendered before/after quality evidence, data-aware validation and higher-value analytical design critique | [Product/design contract](../docs/PRODUCT_AND_DESIGN_CONTRACT.md) · [Contoso quality findings #118](https://github.com/analienx/visual-quality-system/issues/118) |
 
-### Next: v0.1.2 — ship what is already built
+### v0.1.2 distribution and remaining evidence
 
 **Primary objective:** turn the unreleased `main` improvements into one coherent, trustworthy experience. This is release integration and acceptance work, **not a rewrite**.
 
 1. Verify installed-wheel `fix → decision template → answered fix → changes → explicit adoption` and `gate → SARIF` on supported Linux/Windows environments. Assert original preservation, backups, stale-answer rejection and fail-closed behavior.
-2. Reconcile [native Save #115](https://github.com/analienx/visual-quality-system/issues/115), [source/capture provenance #116](https://github.com/analienx/visual-quality-system/issues/116) and [Region UIA #120](https://github.com/analienx/visual-quality-system/issues/120) against merged evidence. Close only when their stated acceptance criteria are actually met.
+2. Reconcile [native Save #115](https://github.com/analienx/visual-quality-system/issues/115), [source/capture provenance #116](https://github.com/analienx/visual-quality-system/issues/116) and [Region UIA #120](https://github.com/analienx/visual-quality-system/issues/120) against merged evidence. Close only when their stated acceptance criteria are actually met. **Done, as a reconciliation that closes nothing:** [docs/V012_ISSUE_RECONCILIATION.md](../docs/V012_ISSUE_RECONCILIATION.md) maps every stated criterion to the evidence that exists, separates publicly verifiable from private-host claims, and names the remaining public work (a two-subject approval manifest for #116, Save-layer adversarial tests for #115, a stale-model negative control for #120).
 3. Preserve [native feature-scope #117](https://github.com/analienx/visual-quality-system/issues/117) and [independent report release gate #16](https://github.com/analienx/visual-quality-system/issues/16) until proven or explicitly scoped out by the authorized owner; a successful source-only distribution does not resolve them.
 4. Align the README, five-minute quickstart, CLI guidance, changelog and release notes to the *published* feature set, with a separate clearly labeled account of unreleased `main` functionality.
 5. Tag and distribute only after exact-commit CI, fresh-install end-to-end checks, integrity artifacts and independent release review. Do not pre-label `main` as v0.1.2.

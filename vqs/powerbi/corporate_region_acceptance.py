@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from vqs.powerbi.desktop_native_provenance import snapshot
+from vqs.powerbi.desktop_native_provenance import content_identity, snapshot
 from vqs.powerbi.desktop_source import collect, project_artifacts, strict_local_model_attested
 from vqs.powerbi.modeling import ModelingScope, StdioModelingClient
 from vqs.powerbi.native_capture_provenance import _os_identity, _status
@@ -147,7 +147,8 @@ def run(project: Path, pid: int, save_receipt: Mapping[str, Any],
                 receipt, values, expected=name, prior=prior, pid=pid,
                 pbip=pbip.resolve()))
             prior = name
-            if snapshot(project) != prior_source:
+            if content_identity(snapshot(project)) != content_identity(
+                    prior_source):
                 raise ValueError("source changed during native interaction")
             _os_identity(pid, pbip.resolve())
         bridge = shutil.which("powerbi-desktop")

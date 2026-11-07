@@ -7,7 +7,11 @@ decisions use), so an existing, already-known issue never blocks an
 unrelated pull request while every newly introduced problem does.
 
 * New failing or blocked items fail the gate (exit 1). Missing evidence
-  introduced by the change (``coverage:*`` blocks) counts as new.
+  introduced by the change (``coverage:*`` blocks) counts as new. A
+  coverage issue severe enough to stop measurement (an unreadable visual
+  or model document) refuses the comparison instead: the gate is blocked
+  (exit 2) and still emits SARIF/annotations naming the reason, because
+  an unprovable revision must never read as "nothing new".
 * Owner waivers from ``--decisions`` (``vqs.decision-answers/1``) remove
   their subjects from the "new" set; they never touch the baseline.
 * ``--emit-baseline`` writes a portable ``vqs.gate-baseline/1`` JSON so CI
@@ -177,11 +181,42 @@ def _artifact(report: str | None, item: dict[str, Any], root: Path) -> str | Non
         return target.as_posix()
 
 
+BLOCKED_RULE = "vqs.gate.blocked"
+
+
+def _blocked_sarif_result(result: dict[str, Any]) -> dict[str, Any]:
+    """One SARIF error describing why the gate could not compare."""
+    reason = str(result.get("reason") or "gate blocked")
+    return {
+        "ruleId": BLOCKED_RULE, "level": "error", "baselineState": "new",
+        "message": {"text": "vqs gate could not compare this revision, so "
+                            "no regression claim is possible: " + reason},
+        "partialFingerprints": {"vqsSubject/v1": hashlib.sha256(
+            reason.encode("utf-8")).hexdigest()},
+        "properties": {"subject": BLOCKED_RULE, "status": "blocked"}}
+
+
 def sarif(result: dict[str, Any], root: Path) -> dict[str, Any]:
-    """SARIF 2.1.0 log: new items as errors, unchanged/waived as notes."""
+    """SARIF 2.1.0 log: new items as errors, unchanged/waived as notes.
+
+    A blocked gate still produces a log: missing evidence is the most
+    severe outcome, so CI must see an annotation for it rather than an
+    empty file or none at all.
+    """
     report = result.get("report")
     rules: dict[str, dict[str, Any]] = {}
     results = []
+    if result.get("verdict") == "blocked" or "new" not in result:
+        rules[BLOCKED_RULE] = {
+            "id": BLOCKED_RULE,
+            "shortDescription": {"text": "vqs gate blocked: evidence missing"},
+            "helpUri": "https://github.com/analienx/visual-quality-system/blob/main/docs/OWNER_DECISIONS_AND_PR_GATE.md"}
+        return {"$schema": SARIF_SCHEMA, "version": "2.1.0", "runs": [{
+            "tool": {"driver": {
+                "name": "vqs", "version": __version__,
+                "informationUri": "https://github.com/analienx/visual-quality-system",
+                "rules": [rules[BLOCKED_RULE]]}},
+            "results": [_blocked_sarif_result(result)]}]}
     for state, items, level in (("new", result["new"], "error"),
                                 ("unchanged", result["unchanged"], "note"),
                                 ("unchanged", result["waived"], "none")):
@@ -213,16 +248,31 @@ def sarif(result: dict[str, Any], root: Path) -> dict[str, Any]:
 
 
 def github_annotations(result: dict[str, Any], root: Path) -> list[str]:
+    """``::error`` workflow commands, one per new item (or one if blocked).
+
+    The runner reads the command name up to the first space, so the
+    properties must follow ``::error `` after a space; ``::error,title=``
+    is an unknown command that GitHub prints as plain log text.
+    """
     def escape(text: str) -> str:
         return (text.replace("%", "%25").replace("\r", "%0D")
                 .replace("\n", "%0A"))
 
+    def prop(text: str) -> str:
+        return escape(text).replace(":", "%3A").replace(",", "%2C")
+
+    def command(properties: list[str], message: str) -> str:
+        return f"::error {','.join(properties)}::{escape(message)}"
+
+    if result.get("verdict") == "blocked" or "new" not in result:
+        return [command([f"title={prop(BLOCKED_RULE)}"],
+                        str(result.get("reason") or "gate blocked"))]
     lines = []
     for item in result["new"]:
         uri = _artifact(result.get("report"), item, root)
-        where = f" file={escape(uri).replace(',', '%2C')}" if uri else ""
-        title = escape(item["check"]).replace(",", "%2C").replace(":", "%3A")
-        lines.append(f"::error{where},title={title}::{escape(item['message'])}")
+        properties = [f"file={prop(uri)}"] if uri else []
+        properties.append(f"title={prop(item['check'])}")
+        lines.append(command(properties, item["message"]))
     return lines
 
 

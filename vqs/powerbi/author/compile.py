@@ -19,13 +19,23 @@ from . import metadata
 
 CONTRACT = "vqs.metadata-repair-gate/1"
 DECIMAL = re.compile(r"(0|[1-9][0-9]{0,14})\Z")
-# PBIR double literal for a text size, e.g. "12D" or "10.5D" (1-399 pt).
+# PBIR double literal for a text size, e.g. "12D" or "10.5D" (1-999 pt).
 SIZE_LITERAL = re.compile(r"[1-9][0-9]{0,2}(\.[0-9]{1,2})?D\Z")
-# Microsoft catalog types observed for size terminals (CLI 0.5.0):
-# <visual> <object> fontSize -> "formatting"; textSize -> "numeric".
+# Microsoft catalog types observed for size terminals (CLI 0.5.0). Both
+# "formatting" and "numeric" are accepted for either property: the
+# observed type varies by visual, so pinning one per property would
+# refuse genuine catalog answers.
 SIZE_TYPES = {"fontSize": frozenset({"formatting", "numeric"}),
               "textSize": frozenset({"formatting", "numeric"})}
 SEGMENT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_-]{0,119}\Z")
+# PBIR formatting layers the typed VQS binder addresses (`bind_leaf`,
+# `validate_format_path`) and the measurer emits (`vco.` cohorts are
+# visualContainerObjects). The gate must admit the same layers, or an
+# owner-answered container-title size is refused here as an unknown path
+# shape rather than judged on Microsoft's own capability evidence — and
+# because a refusal rejects the whole plan, that discarded every other
+# answered edit in the run.
+FORMAT_LAYERS = frozenset({"objects", "visualContainerObjects"})
 
 
 def _refusal(reason: str, index: int | None = None) -> dict[str, Any]:
@@ -99,7 +109,8 @@ def evaluate(
             if not isinstance(path, list) or "properties" not in path:
                 raise ValueError("formatting property path not proven")
             anchor = path.index("properties")
-            if (len(path) < 4 or path[0:2] != ["visual", "objects"]
+            if (len(path) < 4 or path[0] != "visual"
+                    or path[1] not in FORMAT_LAYERS
                     or path[2] is None or not isinstance(path[2], str)
                     or anchor not in (4, 5) or anchor + 1 >= len(path)):
                 raise ValueError("formatting object path outside metadata pilot")

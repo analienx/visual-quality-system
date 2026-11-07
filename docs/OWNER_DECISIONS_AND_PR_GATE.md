@@ -113,6 +113,11 @@ applies it:
           "mcp": {"tool": "vqs_promote", "run_id": "sales-2-repair", "scope": "static"}}
 ```
 
+Run the generated command in **PowerShell** on Windows, or in a POSIX shell
+on Linux/macOS. Windows Command Prompt uses different quoting; open PowerShell
+or use the structured `vqs_promote` MCP arguments there. Replace the owner
+approval placeholder only after the owner explicitly decides to adopt.
+
 Adopting is the owner's call. It re-checks both digests, replaces the original
 report and keeps it as `<report>.vqs-backup`. Static scope is still not native
 Desktop, G2/G4 or G6 acceptance.
@@ -153,13 +158,19 @@ vqs gate head/Sales.pbip --baseline base/Sales.pbip --sarif vqs.sarif --github
   A new one always does, including missing evidence that the change introduces
   (`coverage:*`).
 * **Exit codes.** `0` nothing new · `1` new findings · `2` head or baseline
-  unreadable.
+  unreadable. A coverage issue severe enough to stop measurement (an
+  unreadable visual or model document) refuses the comparison rather than
+  counting as new: the gate blocks with exit `2`, because an unprovable
+  revision must never read as "nothing new".
 * **Outputs.** `--sarif` writes SARIF 2.1.0 with `baselineState` new/unchanged
   for GitHub code scanning. `--github` prints `::error` annotations. `--out`
-  writes the full JSON.
+  writes the full JSON. A **blocked** gate still writes SARIF and
+  annotations, as one `vqs.gate.blocked` error carrying the reason, so the
+  most severe outcome is the one CI can actually see.
 * **Stored baselines.** `vqs gate main/Sales.pbip --emit-baseline
   vqs-baseline.json` writes a baseline that is reused with
-  `--baseline vqs-baseline.json`, so no second checkout is needed.
+  `--baseline vqs-baseline.json`, so no second checkout is needed. Without
+  `--baseline` that call is a capture, not a comparison, and exits `0`.
 * **Waivers.** `--decisions answers.json` excuses `accept` answers bound to the
   *head* revision. Answers bound to the reviewed *base* revision (you answered
   on the original and the PR head is the candidate) excuse only subjects the
@@ -191,3 +202,13 @@ A ready-to-copy GitHub Actions workflow is in
 | A question has only `accept` | Not every member was exactly addressable, so a partial edit would leave the cohort inconsistent. Fix it in the source, or waive it |
 | Gate reports `unmatched_waivers > 0` | The answers target neither the head nor the reviewed base, or a base-bound answer names a finding the change introduced. Regenerate them against the head |
 | Microsoft authoring backend refuses a size edit | The metadata gate admits `fontSize`/`textSize` on `visual.objects` only. Container-title sizes (`vco.title`) can be applied in `--scope static` with `--authoring-backend direct`; Desktop/release scope requires the Microsoft backend and keeps refusing them |
+
+## Python repair API boundary
+
+The public `repair_candidate` API, CLI `vqs repair`, and MCP `vqs_repair`
+do not accept caller-supplied owner-operation authority. Owner-only operations
+use the coordinator's answer-validation flow (`vqs fix --decisions` or
+`run_workflow` with decisions). Its private repair implementation receives the
+exact validated operation set as trusted internal input. Python callers can
+import private functions or modify process state; this separation is not a
+sandbox, cryptographic signature, or authentication of the person answering.

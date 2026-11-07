@@ -4,13 +4,13 @@
 
 **[How the complete auto-fix architecture works — components, why each exists, and the end-to-end sequence](AGENT_AUTOFIX_ARCHITECTURE.md)**
 
-VQS **v0.1.1** distributes the supported source-bound CLI/MCP
+VQS **v0.1.2** distributes the supported source-bound CLI/MCP
 and allowlisted candidate-repair core. **Native Desktop visual acceptance and
 independent report-level release remain evidence-gated.**
 
-## v0.1.1 - the simplest agent-first workflow
+## v0.1.2 - the simplest agent-first workflow
 
-Install the [verified release wheel](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.1)
+Install the [verified release wheel](https://github.com/analienx/visual-quality-system/releases/latest)
 and the pinned official Microsoft authoring CLI, then run:
 
 ```bash
@@ -27,7 +27,7 @@ remains in the private run directory. For advanced options use
 
 An ambiguous inherited font size or intentional overview/detail duplicate
 is **not** a source-proven automatic edit; ask for the design decision rather
-than inventing one. The VQS v0.1.1 MCP server provides ten tools including
+than inventing one. The VQS v0.1.2 MCP server provides ten tools including
 `vqs_theme`, preserves legacy compatibility and requires a separate
 candidate for theme application. Promotion requires separate authorization.
 
@@ -114,7 +114,7 @@ The exact module and tool responsibilities—and **why** multiple components are
 
 **Prepare a full release candidate:** tell it, *"Perform VQS candidate repair, verify on real Power BI Desktop with supported controls/DAX and prepare private evidence for an independent reviewer. Don't publish or overwrite the original without explicit authorization."*
 
-VQS v0.1.1 has ten MCP tools, including `vqs_theme` for
+VQS v0.1.2 has ten MCP tools, including `vqs_theme` for
 inspect/preview/apply/audit. Theme apply requires an explicit disposable
 candidate; older agents retain the legacy full text-envelope handshake.
 `vqs_promote` remains a separate, explicit owner-authorized operation.

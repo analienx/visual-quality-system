@@ -76,8 +76,11 @@ def test_fixed_issue_is_reported_and_passes(tmp_path: Path) -> None:
 def test_emitted_baseline_round_trips(pair, tmp_path: Path, capsys) -> None:
     base, head = pair
     stored = tmp_path / "baseline.json"
-    assert main(["gate", str(base), "--emit-baseline", str(stored)]) == 1
-    capsys.readouterr()
+    # Capturing a baseline is its own operation, not a comparison: the
+    # documented "store a baseline" command must not fail the CI step
+    # that just wrote the file.
+    assert main(["gate", str(base), "--emit-baseline", str(stored)]) == 0
+    assert json.loads(capsys.readouterr().out)["baseline_written"] == str(stored)
     data = json.loads(stored.read_text(encoding="utf-8"))
     assert data["schema"] == gate.BASELINE_SCHEMA and len(data["items"]) == 5
     from_json = gate.run(str(head), baseline=stored)
@@ -172,6 +175,79 @@ def test_github_annotation_escapes_workflow_commands(pair, tmp_path: Path) -> No
     assert "title=typography.format_declaration_consistency" in line
 
 
+_RUNNER_COMMANDS = {"error", "warning", "notice", "debug", "group", "endgroup",
+                    "add-mask", "add-matcher", "remove-matcher", "echo",
+                    "save-state", "set-output", "add-path", "set-env",
+                    "stop-commands"}
+
+
+def _runner_parse(line: str) -> dict | None:
+    """What the GitHub Actions runner makes of one stdout line.
+
+    Port of ``ActionCommand.TryParseV2``: the command name is everything
+    between the leading ``::`` and the first space (or the closing
+    ``::``); unknown names are printed as plain log text, never
+    annotations. Properties are unescaped in the runner's order.
+    """
+    message = line.lstrip()
+    end = message.find("::", 2) if message.startswith("::") else -1
+    if end < 0:
+        return None
+    info = message[2:end]
+    name, _, props = info.partition(" ")
+    if name not in _RUNNER_COMMANDS:
+        return None
+
+    def unescape(text: str, mappings: tuple[tuple[str, str], ...]) -> str:
+        for token, replacement in mappings:
+            text = text.replace(replacement, token)
+        return text
+
+    prop_map = (("\r", "%0D"), ("\n", "%0A"), (":", "%3A"), (",", "%2C"), ("%", "%25"))
+    data_map = (("\r", "%0D"), ("\n", "%0A"), ("%", "%25"))
+    properties = {}
+    for entry in filter(None, props.split(",")):
+        key, _, value = entry.partition("=")
+        properties[key] = unescape(value, prop_map)
+    return {"command": name, "properties": properties,
+            "data": unescape(message[end + 2:], data_map)}
+
+
+def test_annotations_are_commands_the_runner_recognises(tmp_path: Path) -> None:
+    """Every emitted line must become an annotation, not plain log text.
+
+    ``::error,title=...`` (no space) is an unknown command to the runner,
+    so the blocked gate - and any new item without a file - was silently
+    not annotated although the docs promise it is.
+    """
+    blocked = {"verdict": "blocked", "reason": "head: visual_doc_unreadable: P/v\n2nd 100%"}
+    (line,) = gate.github_annotations(blocked, tmp_path)
+    parsed = _runner_parse(line)
+    assert parsed == {"command": "error",
+                      "properties": {"title": gate.BLOCKED_RULE},
+                      "data": blocked["reason"]}
+
+    item = {"check": "odd:check,name", "subject": "s", "message": "m: 50%, ok\nnext"}
+    fileless = {"verdict": "fail", "report": None, "new": [item],
+                "unchanged": [], "waived": []}
+    (line,) = gate.github_annotations(fileless, tmp_path)
+    assert _runner_parse(line) == {"command": "error",
+                                   "properties": {"title": "odd:check,name"},
+                                   "data": item["message"]}
+
+    located = dict(fileless, report=str(tmp_path / "R, 1.Report"),
+                   new=[dict(item, page="P1")])
+    (line,) = gate.github_annotations(located, tmp_path)
+    parsed = _runner_parse(line)
+    assert parsed is not None and parsed["command"] == "error"
+    assert parsed["properties"] == {
+        "file": "R, 1.Report/definition/pages/P1/page.json",
+        "title": "odd:check,name"}
+    assert parsed["data"] == item["message"]
+    # Negative control: the old shape is exactly what the runner ignores.
+    assert _runner_parse("::error,title=vqs.gate.blocked::reason") is None
+
+
 def test_cli_exit_codes_and_sarif(pair, tmp_path: Path, capsys) -> None:
     base, head = pair
     sarif = tmp_path / "out.sarif"
@@ -184,3 +260,36 @@ def test_cli_exit_codes_and_sarif(pair, tmp_path: Path, capsys) -> None:
     assert main(["gate", str(base), "--baseline", str(base)]) == 0
     capsys.readouterr()
     assert main(["gate", str(tmp_path / "nope")]) == 2
+
+
+def test_blocked_gate_still_annotates_ci(pair, tmp_path: Path, capsys) -> None:
+    """A gate that cannot compare is the most severe outcome, not a silent one.
+
+    An unreadable visual document blocks `inspect_report`, so `evaluate`
+    never reaches `_items` and the result carries no `new` list. The gate
+    previously skipped `--sarif` and `--github` entirely, so CI got exit 2
+    with nothing to annotate — it could not tell "the PR broke the report"
+    from "the head path is unreadable".
+    """
+    base, head = pair
+    visual = min(Path(head).rglob("visual.json"))
+    doc = json.loads(visual.read_text(encoding="utf-8-sig"))
+    doc.setdefault("visual", {})["query"] = 7
+    visual.write_text(json.dumps(doc), encoding="utf-8")
+    sarif_out = tmp_path / "out.sarif"
+    code = main(["gate", str(head), "--baseline", str(base),
+                 "--sarif", str(sarif_out), "--github"])
+    out = capsys.readouterr().out
+    assert code == 2
+    annotations = [parsed for parsed in map(_runner_parse, out.splitlines()) if parsed]
+    assert len(annotations) == 1
+    assert annotations[0]["command"] == "error"
+    assert annotations[0]["properties"] == {"title": gate.BLOCKED_RULE}
+    assert "visual_doc_unreadable" in annotations[0]["data"]
+    log = json.loads(sarif_out.read_text(encoding="utf-8"))
+    results = log["runs"][0]["results"]
+    assert len(results) == 1
+    assert results[0]["ruleId"] == gate.BLOCKED_RULE
+    assert results[0]["level"] == "error"
+    assert "no regression claim is possible" in results[0]["message"]["text"]
+    assert log["runs"][0]["tool"]["driver"]["rules"][0]["id"] == gate.BLOCKED_RULE

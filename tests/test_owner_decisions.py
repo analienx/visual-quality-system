@@ -16,7 +16,7 @@ import pytest
 
 from vqs.coordinator import run_workflow
 from vqs.pbir import source_digest
-from vqs.repair.decisions import ANSWERS_SCHEMA, load, resolve, waived_checks
+from vqs.repair.decisions import ANSWERS_SCHEMA, load, resolve, subject_of, waived_checks
 from vqs.repair.recipes import RecipeError, bind_operation
 from vqs.repair.regress import _diff_paths
 from vqs.repair.synthesize import synthesize_plan
@@ -459,3 +459,251 @@ def test_fix_result_lists_changes_and_a_working_adopt_step(tmp_path: Path,
     capsys.readouterr()
     assert (project / "Contoso Retail.Report.vqs-backup").is_dir()
     assert (project / "Contoso Retail.Report").stat().st_mtime_ns != before
+
+
+def test_waivers_never_clear_missing_evidence(tmp_path: Path) -> None:
+    """Negative control: a waiver may clear a failure, never blocked evidence.
+
+    ``run_check`` reports ``fail`` whenever any check fails, which masks a
+    co-existing ``blocked`` finding in the verdict. Before this guard, a
+    review run whose every failing check was waived reported
+    ``verdict=pass`` / ``acceptance=True`` / ``accepted_with_waivers``
+    while blocked oracles stayed in the sealed findings — exactly the
+    "missing evidence is never waivable" rule it claimed to honour.
+    """
+    config = {"oracles": [{"not_a_question": True}]}
+    blocked = _blocked(tmp_path)
+    answers = _answers(blocked, lambda _item: "accept")
+    result = run_workflow(
+        report_dir=str(REPORT), mode="review", scope="static",
+        run_root=str(tmp_path / "runs"), run_id="evidence-gap",
+        authoring_backend="direct", config=config, decisions=answers)
+    summary = result["summary"]
+    assert result["verdict"] == "blocked"
+    assert summary["acceptance"] is False
+    assert summary["outcome"] != "accepted_with_waivers"
+    # The owner's waivers are still recorded and still honoured...
+    assert sorted(summary["waived_findings"]) == [GRAIN, TYPO]
+    # ...but the unprovable checks are named, not silently dropped.
+    assert "oracle:0" in summary["unwaivable_findings"]
+    assert "never waivable" in summary["blocked_reason"]
+    assert "oracle:0" in summary["blocked_reason"]
+    # The sealed findings still carry the blocked evidence.
+    review_run = tmp_path / "runs" / "evidence-gap-review" / "findings.json"
+    findings = json.loads(review_run.read_text(encoding="utf-8"))
+    assert {"oracle:0"} <= {item["check"] for item in findings
+                            if item["status"] == "blocked"}
+
+
+def test_waivers_still_accept_when_evidence_is_complete(tmp_path: Path) -> None:
+    """Positive control: the evidence guard does not block a clean waiver."""
+    blocked = _blocked(tmp_path)
+    answers = _answers(blocked, lambda _item: "accept")
+    result = run_workflow(
+        report_dir=str(REPORT), mode="review", scope="static",
+        run_root=str(tmp_path / "runs"), run_id="evidence-ok",
+        authoring_backend="direct", decisions=answers)
+    summary = result["summary"]
+    assert result["verdict"] == "pass"
+    assert summary["outcome"] == "accepted_with_waivers"
+    assert summary["unwaivable_findings"] == []
+
+
+def test_hand_written_plan_cannot_forge_owner_decision_authority(
+        tmp_path: Path) -> None:
+    """Negative control: `owner-decision:` is authority, not a string prefix.
+
+    `format.declare_explicit` deliberately changes the rendering and is
+    documented as owner-decision-only, but `bind_format_declare` only
+    checks that the proof *starts with* `owner-decision:`. Since `--plan`
+    and `--decisions` are mutually exclusive, a plan file carrying that
+    marker is claiming an authority no sealed answer backs.
+    """
+    plan = {"schema": "vqs.repair-plan/1", "affected_pages": ["P1"],
+            "operations": [{
+                "type": "format.declare_explicit",
+                "selector": {"page": "P1", "visual": "v"},
+                "target": "visual",
+                "path": ["visual", "objects", "header", 0, "properties",
+                         "textSize"],
+                "old": None, "value": "11D", "effective": "11D",
+                "proof": "owner-decision:dec-ffffffffffffffff:size:11D"}]}
+    plan_file = tmp_path / "plan.json"
+    plan_file.write_text(json.dumps(plan), encoding="utf-8")
+    before = source_digest(REPORT)
+    result = run_workflow(
+        report_dir=str(REPORT), mode="repair", scope="static",
+        run_root=str(tmp_path / "runs"), run_id="forged",
+        authoring_backend="direct", plan_path=str(plan_file))
+    repair = next(s for s in result["stages"] if s["stage"] == "repair")
+    assert result["verdict"] == "blocked"
+    assert repair["status"] == "blocked"
+    assert "cannot carry" in repair["reason"]
+    assert "--decisions" in repair["reason"]
+    assert source_digest(REPORT) == before
+
+
+def test_owner_plan_without_decision_proof_is_still_accepted(
+        tmp_path: Path) -> None:
+    """Positive control: the guard only rejects the forged authority marker."""
+    plan = {"schema": "vqs.repair-plan/1", "affected_pages": ["P1"],
+            "operations": [{
+                "type": "format.set_explicit",
+                "selector": {"page": "P1", "visual": "v"},
+                "target": "visual",
+                "path": ["visual", "objects", "header", 0, "properties",
+                         "textSize"],
+                "old": "10D", "value": "11D", "effective": "11D",
+                "proof": "render-adapter:measured"}]}
+    plan_file = tmp_path / "plan.json"
+    plan_file.write_text(json.dumps(plan), encoding="utf-8")
+    result = run_workflow(
+        report_dir=str(REPORT), mode="repair", scope="static",
+        run_root=str(tmp_path / "runs"), run_id="plain-plan",
+        authoring_backend="direct", plan_path=str(plan_file))
+    repair = next(s for s in result["stages"] if s["stage"] == "repair")
+    # It may still fail on its own preconditions, but never on authority.
+    assert "cannot carry" not in (repair.get("reason") or "")
+
+
+def _sealed_owner_op(tmp_path: Path) -> tuple[dict, dict]:
+    """One owner-only operation, and its plan, from a really answered run."""
+    first = _blocked(tmp_path)
+    result = run_workflow(report_dir=str(REPORT), mode="repair",
+                          scope="static", run_root=str(tmp_path / "runs"),
+                          run_id="answered", authoring_backend="direct",
+                          decisions=_answers(first, _ten_or_accept))
+    assert result["verdict"] == "pass"
+    plan = json.loads((tmp_path / "runs" / "answered" / "plan.json")
+                      .read_text(encoding="utf-8"))
+    op = next(op for op in plan["operations"]
+              if op["type"] == "format.declare_explicit"
+              and op["proof"].startswith("owner-decision:"))
+    return op, plan
+
+
+def _one_op_plan(template: dict, op: dict, path: Path) -> Path:
+    plan = dict(template, operations=[op], write_targets=list(op["writes"]),
+                affected_pages=[op["selector"]["page"]])
+    path.write_text(json.dumps(plan), encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize("route", ["python", "cli", "mcp"])
+def test_standalone_repair_cannot_forge_owner_decision_authority(
+        tmp_path: Path, route: str, capsys) -> None:
+    """Negative control: the `vqs fix --plan` guard is not the only door.
+
+    `vqs repair` and MCP `vqs_repair` execute a plan file directly, and the
+    owner-only recipe checks nothing but the `owner-decision:` prefix. An
+    agent copying an option's operation into a plan - or inventing a
+    decision id and a value no owner chose - must be refused there too,
+    before anything is written.
+    """
+    from vqs.cli import main
+    from vqs.mcp import server
+    from vqs.pipeline import repair_candidate
+
+    sealed, template = _sealed_owner_op(tmp_path)
+    op = dict(sealed, value="37D", effective="37D",
+              proof="owner-decision:dec-ffffffffffffffff:size:37D")
+    plan_file = _one_op_plan(template, op, tmp_path / "forged.json")
+    candidates = tmp_path / "candidates"
+    before = source_digest(REPORT)
+    args = {"plan_path": str(plan_file), "original": str(REPORT),
+            "candidate_root": str(candidates),
+            "run_root": str(tmp_path / "runs"), "run_id": f"forged-{route}",
+            "authoring_backend": "direct"}
+    if route == "python":
+        result = repair_candidate(**args)
+    elif route == "cli":
+        code = main(["repair", args["plan_path"], "--original", args["original"],
+                     "--candidate-root", args["candidate_root"],
+                     "--run-root", args["run_root"], "--run-id", args["run_id"],
+                     "--authoring-backend", "direct"])
+        assert code == 2
+        result = json.loads(capsys.readouterr().out)
+    else:
+        # A JSON caller cannot supply the coordinator's sealed set either.
+        result = server._dispatch("vqs_repair", dict(
+            args, sealed_owner_operations=[json.dumps(op)]))
+    assert result["verdict"] == "blocked"
+    assert "cannot carry" in result["blocked_reasons"][0]
+    assert not candidates.exists()
+    assert source_digest(REPORT) == before
+
+
+def test_public_python_repair_rejects_caller_supplied_authority(tmp_path: Path) -> None:
+    from vqs.pipeline import owner_operation_key, repair_candidate
+
+    op, template = _sealed_owner_op(tmp_path)
+    forged = dict(op, value="37D", effective="37D",
+                  proof="owner-decision:dec-ffffffffffffffff:size:37D")
+    plan = _one_op_plan(template, forged, tmp_path / "forged-public.json")
+    candidate = tmp_path / "public-candidate"
+    with pytest.raises(TypeError, match="sealed_owner_operations"):
+        repair_candidate(str(plan), str(REPORT), str(candidate),
+                         authoring_backend="direct",
+                         sealed_owner_operations=frozenset({owner_operation_key(forged)}))
+    assert not candidate.exists()
+
+
+def test_only_the_exact_sealed_owner_operation_may_run(tmp_path: Path) -> None:
+    """Positive control and tamper control for the sealed binding."""
+    from vqs.pipeline import _repair_candidate, owner_operation_key
+
+    op, template = _sealed_owner_op(tmp_path)
+    sealed = frozenset({owner_operation_key(op)})
+
+    def attempt(operation: dict, name: str) -> dict:
+        plan_file = _one_op_plan(template, operation, tmp_path / f"{name}.json")
+        return _repair_candidate(
+            str(plan_file), str(REPORT), str(tmp_path / name / "Contoso Retail.Report"),
+            run_root=str(tmp_path / "runs"), run_id=name,
+            authoring_backend="direct", sealed_owner_operations=sealed)
+
+    exact = attempt(op, "exact")
+    assert "cannot carry" not in " ".join(exact.get("blocked_reasons") or [])
+    assert exact["verdict"] == "pass"
+    tampered = attempt(dict(op, value="37D", effective="37D"), "tampered")
+    assert tampered["verdict"] == "blocked"
+    assert "cannot carry" in tampered["blocked_reasons"][0]
+
+
+_OVERLAP = "layout.no_visual_overlap"
+_OVERLAP_FINDING = [{"check": _OVERLAP, "status": "fail", "detail": {
+    "evidence": {"conflicts": [{"page": "P1", "visuals": ["a", "b"],
+                                "overlap": {"x": 10, "y": 10,
+                                            "width": 20, "height": 20}}]}}}]
+
+
+def _overlap_facts(visuals: list, pages: list) -> dict:
+    return {"rules": {_OVERLAP: {"visuals": visuals},
+                      "layout.visuals_within_page": {"pages": pages}}}
+
+
+def test_overlap_subject_never_depends_on_measurability() -> None:
+    """One conflict keeps one subject however much geometry facts carry.
+
+    `subject_of` prefers `pair=` and falls back to `visual=`, so an
+    overlap branch that omitted `pair` renamed the subject. Across two
+    revisions `vqs gate` then reported one spurious `new` plus one
+    spurious `fixed` for an unchanged conflict, and an owner `accept`
+    recorded against `pair=a+b` silently stopped excusing it.
+    """
+    both = [{"page": "P1", "visual": "a", "x": 0, "y": 0,
+             "width": 100, "height": 100},
+            {"page": "P1", "visual": "b", "x": 10, "y": 10,
+             "width": 100, "height": 100}]
+    only_a = [both[0]]
+    canvas = [{"page": "P1", "width": 1280, "height": 720}]
+    subjects = set()
+    for facts in (_overlap_facts(both, canvas),      # measurable pair
+                  _overlap_facts(only_a, canvas),    # no rect for b
+                  _overlap_facts(both, [])):         # no page canvas
+        result = synthesize_plan(_OVERLAP_FINDING, facts)
+        produced = result["decisions"] + result["candidates"]
+        assert produced, "every branch must produce one record"
+        for item in produced:
+            subjects.add(subject_of(item))
+    assert subjects == {f"{_OVERLAP}|page=P1|pair=a+b"}, subjects

@@ -9,14 +9,14 @@
     <a href="docs/AGENT_AUTOFIX_ARCHITECTURE.md">How it works</a> ·
     <a href="#real-power-bi-showcase">Real report gallery</a> ·
     <a href="docs/CLI.md">CLI</a> ·
-    <a href="docs/RELEASE_NOTES_v0.1.1.md">Release notes</a> ·
+    <a href="docs/RELEASE_NOTES_v0.1.2.md">Release notes</a> ·
     <a href="docs/README.md">All docs</a>
   </p>
   <p>
     <a href="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml"><img src="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml/badge.svg" alt="GitHub CI status"></a>
     <img src="https://img.shields.io/badge/Python-3.11%2B-3270B7" alt="Python 3.11 and newer">
     <img src="https://img.shields.io/badge/License-Apache--2.0-18977A" alt="Apache 2.0">
-    <img src="https://img.shields.io/badge/Status-supported%20CLI%20v0.1.1%20%7C%20native%20preview-E2A744" alt="Supported CLI v0.1.1 distribution; native features retain evidence gates">
+    <img src="https://img.shields.io/badge/Status-supported%20CLI%20v0.1.2%20%7C%20native%20preview-E2A744" alt="Supported CLI v0.1.2 distribution; native features retain evidence gates">
   </p>
 </div>
 
@@ -30,14 +30,14 @@ _Designed for phone-width viewing. [Open the vector diagram](docs/diagrams/vqs-p
 
 [**Explore the living product roadmap →**](roadmap/README.md) · [Current implementation boundaries](docs/AGENT_AUTOFIX_ARCHITECTURE.md)
 
-The diagram is a **product direction**, not a guarantee of native Desktop coverage. The published v0.1.1 wheel has a bounded source-only repair scope; newer decisions and gate capabilities on `main` remain unreleased until versioned.
+The diagram is a **product direction**, not a guarantee of native Desktop coverage. The v0.1.2 wheel has a bounded source-only repair scope: answerable owner decisions, declared changes, one explicit adoption step and the pull-request gate. Native Desktop interaction stays evidence-gated and is not part of that scope.
 
-## Install VQS v0.1.1 - agent-first Power BI repairs
+## Install VQS v0.1.2 - agent-first Power BI repairs
 
-[**Download the verified wheel, source archive and checksums**](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.1)
+[**Download the verified wheel, source archive and checksums**](https://github.com/analienx/visual-quality-system/releases/latest)
 
 ```powershell
-pip install visual_quality_system-0.1.1-py3-none-any.whl
+pip install visual_quality_system-0.1.2-py3-none-any.whl
 npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
 vqs doctor
 vqs fix "C:/Reports/Sales.pbip"
@@ -69,7 +69,8 @@ Native Desktop G2/G4/G6 report acceptance, arbitrary Desktop reload and
 Word/DOCX remain outside the validated release scope.
 
 [Agent quickstart](docs/AI_AGENT_QUICKSTART.md) -
-[Release notes](docs/RELEASE_NOTES_v0.1.1.md) -
+[Release notes](docs/RELEASE_NOTES_v0.1.2.md) -
+[Owner decisions and the PR gate](docs/OWNER_DECISIONS_AND_PR_GATE.md) -
 [Runner acceptance workflow](.github/workflows/v011-runner-e2e.yml)
 
 ## Previous version - VQS v0.1.0 · v0.1.0

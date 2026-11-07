@@ -511,6 +511,7 @@ def _gate(args) -> int:
                       model=str(args.model) if args.model else None,
                       decisions=decisions, config=config)
     root = args.sarif_root or Path.cwd()
+    emitted = False
     try:
         if args.emit_baseline is not None and result["verdict"] != "blocked":
             items = result["new"] + result["unchanged"] + result["waived"]
@@ -520,7 +521,10 @@ def _gate(args) -> int:
                                   "status": i["status"]} for i in items),
                                 key=lambda i: i["subject"])},
                 indent=2) + "\n", encoding="utf-8")
-        if args.sarif is not None and result["verdict"] != "blocked":
+            emitted = True
+        # A blocked gate still writes SARIF: missing evidence is the most
+        # severe outcome and CI must be able to annotate it.
+        if args.sarif is not None:
             args.sarif.write_text(json.dumps(gate.sarif(result, root), indent=2)
                                   + "\n", encoding="utf-8")
         if args.out is not None:
@@ -530,7 +534,7 @@ def _gate(args) -> int:
         print(json.dumps({"tool": "vqs.gate", "verdict": "blocked",
                           "reason": f"{type(exc).__name__}: {exc}"}))
         return 2
-    if args.github and result["verdict"] != "blocked":
+    if args.github:
         for line in gate.github_annotations(result, root):
             print(line)
     compact = {key: result.get(key) for key in
@@ -540,8 +544,17 @@ def _gate(args) -> int:
     compact["new"] = [{"check": i["check"], "subject": i["subject"],
                        "message": i["message"]} for i in result.get("new", [])][:50]
     compact["fixed"] = result.get("fixed", [])[:50]
+    if emitted:
+        compact["baseline_written"] = str(args.emit_baseline)
     print(json.dumps(compact, indent=2, ensure_ascii=False))
-    return {"pass": 0, "fail": 1}.get(result["verdict"], 2)
+    code = {"pass": 0, "fail": 1}.get(result["verdict"], 2)
+    # Capturing a baseline is its own operation, not a comparison: with
+    # no --baseline to compare against, `compare` calls every existing
+    # finding "new", so the documented "store a baseline" command would
+    # otherwise exit 1 and fail the CI step that just succeeded.
+    if emitted and args.baseline is None:
+        code = 0
+    return code
 
 
 def _decisions_template(args) -> int:
@@ -577,11 +590,20 @@ def _decisions_template(args) -> int:
         return 0
     text = json.dumps(skeleton, indent=2, ensure_ascii=False) + "\n"
     if args.out is not None:
-        if args.out.exists():
+        # exists() follows symlinks and is False for a dangling one, so a
+        # link named here would be written *through* to its target. Every
+        # other --output in this CLI checks is_symlink() and opens "x".
+        if args.out.exists() or args.out.is_symlink():
             print(json.dumps({"status": "blocked",
                               "reason": f"refusing to overwrite {args.out}"}))
             return 2
-        args.out.write_text(text, encoding="utf-8")
+        try:
+            with open(args.out, "x", encoding="utf-8") as handle:
+                handle.write(text)
+        except OSError as exc:
+            print(json.dumps({"status": "blocked",
+                              "reason": f"cannot write {args.out}: {exc}"}))
+            return 2
         print(json.dumps({"status": "pass", "questions": len(skeleton["answers"]),
                           "out": str(args.out),
                           "next": "fill owner + one option per question, then "

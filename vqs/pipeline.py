@@ -1090,6 +1090,36 @@ def _repair_bindings(plan_sha: str) -> dict[str, Any]:
             "tool": "vqs.repair/1", "config_sha256": None}
 
 
+def owner_operation_key(op: dict[str, Any]) -> str:
+    """Canonical identity of one owner-answered plan operation."""
+    return json.dumps(op, sort_keys=True, ensure_ascii=False,
+                      separators=(",", ":"))
+
+
+def _unsealed_owner_proofs(plan: dict[str, Any], sealed: Any) -> list[str]:
+    """Operations claiming an owner decision the caller did not seal.
+
+    ``owner-decision:<id>:<option>`` is what lets an owner-only recipe
+    (``format.declare_explicit``) run, and the recipe can only check the
+    prefix. The private coordinator path supplies ``sealed`` after binding answers
+    to re-synthesized questions. This is trusted internal input, not an
+    authenticated Python capability. Public repair has no such parameter.
+    """
+    from .repair.recipes import OWNER_DECISION_PROOF
+
+    operations = plan.get("operations")
+    if not isinstance(operations, list):
+        return []
+    allowed = sealed if isinstance(sealed, frozenset) else frozenset()
+    forged = []
+    for index, op in enumerate(operations):
+        proof = op.get("proof") if isinstance(op, dict) else None
+        if (isinstance(proof, str) and proof.startswith(OWNER_DECISION_PROOF)
+                and owner_operation_key(op) not in allowed):
+            forged.append(f"operations[{index}].proof={proof!r}")
+    return forged
+
+
 def repair_candidate(plan_path: str, original: str,
                      candidate_root: str, *,
                      run_root: str = ".vqs-runs",
@@ -1098,6 +1128,27 @@ def repair_candidate(plan_path: str, original: str,
                      authoring_assurance: str = "portable",
                      authoring_timeout: int = 300,
                      authoring_allow_warnings: bool = False) -> dict[str, Any]:
+    """Repair an ordinary plan; caller-supplied owner authority is unsupported.
+
+    Owner-only operations require the coordinator's validated answers flow.
+    The private implementation is trusted in-process code, not a sandbox.
+    """
+    return _repair_candidate(
+        plan_path, original, candidate_root, run_root=run_root, run_id=run_id,
+        authoring_backend=authoring_backend, authoring_assurance=authoring_assurance,
+        authoring_timeout=authoring_timeout, authoring_allow_warnings=authoring_allow_warnings)
+
+
+def _repair_candidate(plan_path: str, original: str,
+                     candidate_root: str, *,
+                     run_root: str = ".vqs-runs",
+                     run_id: str | None = None,
+                     authoring_backend: str = "auto",
+                     authoring_assurance: str = "portable",
+                     authoring_timeout: int = 300,
+                     authoring_allow_warnings: bool = False,
+                     sealed_owner_operations: frozenset[str] | None = None
+                     ) -> dict[str, Any]:
     """Validate a repair plan, execute it, and seal the repair run.
 
     Validation failures fail here without touching the filesystem.
@@ -1140,6 +1191,13 @@ def repair_candidate(plan_path: str, original: str,
         return blocked_envelope("vqs.repair", [f"unreadable plan: {exc}"])
     if not isinstance(plan, dict):
         return blocked_envelope("vqs.repair", ["plan document is not an object"])
+    forged = _unsealed_owner_proofs(plan, sealed_owner_operations)
+    if forged:
+        return blocked_envelope("vqs.repair", [
+            "plan claims owner-decision authority it cannot carry: "
+            + ", ".join(forged) + ". A plan file is not a sealed owner "
+            "decision; answer the question with `vqs decisions template` "
+            "and `vqs fix --decisions` (or `vqs_run` with decisions)"])
     try:
         issues = validate_plan(plan, original, candidate_root)
     except (OSError, ValueError, TypeError) as exc:
