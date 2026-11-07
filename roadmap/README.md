@@ -6,7 +6,12 @@ VQS is the evidence-driven quality and safe-repair layer for AI-authored Power B
 
 [Start with an AI agent](../docs/AI_AGENT_QUICKSTART.md) · [Architecture and current implementation](../docs/AGENT_AUTOFIX_ARCHITECTURE.md) · [Latest published release](https://github.com/analienx/visual-quality-system/releases/latest) · [Acceptance gates](../docs/ACCEPTANCE_MATRIX.md)
 
-> **Status, 4 November 2026.** **v0.1.1** is the latest *published* release. **v0.1.2 is a release candidate**: the post-v0.1.1 work on `main` has been reviewed, its confirmed findings fixed, and the installed wheel verified end to end, but it is not published until the owner merges and tags it. v0.2.0 below remains a **proposal**, not an announcement, date, or promise of native Power BI certification.
+> **Release scope, 7 November 2026.** v0.1.2 packages source-only owner decisions,
+> candidate repairs, adoption commands and regression gates. Download availability
+> is authoritative on the [GitHub release](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2).
+> The reviewed v0.2 work remains a separate draft integration (#160), with data
+> parity and native acceptance still unresolved.
+
 
 ## Product direction
 
@@ -22,10 +27,10 @@ _Designed for phone-width viewing. [Open the vector diagram](../docs/diagrams/vq
 | :--- | :--- | :--- | :--- |
 | **v0.1.1 — Agent-first repairs** | **Published** · 30 Oct 2026 | Installable CLI/MCP, safe candidate repairs, theme workflow, six-platform installed-wheel proof | [Release notes](../docs/RELEASE_NOTES_v0.1.1.md) |
 | **Post-v0.1.1 on `main`** | **Merged, unreleased** | Answerable owner decisions, `vqs gate` + SARIF, readable changes/adopt command, enhanced native provenance and bounded Region UIA | [Changelog](../CHANGELOG.md) · [PR #122](https://github.com/analienx/visual-quality-system/pull/122) · [#123](https://github.com/analienx/visual-quality-system/pull/123) · [#124](https://github.com/analienx/visual-quality-system/pull/124) |
-| **v0.1.2 — Verifiable decisions and regression gates** | **Release candidate** · reviewed, awaiting owner merge and tag | Package the merged functionality, fix what the delta review found, verify the installed wheel on Linux and Windows, reconcile the open engineering issues and preserve every native exclusion | [Release notes](../docs/RELEASE_NOTES_v0.1.2.md) · [Issue reconciliation](../docs/V012_ISSUE_RECONCILIATION.md) · [Acceptance evidence](../docs/V012_NATIVE_G_ACCEPTANCE.md) · [Gate #16](https://github.com/analienx/visual-quality-system/issues/16) |
+| **v0.1.2 — Verifiable decisions and regression gates** | **Source-only distribution** · see release assets for availability | Package the merged functionality, fix what the delta review found, verify the installed wheel on Linux and Windows, reconcile the open engineering issues and preserve every native exclusion | [Release notes](../docs/RELEASE_NOTES_v0.1.2.md) · [Issue reconciliation](../docs/V012_ISSUE_RECONCILIATION.md) · [Acceptance evidence](../docs/V012_NATIVE_G_ACCEPTANCE.md) · [Gate #16](https://github.com/analienx/visual-quality-system/issues/16) |
 | **v0.2.0 — Intelligent repair workflow** | **Proposed product milestone** | Guided agent decisions, rendered before/after quality evidence, data-aware validation and higher-value analytical design critique | [Product/design contract](../docs/PRODUCT_AND_DESIGN_CONTRACT.md) · [Contoso quality findings #118](https://github.com/analienx/visual-quality-system/issues/118) |
 
-### Next: v0.1.2 — ship what is already built
+### v0.1.2 distribution and remaining evidence
 
 **Primary objective:** turn the unreleased `main` improvements into one coherent, trustworthy experience. This is release integration and acceptance work, **not a rewrite**.
 

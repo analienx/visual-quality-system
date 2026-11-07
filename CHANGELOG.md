@@ -27,7 +27,9 @@ Each was reproduced before being fixed and carries a negative control.
   marker claimed an authority no sealed answer backs; it now blocks, and the
   refusal names `--decisions` as the real route. The same refusal covers
   `vqs repair` and MCP `vqs_repair`, which execute a plan file directly:
-  only the exact operations the coordinator bound to sealed answers may run.
+  the public Python API also rejects caller-supplied owner-operation authority.
+  The private coordinator implementation accepts trusted internal operation sets;
+  it is not authentication or a sandbox for in-process Python code.
 - **One overlap conflict keeps one subject.** Four branches omitted `pair=`, so
   `subject_of` fell back to `visual=` and identity changed with the facts,
   making `vqs gate` report a spurious `new` plus a spurious `fixed` for an
@@ -86,7 +88,10 @@ The cross-platform clean-wheel runner now exercises the chain this release is
 about — `fix` → `decisions template` → answered `fix` → `changes` → explicit
 adoption, plus `gate` → SARIF — on Ubuntu and Windows across Python
 3.11-3.13, with stale answers, unusable answers and a forged owner proof as
-negative controls. Local suite: 2200 passed, 21 skipped, ruff clean.
+negative controls. At the reviewed runtime revision `5422e0d`, hosted Windows
+Python 3.12 passed 2,269 tests (7 skipped); Ubuntu Python 3.11–3.13 each passed
+2,230 tests (46 skipped). All 14 hosted checks and six clean-wheel environments
+passed. Final publication changes release documentation only.
 Native Desktop, G2/G4 and G6 acceptance remain separately gated;
 [#115](https://github.com/analienx/visual-quality-system/issues/115),
 [#116](https://github.com/analienx/visual-quality-system/issues/116),
