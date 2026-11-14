@@ -1,5 +1,7 @@
 # Engineering update · 26 October 2026
 
+> **Historical record:** This describes the October 2026 engineering state, not the current published release or a current acceptance decision. Start with [current documentation](README.md) or [release history](RELEASES.md).
+
 **Visual Quality System — Power BI first · engineering preview · not a production release**
 
 **Status: integrated to `main`, green hosted checks, but independent `powerbi-core` G2/G4/G6 remains open.** This is the latest consolidated engineering release note, not a GitHub Release, a new semantic version, or an authorization to deploy.
