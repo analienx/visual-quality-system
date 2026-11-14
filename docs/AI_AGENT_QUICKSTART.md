@@ -1,57 +1,48 @@
 # Fix a Power BI report with an AI agent — 5-minute setup
 
-**Give the agent the report and a goal. It should fix supported defects, not bury you in analysis.** VQS performs source-bound diagnostics, synthesizes safe typed repairs, writes an isolated candidate, verifies what actually changed and records what still needs native Desktop evidence. The agent runs that workflow and reports results. **Only promotion of the original or material business changes require a separate decision from the report owner.**
+**Give the agent the report and a goal. It should fix supported defects, not bury you in analysis.** VQS performs source-bound diagnostics, synthesizes safe typed repairs, writes an isolated candidate, verifies what actually changed and records what still needs native Desktop evidence. The agent runs that workflow and reports results. **Show the owner any offered design choices; promotion and changes to business meaning also require their authorization.**
 
 **[How the complete auto-fix architecture works — components, why each exists, and the end-to-end sequence](AGENT_AUTOFIX_ARCHITECTURE.md)**
 
-The latest published release is **v0.1.1**. This guide also describes
-post-v0.1.1 source features that have not yet been released. Choose and review
-the exact source revision you install and confirm it includes the commands you
-intend to use. **Native Desktop visual acceptance and independent report-level
-release remain evidence-gated.**
+VQS **v0.1.2** distributes the supported source-bound CLI/MCP
+and allowlisted candidate-repair core. **Native Desktop visual acceptance and
+independent report-level release remain evidence-gated.**
 
-## The agent-first workflow from a selected source revision
+## v0.1.2 - the simplest agent-first workflow
 
-After installing a reviewed revision as shown below, start with:
+Download the [v0.1.2 wheel and SHA256SUMS](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2) and verify the wheel against the checksums. In the download directory, install the wheel and pinned Microsoft authoring CLI, then run:
 
 ```bash
+python -m pip install ./visual_quality_system-0.1.2-py3-none-any.whl
+npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
 vqs doctor
-vqs fix "C:/Reports/Sales.pbip"
+vqs fix "C:/Reports/Sales.pbip" --run-id sales-1
 ```
 
 The new `fix` command accepts a PBIP project file, discovers an
 unambiguous report and semantic model, never overwrites the source, and
-returns a compact fixed/needs-review/blocked summary. Full sealed evidence
-remains in the private run directory. For advanced options use
+returns a compact fixed/needs-review/blocked summary. Run evidence remains in the private run directory; a source-level result is not independent native acceptance. For advanced options use
 `vqs run --mode repair --scope static`.
 
 An ambiguous inherited font size or intentional overview/detail duplicate
 is **not** a source-proven automatic edit; ask for the design decision rather
-than inventing one. A revision with the current MCP server includes
-`vqs_theme`, preserves legacy compatibility and requires a separate candidate
-for theme application. Promotion requires separate authorization.
+than inventing one. The VQS v0.1.2 MCP server provides ten tools including
+`vqs_theme`, preserves legacy compatibility and requires a separate
+candidate for theme application. Promotion requires separate authorization.
 
-## 1. Install the local VQS engine once
+<a id="1-install-the-local-vqs-engine-once"></a>
+
+## 1. Check prerequisites and results
 
 Requirements: Python 3.11+ and authorized local access to your PBIP/PBIR project.
+`vqs doctor` reports missing tools. Source review can work without Power BI Desktop;
+production authoring requires the pinned Microsoft CLI. A blocked result means
+VQS lacks evidence or a capability; a repair stage passing does not mean the whole
+report is accepted. [Capabilities and limits](CAPABILITIES.md) explains the boundary.
 
-```bash
-git clone https://github.com/analienx/visual-quality-system.git
-cd visual-quality-system
-git checkout --detach YOUR_REVIEWED_FULL_COMMIT_SHA
-git rev-parse HEAD
-python -m pip install .
-vqs doctor
-```
-
-Replace the placeholder with the full commit SHA you reviewed and verify the
-printed commit. VQS is not currently published as a PyPI distribution. For a
-published artifact, consult the [actual releases](https://github.com/analienx/visual-quality-system/releases)
-and verify its digest and supported commands; the v0.1.1 wheel does not imply
-the later gate is available. A pinned CI installation and PR gate are in the
-[CLI guide](CLI.md#copyable-github-actions-workflow).
-
-Static source review and supported candidate repairs need **no Power BI Desktop, Microsoft account, AI API key or cloud subscription**. Native screenshots, live DAX and interaction tests require an authorized Windows Power BI Desktop host and its Microsoft tools. Microsoft-dependent report edits also require the pinned, checked authoring toolchain described in the repository's execution contract. The agent can check capabilities with `vqs doctor` and must report what's unavailable.
+The wheel above is the supported user installation. Contributors who need to
+change VQS itself can install a checkout as described in [Contributing](../CONTRIBUTING.md);
+a checkout can contain unreleased behavior.
 
 ## 2. Connect your agent (MCP is best; terminal also works)
 
@@ -100,7 +91,7 @@ Use your actual `*.Report` folder inside the PBIP project. This command asks VQS
 
 ## 3. One prompt: let the agent handle the work
 
-> **Fix my Power BI report** at `C:/Reports/Sales.pbip` using VQS. You can autonomously inspect it, prioritize the most impactful *supported* UX and correctness defects, synthesize an allowlisted repair plan, apply changes in **new disposable candidates**, verify exact source/model diffs and rerun quality checks. Use `vqs_run` with **`mode=repair`** and `scope=static` (or `vqs run --mode repair --scope static`) and keep evidence private. If a safe source-grounded theme would improve the report, preview/apply/audit it through the VQS CLI as an isolated candidate. When authorized Windows Power BI Desktop is available, inspect native renderings, supported interactions and live DAX. Iterate on evidence up to two times, never alter the original, never invent a repair, and never override an authoring validator failure. Return **Fixed / Verified / Still blocked** and the candidate path, not a long diagnostic report. Ask me only before changing business meaning, sharing private data, or promoting the original.
+> **Fix my Power BI report** at `C:/Reports/Sales.pbip` using VQS. You can autonomously inspect it, prioritize the most impactful *supported* UX and correctness defects, synthesize an allowlisted repair plan, apply changes in **new disposable candidates**, verify exact source/model diffs and rerun quality checks. Use `vqs_run` with **`mode=repair`** and `scope=static` (or `vqs run --mode repair --scope static`) and keep evidence private. If a safe source-grounded theme would improve the report, preview/apply/audit it through the VQS CLI as an isolated candidate. When authorized Windows Power BI Desktop is available, inspect native renderings, supported interactions and live DAX. Iterate on evidence up to two times, never alter the original, never invent a repair, and never override an authoring validator failure. Return **Fixed / Verified / Still blocked** and the candidate path, not a long diagnostic report. Show me owner-dependent options and ask before selecting one, changing business meaning, sharing private data, or promoting the original.
 
 This is the **recommended default**. Approval for autonomous *candidate* edits need not be repeated at each safe step. Approval for production, DAX/RLS changes, customer-data disclosure or overwriting the original is **not included**.
 
@@ -123,7 +114,7 @@ The exact module and tool responsibilities—and **why** multiple components are
 
 **Prepare a full release candidate:** tell it, *"Perform VQS candidate repair, verify on real Power BI Desktop with supported controls/DAX and prepare private evidence for an independent reviewer. Don't publish or overwrite the original without explicit authorization."*
 
-The current source MCP server includes `vqs_theme` for
+VQS v0.1.2 has ten MCP tools, including `vqs_theme` for
 inspect/preview/apply/audit. Theme apply requires an explicit disposable
 candidate; older agents retain the legacy full text-envelope handshake.
 `vqs_promote` remains a separate, explicit owner-authorized operation.
