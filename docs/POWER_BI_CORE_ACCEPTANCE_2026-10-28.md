@@ -1,4 +1,6 @@
 # Power BI core · release acceptance snapshot
+
+> **Historical snapshot:** This records evidence and disposition at the stated date. For current requirements and open decisions, see the [acceptance matrix](ACCEPTANCE_MATRIX.md) and [gate #16](https://github.com/analienx/visual-quality-system/issues/16).
 *28 October 2026 · real Desktop / real Model / separate private evidence*
 
 **Public fictional Contoso sample (later same-day update):** The owner authorized the synthetic final Contoso project to be published in the PUBLIC VQS repository. The [five-page verified report](VERIFIED_CONTOSO_SHOWCASE.md), [source PBIP](../examples/contoso-retail-verified/Contoso%20Retail.pbip) and [source/image SHA manifest](media/contoso-verified/PROVENANCE.json) now preserve the complete final evidence together. Separate automated G2 image re-review observed **zero P1 or P2 visual defects**. The normalizing two-schema-fields-only diff is documented explicitly; the historical 14-family theme gallery retains its own source. **Only fictional Contoso is public. The unrelated private Corporate Spend model/images and runtime receipts are not.**
