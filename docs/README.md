@@ -1,52 +1,37 @@
 # VQS documentation
 
-Choose the shortest path for what you want to accomplish. **Power BI is the core product**; Word/DOCX is independently scoped. Native evidence is distinct from deterministic source validation.
+Choose a path based on what you want to do. The **latest release (v0.1.2)** is a source-level Power BI CLI/MCP distribution. [Release notes](RELEASE_NOTES_v0.1.2.md) · [Release history](RELEASES.md) · [Download and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2)
 
-[**Product roadmap and mobile-readable architecture diagram**](../roadmap/README.md) · [Native G2/G4 engineering evidence](V012_NATIVE_G_ACCEPTANCE.md)
+<a id="start-here"></a>
+<a id="the-everyday-loop"></a>
 
-[**Latest v0.1.2 release notes and supported scope**](RELEASE_NOTES_v0.1.2.md) ·
-[**Release history**](RELEASES.md) ·
-[**v0.1.2 six-platform evidence**](https://github.com/analienx/visual-quality-system/actions/runs/42363560499)
+## Use VQS
 
-## Start here
+1. [Install and run your first review or repair](USER_GUIDE.md#start-with-the-published-release).
+2. [Use VQS with an AI agent](AI_AGENT_QUICKSTART.md), including local MCP setup.
+3. [Understand supported capabilities and limits](CAPABILITIES.md).
+4. [Answer an owner question or decide whether to adopt](OWNER_DECISIONS_AND_PR_GATE.md).
+5. [Look up a command](CLI.md) or [use the PR regression gate](OWNER_DECISIONS_AND_PR_GATE.md#pull-request-gate-vqs-gate).
 
-| Your goal | Guide | Evidence / limitations |
-| :--- | :--- | :--- |
-| **See the product vision and release roadmap** | [Roadmap and diagram](../roadmap/README.md) | Published vs merged vs proposed capabilities, with clear acceptance boundaries |
-| **Install the latest release (v0.1.2)** | [Install quickstart](../README.md#get-started), [release notes](RELEASE_NOTES_v0.1.2.md) | [GitHub wheel and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2); report-level G2/G4/G6 still excluded |
-| Browse past releases | [Release history](RELEASES.md) | Versioned assets, archived release notes and changelog |
-| **Fix a report that came back "blocked"** | [Owner decisions guide](OWNER_DECISIONS_AND_PR_GATE.md) | Answers drive a disposable, verified candidate; waivers are recorded, never a pass |
-| **Stop new report regressions in pull requests** | [PR gate guide](OWNER_DECISIONS_AND_PR_GATE.md#pull-request-gate-vqs-gate), [workflow example](CLI.md#pull-request-gate-vqs-gate) | Static source gate with SARIF/annotations; not native acceptance |
-| Understand VQS in 5 minutes | [Project overview](../README.md), [User guide](USER_GUIDE.md) | [Current engineering release notes](RELEASE_NOTES_2026-10-28.md) |
-| Ask an AI agent to fix supported report issues | [AI auto-fix quickstart](AI_AGENT_QUICKSTART.md) and [Component architecture](AGENT_AUTOFIX_ARCHITECTURE.md) | [Source-bound repair triage and real blockers](AUTO_REPAIR_TRIAGE_2026-10-28.md); disposable candidate, separate promotion approval |
-| Check a PBIP for actual source defects | [CLI reference](CLI.md), [Quality guidance](PREMIUM_POWERBI.md) | [Acceptance matrix](ACCEPTANCE_MATRIX.md) |
-| Create a source-safe Light/Dark report | [Theme engine](THEME_ENGINE.md), [28-mode palette library](APPROVED_THEME_LIBRARY.md) | [Native report screenshots](REAL_THEME_SHOWCASE.md) |
-| Review the architecture | [Architecture](ARCHITECTURE.md) | [Simplified product flow](diagrams/product-flow.svg) |
-| Run native Power BI checks | [P16 Desktop UIA](VISUAL_QA_V2_P16_NATIVE_DESKTOP_UIA.md), [Loaded-source attestation](DESKTOP_SOURCE_ATTESTATION.md), [disposable-runner Desktop probe](V012_NATIVE_G_ACCEPTANCE.md#disposable-runner-desktop-probe-power-bi-desktop-2159-november-2026) | [**Current two-PBIP G2/G4/G6 evidence and release decision**](POWER_BI_CORE_ACCEPTANCE_2026-10-28.md) · [Gate #16](https://github.com/analienx/visual-quality-system/issues/16) |
-| Inspect the final synthetic Power BI Desktop report | [Five-page native Contoso showcase](VERIFIED_CONTOSO_SHOWCASE.md), [downloadable PBIP](../examples/contoso-retail-verified/README.md) | [Exact source / image hashes](media/contoso-verified/PROVENANCE.json); automated G2 and bounded G4 only |
-| Inspect all historical Light/Dark themes | [14-family native gallery](REAL_THEME_SHOWCASE.md) | [Separate theme-candidate hashes](images/adaptive-showcase/PROVENANCE.json) |
-| Integrate VQS into PBIPDocumenter | [Consumer integration](CONSUMER_INTEGRATION.md), [CLI reference](CLI.md) | Power BI-only integration may proceed; independent release acceptance remains [#16](https://github.com/analienx/visual-quality-system/issues/16) |
-| Contribute or review changes | [Contributor guide](../CONTRIBUTING.md), [Changelog](../CHANGELOG.md) | [Historical engineering records](RELEASES.md#engineering-history-versus-published-releases) · [Acceptance matrix](ACCEPTANCE_MATRIX.md) |
+`vqs fix` works on a separate candidate. Missing evidence blocks rather than silently passing. The owner chooses offered options and separately authorizes adoption. Static source checks do not certify a report's Desktop rendering or live data.
 
-## The everyday loop
+<a id="the-evidence-contract"></a>
 
-```console
-vqs doctor                                                # what is installed; never installs
-vqs fix Sales.pbip                                        # safe fixes in a disposable candidate
-vqs decisions template --run-id <id> --out answers.json   # if blocked on design choices
-vqs fix Sales.pbip --decisions answers.json               # apply the owner's choices, verify
-vqs gate Sales.pbip --baseline main/Sales.pbip            # in CI: fail only on new findings
-```
+## Build or review VQS
 
-Exit codes everywhere: `0` pass · `1` demonstrated problem · `2` blocked
-(missing evidence or capability; never a soft pass).
+- [v0.2 delivery plan and dependencies](../roadmap/README.md#next-product-milestone-v020--prove-better-outcomes)
+- [Contribute and run tests](../CONTRIBUTING.md)
+- [Architecture](ARCHITECTURE.md) and [agent/repair workflow](AGENT_AUTOFIX_ARCHITECTURE.md)
+- [Acceptance gates and profiles](ACCEPTANCE_MATRIX.md)
+- [Native source attestation](DESKTOP_SOURCE_ATTESTATION.md) and [Desktop engineering evidence](V012_NATIVE_G_ACCEPTANCE.md)
+- [Power BI integration](CONSUMER_INTEGRATION.md) and [theme guide](THEME_ENGINE.md)
 
-## The evidence contract
+## Examples and engineering history
 
-1. **Source**: inspect versioned PBIR/TMDL, never silently alter a user's original report.
-2. **Candidate**: generate an isolated, reversible change; verify its source and model hashes.
-3. **Authoring**: use Microsoft's official report-author CLI for structural validation; zero schema errors does not prove correct pixels.
-4. **Desktop**: verify populated screenshots, rendered labels and supported interactions against live DAX from the same report.
-5. **Acceptance**: independent reviewer and release owner decide promotion; never self-award G2/G4/G6 acceptance based solely on CI.
+- [Fictional Contoso reference report](VERIFIED_CONTOSO_SHOWCASE.md) and [its reproducible PBIP](../examples/contoso-retail-verified/README.md)
+- [Theme gallery](REAL_THEME_SHOWCASE.md) and [palette library](APPROVED_THEME_LIBRARY.md)
+- [Release and engineering history](RELEASES.md), [changelog](../CHANGELOG.md), and the [archived status snapshot](../roadmap/STATUS.md)
+- [Browse the full documentation directory](https://github.com/analienx/visual-quality-system/tree/main/docs)
+- [Historical two-PBIP acceptance record](POWER_BI_CORE_ACCEPTANCE_2026-10-28.md) and current [release gate issue #16](https://github.com/analienx/visual-quality-system/issues/16)
 
-The [original five-colorway Desktop gallery](THEME_GALLERY.md) is preserved as historical evidence. The [14-family native gallery](REAL_THEME_SHOWCASE.md) now contains 28 Light/Dark report variants with 56 source-bound Desktop screenshot previews. The [palette library](APPROVED_THEME_LIBRARY.md) compares all 28 color and control swatches, including family-specific dropdown and selected-state colors.
+Historical records explain what was observed at a particular revision; they are not current acceptance by themselves. Preserve their provenance and consult the linked current issues before relying on a capability claim. Power BI is the primary product; Word/DOCX is separately scoped.
