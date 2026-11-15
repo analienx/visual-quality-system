@@ -6,11 +6,17 @@ VQS helps people and their agents improve Power BI reports with source-grounded 
 
 ## Release path
 
-| Version | Status | What it delivers |
-| :--- | :--- | :--- |
-| [v0.1.1](../docs/RELEASE_NOTES_v0.1.1.md) | Released 30 October 2026 | Local CLI/MCP and candidate repairs. |
-| [v0.1.2](../docs/RELEASE_NOTES_v0.1.2.md) | Released 7 November 2026 | Source-only review, owner decisions, explicit adoption and static PR gates. [Download](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2) |
-| v0.2.0 | In development; scope and release date not finalized | The proposed milestones below aim to prove better outcomes, including data-aware and rendered regression evidence. |
+### v0.1.2 — current published release
+
+**Published 7 November 2026.** Source-only Power BI review, owner decisions, explicit candidate adoption and static pull-request gates. [Download the wheel and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2) · [Release notes](../docs/RELEASE_NOTES_v0.1.2.md).
+
+### v0.1.1 — previous release
+
+**Published 30 October 2026.** Local CLI/MCP and candidate repairs. [Release notes](../docs/RELEASE_NOTES_v0.1.1.md).
+
+### v0.2.0 — in development
+
+Proposed improvements include data-aware validation and rendered regression evidence. **Scope and release date are not finalized.** Draft code and passing CI are not release or native-acceptance approval; see the milestone evidence below.
 
 The source-only v0.1.2 release does not certify native Desktop rendering, live-data parity or a whole report. Those claims require separate evidence and acceptance; see the [acceptance matrix](../docs/ACCEPTANCE_MATRIX.md).
 
