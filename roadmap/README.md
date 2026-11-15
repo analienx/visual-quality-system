@@ -48,6 +48,10 @@ VQS inspects source, proposes bounded changes, repairs a copy and verifies what 
 
 7. **Prepare distribution — not started for v0.2.** Finalize version, supported scope, installation, release notes and artifacts after the agreed milestones. Done with reviewed exact source, clean installs, checksums, documented limits and an owner release decision. This cannot substitute for a required report-acceptance gate. [Release history](../docs/RELEASES.md) · [Acceptance matrix](../docs/ACCEPTANCE_MATRIX.md)
 
+**Success metric (retained planning goal):** verified **useful improvements per report**, not raw counts of findings, rules, tests or features. Measure adoption friction, false-positive rate, blocked-decision resolution, rendered regressions and evidence coverage so a green test suite is never mistaken for better user outcomes.
+
+**Demonstration bar (not yet met):** validate at least **two genuinely unrelated PBIP projects** with meaningful negative controls for wrong source/Desktop PID, stale screenshots, missing data, uncommitted UIA actions and unauthorized edits. Demonstrate populated native page renders, supported interactions and relevant DAX/filter parity where available, and distinguish synthetic/source checks from independent human G2/G4 review and explicit owner G6 authorization. Use the [Contoso design findings #118](https://github.com/analienx/visual-quality-system/issues/118) to measure substantive analytical improvements rather than adding decorative visuals.
+
 **Already available or drafted:** v0.1.2 ships owner-answerable decisions and explicit adoption. A copyable agent/CI workflow is proposed in [#141](https://github.com/analienx/visual-quality-system/pull/141), with a follow-up in [#155](https://github.com/analienx/visual-quality-system/pull/155); actual consumer-workflow annotation placement has not been independently demonstrated. Capture readiness hardening is drafted in [#148](https://github.com/analienx/visual-quality-system/pull/148), [#151](https://github.com/analienx/visual-quality-system/pull/151) and [#156](https://github.com/analienx/visual-quality-system/pull/156). An echoed model name is a consistency check, not independent proof of the model loaded by Desktop.
 
 ### What the acceptance gates mean
@@ -58,7 +62,9 @@ A version release and a report's acceptance are different decisions. An owner ca
 
 ## What is outside the current claim
 
-Word/DOCX is separately scoped; Fabric Apps [#18](https://github.com/analienx/visual-quality-system/issues/18) is deferred. Shape Map country-specific clicking and hidden tooltip hover are not claimed as supported without separate proof. Do not upload private report data or screenshots to the public repository. Native work requires the appropriate host, evidence and permissions.
+**Retained planning non-goals (unless the owner explicitly changes scope):** no new theme-family expansion, hosted service, broad Fabric administration, unrestricted autonomous report authoring, or Word/DOCX certification as a dependency of the Power BI releases. These are scope constraints, not assertions that the product already implements or verifies those capabilities.
+
+Word/DOCX remains separately scoped; Fabric Apps [#18](https://github.com/analienx/visual-quality-system/issues/18) is deferred. Shape Map country-specific clicking and hidden tooltip hover are not claimed as supported without separate proof. Do not upload private report data or screenshots to the public repository. Native work requires the appropriate host, evidence and permissions.
 
 ## How progress is tracked
 

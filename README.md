@@ -10,7 +10,7 @@
     <a href="#real-power-bi-showcase">Real report gallery</a> ·
     <a href="docs/CLI.md">CLI</a> ·
     <a href="docs/RELEASE_NOTES_v0.1.2.md">Latest release</a> ·
-    <a href="docs/RELEASES.md">Release history</a> ·
+    <a href="docs/OWNER_DECISIONS_AND_PR_GATE.md">Decisions &amp; adoption</a> ·
     <a href="docs/README.md">All docs</a>
   </p>
   <p>
@@ -51,6 +51,8 @@ vqs fix "path/to/Sales.pbip" --run-id sales-2 --decisions answers.json
 An agent can use the same engine through the `vqs-mcp` entrypoint. In CI, `vqs gate HEAD.pbip --baseline BASE.pbip --sarif vqs.sarif` flags *new* source findings, not every pre-existing issue.
 
 [**5-minute agent quickstart**](docs/AI_AGENT_QUICKSTART.md) · [User guide](docs/USER_GUIDE.md) · [Capabilities and limits](docs/CAPABILITIES.md) · [CLI reference](docs/CLI.md)
+
+Before choosing a design option or adopting a candidate, read [owner decisions, waivers and adoption](docs/OWNER_DECISIONS_AND_PR_GATE.md). On Windows, use **PowerShell**, not Command Prompt, for the generated adoption command. Only the owner can authorize adoption.
 
 **Supported boundary:** v0.1.2 is a **source-level** review and safe candidate-repair release. It does not certify arbitrary native Desktop rendering, interactions, live DAX parity, G2/G4/G6 signoff, or Word/DOCX. A blocked result is not a successful repair. [Read the exact limits and test evidence](docs/RELEASE_NOTES_v0.1.2.md#verified-release-scope).
 
