@@ -109,19 +109,46 @@ resources ship inside the wheel; `vqs doctor` reports the real authoring readine
 rather than presence-only success, and never downgrades a validator or auto-installs
 one.
 
-## What was actually verified
+## Verified release scope
 
-| Gate | Environment | Result |
-| :--- | :--- | :--- |
-| Full test suite | Linux, Python 3.13 | **pass** — 2200 passed, 21 skipped, `ruff` clean |
-| Clean-install chain | fresh venv, wheel only, no source on path | **pass** — 19/19 assertions |
-| `fix` → template → answered `fix` → `changes` → adoption | installed wheel, disposable copy of the fictional report | **pass** — 5 questions, 7 declared changes, `.vqs-backup` kept |
-| `gate` → SARIF, stored-baseline round trip | installed wheel | **pass** — SARIF 2.1.0, driver version 0.1.2, capture and re-compare both exit 0 |
-| Negative controls | installed wheel | **blocked, as required** — stale answers, unusable answers, unparseable answers, forged owner-decision proof |
-| Original preservation | recursive digest before/after | **unchanged** |
-| Ubuntu + Windows × Python 3.11–3.13 clean wheel | GitHub runners | see the release commit's CI run |
-| Windows Desktop probe | — | **not run** for this release; its pinning change is config-only and unverified until a Windows runner executes it |
-| Native G2/G4, owner G6 | — | **not run** |
+The runtime code is the reviewed #128 → #154 → #158 chain at
+`5422e0df21c5fcb164256d2f47812a33503985ba`. Final release preparation changes
+documentation only. The v0.2 integration stack (#160) is excluded.
+
+| Check | Evidence at reviewed code revision |
+| :--- | :--- |
+| Windows / Python 3.12 full suite | 2,269 passed, 0 failed, 7 skipped |
+| Ubuntu / Python 3.11, 3.12 and 3.13 full suite | 2,230 passed, 0 failed, 46 skipped in each environment |
+| Exact-code hosted checks | 14/14 successful |
+| Clean installed wheel, Ubuntu + Windows × Python 3.11–3.13 | All six evidence records independently inspected: PASS |
+| Owner decisions and adoption | 5 questions, 7 declared changes; backup retained on disposable fixture |
+| Negative controls | Stale/bogus answers and forged owner proof blocked in all six runs |
+| Source preservation | Original unchanged in all six runs |
+
+[Full-suite logs](https://github.com/analienx/visual-quality-system/actions/runs/42363560673)
+and [six-environment installed-wheel evidence](https://github.com/analienx/visual-quality-system/actions/runs/42363560499).
+Skips are recorded per platform; they are not passing evidence. Final documentation
+revision checks and artifact checksums are linked from the GitHub release.
+
+The independent source reviews are COMMENT reviews, including the bounded API
+review on [#158](https://github.com/analienx/visual-quality-system/pull/158).
+Publication is owner-authorized; no native G6 approval is represented by it.
+Public `repair_candidate` rejects caller-supplied owner authority. The coordinator's
+private Python implementation accepts trusted internal state; in-process Python
+code is not sandboxed and the owner name in an answer file is not authentication.
+
+## Known limits of this distribution
+
+- Native Desktop, live DAX and report-level G2/G4/G6 remain separately gated.
+- Use the generated adoption command in its named shell. When replacing the
+  approval placeholder in PowerShell, use a single-quoted literal (double any
+  embedded apostrophe) so `$` and backticks in your explanation remain literal.
+- Generic `--out`/`--sarif` destinations are caller-controlled files; not every
+  output route refuses symbolic links. Choose a new ordinary output file.
+- Capture a baseline separately from producing comparison SARIF. A combined
+  `--emit-baseline --sarif` capture can label existing findings as new even though
+  baseline capture exits successfully; it is not a regression comparison.
+- macOS and actual consumer-repository annotation placement were not verified.
 
 ## What this release is not
 
@@ -147,14 +174,10 @@ one.
 Verify the artifacts you install against the checksums published with the GitHub
 release, and the release tag against the exact commit it was built from.
 
-| Artifact | SHA-256 |
-| :--- | :--- |
-| `visual_quality_system-0.1.2-py3-none-any.whl` | `80a87be76b56ad25784d4c72ee4e4c74375593b526447090c60cb9fe3ead403d` |
-| `visual_quality_system-0.1.2.tar.gz` | `b958ba4dfa3fb7cd4921f2dc5eb36eacffa6230e2af33cde58edf443331e6eb6` |
-
-Those digests are for the artifacts built from the release commit. Rebuilding from a
-different commit produces different digests; re-record them rather than reusing
-these.
+The GitHub release publishes the final wheel, source archive, and `SHA256SUMS`.
+Checksums are kept with those artifacts rather than embedded here: changing this
+file changes the source archive and would invalidate a self-referential digest.
+Verify the downloaded files against that release's `SHA256SUMS` and its exact tag.
 
 ## Further reading
 

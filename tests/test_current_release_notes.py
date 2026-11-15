@@ -15,8 +15,10 @@ def test_current_release_notes_discoverable_and_bounded():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     hub = (ROOT / "docs" / "README.md").read_text(encoding="utf-8")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert CURRENT_LINK in readme
-    assert "RELEASE_NOTES_2026-10-26.md" in hub
+    history = (ROOT / "docs" / "RELEASES.md").read_text(encoding="utf-8")
+    assert "docs/RELEASES.md" in readme
+    assert "RELEASES.md" in hub
+    assert "RELEASE_NOTES_2026-10-26.md" in history
     assert CURRENT_LINK in changelog.split("## Adaptive themes integrated", 1)[0]
     for number in (81, 82, 83, 85):
         assert f"pull/{number}" in text

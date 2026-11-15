@@ -17,7 +17,7 @@ def test_quickstart_is_discoverable_from_readme_and_docs_hub():
     assert "AI_AGENT_QUICKSTART.md" in (ROOT / "docs" / "README.md").read_text(
         encoding="utf-8"
     )
-    assert "AI-driven improvement, with evidence at every step" in (ROOT / "README.md").read_text(
+    assert "How VQS works" in (ROOT / "README.md").read_text(
         encoding="utf-8"
     )
 
@@ -58,7 +58,7 @@ def test_agent_autofix_architecture_matches_existing_engine():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "AGENT_AUTOFIX_ARCHITECTURE.md" in guide
     assert "AGENT_AUTOFIX_ARCHITECTURE.md" in readme
-    assert readme.index("## AI-driven improvement, with evidence at every step") < readme.index(
+    assert readme.index("## How VQS works") < readme.index(
         "## Real Power BI showcase"
     )
     assert "Agent-first automatic candidate fixing" in (
@@ -86,14 +86,14 @@ def test_premium_homepage_has_working_agent_navigation_and_real_theme_gallery():
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     first = readme.split("## Real Power BI showcase", 1)[0]
-    assert "AI-driven improvement, with evidence at every step" in first
-    assert "vqs_run" in first and "--mode repair" in first
-    assert "scope=static" in first
-    assert "Fixed" in first and "Verified" in first and "Still blocked" in first
-    assert "original" in first and "isolated candidate" in first
+    assert "## Latest release · v0.1.2" in first
+    assert "## How VQS works" in first
+    assert "vqs-mcp" in first and "vqs fix" in first
+    assert "source-level" in first and "blocked" in first
+    assert "original" in first and "separate candidate" in first
     for path in ("docs/AI_AGENT_QUICKSTART.md",
                  "docs/AGENT_AUTOFIX_ARCHITECTURE.md",
-                 "docs/diagrams/product-flow.svg"):
+                 "docs/diagrams/vqs-product-loop-mobile.svg"):
         assert path in first
         assert (ROOT / path).is_file()
 

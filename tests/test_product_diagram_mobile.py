@@ -42,5 +42,5 @@ def test_public_entry_points_use_the_mobile_diagram_not_mermaid() -> None:
     roadmap = (ROOT / "roadmap" / "README.md").read_text(encoding="utf-8")
     assert 'src="docs/diagrams/vqs-product-loop-mobile.svg"' in root_readme
     assert 'src="../docs/diagrams/vqs-product-loop-mobile.svg"' in roadmap
-    assert "```mermaid" not in root_readme.split("## Product direction", 1)[1].split("## Install", 1)[0]
+    assert "```mermaid" not in root_readme.split("## How VQS works", 1)[1].split("## Verified reference report", 1)[0]
     assert "```mermaid" not in roadmap.split("## Product direction", 1)[1].split("## Release path", 1)[0]
