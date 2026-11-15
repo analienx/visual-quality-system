@@ -184,4 +184,4 @@ Renders may show business data. Keep renders, bundles, `.abf`
 caches, credentials, and `.vqs-runs/` out of public git (all
 gitignored by default). Never attach real screenshots to public
 issues; use hashes, page/visual IDs, and finding descriptions.
-Cloud submission of data or images needs explicit owner
+Cloud submission of data or images requires explicit owner approval and must follow the applicable organization data-handling and privacy policies.
