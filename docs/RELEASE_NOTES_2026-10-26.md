@@ -1,8 +1,10 @@
 # Engineering update · 26 October 2026
 
+> **Historical record:** This describes the October 2026 engineering state, not the current published release or a current acceptance decision. Start with [current documentation](README.md) or [release history](RELEASES.md).
+
 **Visual Quality System — Power BI first · engineering preview · not a production release**
 
-**Status: integrated to `main`, green hosted checks, but independent `powerbi-core` G2/G4/G6 remains open.** This is the latest consolidated engineering release note, not a GitHub Release, a new semantic version, or an authorization to deploy.
+**Status as of 26 October 2026: integrated to `main`, green hosted checks, but independent `powerbi-core` G2/G4/G6 remained open.** This was a dated engineering summary, not a GitHub Release, a new semantic version, or an authorization to deploy.
 
 [Start with an AI agent](AI_AGENT_QUICKSTART.md) · [How autonomous repairs work](AGENT_AUTOFIX_ARCHITECTURE.md) · [Real Power BI showcase](REAL_THEME_SHOWCASE.md) · [Full changelog](../CHANGELOG.md) · [Release acceptance #16](https://github.com/analienx/visual-quality-system/issues/16)
 
@@ -46,4 +48,4 @@ The project README now directly links both the [five-minute agent setup](AI_AGEN
 | PBIPDocumenter **consumer deployment parity** | **Open in [#17](https://github.com/analienx/visual-quality-system/issues/17)** | Source inventory parity exists; clean-host native parity, rollback and consumer migration remain separate. |
 | Optional **Word/DOCX** component | **Separately scoped [#13](https://github.com/analienx/visual-quality-system/issues/13)** | Word pagination/output review must not block Power BI-only engineering integration. |
 
-**No production tag or GitHub Release was created by these merges.** The last dated [21 October engineering notes](RELEASE_NOTES_2026-10-21.md) and [24–25 October theme history](RELEASE_NOTES_THEME_2026-10-24.md) are retained as historical snapshots. For the current product-facing state, use this 26 October summary plus the issue tracker.
+**No production tag or GitHub Release was created by these merges as of 26 October 2026.** The [21 October engineering notes](RELEASE_NOTES_2026-10-21.md), [24–25 October theme history](RELEASE_NOTES_THEME_2026-10-24.md) and this summary remain historical snapshots. For the **current** product-facing state, use the [published v0.1.2 release notes](RELEASE_NOTES_v0.1.2.md), [release history](RELEASES.md) and [open issues](https://github.com/analienx/visual-quality-system/issues).

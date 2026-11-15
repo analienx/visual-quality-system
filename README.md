@@ -10,7 +10,7 @@
     <a href="#real-power-bi-showcase">Real report gallery</a> ·
     <a href="docs/CLI.md">CLI</a> ·
     <a href="docs/RELEASE_NOTES_v0.1.2.md">Latest release</a> ·
-    <a href="docs/RELEASES.md">Release history</a> ·
+    <a href="docs/OWNER_DECISIONS_AND_PR_GATE.md">Decisions &amp; adoption</a> ·
     <a href="docs/README.md">All docs</a>
   </p>
   <p>
@@ -37,20 +37,22 @@ Download the wheel from the release above, verify its checksum, then run:
 python -m pip install ./visual_quality_system-0.1.2-py3-none-any.whl
 npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
 vqs doctor
-vqs fix "path/to/Sales.pbip"
+vqs fix "path/to/Sales.pbip" --run-id sales-1
 ```
 
-If a fix needs your decision, VQS returns answerable options; edit the generated answers before rerunning:
+If a fix needs your decision, VQS returns answerable options; edit the generated answers before rerunning. Use fresh run IDs for each attempt:
 
 ```bash
-vqs decisions template --run-id <fix-run-id> --out answers.json
+vqs decisions template --run-id sales-1 --out answers.json
 # Choose the offered options in answers.json; never invent an answer.
-vqs fix "path/to/Sales.pbip" --decisions answers.json
+vqs fix "path/to/Sales.pbip" --run-id sales-2 --decisions answers.json
 ```
 
 An agent can use the same engine through the `vqs-mcp` entrypoint. In CI, `vqs gate HEAD.pbip --baseline BASE.pbip --sarif vqs.sarif` flags *new* source findings, not every pre-existing issue.
 
-[**5-minute agent quickstart**](docs/AI_AGENT_QUICKSTART.md) · [CLI reference](docs/CLI.md) · [Decisions and PR gate](docs/OWNER_DECISIONS_AND_PR_GATE.md)
+[**5-minute agent quickstart**](docs/AI_AGENT_QUICKSTART.md) · [User guide](docs/USER_GUIDE.md) · [Capabilities and limits](docs/CAPABILITIES.md) · [CLI reference](docs/CLI.md)
+
+Before choosing a design option or adopting a candidate, read [owner decisions, waivers and adoption](docs/OWNER_DECISIONS_AND_PR_GATE.md). On Windows, use **PowerShell**, not Command Prompt, for the generated adoption command. Only the owner can authorize adoption.
 
 **Supported boundary:** v0.1.2 is a **source-level** review and safe candidate-repair release. It does not certify arbitrary native Desktop rendering, interactions, live DAX parity, G2/G4/G6 signoff, or Word/DOCX. A blocked result is not a successful repair. [Read the exact limits and test evidence](docs/RELEASE_NOTES_v0.1.2.md#verified-release-scope).
 
@@ -58,9 +60,9 @@ An agent can use the same engine through the `vqs-mcp` entrypoint. In CI, `vqs g
 
 **Microsoft tooling** helps author and validate Power BI reports. **VQS** measures defects, applies allowed changes to a separate candidate, records evidence and exposes what still needs an owner's decision. These tools complement each other.
 
-<img src="docs/diagrams/vqs-product-loop-mobile.svg" alt="Mobile-friendly flow: user and AI agent, Microsoft authoring, VQS quality checks, then either an evidenced candidate for owner review or an explicitly blocked result" width="720">
+<a href="docs/diagrams/vqs-product-loop-mobile.svg"><img src="docs/diagrams/vqs-product-loop-mobile.svg" alt="Product flow: user and AI agent, Microsoft authoring, VQS quality checks, then evidenced candidate for owner review or an explicitly blocked result" width="720"></a>
 
-[**Full product roadmap**](roadmap/README.md) · [How the agent/repair architecture works](docs/AGENT_AUTOFIX_ARCHITECTURE.md)
+[**Open the diagram full size**](docs/diagrams/vqs-product-loop-mobile.svg) · [**Full product roadmap**](roadmap/README.md) · [How the agent/repair architecture works](docs/AGENT_AUTOFIX_ARCHITECTURE.md)
 
 ```text
 Inspect PBIR/TMDL → Propose bounded changes → Repair a copy → Verify → Review/adopt
@@ -167,7 +169,7 @@ reviewable; static screenshots are not interaction certification.
 
 ## Other ways to use VQS
 
-If you prefer the CLI without an agent, install and inspect a source report locally:
+To try a repository fixture as a contributor, install a source checkout. This is a development installation and may include unreleased behavior; users can use the published wheel above:
 
 ```bash
 git clone https://github.com/analienx/visual-quality-system.git

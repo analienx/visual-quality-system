@@ -47,3 +47,43 @@ def test_homepage_preserves_featured_actual_report_gallery() -> None:
                    "Okabe–Ito Night"):
         assert f"### {family}" in readme
     assert 'src="docs/diagrams/vqs-product-loop-mobile.svg"' in readme
+
+
+def test_owner_adoption_guidance_visible_from_homepage() -> None:
+    readme = _read("README.md")
+    guide = _read("docs/OWNER_DECISIONS_AND_PR_GATE.md")
+    assert 'href="docs/OWNER_DECISIONS_AND_PR_GATE.md"' in readme
+    assert "[owner decisions, waivers and adoption](docs/OWNER_DECISIONS_AND_PR_GATE.md)" in readme
+    assert "PowerShell" in readme and "Command Prompt" in readme
+    assert "PowerShell" in guide and "Command Prompt" in guide
+
+
+def test_roadmap_retains_scope_and_outcome_evidence_requirements() -> None:
+    roadmap = _read("roadmap/README.md")
+    for phrase in (
+        "Success metric",
+        "useful improvements per report",
+        "false-positive rate",
+        "Demonstration bar",
+        "two genuinely unrelated PBIP projects",
+        "stale screenshots",
+        "independent human G2/G4",
+        "owner G6",
+        "Retained planning non-goals",
+        "theme-family expansion",
+        "hosted service",
+        "unrestricted autonomous report authoring",
+    ):
+        assert phrase in roadmap
+
+
+def test_historical_status_and_privacy_guidance_are_complete() -> None:
+    historical = _read("docs/RELEASE_NOTES_2026-10-26.md")
+    guide = _read("docs/USER_GUIDE.md")
+    assert "Historical record" in historical
+    assert "Status as of 26 October 2026" in historical
+    assert "For the **current** product-facing state" in historical
+    assert "published v0.1.2 release notes" in historical
+    assert "use this 26 October summary" not in historical
+    assert "Cloud submission of data or images requires explicit owner approval" in guide
+    assert "data-handling and privacy policies." in guide

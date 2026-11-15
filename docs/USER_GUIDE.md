@@ -4,20 +4,45 @@ End-to-end workflows with copy-paste commands. Command details live in
 [CLI.md](CLI.md); gates and test IDs in
 [ACCEPTANCE_MATRIX.md](ACCEPTANCE_MATRIX.md).
 
-## Setup
+<a id="setup"></a>
+
+## Start with the published release
+
+Download the [v0.1.2 wheel and SHA256SUMS](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2). From the download directory, print the wheel's hash:
 
 ```bash
-pip install -e ".[test]"
-vqs doctor     # presence of report author, Bridge, MCP, Desktop; never installs
-python -m pytest
+python -c "import hashlib; from pathlib import Path; print(hashlib.sha256(Path('visual_quality_system-0.1.2-py3-none-any.whl').read_bytes()).hexdigest())"
 ```
 
-External tools are optional and detected, never required to install:
-`vqs measure`, `vqs cycles`, and `vqs check` run on sources alone.
-Screenshots need Windows + Power BI Desktop + the
-[Desktop Bridge](https://www.npmjs.com/package/@microsoft/powerbi-desktop-bridge-cli);
-live model work needs the
-[Modeling MCP](https://github.com/microsoft/powerbi-modeling-mcp).
+Compare the printed value to the wheel's line in `SHA256SUMS`. If they differ, stop and download the files again. Then install and run:
+
+```bash
+python -m pip install ./visual_quality_system-0.1.2-py3-none-any.whl
+npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
+vqs doctor
+vqs fix "path/to/Sales.pbip" --run-id sales-1
+```
+
+`doctor` reports available capabilities; it does not install missing tools. A source review can run without Power BI Desktop, but production authoring requires the pinned Microsoft validator. See [capabilities and limits](CAPABILITIES.md).
+
+## Understand the result
+
+- **Pass** means the requested evidence-backed check passed; it is not automatically report-level acceptance.
+- **Fail** means a violation was demonstrated. **Blocked** means required evidence or capability is missing. A successful repair stage may still leave the overall result blocked or not accepted.
+- **Needs review** lists owner-dependent questions and options. Show them to the owner. Never invent an answer or use a waiver to cover missing evidence.
+- A candidate is a separate copy. Review its changes and evidence; promotion replaces the original with a backup and requires the owner's explicit decision. Use the returned `adopt` step only after that decision. See [owner decisions and adoption](OWNER_DECISIONS_AND_PR_GATE.md).
+
+If `sales-1` asks for an owner choice, generate the answers file, let the owner choose among the offered options, then rerun with a fresh ID:
+
+```bash
+vqs decisions template --run-id sales-1 --out answers.json
+# The owner edits answers.json to select offered options.
+vqs fix "path/to/Sales.pbip" --run-id sales-2 --decisions answers.json
+```
+
+Choose fresh IDs for each run. If you used a custom `--run-root`, pass the same root to the template and rerun commands. The template refuses to overwrite an existing file.
+
+The workflows below are advanced reference examples. Examples using repository fixtures or `scripts/` require a source checkout; users of the release wheel do not need one. Contributors can set up a checkout via [Contributing](../CONTRIBUTING.md).
 
 ## Workflow 1: static review (no Desktop)
 
@@ -159,4 +184,4 @@ Renders may show business data. Keep renders, bundles, `.abf`
 caches, credentials, and `.vqs-runs/` out of public git (all
 gitignored by default). Never attach real screenshots to public
 issues; use hashes, page/visual IDs, and finding descriptions.
-Cloud submission of data or images needs explicit owner
+Cloud submission of data or images requires explicit owner approval and must follow the applicable organization data-handling and privacy policies.

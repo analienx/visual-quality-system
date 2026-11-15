@@ -1,66 +1,76 @@
 # Product roadmap
 
-**Build with Microsoft tooling. Verify with VQS.**
+VQS helps people and their agents improve Power BI reports with source-grounded checks, bounded candidate repairs and reviewable evidence. Microsoft tools supply authoring and structural validation. [Start with an AI agent](../docs/AI_AGENT_QUICKSTART.md) · [Capabilities and limits](../docs/CAPABILITIES.md) · [Architecture](../docs/ARCHITECTURE.md)
 
-VQS is the evidence-driven quality and safe-repair layer for AI-authored Power BI reports—not a competing general-purpose report authoring agent. The goal is a *useful, demonstrably improved report*, not a longer list of findings.
-
-[All published releases](../docs/RELEASES.md) · [Start with an AI agent](../docs/AI_AGENT_QUICKSTART.md) · [Architecture and current implementation](../docs/AGENT_AUTOFIX_ARCHITECTURE.md) · [Latest published release](https://github.com/analienx/visual-quality-system/releases/latest) · [Acceptance gates](../docs/ACCEPTANCE_MATRIX.md)
-
-> **Release scope, 7 November 2026.** v0.1.2 packages source-only owner decisions,
-> candidate repairs, adoption commands and regression gates. Download availability
-> is authoritative on the [GitHub release](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2).
-> The reviewed v0.2 work remains a separate draft integration (#160), with data
-> parity and native acceptance still unresolved.
-
-
-## Product direction
-
-<img src="../docs/diagrams/vqs-product-loop-mobile.svg" alt="Vertical VQS product flow: user and agent, Microsoft tooling, VQS quality checks, then either verified candidate with owner approval or blocked pending evidence" width="720">
-
-_Designed for phone-width viewing. [Open the vector diagram](../docs/diagrams/vqs-product-loop-mobile.svg) or read the [accessible text explanation](../docs/AGENT_AUTOFIX_ARCHITECTURE.md). The SVG source remains editable in Git._
-
-**Why this separation exists:** Microsoft tooling supplies supported report authoring and structural checks, while VQS detects defects, constrains changes to disposable candidates, measures regressions and records what is—and is not—proven. A source-verified candidate is **not** a report-level G2/G4/G6 signoff. Native captures, interactions and live data are available only when the relevant host, report and evidence gates are satisfied.
+<a id="v012-published-scope-and-remaining-evidence"></a>
 
 ## Release path
 
-| Milestone | Status | Outcome | Grounding |
-| :--- | :--- | :--- | :--- |
-| **v0.1.1 — Agent-first repairs** | **Published** · 30 Oct 2026 | Installable CLI/MCP, safe candidate repairs, theme workflow, six-platform installed-wheel proof | [Release notes](../docs/RELEASE_NOTES_v0.1.1.md) |
-| **v0.1.2 — Verifiable decisions and regression gates** | **Published** · 7 Nov 2026 | Source-only repair, owner decisions and PR regression gates with six-platform installed-wheel evidence; native acceptance remains separate | [Release notes](../docs/RELEASE_NOTES_v0.1.2.md) · [Issue reconciliation](../docs/V012_ISSUE_RECONCILIATION.md) · [Acceptance evidence](../docs/V012_NATIVE_G_ACCEPTANCE.md) · [Gate #16](https://github.com/analienx/visual-quality-system/issues/16) |
-| **v0.2.0 — Intelligent repair workflow** | **Proposed product milestone** | Guided agent decisions, rendered before/after quality evidence, data-aware validation and higher-value analytical design critique | [Product/design contract](../docs/PRODUCT_AND_DESIGN_CONTRACT.md) · [Contoso quality findings #118](https://github.com/analienx/visual-quality-system/issues/118) |
+### v0.1.2 — current published release
 
-### v0.1.2 published scope and remaining evidence
+**Published 7 November 2026.** Source-only Power BI review, owner decisions, explicit candidate adoption and static pull-request gates. [Download the wheel and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2) · [Release notes](../docs/RELEASE_NOTES_v0.1.2.md).
 
-**Published:** the release artifacts and installed-wheel acceptance cover source review, owner-guided candidate repair, explicit adoption and source regression gates on supported Linux/Windows environments. See the [published release](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2) and [verified checks](../docs/RELEASE_NOTES_v0.1.2.md#verified-release-scope).
-2. Reconcile [native Save #115](https://github.com/analienx/visual-quality-system/issues/115), [source/capture provenance #116](https://github.com/analienx/visual-quality-system/issues/116) and [Region UIA #120](https://github.com/analienx/visual-quality-system/issues/120) against merged evidence. Close only when their stated acceptance criteria are actually met. **Done, as a reconciliation that closes nothing:** [docs/V012_ISSUE_RECONCILIATION.md](../docs/V012_ISSUE_RECONCILIATION.md) maps every stated criterion to the evidence that exists, separates publicly verifiable from private-host claims, and names the remaining public work (a two-subject approval manifest for #116, Save-layer adversarial tests for #115, a stale-model negative control for #120).
-3. Preserve [native feature-scope #117](https://github.com/analienx/visual-quality-system/issues/117) and [independent report release gate #16](https://github.com/analienx/visual-quality-system/issues/16) until proven or explicitly scoped out by the authorized owner; a successful source-only distribution does not resolve them.
-4. Keep [release history](../docs/RELEASES.md), the homepage and the quickstart aligned to published artifacts; v0.2 drafts are not part of v0.1.2.
+### v0.1.1 — previous release
 
-**Released scope:** the published wheel is installable and independently checked on supported platforms. Native evidence and data-parity gates above remain open, without changing the published source-only claim.
+**Published 30 October 2026.** Local CLI/MCP and candidate repairs. [Release notes](../docs/RELEASE_NOTES_v0.1.1.md).
+
+### v0.2.0 — in development
+
+Proposed improvements include data-aware validation and rendered regression evidence. **Scope and release date are not finalized.** Draft code and passing CI are not release or native-acceptance approval; see the milestone evidence below.
+
+The source-only v0.1.2 release does not certify native Desktop rendering, live-data parity or a whole report. Those claims require separate evidence and acceptance; see the [acceptance matrix](../docs/ACCEPTANCE_MATRIX.md).
+
+## Product direction
+
+<a href="../docs/diagrams/vqs-product-loop-mobile.svg"><img src="../docs/diagrams/vqs-product-loop-mobile.svg" alt="User and AI agent use Microsoft authoring and VQS to produce an evidenced candidate for review, or a blocked result needing a decision" width="720"></a>
+
+[**Open the diagram full size**](../docs/diagrams/vqs-product-loop-mobile.svg) · [Accessible text explanation](../docs/AGENT_AUTOFIX_ARCHITECTURE.md)
+
+VQS inspects source, proposes bounded changes, repairs a copy and verifies what it can. The owner answers design questions and decides whether to adopt. An independent reviewer assesses the evidence for acceptance. Missing evidence is blocked, not a pass.
 
 ### Next product milestone: v0.2.0 — prove better outcomes
 
-| Priority | Capability to build | User-visible acceptance |
-| :--- | :--- | :--- |
-| P0 | **Guided fix/decision loop** | Agent asks only real owner-dependent questions, applies approved typed edits in a disposable candidate and summarizes changed/remaining issues without manual run-ID archaeology |
-| P0 | **Rendered before/after regression review** | Exact-source, populated captures of affected pages and relevant interactive states where supported; independently checkable comparison, no undocumented visual regressions |
-| P0 | **Data-aware quality gate** | Blank/unpopulated reports do not pass a data-readiness requirement; relevant DAX/filter claims are proven under the same model and source identity or marked blocked |
-| P1 | **Analytical design critique** | Finds unsupported stories, weak comparison context, wasteful density and confusing labels using declared audience/intent; never fabricates findings or business causality |
-| P1 | **Agent/CI adoption kit** | Reproducible installation, example MCP/CLI setup and a copyable PR quality gate with exact scope and exit-code semantics |
-| P2 | **Reviewable evidence presentation** | A concise, human-readable report of before/after, corrected findings, unresolved gates and promotion options; full sealed evidence remains accessible |
+**Status checked 14 November 2026.** GitHub issues and PRs are the live sources for current status; check their current heads and reviews before starting work. A draft implementation and passing tests do not by themselves establish independent acceptance. Milestone order below expresses dependencies, not a promised release date.
 
-**Demonstration bar:** evaluate on at least two genuinely unrelated PBIP projects, test meaningful negative controls (wrong source/PID, stale screenshots, missing data, uncommitted UIA action, unauthorized edit), and explicitly separate automated checks from independent human G2/G4 and owner G6 acceptance. For the published fictional Contoso report, use [issue #118](https://github.com/analienx/visual-quality-system/issues/118) as a real analytical/design improvement benchmark rather than adding decorative visuals.
+**Status words:** *Released* means a published distribution; *draft implementation* means proposed code not integrated into a release; *blocked* means required evidence or capability is missing; *not started* means no implementation evidence has been identified; *independently verified* requires the applicable separate reviewer and proof. These describe different things and must not be inferred from a closed issue alone.
 
-### What we are deliberately not doing
+1. **Integrate the candidate — draft implementation.** Combine the existing v0.2 branches with published `main` while preserving v0.1.2. Done when the exact combined revision has appropriate regression and installed-wheel checks and independent review. Green CI alone is not native acceptance. [Integration PR #160](https://github.com/analienx/visual-quality-system/pull/160) · [Issue #159](https://github.com/analienx/visual-quality-system/issues/159)
 
-No new theme-family expansion, hosted service, broad Fabric administration, unrestricted autonomous report authoring, or Word/DOCX certification as a dependency of these **Power BI** releases. Shape Map country clicking and actual contextual tooltip hover remain unsupported unless separately proven or excluded in the release contract.
+2. **Prove data and answers — blocked.** Independently review a versioned contract, then build a producer and consumer binding loaded model, source, process, data snapshot, query and scope. Done when positive and negative controls cover wrong source/PID/model, changed data, roles/filters, truncation and missing evidence; unsupported contexts remain blocked. Equal row counts or echoed identities do not prove equal data. [Data evidence #131](https://github.com/analienx/visual-quality-system/issues/131)
+
+3. **Verify rendered regressions — draft implementation; verdict blocked.** Source-bound capture and pixel observations exist, but data/answer and interaction parity are not established. After milestone 2, demonstrate before/after results for supported states with stale-capture and changed-answer controls. Missing proof remains blocked. [Render integrity #130](https://github.com/analienx/visual-quality-system/issues/130) · [Answer regression #133](https://github.com/analienx/visual-quality-system/issues/133)
+
+4. **Demonstrate on two reports — blocked.** Two unrelated fictional PBIP sources have been inspected; current populated native captures, interactions and independent acceptance remain incomplete. After the supported evidence path and authorized native work are available, run the required checks on both reports and independently review the actual evidence. [Second PBIP #152](https://github.com/analienx/visual-quality-system/issues/152) · [Acceptance gate #16](https://github.com/analienx/visual-quality-system/issues/16)
+
+5. **Add analytical design critique — contract proposal.** Define owner-declared audience, questions and context, and map them to source/evidence without inventing business intent or causality. Done after independent interface review, a compatible implementation and false-positive/unknown-state controls. Its final inclusion in v0.2 requires scope confirmation. [Intent contract #142](https://github.com/analienx/visual-quality-system/issues/142) · [Benchmark #118](https://github.com/analienx/visual-quality-system/issues/118)
+
+6. **Present complete evidence — draft partial implementation; contract proposed.** A stage-ledger report exists, but it does not bind the complete returned result or all actual changes. Done after independent contract review, compatible sealing and tamper/stale/partial-write tests. Final v0.2 scope requires confirmation. [Evidence report #145](https://github.com/analienx/visual-quality-system/issues/145) · [Envelope contract #149](https://github.com/analienx/visual-quality-system/issues/149)
+
+7. **Prepare distribution — not started for v0.2.** Finalize version, supported scope, installation, release notes and artifacts after the agreed milestones. Done with reviewed exact source, clean installs, checksums, documented limits and an owner release decision. This cannot substitute for a required report-acceptance gate. [Release history](../docs/RELEASES.md) · [Acceptance matrix](../docs/ACCEPTANCE_MATRIX.md)
+
+**Success metric (retained planning goal):** verified **useful improvements per report**, not raw counts of findings, rules, tests or features. Measure adoption friction, false-positive rate, blocked-decision resolution, rendered regressions and evidence coverage so a green test suite is never mistaken for better user outcomes.
+
+**Demonstration bar (not yet met):** validate at least **two genuinely unrelated PBIP projects** with meaningful negative controls for wrong source/Desktop PID, stale screenshots, missing data, uncommitted UIA actions and unauthorized edits. Demonstrate populated native page renders, supported interactions and relevant DAX/filter parity where available, and distinguish synthetic/source checks from independent human G2/G4 review and explicit owner G6 authorization. Use the [Contoso design findings #118](https://github.com/analienx/visual-quality-system/issues/118) to measure substantive analytical improvements rather than adding decorative visuals.
+
+**Already available or drafted:** v0.1.2 ships owner-answerable decisions and explicit adoption. A copyable agent/CI workflow is proposed in [#141](https://github.com/analienx/visual-quality-system/pull/141), with a follow-up in [#155](https://github.com/analienx/visual-quality-system/pull/155); actual consumer-workflow annotation placement has not been independently demonstrated. Capture readiness hardening is drafted in [#148](https://github.com/analienx/visual-quality-system/pull/148), [#151](https://github.com/analienx/visual-quality-system/pull/151) and [#156](https://github.com/analienx/visual-quality-system/pull/156). An echoed model name is a consistency check, not independent proof of the model loaded by Desktop.
+
+### What the acceptance gates mean
+
+The engineering matrix labels source/contracts **G0**, actual data/renderer readiness **G1**, independently reviewed design evidence **G2**, candidate repair safety **G3**, same-task regression **G4**, Word consistency **G5**, and separate suite acceptance **G6**. The Power BI core profile requires two unrelated PBIPs, applicable G0–G4 for each and independent G6; Word G5 belongs to its own optional profile. See the [full definitions](../docs/ACCEPTANCE_MATRIX.md).
+
+A version release and a report's acceptance are different decisions. An owner can adopt only after reviewing the relevant candidate and evidence. Neither a source-only pass nor a published wheel certifies an arbitrary report.
+
+## What is outside the current claim
+
+**Retained planning non-goals (unless the owner explicitly changes scope):** no new theme-family expansion, hosted service, broad Fabric administration, unrestricted autonomous report authoring, or Word/DOCX certification as a dependency of the Power BI releases. These are scope constraints, not assertions that the product already implements or verifies those capabilities.
+
+Word/DOCX remains separately scoped; Fabric Apps [#18](https://github.com/analienx/visual-quality-system/issues/18) is deferred. Shape Map country-specific clicking and hidden tooltip hover are not claimed as supported without separate proof. Do not upload private report data or screenshots to the public repository. Native work requires the appropriate host, evidence and permissions.
 
 ## How progress is tracked
 
-- **Published** means an actual GitHub Release tag and installable artifacts.
-- **Merged** means code is on `main`, **not** necessarily available in the published wheel or independently report-certified.
-- **Proposed** means no claimed implementation, date or promotion authorization.
-- Use [open issues](https://github.com/analienx/visual-quality-system/issues) and the [acceptance matrix](../docs/ACCEPTANCE_MATRIX.md) for current unresolved evidence. The legacy [work-package status ledger](STATUS.md) is an **archived 3 October snapshot**, not today's delivery dashboard.
-- Update this page when an actual PR is merged or a release is published. Keep the roadmap short; move implementation records, raw evidence and dated investigations to their existing documentation locations.
+- The [open issues](https://github.com/analienx/visual-quality-system/issues) and bounded work packages carry implementation ownership, blockers and review evidence.
+- The [machine ledger](work_packages.json) records package state and dependencies. A closed issue or model's claim is not independent verification.
+- The old [status snapshot](STATUS.md) is archived historical context, not a current release dashboard.
+- [Release history](../docs/RELEASES.md) separates published distributions from engineering records.
 
-**Success metric:** verified *useful improvements per report*, not sheer findings, rules or test counts. Track adoption friction, false-positive rate, blocked-decision resolution, rendered regressions and evidence coverage before optimizing for more features.
+Update this page when an actual capability, evidence gate or release state changes; retain the underlying historical records.
