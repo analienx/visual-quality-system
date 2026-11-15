@@ -58,9 +58,9 @@ An agent can use the same engine through the `vqs-mcp` entrypoint. In CI, `vqs g
 
 **Microsoft tooling** helps author and validate Power BI reports. **VQS** measures defects, applies allowed changes to a separate candidate, records evidence and exposes what still needs an owner's decision. These tools complement each other.
 
-<img src="docs/diagrams/vqs-product-loop-mobile.svg" alt="Mobile-friendly flow: user and AI agent, Microsoft authoring, VQS quality checks, then either an evidenced candidate for owner review or an explicitly blocked result" width="720">
+<a href="docs/diagrams/vqs-product-loop-mobile.svg"><img src="docs/diagrams/vqs-product-loop-mobile.svg" alt="Product flow: user and AI agent, Microsoft authoring, VQS quality checks, then evidenced candidate for owner review or an explicitly blocked result" width="720"></a>
 
-[**Full product roadmap**](roadmap/README.md) · [How the agent/repair architecture works](docs/AGENT_AUTOFIX_ARCHITECTURE.md)
+[**Open the diagram full size**](docs/diagrams/vqs-product-loop-mobile.svg) · [**Full product roadmap**](roadmap/README.md) · [How the agent/repair architecture works](docs/AGENT_AUTOFIX_ARCHITECTURE.md)
 
 ```text
 Inspect PBIR/TMDL → Propose bounded changes → Repair a copy → Verify → Review/adopt

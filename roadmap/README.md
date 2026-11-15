@@ -22,7 +22,9 @@ The source-only v0.1.2 release does not certify native Desktop rendering, live-d
 
 ## Product direction
 
-<img src="../docs/diagrams/vqs-product-loop-mobile.svg" alt="User and AI agent use Microsoft authoring and VQS to produce an evidenced candidate for review, or a blocked result needing a decision" width="720">
+<a href="../docs/diagrams/vqs-product-loop-mobile.svg"><img src="../docs/diagrams/vqs-product-loop-mobile.svg" alt="User and AI agent use Microsoft authoring and VQS to produce an evidenced candidate for review, or a blocked result needing a decision" width="720"></a>
+
+[**Open the diagram full size**](../docs/diagrams/vqs-product-loop-mobile.svg) · [Accessible text explanation](../docs/AGENT_AUTOFIX_ARCHITECTURE.md)
 
 VQS inspects source, proposes bounded changes, repairs a copy and verifies what it can. The owner answers design questions and decides whether to adopt. An independent reviewer assesses the evidence for acceptance. Missing evidence is blocked, not a pass.
 
