@@ -5,6 +5,7 @@ envelopes and run manifests remain available for audits.
 """
 from __future__ import annotations
 
+import json
 import os
 import shlex
 from pathlib import Path
@@ -70,6 +71,107 @@ def _adopt(envelope: dict[str, Any], summary: dict[str, Any]) -> dict[str, Any] 
     }
 
 
+# The compact result is what an agent reads into its context, so it has a
+# hard byte budget. Owner questions and their options are mandatory: an
+# "omitted" count alone would leave an owner answering without the basis
+# for the answer, so they are never trimmed. Optional diagnostics are
+# trimmed instead, deterministically, and what went is reported.
+COMPACT_BUDGET_BYTES = 6000
+
+# Pure diagnostics: they restate findings available in the sealed run, so
+# they go first.
+_DIAGNOSTICS: tuple[str, ...] = (
+    "fixed", "remaining", "regressions", "blocked_reasons", "next_actions",
+)
+# The record of what the owner decided and what it did to the report. Kept
+# as long as possible: on an answered run this *is* the answer.
+_DECISION_RECORD: tuple[str, ...] = ("owner_decisions", "waived", "changes")
+# Bound the work on pathological input before refining entry by entry.
+_PRETRIM = 200
+
+
+def _compact_bytes(result: dict[str, Any]) -> int:
+    """Bytes the CLI actually writes: the serialized form plus its newline.
+
+    Measured in encoded UTF-8, not characters, so non-ASCII text is
+    budgeted at its real cost, and measured *with* any omission metadata
+    already attached so recording a trim cannot push the result over.
+    """
+    return len(json.dumps(result, indent=2, ensure_ascii=False,
+                          default=str).encode("utf-8")) + 1
+
+
+def _overflow(result: dict[str, Any], budget: int) -> dict[str, Any]:
+    """Refuse to be answered from: mandatory content exceeds the budget."""
+    pending = result.get("needs_review") or []
+    out = {key: result.get(key) for key in (
+        "tool", "verdict", "outcome", "run_id", "run_dir",
+        "decision_source_sha256", "candidate", "candidate_status",
+        "promotion_performed", "acceptance")}
+    # No partial questions: a subset would invite an answer based on less
+    # than the owner decision actually covers.
+    out["needs_review"] = []
+    out["compact_overflow"] = {
+        "reason": (f"{len(pending)} owner decision(s) exceed the "
+                   f"{budget}-byte compact budget on their own, and owner "
+                   "questions are never truncated"),
+        "owner_decisions_pending": len(pending),
+        "budget_bytes": budget,
+        "required_bytes": _compact_bytes(result),
+        "next_action": ("read the full result before answering: re-run with "
+                        "`--report-out <file>`, or read the sealed envelope "
+                        "in run_dir. Do not answer from this output"),
+    }
+    out["evidence"] = result.get("evidence")
+    return out
+
+
+def _trim_order(result: dict[str, Any]) -> tuple[str, ...]:
+    """Fields to give up, in order, least decision-critical first.
+
+    ``needs_review`` carries the questions an owner must answer, so while
+    any decision is unanswered it is mandatory and never appears here.
+    Once answered, those same questions are a redundant echo -- the
+    answered record and the resulting changes are what the owner reads --
+    so they become the first large thing to go.
+    """
+    answered = bool(result.get("owner_decisions"))
+    if answered:
+        return _DIAGNOSTICS + ("needs_review",) + _DECISION_RECORD
+    return _DIAGNOSTICS + _DECISION_RECORD
+
+
+def _fit_budget(result: dict[str, Any],
+                budget: int = COMPACT_BUDGET_BYTES) -> dict[str, Any]:
+    """Keep the printed result within ``budget`` encoded bytes."""
+    if _compact_bytes(result) <= budget:
+        return result
+    omitted: dict[str, int] = {}
+    trimmed = dict(result)
+    trimmed["omitted"] = omitted
+    for key in _trim_order(result):
+        original = result.get(key)
+        if not isinstance(original, list) or not original:
+            continue
+        values = list(original)
+        if len(values) > _PRETRIM:
+            values = values[:_PRETRIM]
+            trimmed[key] = values
+            omitted[key] = len(original) - len(values)
+        while _compact_bytes(trimmed) > budget and values:
+            values = values[:-1]
+            trimmed[key] = values
+            omitted[key] = len(original) - len(values)
+        if not values:
+            # An empty list carries nothing; drop the key and keep the count.
+            trimmed[key] = []
+        if _compact_bytes(trimmed) <= budget:
+            return trimmed
+    if _compact_bytes(trimmed) <= budget:
+        return trimmed
+    return _overflow(result, budget)
+
+
 def summarize(envelope: dict[str, Any]) -> dict[str, Any]:
     summary = envelope.get("summary") or {}
     triage = summary.get("repair_triage") or {}
@@ -87,7 +189,7 @@ def summarize(envelope: dict[str, Any]) -> dict[str, Any]:
         for x in decisions if x.get("status") == "needs_owner_decision"
     ]
     remaining = summary.get("remaining_findings") or []
-    return {
+    return _fit_budget({
         "tool": envelope.get("tool"),
         "verdict": envelope.get("verdict", "blocked"),
         "outcome": summary.get("outcome"),
@@ -112,4 +214,4 @@ def summarize(envelope: dict[str, Any]) -> dict[str, Any]:
         "next_actions": (envelope.get("next_actions") or [])[:8],
         "evidence": ("Sealed stage ledger available in run_dir; the returned envelope is not "
                      "sealed there. Never infer native approval from static checks"),
-    }
+    })
