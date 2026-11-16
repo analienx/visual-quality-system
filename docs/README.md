@@ -19,7 +19,7 @@ Choose a path based on what you want to do. The **latest release (v0.2.0)** is a
 
 ## Build or review VQS
 
-- [v0.2 delivery plan and dependencies](../roadmap/README.md#next-product-milestone-v020--prove-better-outcomes)
+- [v0.3 / acceptance-track plan and dependencies](../roadmap/README.md#v03-acceptance-track)
 - [Contribute and run tests](../CONTRIBUTING.md)
 - [Architecture](ARCHITECTURE.md) and [agent/repair workflow](AGENT_AUTOFIX_ARCHITECTURE.md)
 - [Acceptance gates and profiles](ACCEPTANCE_MATRIX.md)
