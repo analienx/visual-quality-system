@@ -8,7 +8,7 @@ supports explicit `release_scope=powerbi-core|word-docx|combined`;
 this field is **not** a documented CLI flag. See
 [architecture](ARCHITECTURE.md) and [acceptance](ACCEPTANCE_MATRIX.md).
 
-Install the [v0.1.1 release wheel](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.1) with `pip install <wheel-file>` (use `pip install -e .` only for development) — this exposes the `vqs`
+Install the [v0.2.0 release wheel](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0) with `pip install <wheel-file>` (use `pip install -e .` only for development) — this exposes the `vqs`
 entry point. Every command below was executed against synthetic fixtures
 during development; see `tests/test_pipeline.py` and
 `tests/test_validate_commands.py` for runnable shapes.
@@ -24,7 +24,7 @@ below expose each stage separately for debugging (expert interface).
 works anywhere the installed `vqs` does.
 
 
-## Simplified fixing (v0.1.1 supported scope)
+## Simplified fixing (supported scope)
 
 For a standalone .pbip file, one unambiguous report root, or a `*.Report`
 folder, the new `vqs fix` command resolves the local model where possible,
@@ -217,8 +217,7 @@ The runner image and package index remain external inputs; a locked mirror or
 verified release wheel is needed if your environment requires stronger supply
 chain reproducibility.
 
-The current published release is v0.1.1; the gate is post-v0.1.1 source and
-must not be assumed to exist in that release. VQS is not currently published
+The gate ships in v0.2.0. VQS is not currently published
 as a PyPI distribution. Select and review the source commit yourself, or use a
 future published release artifact after verifying its digest and capabilities.
 

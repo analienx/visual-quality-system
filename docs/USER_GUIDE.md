@@ -8,16 +8,16 @@ End-to-end workflows with copy-paste commands. Command details live in
 
 ## Start with the published release
 
-Download the [v0.1.2 wheel and SHA256SUMS](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2). From the download directory, print the wheel's hash:
+Download the [v0.2.0 wheel and SHA256SUMS](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0). From the download directory, print the wheel's hash:
 
 ```bash
-python -c "import hashlib; from pathlib import Path; print(hashlib.sha256(Path('visual_quality_system-0.1.2-py3-none-any.whl').read_bytes()).hexdigest())"
+python -c "import hashlib; from pathlib import Path; print(hashlib.sha256(Path('visual_quality_system-0.2.0-py3-none-any.whl').read_bytes()).hexdigest())"
 ```
 
 Compare the printed value to the wheel's line in `SHA256SUMS`. If they differ, stop and download the files again. Then install and run:
 
 ```bash
-python -m pip install ./visual_quality_system-0.1.2-py3-none-any.whl
+python -m pip install ./visual_quality_system-0.2.0-py3-none-any.whl
 npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
 vqs doctor
 vqs fix "path/to/Sales.pbip" --run-id sales-1

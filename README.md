@@ -9,7 +9,7 @@
     <a href="docs/AGENT_AUTOFIX_ARCHITECTURE.md">How it works</a> ·
     <a href="#real-power-bi-showcase">Real report gallery</a> ·
     <a href="docs/CLI.md">CLI</a> ·
-    <a href="docs/RELEASE_NOTES_v0.1.2.md">Latest release</a> ·
+    <a href="docs/RELEASE_NOTES_v0.2.0.md">Latest release</a> ·
     <a href="docs/OWNER_DECISIONS_AND_PR_GATE.md">Decisions &amp; adoption</a> ·
     <a href="docs/README.md">All docs</a>
   </p>
@@ -17,24 +17,24 @@
     <a href="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml"><img src="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml/badge.svg" alt="GitHub CI status"></a>
     <img src="https://img.shields.io/badge/Python-3.11%2B-3270B7" alt="Python 3.11 and newer">
     <img src="https://img.shields.io/badge/License-Apache--2.0-18977A" alt="Apache 2.0">
-    <img src="https://img.shields.io/badge/Status-supported%20CLI%20v0.1.2%20%7C%20native%20preview-E2A744" alt="Supported CLI v0.1.2 distribution; native features retain evidence gates">
+    <img src="https://img.shields.io/badge/Status-supported%20CLI%20v0.2.0%20%7C%20native%20preview-E2A744" alt="Supported CLI v0.2.0 distribution; native features retain evidence gates">
   </p>
 </div>
 
-## Latest release · v0.1.2
+## Latest release · v0.2.0
 
-**Verifiable decisions and regression gates** · Published **7 November 2026** · Python 3.11+ · Local CLI/MCP
+**Evidence you can hand to someone else** · Python 3.11+ · Local CLI/MCP
 
-[**Download v0.1.2 and verify checksums**](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2) · [What's new and supported](docs/RELEASE_NOTES_v0.1.2.md) · [All published releases](docs/RELEASES.md)
+[**Download v0.2.0 and verify checksums**](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0) · [What's new, and the limits](docs/RELEASE_NOTES_v0.2.0.md) · [All published releases](docs/RELEASES.md)
 
-VQS turns source-provable Power BI defects into **reversible repair candidates**. This release adds owner-answerable design questions, readable changes with explicit adoption, and a pull-request quality gate with SARIF. The original report is not silently changed.
+VQS turns source-provable Power BI defects into **reversible repair candidates**. This release adds experimental rendered pixel observations that report where two captures differ and whether those differences fall inside the visuals you edited (its overall verdict is always blocked in this version), a readable evidence report for a sealed run's stage ledger, and a copyable CI quality gate. The original report is not silently changed, and **no report-level acceptance is claimed**.
 
 ### Get started
 
 Download the wheel from the release above, verify its checksum, then run:
 
 ```bash
-python -m pip install ./visual_quality_system-0.1.2-py3-none-any.whl
+python -m pip install ./visual_quality_system-0.2.0-py3-none-any.whl
 npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
 vqs doctor
 vqs fix "path/to/Sales.pbip" --run-id sales-1
@@ -54,7 +54,7 @@ An agent can use the same engine through the `vqs-mcp` entrypoint. In CI, `vqs g
 
 Before choosing a design option or adopting a candidate, read [owner decisions, waivers and adoption](docs/OWNER_DECISIONS_AND_PR_GATE.md). On Windows, use **PowerShell**, not Command Prompt, for the generated adoption command. Only the owner can authorize adoption.
 
-**Supported boundary:** v0.1.2 is a **source-level** review and safe candidate-repair release. It does not certify arbitrary native Desktop rendering, interactions, live DAX parity, G2/G4/G6 signoff, or Word/DOCX. A blocked result is not a successful repair. [Read the exact limits and test evidence](docs/RELEASE_NOTES_v0.1.2.md#verified-release-scope).
+**Supported boundary:** v0.2.0 is a **source-level** review and safe candidate-repair release. It does not certify arbitrary native Desktop rendering, interactions, live DAX parity, G2/G4/G6 signoff, or Word/DOCX. A blocked result is not a successful repair. [Read the exact limits](docs/RELEASE_NOTES_v0.2.0.md#limits--read-this-before-relying-on-the-release).
 
 ## How VQS works
 
@@ -211,7 +211,7 @@ The 14 approved theme families include **28 Light/Dark modes** with real source-
 | **Power BI report authors** | [Getting started](docs/USER_GUIDE.md) · [Premium design guide](docs/PREMIUM_POWERBI.md) · [Theme palette library](docs/APPROVED_THEME_LIBRARY.md) |
 | **BI platform engineers** | [Architecture](docs/ARCHITECTURE.md) · [CLI](docs/CLI.md) · [Power BI integration & native evidence](docs/VISUAL_QA_V2_P16_NATIVE_DESKTOP_UIA.md) |
 | **Quality reviewers** | [Acceptance matrix](docs/ACCEPTANCE_MATRIX.md) · [Screenshot provenance](docs/images/adaptive-showcase/PROVENANCE.json) · [Native gallery](docs/REAL_THEME_SHOWCASE.md) |
-| **Releases and history** | [Latest v0.1.2 release notes](docs/RELEASE_NOTES_v0.1.2.md) · [All published releases](docs/RELEASES.md) · [Development changelog](CHANGELOG.md) |
+| **Releases and history** | [Latest v0.2.0 release notes](docs/RELEASE_NOTES_v0.2.0.md) · [All published releases](docs/RELEASES.md) · [Development changelog](CHANGELOG.md) |
 | **Contributors** | [Product roadmap](roadmap/README.md) · [Contributor guide](CONTRIBUTING.md) · [All documentation](docs/README.md) |
 
 VQS focuses on **Power BI**. Word/DOCX assurance is a separate optional component, not a blocker for a Power BI-only release. Source inspection is local by default; private customer screenshots and caches must not be checked in or uploaded without explicit authorization.
