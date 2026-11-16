@@ -1,6 +1,6 @@
 # VQS documentation
 
-Choose a path based on what you want to do. The **latest release (v0.1.2)** is a source-level Power BI CLI/MCP distribution. [Release notes](RELEASE_NOTES_v0.1.2.md) · [Release history](RELEASES.md) · [Download and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2)
+Choose a path based on what you want to do. The **latest release (v0.2.0)** is a source-level Power BI CLI/MCP distribution. [Release notes](RELEASE_NOTES_v0.2.0.md) · [Release history](RELEASES.md) · [Download and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0)
 
 <a id="start-here"></a>
 <a id="the-everyday-loop"></a>

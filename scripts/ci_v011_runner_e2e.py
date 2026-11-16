@@ -20,7 +20,7 @@ import venv
 import zipfile
 from pathlib import Path
 
-EXPECTED_VERSION = "0.1.2"
+EXPECTED_VERSION = "0.2.0"
 
 
 def require(condition: bool, message: str) -> None:

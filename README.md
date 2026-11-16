@@ -21,20 +21,20 @@
   </p>
 </div>
 
-## Latest release · v0.1.2
+## Latest release · v0.2.0
 
-**Verifiable decisions and regression gates** · Published **7 November 2026** · Python 3.11+ · Local CLI/MCP
+**Evidence you can hand to someone else** · Python 3.11+ · Local CLI/MCP
 
-[**Download v0.1.2 and verify checksums**](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2) · [What's new and supported](docs/RELEASE_NOTES_v0.1.2.md) · [All published releases](docs/RELEASES.md)
+[**Download v0.2.0 and verify checksums**](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0) · [What's new, and the limits](docs/RELEASE_NOTES_v0.2.0.md) · [All published releases](docs/RELEASES.md)
 
-VQS turns source-provable Power BI defects into **reversible repair candidates**. This release adds owner-answerable design questions, readable changes with explicit adoption, and a pull-request quality gate with SARIF. The original report is not silently changed.
+VQS turns source-provable Power BI defects into **reversible repair candidates**. This release adds a rendered before/after review that attributes every changed pixel to a visual you actually edited (experimental), a readable evidence report for a sealed run, and a copyable CI quality gate. The original report is not silently changed, and **no report-level acceptance is claimed**.
 
 ### Get started
 
 Download the wheel from the release above, verify its checksum, then run:
 
 ```bash
-python -m pip install ./visual_quality_system-0.1.2-py3-none-any.whl
+python -m pip install ./visual_quality_system-0.2.0-py3-none-any.whl
 npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
 vqs doctor
 vqs fix "path/to/Sales.pbip" --run-id sales-1

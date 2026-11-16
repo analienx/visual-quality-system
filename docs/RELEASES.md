@@ -6,7 +6,13 @@
 
 ## Published versions
 
-### v0.1.2 — latest · 7 November 2026
+### v0.2.0 — latest
+
+Rendered before/after regression review (experimental), a readable evidence report for a sealed run, a copyable agent/CI quality gate, and capture-readiness and guided-adoption hardening. **Power BI static source scope**; no G2, G4 or G6 report acceptance is claimed.
+
+[Download v0.2.0, wheel and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0) · [Detailed release notes and limits](RELEASE_NOTES_v0.2.0.md)
+
+### v0.1.2 · 7 November 2026
 
 Owner-answerable design decisions, readable candidate changes, explicit adoption and pull-request regression gates. **Power BI static source scope**; not native Desktop acceptance.
 

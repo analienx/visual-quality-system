@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.2.0 - evidence you can hand to someone else
+
+Scope frozen by the owner on 16 November 2026 ([#159](https://github.com/analienx/visual-quality-system/issues/159)).
+**Power BI static source scope only. No G2, G4 or G6 acceptance is claimed.**
+Full detail and limits: [release notes](docs/RELEASE_NOTES_v0.2.0.md).
+
+- **`vqs compare-renders` (experimental):** compares two exact-source page
+  captures of the same report at pixel level and requires every changed pixel
+  to fall inside a visual the candidate actually edited. The verdict stays
+  `blocked` without answer evidence, and blocks rather than guesses on
+  unproven data population, captures that saw different data, a capture bound
+  to another revision, differing page sets/canvas/scale, or an unmeasurable
+  canvas. `--margin` is a declared tolerance, defaulting to 0 and recorded in
+  the result.
+- **`vqs evidence-report`:** a concise human-readable account of a sealed run -
+  what was found, changed, remains and is unresolved - without replacing the
+  sealed evidence on disk.
+- **Copyable agent/CI quality gate:** `examples/ci/powerbi-quality.yml` runs
+  `vqs gate` on a pull request against its base revision, pinned to a reviewed
+  commit, with SARIF and `::error` annotations on the changed files. It refuses
+  a placeholder revision, an absolute report path or a `../` traversal.
+  Exercised against a simulated consumer layout, **not** a third-party
+  repository.
+- **Capture readiness and guided adoption hardening:** readiness states what it
+  does and does not prove instead of implying data; the adoption command is
+  shell-safe.
+- **Deferred to the v0.3 / acceptance track and not blocking this version:**
+  data/answer evidence parity (#131), analytical design critique (#142),
+  complete-envelope sealing (#149), and the native two-report demonstration
+  (#152, #16, #115-#120).
+
 ## v0.1.2 - verifiable decisions and regression gates
 
 Packages the functionality merged after v0.1.1 as one release, after a review

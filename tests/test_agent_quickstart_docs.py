@@ -86,7 +86,7 @@ def test_premium_homepage_has_working_agent_navigation_and_real_theme_gallery():
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     first = readme.split("## Real Power BI showcase", 1)[0]
-    assert "## Latest release · v0.1.2" in first
+    assert "## Latest release · v0.2.0" in first
     assert "## How VQS works" in first
     assert "vqs-mcp" in first and "vqs fix" in first
     assert "source-level" in first and "blocked" in first
