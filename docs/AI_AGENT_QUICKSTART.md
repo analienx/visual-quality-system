@@ -4,16 +4,16 @@
 
 **[How the complete auto-fix architecture works — components, why each exists, and the end-to-end sequence](AGENT_AUTOFIX_ARCHITECTURE.md)**
 
-VQS **v0.1.2** distributes the supported source-bound CLI/MCP
+VQS **v0.2.0** distributes the supported source-bound CLI/MCP
 and allowlisted candidate-repair core. **Native Desktop visual acceptance and
 independent report-level release remain evidence-gated.**
 
-## v0.1.2 - the simplest agent-first workflow
+## v0.2.0 - the simplest agent-first workflow
 
-Download the [v0.1.2 wheel and SHA256SUMS](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2) and verify the wheel against the checksums. In the download directory, install the wheel and pinned Microsoft authoring CLI, then run:
+Download the [v0.2.0 wheel and SHA256SUMS](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0) and verify the wheel against the checksums. In the download directory, install the wheel and pinned Microsoft authoring CLI, then run:
 
 ```bash
-python -m pip install ./visual_quality_system-0.1.2-py3-none-any.whl
+python -m pip install ./visual_quality_system-0.2.0-py3-none-any.whl
 npm install --global @microsoft/powerbi-report-authoring-cli@0.5.0
 vqs doctor
 vqs fix "C:/Reports/Sales.pbip" --run-id sales-1
@@ -26,7 +26,7 @@ returns a compact fixed/needs-review/blocked summary. Run evidence remains in th
 
 An ambiguous inherited font size or intentional overview/detail duplicate
 is **not** a source-proven automatic edit; ask for the design decision rather
-than inventing one. The VQS v0.1.2 MCP server provides ten tools including
+than inventing one. The VQS v0.2.0 MCP server provides ten tools including
 `vqs_theme`, preserves legacy compatibility and requires a separate
 candidate for theme application. Promotion requires separate authorization.
 
@@ -114,7 +114,7 @@ The exact module and tool responsibilities—and **why** multiple components are
 
 **Prepare a full release candidate:** tell it, *"Perform VQS candidate repair, verify on real Power BI Desktop with supported controls/DAX and prepare private evidence for an independent reviewer. Don't publish or overwrite the original without explicit authorization."*
 
-VQS v0.1.2 has ten MCP tools, including `vqs_theme` for
+VQS v0.2.0 has ten MCP tools, including `vqs_theme` for
 inspect/preview/apply/audit. Theme apply requires an explicit disposable
 candidate; older agents retain the legacy full text-envelope handshake.
 `vqs_promote` remains a separate, explicit owner-authorized operation.

@@ -13,46 +13,79 @@ release is exactly what that decision names.
 
 ## What is new
 
-### `vqs compare-renders` — rendered before/after review (experimental)
+### `vqs compare-renders` — rendered pixel observations (experimental)
 
-Compares two exact-source page captures of the same report at pixel level and
-requires every changed pixel to fall inside a visual the candidate actually
-edited. It answers "did this repair change anything it was not supposed to?",
-which neither structural PBIR validity nor a screenshot hash can.
+Compares two exact-source page captures of the same report and reports, per
+page, where their pixels differ and whether those differences fall inside the
+rectangles of visuals the candidate edited.
 
 ```console
 vqs compare-renders base-renders cand-renders \
   --baseline-report base/Sales.pbip --candidate-report cand/Sales.pbip
 ```
 
-Exit `0` no unexplained difference · `1` a rendered regression · `2` blocked.
+**In this version the overall verdict is always `blocked`, so the command
+always exits 2.** That is deliberate, not a defect: data and answer parity are
+not established (deferred as
+[#131](https://github.com/analienx/visual-quality-system/issues/131)), so VQS
+will not issue an overall regression verdict. **There is no input in v0.2.0
+that supplies the missing evidence**, so a `pass` cannot be obtained — do not
+build a CI step that waits for exit 0 or 1 from this command.
 
-**Experimental, and deliberately hard to satisfy.** The verdict stays
-`blocked` without answer evidence. It also blocks — never passes — when either
+What you *do* get is the per-page detail in the result: the changed-pixel count
+and fraction, the changed bounding box, the visuals whose PBIR bytes differ, the
+rectangles the differences were checked against, and `pages_failed` listing any
+page with changed pixels outside every edited rectangle. Read those
+observations; ignore the overall verdict, which is fixed.
+
+**What the pixel check actually establishes.** It tests whether changed pixels
+fall inside the old and new rectangles of visuals whose PBIR bytes differ,
+optionally enlarged by `--margin`. That is **containment, not attribution**: a
+different visual, a theme effect or a data change can move pixels inside the
+same rectangle. A page with no `pages_failed` entry has not been shown to be
+free of unintended change; it has been shown that the differing pixels lie
+within the edited rectangles.
+
+`--margin` dilates each edited rectangle by that many canvas pixels. It is a
+**declared tolerance, not a measurement**: it defaults to `0`, and the value
+used is recorded in the result.
+
+**Data checks, and their limit.** The comparison refuses to run when either
 capture declares `data_population: unproven` (a cache-less report renders
-`(Blank)` everywhere and still captures), when the two captures saw different
-data, when a capture is bound to a different source revision than the report it
-is compared as, when page sets, canvas or scale differ, or when the report
-canvas cannot be measured. `--margin` is a **declared tolerance, not a
-measurement**: it defaults to `0` and the value used is recorded in the result.
+`(Blank)` everywhere and still captures), when a readiness probe is missing or
+reports the report unpopulated, or when the two captures' readiness probe
+hashes differ. The producer hashes `COUNTROWS` on **one** table — not the query
+definitions, answers, filters, roles or other tables — so **equal probe hashes
+neither prove the two captures saw equal data nor establish that any pixel
+difference was caused by the source change.** Differing hashes block; equal
+hashes prove very little.
 
-### `vqs evidence-report` — a readable account of a sealed run
+It also blocks when a capture is bound to a different source revision than the
+report it is compared as, when page sets, PBIR canvas or capture scale differ,
+and when the report canvas cannot be measured.
 
-Turns a sealed run into a concise human-readable report: what was found, what
-was changed, what remains, and which gates are unresolved. The full sealed
-evidence stays on disk and is not replaced by the summary.
+### `vqs evidence-report` — a readable account of a sealed run's stage ledger
+
+Turns a sealed run's **stage ledger** into concise human-readable output:
+recorded stage statuses, the before/after check names that are comparable, the
+owner questions raised, and the candidate path.
 
 ```console
 vqs evidence-report --run-id <id> [--run-root <dir>] [--out report.md]
 ```
 
+**It does not list the edit set.** The report says so itself — changes are not
+fully bound by the ledger. For the actual edits, inspect the candidate and the
+run's change evidence. Binding a complete evidence envelope is deferred as
+[#149](https://github.com/analienx/visual-quality-system/issues/149).
+
 ### Copyable agent / CI quality gate
 
 `examples/ci/powerbi-quality.yml` is a ready-to-copy GitHub Actions workflow
 that runs `vqs gate` on a pull request against its base revision, pinned to a
-reviewed VQS commit, with SARIF and `::error` annotations landing on the pull
-request's changed files. It validates its own configuration and refuses a
-placeholder revision, an absolute report path or a `../` traversal.
+reviewed VQS commit, writing SARIF and `::error` annotations. It validates its
+own configuration and refuses a placeholder revision, an absolute report path
+or a `../` traversal.
 
 ### Capture readiness and guided adoption hardening
 
@@ -64,21 +97,21 @@ an owner is told to run verbatim.
 ## Limits — read this before relying on the release
 
 - **No report acceptance.** No G2, G4 or G6 signature is claimed, offered or
-  implied by this version. A green gate is static source evidence: it means
-  "this change introduced no new finding we can measure", not "this report is
-  good".
-- **`compare-renders` is experimental**, and its verdict stays blocked without
-  answer evidence. Treat a pass as "no *unexplained* rendered regression", never
-  as design approval.
-- **The CI kit was exercised against a simulated consumer layout, not a real
-  third-party repository.** Running the workflow's own steps against two
-  checkouts of a copy of the fictional Contoso report, VQS installed from the
-  release revision into a clean environment: a pull request that introduced an
-  overlap exited `1` with one `::error` on the changed `visual.json` and a
-  SARIF `new` result at a repository-relative path, while an unchanged pull
-  request exited `0` with the five pre-existing findings reported `unchanged`
-  and no annotations. That demonstrates the kit's behaviour; it is **not**
-  evidence of use in a third-party repository, which remains outstanding.
+  implied. A green `vqs gate` is static source evidence: it means "this change
+  introduced no new finding we can measure", not "this report is good".
+- **`compare-renders` cannot pass in this version.** Its overall verdict is
+  always `blocked` (exit 2). Its per-page output is pixel-containment
+  observation, not attribution, causation or data-parity proof.
+- **The CI kit has not been exercised in a third-party repository.** Running
+  the workflow's own steps against two checkouts of a copy of the fictional
+  Contoso project, with VQS installed from the release revision into a clean
+  environment: a pull request that introduced an overlap exited `1` with one
+  `::error` line and a SARIF `new` result whose `artifactLocation.uri` was
+  repository-relative, while an unchanged pull request exited `0` with the five
+  pre-existing findings reported `unchanged` and no annotations. Repository-relative
+  output is consistent with annotations landing on a pull request's changed
+  files, but **actual annotation placement on a GitHub pull request was not
+  observed**, and use in a third-party repository remains outstanding.
 - **Native Desktop evidence is unchanged from v0.1.2.** Nothing in this release
   was produced by a Desktop process, a render or live data.
 - **Deferred to the v0.3 / acceptance track**, and explicitly *not* blocking
@@ -92,8 +125,6 @@ an owner is told to run verbatim.
   ([#152](https://github.com/analienx/visual-quality-system/issues/152),
   [#16](https://github.com/analienx/visual-quality-system/issues/16),
   [#115](https://github.com/analienx/visual-quality-system/issues/115)–[#120](https://github.com/analienx/visual-quality-system/issues/120)).
-- Echoed model identifiers, matching row counts or passing source tests do
-  **not** independently prove equality of loaded data and answers (#131).
 
 ## Install
 
@@ -108,15 +139,24 @@ commit it was built from.
 
 ## Upgrading from v0.1.2
 
-No command removed and no result schema broken. `compare-renders` and
-`evidence-report` are new; everything else behaves as in v0.1.2, with the
-capture-readiness and adoption hardening above. Pin `VQS_REVISION` in the CI
-workflow to the reviewed release commit rather than a moving branch.
+No command was removed and no result schema broken. `compare-renders` and
+`evidence-report` are new. Two behaviour changes are user-visible:
+
+- **`vqs premium --contract` now fails closed on a non-object contract.** An
+  explicitly supplied JSON `null`, or any other non-object, is refused with
+  "premium design contract must be a JSON object"; a wrong-shaped archetype is
+  reported as a contract error. If you previously passed a `null` contract and
+  it was accepted, that invocation now blocks — supply a JSON object or drop
+  the `--contract` flag.
+- Capture readiness and guided adoption hardening, as above.
+
+Pin `VQS_REVISION` in the CI workflow to the reviewed release commit rather
+than a moving branch.
 
 ## Further reading
 
 [Quickstart](QUICKSTART.md) · [CLI reference](CLI.md) ·
-[User guide](USER_GUIDE.md) ·
+[User guide](USER_GUIDE.md) · [Capabilities and limits](CAPABILITIES.md) ·
 [Owner decisions and the PR gate](OWNER_DECISIONS_AND_PR_GATE.md) ·
 [Acceptance matrix](ACCEPTANCE_MATRIX.md) ·
 [Native evidence and limits](V012_NATIVE_G_ACCEPTANCE.md) ·

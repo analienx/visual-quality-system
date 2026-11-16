@@ -1,6 +1,6 @@
 # VQS capabilities and limits
 
-This page describes the published [v0.1.2 release](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2), not the unreleased v0.2 drafts. For installation and a first run, start with the [user guide](USER_GUIDE.md).
+This page describes the [v0.2.0 release](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0). For installation and a first run, start with the [user guide](USER_GUIDE.md). The v0.2 scope is frozen by [owner decision #159](https://github.com/analienx/visual-quality-system/issues/159); data/answer parity, analytical critique, complete-envelope sealing and the native two-report demonstration are deferred to the v0.3 / acceptance track.
 
 | Capability | What you can use today | Boundary |
 | :--- | :--- | :--- |
@@ -14,4 +14,4 @@ This page describes the published [v0.1.2 release](https://github.com/analienx/v
 
 VQS reports **pass** for the evidence-backed check that passed, **fail** for a demonstrated violation, and **blocked** when required evidence or capability is missing. Read the overall result and remaining findings as well as individual stage results. A source-verified candidate does not itself certify the report or authorize replacing the original.
 
-For details and known output/shell limitations, see the [release notes](RELEASE_NOTES_v0.1.2.md), [owner decisions and adoption](OWNER_DECISIONS_AND_PR_GATE.md), and [CLI reference](CLI.md). The [acceptance matrix](ACCEPTANCE_MATRIX.md) defines the separate engineering gates; the [v0.2 roadmap](../roadmap/README.md) labels unfinished work.
+For details and known output/shell limitations, see the [release notes](RELEASE_NOTES_v0.2.0.md), [owner decisions and adoption](OWNER_DECISIONS_AND_PR_GATE.md), and [CLI reference](CLI.md). The [acceptance matrix](ACCEPTANCE_MATRIX.md) defines the separate engineering gates; the [v0.2 roadmap](../roadmap/README.md) labels unfinished work.
