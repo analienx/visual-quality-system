@@ -226,8 +226,74 @@ def test_claim_without_hard_links_stays_exclusive(tmp_path: Path, monkeypatch) -
     locks = tmp_path / "locks"
     assert run_store.claim_artifact(locks, "desktop-pid-10", "A") is True
     assert run_store.claim_artifact(locks, "desktop-pid-10", "B") is False
-    assert [path.name for path in locks.iterdir()] == ["desktop-pid-10.lock"]
+    # Only the lock itself, plus the takeover guard the fallback must hold
+    # across its non-atomic create-and-write. No temporary file is left.
+    assert sorted(path.name for path in locks.iterdir()) == [
+        "desktop-pid-10.lock", "desktop-pid-10.lock.takeover"]
     assert run_store.release_artifact(locks, "desktop-pid-10", "A") is True
+
+
+def test_paused_claimant_without_hard_links_keeps_its_lease(
+        tmp_path: Path, monkeypatch) -> None:
+    """Negative control: age is not death, even on the fallback path.
+
+    With hard links unavailable, publication is exclusive-create then
+    write-owner. A live claimant can be paused (SIGSTOP, swap, a VM
+    suspend, a slow network filesystem) for longer than
+    STALE_LOCK_SECONDS between those two steps. Its lock is then
+    observably ownerless *and* old, so a takeover used to remove it and a
+    second claimant also reported success: two owners for one Desktop PID
+    lease, with the first unable to release. The age threshold never
+    established that the first process had died; only the takeover guard
+    can, so the fallback must hold it across both steps.
+    """
+    locks = tmp_path / "locks"
+    lock = locks / "desktop-pid-4242.lock"
+    state: dict[str, object] = {"second": None, "interleaved": False}
+
+    def unsupported(*_args, **_kwargs):
+        raise OSError(errno.EPERM, "hard links unsupported on this volume")
+
+    monkeypatch.setattr(run_store.os, "link", unsupported)
+    real_fdopen = run_store.os.fdopen
+
+    def paused(fd, *args, **kwargs):
+        # A is between its exclusive create and its owner write. Age the
+        # empty lock past the threshold instead of sleeping for it.
+        if not state["interleaved"]:
+            state["interleaved"] = True
+            stale = time.time() - (run_store.STALE_LOCK_SECONDS + 5)
+            os.utime(lock, (stale, stale))
+            state["second"] = run_store.claim_artifact(
+                locks, "desktop-pid-4242", "B")
+        return real_fdopen(fd, *args, **kwargs)
+
+    monkeypatch.setattr(run_store.os, "fdopen", paused)
+    first = run_store.claim_artifact(locks, "desktop-pid-4242", "A")
+    monkeypatch.undo()
+
+    assert state["interleaved"], "the paused-claimant window was never exercised"
+    assert first is True
+    assert state["second"] is False, "a paused live claim was taken over"
+    assert json.loads(lock.read_text(encoding="utf-8"))["owner"] == "A"
+    assert run_store.release_artifact(locks, "desktop-pid-4242", "A") is True
+
+
+def test_genuinely_abandoned_lock_without_hard_links_is_recoverable(
+        tmp_path: Path, monkeypatch) -> None:
+    """The other outcome: guarding the fallback must not block recovery."""
+    def unsupported(*_args, **_kwargs):
+        raise OSError(errno.EPERM, "hard links unsupported on this volume")
+
+    monkeypatch.setattr(run_store.os, "link", unsupported)
+    locks = tmp_path / "locks"
+    locks.mkdir()
+    lock = locks / "desktop-pid-7.lock"
+    lock.write_bytes(b"")                      # interrupted earlier claim
+    stale = time.time() - (run_store.STALE_LOCK_SECONDS + 5)
+    os.utime(lock, (stale, stale))
+    assert run_store.claim_artifact(locks, "desktop-pid-7", "C") is True
+    assert json.loads(lock.read_text(encoding="utf-8"))["owner"] == "C"
 
 
 def test_seal_pins_status_artifacts_and_count(tmp_path: Path) -> None:
