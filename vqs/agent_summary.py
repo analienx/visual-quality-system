@@ -78,14 +78,16 @@ def _adopt(envelope: dict[str, Any], summary: dict[str, Any]) -> dict[str, Any] 
 # trimmed instead, deterministically, and what went is reported.
 COMPACT_BUDGET_BYTES = 6000
 
-# Pure diagnostics: they restate findings available in the sealed run, so
-# they go first.
-_DIAGNOSTICS: tuple[str, ...] = (
-    "fixed", "remaining", "regressions", "blocked_reasons", "next_actions",
+# Restatable guidance: generated advice and findings that the sealed run
+# still carries in full, so these go first. ``next_actions`` is derived
+# wholly from the rest of the result, which makes it the cheapest loss.
+_DIAGNOSTICS: tuple[str, ...] = ("next_actions", "remaining", "blocked_reasons")
+# What the repair actually achieved and what the owner decided. ``fixed``
+# and ``changes`` are the result, not commentary on it -- an agent reads
+# them to report what the run did -- so they are given up last.
+_DECISION_RECORD: tuple[str, ...] = (
+    "owner_decisions", "waived", "changes", "fixed",
 )
-# The record of what the owner decided and what it did to the report. Kept
-# as long as possible: on an answered run this *is* the answer.
-_DECISION_RECORD: tuple[str, ...] = ("owner_decisions", "waived", "changes")
 # Bound the work on pathological input before refining entry by entry.
 _PRETRIM = 200
 
@@ -131,14 +133,20 @@ def _trim_order(result: dict[str, Any]) -> tuple[str, ...]:
 
     ``needs_review`` carries the questions an owner must answer, so while
     any decision is unanswered it is mandatory and never appears here.
-    Once answered, those same questions are a redundant echo -- the
-    answered record and the resulting changes are what the owner reads --
-    so they become the first large thing to go.
+    Once answered, those same questions are a pure echo of answers the
+    owner already holds in their answers file, which makes them more
+    expendable than anything describing the run's current state -- so on
+    an answered run they are given up before the diagnostics.
+
+    ``regressions`` sits between the two groups: it is a safety signal
+    rather than guidance, so it outranks the diagnostics, but it is not
+    part of the decision record.
     """
     answered = bool(result.get("owner_decisions"))
+    middle = _DIAGNOSTICS + ("regressions",)
     if answered:
-        return _DIAGNOSTICS + ("needs_review",) + _DECISION_RECORD
-    return _DIAGNOSTICS + _DECISION_RECORD
+        return ("needs_review",) + middle + _DECISION_RECORD
+    return middle + _DECISION_RECORD
 
 
 def _fit_budget(result: dict[str, Any],

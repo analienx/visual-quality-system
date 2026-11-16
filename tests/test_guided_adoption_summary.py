@@ -278,3 +278,45 @@ def test_answered_runs_give_up_the_question_echo_before_the_record():
     assert len(result["owner_decisions"]) == 9
     # ...and the already-answered question echo is what paid for it.
     assert result["omitted"].get("needs_review", 0) > 0
+
+
+def test_a_modest_overflow_keeps_what_the_repair_achieved():
+    """`fixed` is the result of the run, not commentary on it.
+
+    Regression guard. An earlier ordering treated `fixed` as a pure
+    diagnostic and gave it up first, so a repair that was barely over
+    budget reported an empty `fixed` list while still claiming a verified
+    candidate -- i.e. the output denied the very repair it had performed.
+    The clean-wheel runner caught it; no unit test did.
+
+    A result only slightly over budget must pay out of restatable
+    guidance and keep the record of what was repaired.
+    """
+    envelope = _budget_envelope(changes=20, decisions=2, diagnostics=30)
+    result = summarize(envelope)
+    assert _printed_bytes(result) <= 6000
+    assert "compact_overflow" not in result
+    # Guidance paid for the budget, and said so.
+    assert result["omitted"]
+    assert set(result["omitted"]) & {"next_actions", "remaining",
+                                     "blocked_reasons"}
+    # What the repair achieved survived whole.
+    assert result["fixed"] == [f"check.fixed_{i}" for i in range(30)]
+    assert "fixed" not in result["omitted"]
+    # Surviving changes stay decision-ready: whole entries, never halves.
+    for change in result["changes"]:
+        assert {"page", "visual", "property", "op", "from", "to"} <= set(change)
+
+
+def test_restatable_guidance_is_given_up_before_regressions():
+    """A regression is a safety signal, not advice; it outranks guidance."""
+    envelope = _budget_envelope(changes=4, decisions=2, diagnostics=30)
+    envelope["summary"]["new_regressions"] = ["layout.no_visual_overlap"]
+    # The compact view shows at most 8 next actions; make those 8 expensive.
+    envelope["next_actions"] = [f"next action {i}: " + "detail " * 40
+                                for i in range(8)]
+    result = summarize(envelope)
+    assert _printed_bytes(result) <= 6000
+    assert result["omitted"].get("next_actions", 0) > 0
+    assert result["regressions"] == ["layout.no_visual_overlap"]
+    assert "regressions" not in result["omitted"]
