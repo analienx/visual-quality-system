@@ -35,6 +35,26 @@ Full detail and limits: [release notes](docs/RELEASE_NOTES_v0.2.0.md).
 - **Capture readiness and guided adoption hardening:** readiness states what it
   does and does not prove instead of implying data; the adoption command is
   shell-safe.
+- **Behaviour change: the compact result is held to a 6,000-byte budget.**
+  `vqs fix` / `vqs_run` previously printed an unbounded compact result, so a
+  report with many cohorts could emit tens of kilobytes into an agent's
+  context. The printed result is now measured in encoded UTF-8 bytes and kept
+  within the budget by giving up restatable guidance first (`next_actions`,
+  then `remaining`, then `blocked_reasons`), then `regressions`, and the
+  decision record (`owner_decisions`, `waived`, `changes`, `fixed`) last. On a
+  run whose decisions are already answered, the question echo is given up
+  first. Entries are only ever dropped whole, and every omission is counted in
+  a new `omitted` map. **Owner questions and their options are never
+  truncated:** if mandatory decision content exceeds the budget on its own,
+  the result instead carries `compact_overflow` and an empty `needs_review`,
+  stays `blocked`, and directs the reader to the full result before answering.
+  Two consequences worth planning for: the budget engages on ordinary runs,
+  not only pathological ones - a routine repair of the committed fictional
+  Contoso report prints about 5,990 bytes and already trims guidance - and
+  `next_actions` and `blocked_reasons` were, as before, capped at 8 and 12
+  entries in the compact view, so their `omitted` counts are relative to that
+  capped view rather than to the sealed run. Use `--report-out <file>` or the
+  sealed envelope in `run_dir` whenever the complete result matters.
 - **Behaviour change:** `vqs premium --contract` now fails closed when the
   supplied JSON is `null` or any other non-object, and a wrong-shaped archetype
   is reported as a contract error (WP-35 / #144).

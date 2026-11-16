@@ -142,7 +142,7 @@ commit it was built from.
 ## Upgrading from v0.1.2
 
 No command was removed and no result schema broken. `compare-renders` and
-`evidence-report` are new. Two behaviour changes are user-visible:
+`evidence-report` are new. Three behaviour changes are user-visible:
 
 - **`vqs premium --contract` now fails closed on a non-object contract.** An
   explicitly supplied JSON `null`, or any other non-object, is refused with
@@ -151,6 +151,28 @@ No command was removed and no result schema broken. `compare-renders` and
   it was accepted, that invocation now blocks — supply a JSON object or drop
   the `--contract` flag.
 - Capture readiness and guided adoption hardening, as above.
+- **The compact result of `vqs fix` / `vqs_run` is now capped at 6,000
+  encoded bytes.** It used to be unbounded, so a report with many cohorts
+  could push tens of kilobytes into an agent's context. Over the budget, VQS
+  gives up restatable guidance first (`next_actions`, `remaining`,
+  `blocked_reasons`), then `regressions`, and keeps the decision record
+  (`owner_decisions`, `waived`, `changes`, `fixed`) longest; on an
+  already-answered run the question echo goes first. Entries are dropped
+  whole, never halved, and a new `omitted` map counts what went.
+  **Owner questions and their options are never truncated.** If the owner
+  decisions alone exceed the budget, the result carries `compact_overflow`
+  with an empty `needs_review`, stays `blocked`, and tells the reader to get
+  the full result before answering — an omitted count on its own would leave
+  an owner deciding without the basis for the decision.
+
+  Plan for two things. The budget engages on **ordinary** runs: a routine
+  repair of the committed fictional Contoso report prints about 5,990 bytes
+  and already trims guidance, so do not parse `next_actions` or `remaining`
+  as complete. And `next_actions` and `blocked_reasons` were already capped
+  at 8 and 12 entries in the compact view before this release, so their
+  `omitted` counts are relative to that capped view, not to the sealed run.
+  Anything that must be complete should come from `--report-out <file>` or
+  the sealed envelope in `run_dir`.
 
 Pin `VQS_REVISION` in the CI workflow to the reviewed release commit rather
 than a moving branch.
