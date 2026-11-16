@@ -193,8 +193,14 @@ Exit codes: `0` nothing new, `1` new findings, `2` blocked (unreadable head or
 baseline). Capturing a baseline is its own operation, so
 `--emit-baseline` *without* `--baseline` exits `0` once the file is written
 and reports `baseline_written`; it does not report every existing finding as
-new. `--sarif` writes SARIF 2.1.0 with `baselineState` new/unchanged for
-GitHub code scanning; `--github` prints `::error` annotations. A **blocked**
+new. `--sarif` writes SARIF 2.1.0 with `baselineState` new/unchanged in the format
+GitHub code scanning accepts; `--github` prints `::error` annotations. Writing
+the file is not publishing it: to get code-scanning results, your workflow must
+upload it itself (`github/codeql-action/upload-sarif`, which needs
+`security-events: write`). The copyable
+[`examples/ci/powerbi-quality.yml`](../examples/ci/powerbi-quality.yml)
+deliberately does **not**, so it ships with a read-only token and surfaces
+findings as annotations only; its comments say what to add. A **blocked**
 gate still writes both, as a single `vqs.gate.blocked` error naming the
 reason, so an unprovable revision is annotated rather than silent. `accept`
 answers bound to the head revision excuse only their own subjects. Answers
