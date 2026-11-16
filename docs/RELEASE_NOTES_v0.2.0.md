@@ -102,16 +102,18 @@ an owner is told to run verbatim.
 - **`compare-renders` cannot pass in this version.** Its overall verdict is
   always `blocked` (exit 2). Its per-page output is pixel-containment
   observation, not attribution, causation or data-parity proof.
-- **The CI kit has not been exercised in a third-party repository.** Running
-  the workflow's own steps against two checkouts of a copy of the fictional
-  Contoso project, with VQS installed from the release revision into a clean
-  environment: a pull request that introduced an overlap exited `1` with one
-  `::error` line and a SARIF `new` result whose `artifactLocation.uri` was
-  repository-relative, while an unchanged pull request exited `0` with the five
-  pre-existing findings reported `unchanged` and no annotations. Repository-relative
-  output is consistent with annotations landing on a pull request's changed
-  files, but **actual annotation placement on a GitHub pull request was not
-  observed**, and use in a third-party repository remains outstanding.
+- **What the CI kit was exercised against.** The workflow's own steps were run
+  against two checkouts of a copy of the fictional Contoso project, with VQS
+  installed from the release revision into a clean environment: a pull request
+  that introduced an overlap exited `1` with one `::error` line and a SARIF
+  `new` result whose `artifactLocation.uri` was repository-relative, while an
+  unchanged pull request exited `0` with the five pre-existing findings
+  reported `unchanged` and no annotations. Repository-relative output is
+  consistent with annotations landing on a pull request's changed files, but
+  **actual annotation placement on a GitHub pull request was not observed.**
+  By owner decision the kit is released as a copyable example on this
+  evidence; a demonstration in a separate consumer repository is **not** a
+  condition of this release.
 - **Native Desktop evidence is unchanged from v0.1.2.** Nothing in this release
   was produced by a Desktop process, a render or live data.
 - **Deferred to the v0.3 / acceptance track**, and explicitly *not* blocking
