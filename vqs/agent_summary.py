@@ -5,6 +5,7 @@ envelopes and run manifests remain available for audits.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shlex
@@ -103,9 +104,70 @@ def _compact_bytes(result: dict[str, Any]) -> int:
                           default=str).encode("utf-8")) + 1
 
 
-def _overflow(result: dict[str, Any], budget: int) -> dict[str, Any]:
-    """Refuse to be answered from: mandatory content exceeds the budget."""
-    pending = result.get("needs_review") or []
+def _answered_ids(result: dict[str, Any]) -> set[str]:
+    """Decision ids the owner has actually answered in this run."""
+    out: set[str] = set()
+    for item in result.get("owner_decisions") or []:
+        if isinstance(item, dict) and isinstance(item.get("decision_id"), str):
+            out.add(item["decision_id"])
+    return out
+
+
+def _is_echo(question: Any, answered: set[str]) -> bool:
+    """True only for a question whose own id is already answered.
+
+    Answers are partial by design: `vqs.repair.decisions` resolves only
+    the entries an owner supplied and leaves the rest open, so a run can
+    carry one answer and four open questions. A question is expendable
+    only when *its* id is answered -- never because some other question
+    in the same run was.
+    """
+    return (isinstance(question, dict)
+            and isinstance(question.get("decision_id"), str)
+            and question["decision_id"] in answered)
+
+
+def _unanswered_count(result: dict[str, Any]) -> int:
+    answered = _answered_ids(result)
+    return sum(1 for q in (result.get("needs_review") or [])
+               if not _is_echo(q, answered))
+
+
+# Scalars the terminal overflow form may give up, in order, when its own
+# metadata does not fit. `candidate` lives under the run, and `run_dir` is
+# the retrieval pointer, so it is surrendered last and only as a digest.
+_OVERFLOW_OPTIONAL = ("evidence", "candidate", "decision_source_sha256",
+                      "source_sha256", "candidate_status")
+
+
+def _path_stand_in(value: Any) -> Any:
+    """Identify a path too long to quote, without quoting it."""
+    if not isinstance(value, str) or not value:
+        return value
+    raw = value.encode("utf-8", "surrogatepass")
+    return {"omitted": "too long for the compact budget",
+            "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}
+
+
+def _overflow(result: dict[str, Any], budget: int,
+              reason: str | None = None) -> dict[str, Any]:
+    """Refuse to be answered from: mandatory content exceeds the budget.
+
+    The terminal form is itself measured. Long `run_dir` / `candidate`
+    paths and this function's own explanatory text can exceed the budget
+    even with every optional list already empty, so optional scalars are
+    surrendered in a fixed order and the retrieval pointer degrades to a
+    digest rather than silently blowing the limit it advertises.
+    """
+    pending = _unanswered_count(result)
+    required = _compact_bytes(result)
+    if reason is None:
+        reason = (f"{pending} unanswered owner decision(s) exceed the "
+                  f"{budget}-byte compact budget on their own, and owner "
+                  "questions are never truncated"
+                  if pending else
+                  f"mandatory result metadata exceeds the {budget}-byte "
+                  "compact budget even with every optional list empty")
     out = {key: result.get(key) for key in (
         "tool", "verdict", "outcome", "run_id", "run_dir",
         "decision_source_sha256", "candidate", "candidate_status",
@@ -114,39 +176,94 @@ def _overflow(result: dict[str, Any], budget: int) -> dict[str, Any]:
     # than the owner decision actually covers.
     out["needs_review"] = []
     out["compact_overflow"] = {
-        "reason": (f"{len(pending)} owner decision(s) exceed the "
-                   f"{budget}-byte compact budget on their own, and owner "
-                   "questions are never truncated"),
-        "owner_decisions_pending": len(pending),
+        "reason": reason,
+        "owner_decisions_pending": pending,
         "budget_bytes": budget,
-        "required_bytes": _compact_bytes(result),
+        "required_bytes": required,
         "next_action": ("read the full result before answering: re-run with "
                         "`--report-out <file>`, or read the sealed envelope "
                         "in run_dir. Do not answer from this output"),
     }
     out["evidence"] = result.get("evidence")
+    # Bound this object too. Verdict, outcome, acceptance and
+    # promotion_performed are never surrendered: they are how a reader
+    # knows the run is still awaiting review.
+    for key in _OVERFLOW_OPTIONAL:
+        if _compact_bytes(out) <= budget:
+            return out
+        if out.get(key) is not None:
+            out[key] = None
+            out["compact_overflow"]["omitted_fields"] = [
+                *out["compact_overflow"].get("omitted_fields", []), key]
+    if _compact_bytes(out) > budget:
+        out["run_dir"] = _path_stand_in(out.get("run_dir"))
+        out["compact_overflow"]["next_action"] = (
+            "the run directory path is itself too long to print here; "
+            "recover it from the run id with `--report-out <file>`. "
+            "Do not answer from this output")
+    if _compact_bytes(out) > budget:
+        # Last resort: a fixed-shape refusal that cannot itself overflow.
+        return {"tool": result.get("tool"),
+                "verdict": result.get("verdict", "blocked"),
+                "outcome": result.get("outcome"),
+                "promotion_performed": result.get("promotion_performed"),
+                "acceptance": result.get("acceptance"),
+                "needs_review": [],
+                "compact_overflow": {
+                    "reason": "this run cannot be represented within the "
+                              f"{budget}-byte compact budget at all",
+                    "owner_decisions_pending": pending,
+                    "budget_bytes": budget,
+                    "required_bytes": required,
+                    "next_action": ("read the full result with "
+                                    "`--report-out <file>`. Do not answer "
+                                    "from this output")}}
     return out
 
 
 def _trim_order(result: dict[str, Any]) -> tuple[str, ...]:
     """Fields to give up, in order, least decision-critical first.
 
-    ``needs_review`` carries the questions an owner must answer, so while
-    any decision is unanswered it is mandatory and never appears here.
-    Once answered, those same questions are a pure echo of answers the
-    owner already holds in their answers file, which makes them more
-    expendable than anything describing the run's current state -- so on
-    an answered run they are given up before the diagnostics.
+    ``needs_review`` carries the questions an owner must answer. An
+    *answered* question is a pure echo of an answer the owner already
+    holds in their answers file, so it is more expendable than anything
+    describing the run's current state. An *unanswered* question is
+    mandatory and is never dropped, however many of its siblings were
+    answered -- so this list appears here only when it holds echoes, and
+    only those entries are ever given up (see ``_trim_list``).
 
     ``regressions`` sits between the two groups: it is a safety signal
     rather than guidance, so it outranks the diagnostics, but it is not
     part of the decision record.
     """
-    answered = bool(result.get("owner_decisions"))
+    answered = _answered_ids(result)
+    echoes = any(_is_echo(q, answered)
+                 for q in (result.get("needs_review") or []))
     middle = _DIAGNOSTICS + ("regressions",)
-    if answered:
+    if echoes:
         return ("needs_review",) + middle + _DECISION_RECORD
     return middle + _DECISION_RECORD
+
+
+def _without(values: list[Any], dropped: set[int]) -> list[Any]:
+    """``values`` minus the dropped indices, order preserved."""
+    return [value for index, value in enumerate(values) if index not in dropped]
+
+
+def _droppable(key: str, values: list[Any],
+               result: dict[str, Any]) -> list[int]:
+    """Indices of entries this key may surrender, in list order.
+
+    Every entry of an ordinary list is expendable. ``needs_review`` is
+    not an ordinary list: only the questions the owner has already
+    answered may go, so an unanswered question survives regardless of
+    how many of its siblings were answered.
+    """
+    if key != "needs_review":
+        return list(range(len(values)))
+    answered = _answered_ids(result)
+    return [i for i, question in enumerate(values)
+            if _is_echo(question, answered)]
 
 
 def _fit_budget(result: dict[str, Any],
@@ -161,18 +278,23 @@ def _fit_budget(result: dict[str, Any],
         original = result.get(key)
         if not isinstance(original, list) or not original:
             continue
-        values = list(original)
-        if len(values) > _PRETRIM:
-            values = values[:_PRETRIM]
-            trimmed[key] = values
-            omitted[key] = len(original) - len(values)
-        while _compact_bytes(trimmed) > budget and values:
-            values = values[:-1]
-            trimmed[key] = values
-            omitted[key] = len(original) - len(values)
-        if not values:
-            # An empty list carries nothing; drop the key and keep the count.
-            trimmed[key] = []
+        removable = _droppable(key, original, result)
+        if not removable:
+            continue
+        dropped: set[int] = set()
+        # Bound the work on pathological input before refining one by one.
+        pending = list(reversed(removable))
+        if len(removable) > _PRETRIM:
+            dropped.update(removable[_PRETRIM:])
+            pending = list(reversed(removable[:_PRETRIM]))
+            trimmed[key] = _without(original, dropped)
+            omitted[key] = len(dropped)
+        for index in pending:
+            if _compact_bytes(trimmed) <= budget:
+                break
+            dropped.add(index)
+            trimmed[key] = _without(original, dropped)
+            omitted[key] = len(dropped)
         if _compact_bytes(trimmed) <= budget:
             return trimmed
     if _compact_bytes(trimmed) <= budget:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -320,3 +321,140 @@ def test_restatable_guidance_is_given_up_before_regressions():
     assert result["omitted"].get("next_actions", 0) > 0
     assert result["regressions"] == ["layout.no_visual_overlap"]
     assert "regressions" not in result["omitted"]
+
+
+# --- partial owner answers: only an answered question is expendable ----
+
+def _answer(envelope: dict, *indices: int) -> dict:
+    """Record answers for exactly these decision indices."""
+    envelope["summary"]["owner_decisions"] = {"answered": [
+        {"decision_id": f"dec-{i:016x}", "option": "size:10D",
+         "effect": "apply", "edits": 2} for i in indices]}
+    return envelope
+
+
+def _ids(result: dict) -> list[str]:
+    return [q["decision_id"] for q in result["needs_review"]]
+
+
+def test_one_answer_never_makes_the_other_questions_expendable():
+    """Regression guard for the partial-answer defect.
+
+    `answered = bool(result["owner_decisions"])` treated *any* answer as
+    licence to trim the whole question list, but answers are partial by
+    design: `vqs.repair.decisions` resolves only what the owner supplied.
+    A single answer therefore made four still-open questions eligible for
+    trimming, and a blocked run dropped questions the owner had to answer
+    while reporting only a count.
+    """
+    result = summarize(_answer(
+        _budget_envelope(changes=7, decisions=9, diagnostics=20), 0))
+    assert _printed_bytes(result) <= 6000
+    assert "compact_overflow" not in result
+    # Every unanswered question survives, with its options.
+    for index in range(1, 9):
+        question = next(q for q in result["needs_review"]
+                        if q["decision_id"] == f"dec-{index:016x}")
+        assert question["question"] and question["reason"]
+        assert [o["id"] for o in question["options"]] == ["size:10D", "accept"]
+    # The one answered echo is what paid, and it is counted.
+    assert f"dec-{0:016x}" not in _ids(result)
+    assert result["omitted"]["needs_review"] == 1
+
+
+def test_an_answered_question_between_unanswered_ones_is_the_only_one_dropped():
+    """Position must not matter: the echo is identified by its own id."""
+    result = summarize(_answer(
+        _budget_envelope(changes=7, decisions=9, diagnostics=20), 4))
+    assert _printed_bytes(result) <= 6000
+    assert _ids(result) == [f"dec-{i:016x}" for i in range(9) if i != 4]
+    assert result["omitted"]["needs_review"] == 1
+
+
+def test_an_all_answered_run_may_give_up_any_question():
+    """With nothing left open, every entry is a redundant echo.
+
+    Only as many are dropped as the budget needs -- the trim stops the
+    moment the result fits -- so what matters is that the whole list is
+    *eligible* and that the decision record survives instead.
+    """
+    answered = _answer(
+        _budget_envelope(changes=7, decisions=9, diagnostics=20), *range(9))
+    result = summarize(answered)
+    assert _printed_bytes(result) <= 6000
+    assert result["omitted"]["needs_review"] > 0
+    # Whatever survived is an echo of an answer the owner already holds.
+    held = {entry["decision_id"] for entry in result["owner_decisions"]}
+    assert all(q["decision_id"] in held for q in result["needs_review"])
+    # The record of what was decided and done is what survives instead.
+    assert len(result["owner_decisions"]) == 9
+    assert result["changes"]
+
+
+def test_an_unanswered_run_keeps_every_question_and_overflows_instead():
+    """No answers at all: nothing in the list is expendable."""
+    envelope = _budget_envelope(changes=7, decisions=9, diagnostics=20)
+    assert not envelope["summary"].get("owner_decisions")
+    result = summarize(envelope)
+    assert _printed_bytes(result) <= 6000
+    if "compact_overflow" in result:
+        assert result["needs_review"] == []
+        assert result["compact_overflow"]["owner_decisions_pending"] == 9
+    else:
+        assert _ids(result) == [f"dec-{i:016x}" for i in range(9)]
+        assert "needs_review" not in result.get("omitted", {})
+
+
+# --- the overflow form is itself bounded -------------------------------
+
+def test_overflow_bounds_its_own_oversized_scalar_metadata():
+    """Regression guard: `_overflow` used to return an unmeasured object.
+
+    It preserved `run_dir` and `candidate` in full and added its own
+    explanatory text, so long paths alone exceeded the budget the result
+    advertises -- 6,507 bytes against 6,000, while reporting that zero
+    owner decisions had caused it.
+    """
+    run_dir = "/tmp/" + "/".join(["č" * 70] * 20) + "/r"
+    candidate = run_dir + "/candidate/Fictional.Report"
+    # Representable POSIX paths: each component is 140 bytes, under NAME_MAX.
+    assert max(len(p.encode()) for p in run_dir.split("/") if p) <= 255
+    assert len(run_dir.encode()) > 2000
+    result = summarize({
+        "tool": "vqs.run", "verdict": "blocked", "run_id": "r",
+        "run_dir": run_dir,
+        "summary": {"outcome": "blocked", "acceptance": False,
+                    "candidate_status": {"status": "blocked",
+                                         "candidate": candidate},
+                    "repair_triage": {"decisions": []}}})
+    assert _printed_bytes(result) <= 6000
+    overflow = result["compact_overflow"]
+    # The cause is named honestly: no owner decision was involved.
+    assert overflow["owner_decisions_pending"] == 0
+    assert "mandatory result metadata" in overflow["reason"]
+    assert overflow["required_bytes"] > 6000
+    assert "candidate" in overflow["omitted_fields"]
+    # The run still reads as awaiting owner review.
+    assert result["verdict"] == "blocked"
+    assert result["outcome"] == "blocked"
+    assert result["acceptance"] is False
+    assert result["promotion_performed"] is False
+    assert result["needs_review"] == []
+
+
+def test_overflow_degrades_an_unprintable_run_dir_to_a_digest():
+    """When even the retrieval pointer cannot fit, identify it instead."""
+    run_dir = "/tmp/" + "/".join(["q" * 200] * 60)
+    result = summarize({
+        "tool": "vqs.run", "verdict": "blocked", "run_id": "r",
+        "run_dir": run_dir,
+        "summary": {"outcome": "blocked", "acceptance": False,
+                    "candidate_status": {"status": "blocked", "candidate": None},
+                    "repair_triage": {"decisions": []}}})
+    assert _printed_bytes(result) <= 6000
+    pointer = result["run_dir"]
+    assert isinstance(pointer, dict)
+    assert pointer["bytes"] == len(run_dir.encode())
+    assert re.fullmatch(r"[0-9a-f]{64}", pointer["sha256"])
+    assert result["verdict"] == "blocked"
+    assert result["acceptance"] is False
