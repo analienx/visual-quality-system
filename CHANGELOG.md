@@ -41,13 +41,20 @@ Full detail and limits: [release notes](docs/RELEASE_NOTES_v0.2.0.md).
   context. The printed result is now measured in encoded UTF-8 bytes and kept
   within the budget by giving up restatable guidance first (`next_actions`,
   then `remaining`, then `blocked_reasons`), then `regressions`, and the
-  decision record (`owner_decisions`, `waived`, `changes`, `fixed`) last. On a
-  run whose decisions are already answered, the question echo is given up
-  first. Entries are only ever dropped whole, and every omission is counted in
-  a new `omitted` map. **Owner questions and their options are never
-  truncated:** if mandatory decision content exceeds the budget on its own,
+  decision record (`owner_decisions`, `waived`, `changes`, `fixed`) last. A
+  question the owner has **already answered** is a redundant echo and is given
+  up first, matched by its own `decision_id`; a question that is still
+  **unanswered is never dropped**, however many of its siblings were answered,
+  because answers are partial by design. Entries are only ever dropped whole,
+  and every omission is counted in a new `omitted` map. **Owner questions and
+  their options are never truncated:** if mandatory decision content exceeds the budget on its own,
   the result instead carries `compact_overflow` and an empty `needs_review`,
   stays `blocked`, and directs the reader to the full result before answering.
+  That overflow form is itself measured against the budget: optional scalars
+  are surrendered in a fixed order and listed in `omitted_fields`, and a
+  `run_dir` too long to print is replaced by a `{bytes, sha256}` stand-in so
+  it stays identifiable. `verdict`, `outcome`, `acceptance` and
+  `promotion_performed` are never surrendered.
   Two consequences worth planning for: the budget engages on ordinary runs,
   not only pathological ones - a routine repair of the committed fictional
   Contoso report prints about 5,990 bytes and already trims guidance - and

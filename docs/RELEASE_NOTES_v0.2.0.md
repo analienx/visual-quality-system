@@ -156,14 +156,22 @@ No command was removed and no result schema broken. `compare-renders` and
   could push tens of kilobytes into an agent's context. Over the budget, VQS
   gives up restatable guidance first (`next_actions`, `remaining`,
   `blocked_reasons`), then `regressions`, and keeps the decision record
-  (`owner_decisions`, `waived`, `changes`, `fixed`) longest; on an
-  already-answered run the question echo goes first. Entries are dropped
-  whole, never halved, and a new `omitted` map counts what went.
+  (`owner_decisions`, `waived`, `changes`, `fixed`) longest. A question the
+  owner has **already answered** is a redundant echo and goes first, matched
+  by its own `decision_id`; a question still **unanswered is never dropped**,
+  however many of its siblings were answered — answers are partial by design,
+  so one answer does not make the rest expendable. Entries are dropped whole,
+  never halved, and a new `omitted` map counts what went.
   **Owner questions and their options are never truncated.** If the owner
   decisions alone exceed the budget, the result carries `compact_overflow`
   with an empty `needs_review`, stays `blocked`, and tells the reader to get
   the full result before answering — an omitted count on its own would leave
-  an owner deciding without the basis for the decision.
+  an owner deciding without the basis for the decision. The overflow form is
+  measured against the budget too, so it cannot exceed the limit it
+  advertises: optional scalars are given up in a fixed order and listed in
+  `omitted_fields`, and a `run_dir` too long to print becomes a
+  `{bytes, sha256}` stand-in. `verdict`, `outcome`, `acceptance` and
+  `promotion_performed` always survive.
 
   Plan for two things. The budget engages on **ordinary** runs: a routine
   repair of the committed fictional Contoso report prints about 5,990 bytes
