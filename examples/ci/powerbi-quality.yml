@@ -57,6 +57,15 @@ jobs:
             "git+https://github.com/analienx/visual-quality-system.git@${VQS_REVISION}"
       # --sarif-root is the head checkout, so SARIF and annotation paths are
       # repository-relative and land on the pull request's changed files.
+      #
+      # This step writes the SARIF file to RUNNER_TEMP and does NOT upload it,
+      # so findings appear only as `::error` annotations on the pull request.
+      # Nothing here populates GitHub code scanning. To get code-scanning
+      # results as well, add `security-events: write` to `permissions` above
+      # and append a `github/codeql-action/upload-sarif` step, pinned to a
+      # commit SHA you have reviewed, with `sarif_file: ${{ runner.temp }}/vqs.sarif`
+      # and `if: always()` so a gate exit of 1 still publishes. That widens the
+      # job's token, which is why it is not enabled by default.
       - name: Compare static findings
         shell: bash
         run: |

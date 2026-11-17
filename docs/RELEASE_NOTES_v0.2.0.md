@@ -102,16 +102,18 @@ an owner is told to run verbatim.
 - **`compare-renders` cannot pass in this version.** Its overall verdict is
   always `blocked` (exit 2). Its per-page output is pixel-containment
   observation, not attribution, causation or data-parity proof.
-- **The CI kit has not been exercised in a third-party repository.** Running
-  the workflow's own steps against two checkouts of a copy of the fictional
-  Contoso project, with VQS installed from the release revision into a clean
-  environment: a pull request that introduced an overlap exited `1` with one
-  `::error` line and a SARIF `new` result whose `artifactLocation.uri` was
-  repository-relative, while an unchanged pull request exited `0` with the five
-  pre-existing findings reported `unchanged` and no annotations. Repository-relative
-  output is consistent with annotations landing on a pull request's changed
-  files, but **actual annotation placement on a GitHub pull request was not
-  observed**, and use in a third-party repository remains outstanding.
+- **What the CI kit was exercised against.** The workflow's own steps were run
+  against two checkouts of a copy of the fictional Contoso project, with VQS
+  installed from the release revision into a clean environment: a pull request
+  that introduced an overlap exited `1` with one `::error` line and a SARIF
+  `new` result whose `artifactLocation.uri` was repository-relative, while an
+  unchanged pull request exited `0` with the five pre-existing findings
+  reported `unchanged` and no annotations. Repository-relative output is
+  consistent with annotations landing on a pull request's changed files, but
+  **actual annotation placement on a GitHub pull request was not observed.**
+  By owner decision the kit is released as a copyable example on this
+  evidence; a demonstration in a separate consumer repository is **not** a
+  condition of this release.
 - **Native Desktop evidence is unchanged from v0.1.2.** Nothing in this release
   was produced by a Desktop process, a render or live data.
 - **Deferred to the v0.3 / acceptance track**, and explicitly *not* blocking
@@ -140,7 +142,7 @@ commit it was built from.
 ## Upgrading from v0.1.2
 
 No command was removed and no result schema broken. `compare-renders` and
-`evidence-report` are new. Two behaviour changes are user-visible:
+`evidence-report` are new. Three behaviour changes are user-visible:
 
 - **`vqs premium --contract` now fails closed on a non-object contract.** An
   explicitly supplied JSON `null`, or any other non-object, is refused with
@@ -149,6 +151,36 @@ No command was removed and no result schema broken. `compare-renders` and
   it was accepted, that invocation now blocks — supply a JSON object or drop
   the `--contract` flag.
 - Capture readiness and guided adoption hardening, as above.
+- **The compact result of `vqs fix` / `vqs_run` is now capped at 6,000
+  encoded bytes.** It used to be unbounded, so a report with many cohorts
+  could push tens of kilobytes into an agent's context. Over the budget, VQS
+  gives up restatable guidance first (`next_actions`, `remaining`,
+  `blocked_reasons`), then `regressions`, and keeps the decision record
+  (`owner_decisions`, `waived`, `changes`, `fixed`) longest. A question the
+  owner has **already answered** is a redundant echo and goes first, matched
+  by its own `decision_id`; a question still **unanswered is never dropped**,
+  however many of its siblings were answered — answers are partial by design,
+  so one answer does not make the rest expendable. Entries are dropped whole,
+  never halved, and a new `omitted` map counts what went.
+  **Owner questions and their options are never truncated.** If the owner
+  decisions alone exceed the budget, the result carries `compact_overflow`
+  with an empty `needs_review`, stays `blocked`, and tells the reader to get
+  the full result before answering — an omitted count on its own would leave
+  an owner deciding without the basis for the decision. The overflow form is
+  measured against the budget too, so it cannot exceed the limit it
+  advertises: optional scalars are given up in a fixed order and listed in
+  `omitted_fields`, and a `run_dir` too long to print becomes a
+  `{bytes, sha256}` stand-in. `verdict`, `outcome`, `acceptance` and
+  `promotion_performed` always survive.
+
+  Plan for two things. The budget engages on **ordinary** runs: a routine
+  repair of the committed fictional Contoso report prints about 5,990 bytes
+  and already trims guidance, so do not parse `next_actions` or `remaining`
+  as complete. And `next_actions` and `blocked_reasons` were already capped
+  at 8 and 12 entries in the compact view before this release, so their
+  `omitted` counts are relative to that capped view, not to the sealed run.
+  Anything that must be complete should come from `--report-out <file>` or
+  the sealed envelope in `run_dir`.
 
 Pin `VQS_REVISION` in the CI workflow to the reviewed release commit rather
 than a moving branch.

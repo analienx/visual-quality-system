@@ -28,6 +28,9 @@ The source-only v0.2.0 release does not certify native Desktop rendering, live-d
 
 VQS inspects source, proposes bounded changes, repairs a copy and verifies what it can. The owner answers design questions and decides whether to adopt. An independent reviewer assesses the evidence for acceptance. Missing evidence is blocked, not a pass.
 
+<a id="v03-acceptance-track"></a>
+<a id="next-product-milestone-v020--prove-better-outcomes"></a>
+
 ### Next product milestone: v0.3 / acceptance track — prove better outcomes
 
 **Status checked 16 November 2026.** [Owner decision #159](https://github.com/analienx/visual-quality-system/issues/159) froze v0.2 scope: milestones 2, 4, 5 and 6 below were **moved out of v0.2 and no longer block that version**. They define the v0.3 / acceptance track. GitHub issues and PRs are the live sources for current status; check their current heads and reviews before starting work. A draft implementation and passing tests do not by themselves establish independent acceptance. Milestone order expresses dependencies, not a promised release date.
