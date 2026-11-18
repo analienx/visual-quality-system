@@ -14,10 +14,11 @@ during development; see `tests/test_pipeline.py` and
 `tests/test_validate_commands.py` for runnable shapes.
 
 Exit codes: `0` pass, `1` demonstrated violation, `2` blocked
-(environment, capability, or input prevents a verdict). Nothing here
-renders pixels, queries live data, or approves a
-release — those need leased backends plus owner promotion.
-Start with `vqs run` for the whole sequence in one sealed run
+(environment, capability, or input prevents a verdict). The supported static
+workflow does not establish native Desktop or live-data acceptance. Advanced
+backend commands have their own readiness and authorization requirements;
+no command grants a report's release approval.
+Start with `vqs run` for the whole sequence with sealed stage evidence
 (`review`, `propose`, or `repair` modes stop earlier); the commands
 below expose each stage separately for debugging (expert interface).
 `vqs --version` prints the package version and `python -m vqs`
@@ -29,7 +30,7 @@ works anywhere the installed `vqs` does.
 For a standalone .pbip file, one unambiguous report root, or a `*.Report`
 folder, the new `vqs fix` command resolves the local model where possible,
 runs the **existing** coordinator in static repair mode, and returns a compact
-result while keeping all sealed evidence on disk. It never overwrites the original:
+result while keeping sealed stage evidence on disk. It never overwrites the original:
 
 ```console
 vqs doctor
@@ -48,6 +49,14 @@ Use `vqs run ... --summary` for a compact output with explicit workflow
 flags. `vqs run` without `--summary` preserves the expert JSON contract.
 Exit codes remain `0` pass, `1` fail and `2` blocked. A no-safe-candidate
 decision is correctly blocked, **not** proof of automatic repair success.
+
+The compact view has a 6,000-byte UTF-8 budget. An `omitted` map counts
+trimmed optional entries; unanswered owner questions are preserved, or the
+result explicitly reports `compact_overflow` instead of partial questions.
+Use `--report-out <file>` on the invocation to save the complete returned
+JSON before answering or auditing. The files in `run_dir` seal the stage
+ledger, not that full envelope; complete-envelope binding remains
+[#149](https://github.com/analienx/visual-quality-system/issues/149).
 
 The clean wheel embeds the previously approved, SHA-attested Microsoft authoring
 skill. `vqs doctor` checks that skill and the pinned CLI together before an
@@ -97,7 +106,9 @@ Answers authorize a disposable candidate and scoped waivers only. They are
 not G2/G4 review, G6 promotion or release approval, and nothing promotes the
 original.
 
-## Live answer regression (v0.2 candidate)
+<a id="live-answer-regression-v02-candidate"></a>
+
+## Live answer regression (blocked in v0.2.0)
 
 `vqs run --live-answers` currently records the answer baseline as **blocked**
 without opening the modeling connection. Existing answer artifacts do not
@@ -225,7 +236,9 @@ chain reproducibility.
 
 The gate ships in v0.2.0. VQS is not currently published
 as a PyPI distribution. Select and review the source commit yourself, or use a
-future published release artifact after verifying its digest and capabilities.
+[published release artifact](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0)
+after verifying its [SHA-256 digest](https://github.com/analienx/visual-quality-system/releases/download/v0.2.0/SHA256SUMS)
+and supported capabilities.
 
 The job deliberately uses `pull_request`, read-only repository permissions,
 no secrets or automatic SARIF upload, and a 20-minute job timeout. It writes

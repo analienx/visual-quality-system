@@ -1,5 +1,9 @@
 # VQS v0.2.0 — evidence you can hand to someone else
 
+**Published 18 November 2026.** [Download the release](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0)
+· [SHA-256 checksums](https://github.com/analienx/visual-quality-system/releases/download/v0.2.0/SHA256SUMS)
+· [Exact released source](https://github.com/analienx/visual-quality-system/commit/af146efce3a9d9fd6c9894f7f3e6f2c1cbe53d37).
+
 **Scope: Power BI static source review, safe candidate repair, and the evidence
 around them.** This release adds **no** native Desktop capability. Shape Map
 country clicking, contextual tooltip hover, generalized native repair reload and
@@ -36,7 +40,7 @@ What you *do* get is the per-page detail in the result: the changed-pixel count
 and fraction, the changed bounding box, the visuals whose PBIR bytes differ, the
 rectangles the differences were checked against, and `pages_failed` listing any
 page with changed pixels outside every edited rectangle. Read those
-observations; ignore the overall verdict, which is fixed.
+observations as diagnostics; the overall verdict remains `blocked`.
 
 **What the pixel check actually establishes.** It tests whether changed pixels
 fall inside the old and new rectangles of visuals whose PBIR bytes differ,
@@ -179,11 +183,37 @@ No command was removed and no result schema broken. `compare-renders` and
   as complete. And `next_actions` and `blocked_reasons` were already capped
   at 8 and 12 entries in the compact view before this release, so their
   `omitted` counts are relative to that capped view, not to the sealed run.
-  Anything that must be complete should come from `--report-out <file>` or
-  the sealed envelope in `run_dir`.
+  Save the complete returned JSON with `--report-out <file>` on the
+  invocation before answering or auditing. `run_dir` contains the sealed
+  stage ledger; it does **not** contain a sealed copy of the complete
+  returned envelope. Full-envelope binding remains deferred as #149.
 
 Pin `VQS_REVISION` in the CI workflow to the reviewed release commit rather
 than a moving branch.
+
+## Published source and verification
+
+Tag `v0.2.0` points to source commit
+[`af146efce3a9d9fd6c9894f7f3e6f2c1cbe53d37`](https://github.com/analienx/visual-quality-system/commit/af146efce3a9d9fd6c9894f7f3e6f2c1cbe53d37).
+The reviewed candidate was `8edaec4e7eb8250bf411a182dc1564658cc60724`;
+the final merges preserved its source tree. The integration and hardening
+work is merged in [#160](https://github.com/analienx/visual-quality-system/pull/160)
+and [#167](https://github.com/analienx/visual-quality-system/pull/167), and
+the integration work item [#159](https://github.com/analienx/visual-quality-system/issues/159)
+is closed. This completes the version release, not native report acceptance.
+
+The [published verification record](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0#released-source-and-verification)
+links the scoped cross-reviews and records the final 15/15 hosted checks and
+installed-wheel validation of the attached artifacts. It also records the
+initial Windows long-temp-path overflow and the subsequent successful test
+with a shorter temporary root. Those are distribution and source-workflow
+checks; native Desktop, live DAX and G2/G4/G6 were not accepted by this release.
+
+The release contains `visual_quality_system-0.2.0-py3-none-any.whl`,
+`visual_quality_system-0.2.0.tar.gz` and the
+[`SHA256SUMS` manifest](https://github.com/analienx/visual-quality-system/releases/download/v0.2.0/SHA256SUMS).
+Use the manifest to verify the downloaded files. Later documentation
+corrections do not rebuild or replace these artifacts or move the release tag.
 
 ## Further reading
 
