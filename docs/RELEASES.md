@@ -8,9 +8,11 @@
 
 ### v0.2.0 — latest
 
-Rendered before/after regression review (experimental), a readable evidence report for a sealed run, a copyable agent/CI quality gate, and capture-readiness and guided-adoption hardening. **Power BI static source scope**; no G2, G4 or G6 report acceptance is claimed.
+**Published 18 November 2026.** Experimental rendered pixel observations (overall result always blocked), a readable stage-ledger evidence report, a copyable agent/CI quality gate, and capture-readiness and guided-adoption hardening. **Power BI static source scope**; no G2, G4 or G6 report acceptance is claimed.
 
-[Download v0.2.0, wheel and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0) · [Detailed release notes and limits](RELEASE_NOTES_v0.2.0.md)
+Tag `v0.2.0` pins source [`af146efce3a9d9fd6c9894f7f3e6f2c1cbe53d37`](https://github.com/analienx/visual-quality-system/commit/af146efce3a9d9fd6c9894f7f3e6f2c1cbe53d37). The published assets are the wheel, source archive and `SHA256SUMS`; later documentation updates do not change those release files.
+
+[Download v0.2.0](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0) · [SHA-256 checksums](https://github.com/analienx/visual-quality-system/releases/download/v0.2.0/SHA256SUMS) · [Detailed release notes and limits](RELEASE_NOTES_v0.2.0.md#published-source-and-verification)
 
 ### v0.1.2 · 7 November 2026
 

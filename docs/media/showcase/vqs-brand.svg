@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="260" viewBox="0 0 1200 260" role="img" aria-labelledby="title desc">
   <title id="title">VQS · Visual Quality System</title>
-  <desc id="desc">VQS brand banner for a Power BI-first source and visual quality verification system.</desc>
+  <desc id="desc">Visual Quality System v0.2.0 is released for local Power BI source checks and candidate repair. Native report acceptance is a separate evidence track.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#0b1426"/>
@@ -39,5 +39,5 @@
   <circle cx="970" cy="78" r="6" fill="#74c6ff"/>
   <circle cx="1128" cy="50" r="7" fill="#4addc9"/>
   <rect x="985" y="209" width="146" height="28" rx="14" fill="#19394e" stroke="#35737e" stroke-opacity=".7"/>
-  <text x="1058" y="227" font-family="Segoe UI,Inter,Arial,sans-serif" font-size="13" font-weight="700" text-anchor="middle" letter-spacing="1.5" fill="#9df1e4">SOURCE · PIXELS</text>
+  <text x="1058" y="227" font-family="Segoe UI,Inter,Arial,sans-serif" font-size="13" font-weight="700" text-anchor="middle" letter-spacing="1.5" fill="#9df1e4">v0.2.0 RELEASED</text>
 </svg>

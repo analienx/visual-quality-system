@@ -1,6 +1,6 @@
 # VQS documentation
 
-Choose a path based on what you want to do. The **latest release (v0.2.0)** is a source-level Power BI CLI/MCP distribution. [Release notes](RELEASE_NOTES_v0.2.0.md) · [Release history](RELEASES.md) · [Download and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0)
+Choose a path based on what you want to do. The **latest release (v0.2.0)** was published on **18 November 2026**: source-level Power BI review, candidate repair and evidence through CLI/MCP. [Release notes](RELEASE_NOTES_v0.2.0.md) · [Release history](RELEASES.md) · [Download](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0) · [SHA-256 checksums](https://github.com/analienx/visual-quality-system/releases/download/v0.2.0/SHA256SUMS)
 
 <a id="start-here"></a>
 <a id="the-everyday-loop"></a>
@@ -32,6 +32,6 @@ Choose a path based on what you want to do. The **latest release (v0.2.0)** is a
 - [Theme gallery](REAL_THEME_SHOWCASE.md) and [palette library](APPROVED_THEME_LIBRARY.md)
 - [Release and engineering history](RELEASES.md), [changelog](../CHANGELOG.md), and the [archived status snapshot](../roadmap/STATUS.md)
 - [Browse the full documentation directory](https://github.com/analienx/visual-quality-system/tree/main/docs)
-- [Historical two-PBIP acceptance record](POWER_BI_CORE_ACCEPTANCE_2026-10-28.md) and current [release gate issue #16](https://github.com/analienx/visual-quality-system/issues/16)
+- [Historical two-PBIP acceptance record](POWER_BI_CORE_ACCEPTANCE_2026-10-28.md) and the separate [native report-acceptance gate #16](https://github.com/analienx/visual-quality-system/issues/16)
 
 Historical records explain what was observed at a particular revision; they are not current acceptance by themselves. Preserve their provenance and consult the linked current issues before relying on a capability claim. Power BI is the primary product; Word/DOCX is separately scoped.

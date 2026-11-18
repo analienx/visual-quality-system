@@ -1,15 +1,16 @@
 flowchart TB
-  subgraph CI["Portable · GitHub Actions / Python"]
-    S["PBIR/TMDL parsing, rules, premium, typed validation"]
+  subgraph CI["Published v0.2.0 · portable Python / GitHub Actions"]
+    S["PBIR/TMDL source checks + candidate repair + static PR gate"]
+    S --> L["Sealed stage ledger + returned JSON; full result via --report-out"]
+    L --> O["Verified candidate adoption requires an explicit owner decision"]
   end
-  subgraph WIN["Authorized Windows · Power BI Desktop"]
-    M["Modeling MCP · live DAX"]
-    B["Desktop Bridge · native pixels"]
-    U[".NET UIA · real interactions"]
+  subgraph WIN["Optional Windows · separate native acceptance track"]
+    M["Modeling MCP · scoped DAX probes"]
+    B["Desktop Bridge · source-bound captures"]
+    U[".NET UIA · supported interactions"]
     W["WinApp CLI · optional diagnostics"] -.-> U
+    M --> E["Bounded native observations; binding is not data equality"]
+    B --> E
+    U --> E
+    E --> R["G2/G4/G6 require separate evidence and authority; missing proof blocks"]
   end
-  S --> E["Source-bound evidence / hashes"]
-  M --> E
-  B --> E
-  U --> E
-  E --> R["Independent reviewer / scoped release authority"]
