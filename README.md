@@ -1,8 +1,8 @@
 <div align="center">
-  <img src="docs/media/showcase/vqs-brand.svg" width="100%" alt="Visual Quality System — source-grounded Power BI repair and native verification">
+  <img src="docs/media/showcase/vqs-brand.svg" width="100%" alt="Visual Quality System v0.2.0 — Power BI source checks and candidate repair">
   <h2>Fix the report. Verify the fix.</h2>
-  <p><strong>Give your AI agent a Power BI project. Get an independently checkable repair candidate—not another issues-only report.</strong></p>
-  <p>Deterministic PBIR &amp; TMDL analysis · Reversible auto-fixes · Real Power BI Desktop evidence</p>
+  <p><strong>Give your AI agent a Power BI project. Inspect the source, repair a copy and review what changed.</strong></p>
+  <p>Local CLI/MCP · Reversible candidate repairs · Owner-controlled adoption</p>
   <p>
     <a href="roadmap/README.md"><strong>Roadmap</strong></a> ·
     <a href="docs/AI_AGENT_QUICKSTART.md"><strong>Start with an AI agent</strong></a> ·
@@ -17,13 +17,13 @@
     <a href="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml"><img src="https://github.com/analienx/visual-quality-system/actions/workflows/ci.yml/badge.svg" alt="GitHub CI status"></a>
     <img src="https://img.shields.io/badge/Python-3.11%2B-3270B7" alt="Python 3.11 and newer">
     <img src="https://img.shields.io/badge/License-Apache--2.0-18977A" alt="Apache 2.0">
-    <img src="https://img.shields.io/badge/Status-supported%20CLI%20v0.2.0%20%7C%20native%20preview-E2A744" alt="Supported CLI v0.2.0 distribution; native features retain evidence gates">
+    <a href="https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/Released-v0.2.0-18977A" alt="v0.2.0 released on 18 November 2026"></a>
   </p>
 </div>
 
 ## Latest release · v0.2.0
 
-**Evidence you can hand to someone else** · Python 3.11+ · Local CLI/MCP
+**Published 18 November 2026** · Python 3.11+ · Local CLI/MCP
 
 [**Download v0.2.0 and verify checksums**](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0) · [What's new, and the limits](docs/RELEASE_NOTES_v0.2.0.md) · [All published releases](docs/RELEASES.md)
 
@@ -56,11 +56,17 @@ Before choosing a design option or adopting a candidate, read [owner decisions, 
 
 **Supported boundary:** v0.2.0 is a **source-level** review and safe candidate-repair release. It does not certify arbitrary native Desktop rendering, interactions, live DAX parity, G2/G4/G6 signoff, or Word/DOCX. A blocked result is not a successful repair. [Read the exact limits](docs/RELEASE_NOTES_v0.2.0.md#limits--read-this-before-relying-on-the-release).
 
+| What you need | Where to go |
+| :--- | :--- |
+| **Use the released CLI/MCP** | [Install and repair a copy](docs/USER_GUIDE.md#start-with-the-published-release) · [Download and verify the artifacts](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0) |
+| **Understand experimental evidence** | [Pixel observations and stage-ledger limits](docs/RELEASE_NOTES_v0.2.0.md#what-is-new) |
+| **See what comes next** | [v0.3 / acceptance-track dependencies](roadmap/README.md#v03-acceptance-track) |
+
 ## How VQS works
 
 **Microsoft tooling** helps author and validate Power BI reports. **VQS** measures defects, applies allowed changes to a separate candidate, records evidence and exposes what still needs an owner's decision. These tools complement each other.
 
-<a href="docs/diagrams/vqs-product-loop-mobile.svg"><img src="docs/diagrams/vqs-product-loop-mobile.svg" alt="Product flow: user and AI agent, Microsoft authoring, VQS quality checks, then evidenced candidate for owner review or an explicitly blocked result" width="720"></a>
+<a href="docs/diagrams/vqs-product-loop-mobile.svg"><img src="docs/diagrams/vqs-product-loop-mobile.svg" alt="v0.2.0 source workflow: inspect PBIP source, repair a separate copy, recheck static properties and show a candidate or unanswered owner questions; native acceptance remains a separate track" width="720"></a>
 
 [**Open the diagram full size**](docs/diagrams/vqs-product-loop-mobile.svg) · [**Full product roadmap**](roadmap/README.md) · [How the agent/repair architecture works](docs/AGENT_AUTOFIX_ARCHITECTURE.md)
 
@@ -179,7 +185,7 @@ vqs doctor
 vqs triage tests/powerbi/fixtures/mini_report --out quality.md
 ```
 
-`triage` is a **read-only source check**, not the autonomous repair command. To fix supported issues in a disposable candidate, use the `vqs run --mode repair` example above.
+`triage` is a **read-only source check**. To repair supported issues in a disposable candidate, use the `vqs fix` workflow above.
 
 **Light and Dark themes** can be generated and audited separately using the theme CLI:
 
@@ -198,10 +204,10 @@ vqs theme audit ./organic-candidate
 | :--- | :--- | :--- |
 | **Source** | Layout, categorical color distinctness, supported formatting, bindings and checks with exact file evidence | Actual Desktop pixels or arbitrary dynamic state |
 | **Candidate** | Declared typed edits, unchanged original, rollback path, source diff and supported authoring validation | That every unrelated issue has disappeared |
-| **Native** | Authenticated, source-bound full-page renders and supported interaction/DAX checks when available | Unsupported visuals, inaccessible controls or unverified sign-in |
-| **Release** | Sealed evidence suitable for independent human/agent review | A production approval without an authorized separate decision |
+| **Native acceptance track** | Source-bound full-page renders and supported interaction/DAX checks require separate runtime evidence | v0.2.0 does not certify native rendering, data parity or interactions |
+| **Review and adoption** | A sealed stage ledger, candidate details and an explicit owner-controlled adoption step | A complete sealed result envelope or G2/G4/G6 report acceptance |
 
-The 14 approved theme families include **28 Light/Dark modes** with real source-bound native previews. Their default-state capture and color checks do **not** certify every dropdown state, cross-report interaction, or production G2/G4/G6. [Release history and engineering records](docs/RELEASES.md) · [Evidence and acceptance](docs/ACCEPTANCE_MATRIX.md) · [Open release gates](https://github.com/analienx/visual-quality-system/issues/16).
+The 14 approved theme families include **28 Light/Dark modes** with real source-bound native previews. Their default-state capture and color checks do **not** certify every dropdown state, cross-report interaction, or production G2/G4/G6. [Release history and engineering records](docs/RELEASES.md) · [Evidence and acceptance](docs/ACCEPTANCE_MATRIX.md) · [Native acceptance work](https://github.com/analienx/visual-quality-system/issues/16).
 
 ## Documentation
 
@@ -216,4 +222,4 @@ The 14 approved theme families include **28 Light/Dark modes** with real source-
 
 VQS focuses on **Power BI**. Word/DOCX assurance is a separate optional component, not a blocker for a Power BI-only release. Source inspection is local by default; private customer screenshots and caches must not be checked in or uploaded without explicit authorization.
 
-<sub>Apache-2.0 · Engineering preview · Power BI first (Word/DOCX separately scoped) · [Security and contribution](CONTRIBUTING.md) · [Legacy theme gallery](docs/THEME_GALLERY.md)</sub>
+<sub>Apache-2.0 · v0.2.0 source CLI/MCP released · Power BI first (Word/DOCX separately scoped) · [Security and contribution](CONTRIBUTING.md) · [Legacy theme gallery](docs/THEME_GALLERY.md)</sub>
