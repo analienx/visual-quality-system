@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" width="1440" height="575" viewBox="0 0 1440 575">
-<title id="title">VQS architecture: from Power BI source to verifiable decision</title>
-<desc id="desc">Five stages: read PBIP and TMDL, diagnose with deterministic rules and premium design contract, verify in Windows Power BI Desktop with Modeling MCP, Desktop Bridge and native UIA, seal source-bound evidence, independently review. Optional safe candidate repair loops back to verification and is never automatically released.</desc>
+<title id="title">Published VQS v0.2.0 source and candidate workflow</title>
+<desc id="desc">Read Power BI source, diagnose supported findings, repair only a disposable candidate, verify source changes and record a sealed stage ledger, then return questions and any verified adoption step to the owner. Native Windows pixels, DAX and UIA observations are a separate gated track. Source checks do not prove equal data or G2, G4 or G6 report acceptance.</desc>
 <defs>
   <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0a182b"/><stop offset="1" stop-color="#112b42"/></linearGradient>
   <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#19314a"/><stop offset="1" stop-color="#14293f"/></linearGradient>
@@ -20,9 +20,9 @@
   </style>
 </defs>
 <rect width="1440" height="575" rx="25" fill="url(#bg)"/><rect x="1" y="1" width="1438" height="573" rx="24" fill="none" stroke="#395b78" stroke-opacity=".5"/>
-<text x="58" y="62" class="eyebrow">01 / PRODUCT FLOW</text>
-<text x="58" y="113" class="heading">From source to evidence. Not just a pretty screenshot.</text>
-<text x="58" y="150" class="sub">One Power BI-first quality engine · real rendering · independent final decision</text>
+<text x="58" y="62" class="eyebrow">01 / PUBLISHED v0.2.0</text>
+<text x="58" y="113" class="heading">Source-safe changes. A separate owner step.</text>
+<text x="58" y="150" class="sub">One Power BI-first package · static source workflow · original preserved until adoption</text>
 <rect x="58" y="218" width="252" height="214" rx="21" fill="url(#panel)" stroke="#31526f" stroke-width="1.5" filter="url(#shadow)"/>
  <rect x="78" y="240" width="48" height="32" rx="10" fill="#174a57" stroke="#397785" stroke-opacity=".6"/>
  <text x="102" y="261" text-anchor="middle" class="stepnum">01</text>
@@ -38,23 +38,24 @@
  <text x="356" y="402" class="cardline">Premium design intent</text><path d="M589 325 H612" stroke="#69b8d9" stroke-width="2.2" marker-end="url(#arrow)"/><rect x="614" y="218" width="252" height="214" rx="21" fill="url(#panel)" stroke="#31526f" stroke-width="1.5" filter="url(#shadow)"/>
  <rect x="634" y="240" width="48" height="32" rx="10" fill="#174a57" stroke="#397785" stroke-opacity=".6"/>
  <text x="658" y="261" text-anchor="middle" class="stepnum">03</text>
- <text x="634" y="317" class="cardtitle">OBSERVE</text>
+ <text x="634" y="317" class="cardtitle">REPAIR</text>
  <path d="M634 339 H843" stroke="#466782" opacity=".65"/>
- <text x="634" y="375" class="cardline">Desktop · DAX · UIA</text>
- <text x="634" y="402" class="cardline">Native page captures</text><path d="M867 325 H890" stroke="#69b8d9" stroke-width="2.2" marker-end="url(#arrow)"/><rect x="892" y="218" width="252" height="214" rx="21" fill="url(#panel)" stroke="#31526f" stroke-width="1.5" filter="url(#shadow)"/>
+ <text x="634" y="375" class="cardline">Disposable candidate</text>
+ <text x="634" y="402" class="cardline">Typed allowed edits</text><path d="M867 325 H890" stroke="#69b8d9" stroke-width="2.2" marker-end="url(#arrow)"/><rect x="892" y="218" width="252" height="214" rx="21" fill="url(#panel)" stroke="#31526f" stroke-width="1.5" filter="url(#shadow)"/>
  <rect x="912" y="240" width="48" height="32" rx="10" fill="#174a57" stroke="#397785" stroke-opacity=".6"/>
  <text x="936" y="261" text-anchor="middle" class="stepnum">04</text>
- <text x="912" y="317" class="cardtitle">SEAL</text>
+ <text x="912" y="317" class="cardtitle">VERIFY</text>
  <path d="M912 339 H1121" stroke="#466782" opacity=".65"/>
- <text x="912" y="375" class="cardline">Source + image hashes</text>
- <text x="912" y="402" class="cardline">Scoped evidence bundle</text><path d="M1145 325 H1168" stroke="#69b8d9" stroke-width="2.2" marker-end="url(#arrow)"/><rect x="1170" y="218" width="252" height="214" rx="21" fill="url(#panel)" stroke="#468d9e" stroke-width="1.5" filter="url(#shadow)"/>
+ <text x="912" y="375" class="cardline">Source diff · remeasure</text>
+ <text x="912" y="402" class="cardline">Sealed stage ledger</text><path d="M1145 325 H1168" stroke="#69b8d9" stroke-width="2.2" marker-end="url(#arrow)"/><rect x="1170" y="218" width="252" height="214" rx="21" fill="url(#panel)" stroke="#468d9e" stroke-width="1.5" filter="url(#shadow)"/>
  <rect x="1190" y="240" width="48" height="32" rx="10" fill="#174a57" stroke="#397785" stroke-opacity=".6"/>
  <text x="1214" y="261" text-anchor="middle" class="stepnum">05</text>
- <text x="1190" y="317" class="cardtitle">DECIDE</text>
+ <text x="1190" y="317" class="cardtitle">OWNER STEP</text>
  <path d="M1190 339 H1399" stroke="#466782" opacity=".65"/>
- <text x="1190" y="375" class="cardline">Independent review</text>
- <text x="1190" y="402" class="cardline">Pass · fail · blocked</text><path d="M1066 456V500H487V456" fill="none" stroke="#5597b1" stroke-width="2" stroke-dasharray="7 7"/>
-<rect x="574" y="478" width="414" height="45" rx="15" fill="#1e3b51" stroke="#427486"/>
-<text x="781" y="507" text-anchor="middle" class="smalltag">OPTIONAL · TYPED REPAIR IN DISPOSABLE COPY</text>
-<text x="58" y="552" class="hint">A candidate is never a release. Missing pixels, data, interaction or reviewer authority remain BLOCKED.</text>
+ <text x="1190" y="375" class="cardline">Questions · adoption</text>
+ <text x="1190" y="402" class="cardline">Explicit authorization</text>
+<path d="M1018 433V470" fill="none" stroke="#5597b1" stroke-width="2" stroke-dasharray="7 7" marker-end="url(#arrow)"/>
+<rect x="58" y="478" width="1324" height="45" rx="15" fill="#1e3b51" stroke="#427486"/>
+<text x="720" y="507" text-anchor="middle" class="smalltag">SEPARATELY GATED WINDOWS · NATIVE PIXELS + DAX + UIA · ACCEPTANCE TRACK</text>
+<text x="58" y="552" class="hint">Source checks do not prove native pixels, equal data or G2/G4/G6 report acceptance.</text>
 </svg>
