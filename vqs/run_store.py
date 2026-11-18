@@ -270,8 +270,11 @@ def run_status(run_dir: Path) -> str:
 
 
 # An ownerless lock may be taken over only after it has gone untouched this
-# long. A claim in flight is younger than this by construction, so a
-# takeover can never steal it, whichever VQS version wrote it.
+# long. Age alone does not prove the claimant died: a live process can be
+# paused (SIGSTOP, swap, a VM suspend, a slow network filesystem) for
+# longer than this between creating a lock and writing its owner. Only the
+# takeover guard makes a takeover safe against such a claim in flight, so
+# every publication path that is not atomic must hold that guard too.
 STALE_LOCK_SECONDS = 60.0
 
 
@@ -324,15 +327,43 @@ def _publish_lock(lock: Path, payload: str) -> bool:
             temp.unlink()
         except OSError:
             pass
+    # Hard links are unavailable here, so publication is two steps:
+    # exclusive create, then write the owner. Between them the lock is
+    # observably ownerless, and a claimant paused past STALE_LOCK_SECONDS
+    # would let a takeover remove it while this claim is still live --
+    # admitting two owners for one artifact. Hold the same guard a
+    # takeover must hold, so the two can never interleave.
     try:
-        fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-    except FileExistsError:
+        with open(_guard_path(lock), "a+b") as guard:
+            if not _lock_guard(guard):
+                # A takeover is in flight, or this filesystem supports
+                # neither hard links nor advisory locks. Either way no
+                # exclusive lease can be published safely: queue rather
+                # than publish one that is not exclusive.
+                return False
+            try:
+                try:
+                    fd = os.open(str(lock),
+                                 os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                except FileExistsError:
+                    return False
+                try:
+                    with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                        stream.write(payload)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                except OSError:
+                    # Never leave an ownerless lock behind for a takeover.
+                    try:
+                        lock.unlink()
+                    except OSError:
+                        pass
+                    return False
+                return True
+            finally:
+                _unlock_guard(guard)
+    except OSError:
         return False
-    with os.fdopen(fd, "w", encoding="utf-8") as stream:
-        stream.write(payload)
-        stream.flush()
-        os.fsync(stream.fileno())
-    return True
 
 
 def _guard_path(lock: Path) -> Path:

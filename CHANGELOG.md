@@ -1,5 +1,75 @@
 # Changelog
 
+## v0.2.0 - evidence you can hand to someone else
+
+Scope frozen by the owner on 16 November 2026 ([#159](https://github.com/analienx/visual-quality-system/issues/159)).
+**Power BI static source scope only. No G2, G4 or G6 acceptance is claimed.**
+Full detail and limits: [release notes](docs/RELEASE_NOTES_v0.2.0.md).
+
+- **`vqs compare-renders` (experimental):** reports, per page, where two
+  exact-source captures differ in pixels and whether those differences fall
+  inside the rectangles of visuals whose PBIR bytes changed. **The overall
+  verdict is always `blocked` in this version, so the command always exits 2**,
+  and no input supplies the missing answer evidence; read the per-page
+  observations, not the verdict. Containment in an edited rectangle is an
+  observation, **not attribution or causation** - another visual, a theme
+  effect or a data change can move pixels inside the same rectangle. It
+  refuses to run on unproven data population, a missing or unpopulated
+  readiness probe, differing readiness probe hashes, a capture bound to another
+  revision, differing page sets/canvas/scale, or an unmeasurable canvas. The
+  probe hashes `COUNTROWS` on one table, so **equal hashes neither prove equal
+  data nor establish causation**. `--margin` is a declared tolerance,
+  defaulting to 0 and recorded in the result.
+- **`vqs evidence-report`:** a readable account of a sealed run's **stage
+  ledger** - recorded stage statuses, comparable before/after check names,
+  owner questions and the candidate path. It **does not list the edit set** and
+  says so; inspect the candidate and change evidence for actual edits.
+  Complete-envelope binding is deferred (#149).
+- **Copyable agent/CI quality gate:** `examples/ci/powerbi-quality.yml` runs
+  `vqs gate` on a pull request against its base revision, pinned to a reviewed
+  commit, writing SARIF and `::error` annotations. It refuses a placeholder
+  revision, an absolute report path or a `../` traversal. Exercised against a
+  simulated consumer layout with repository-relative SARIF output; **actual
+  annotation placement on a pull request was not observed**, and third-party
+  repository use remains outstanding.
+- **Capture readiness and guided adoption hardening:** readiness states what it
+  does and does not prove instead of implying data; the adoption command is
+  shell-safe.
+- **Behaviour change: the compact result is held to a 6,000-byte budget.**
+  `vqs fix` / `vqs_run` previously printed an unbounded compact result, so a
+  report with many cohorts could emit tens of kilobytes into an agent's
+  context. The printed result is now measured in encoded UTF-8 bytes and kept
+  within the budget by giving up restatable guidance first (`next_actions`,
+  then `remaining`, then `blocked_reasons`), then `regressions`, and the
+  decision record (`owner_decisions`, `waived`, `changes`, `fixed`) last. A
+  question the owner has **already answered** is a redundant echo and is given
+  up first, matched by its own `decision_id`; a question that is still
+  **unanswered is never dropped**, however many of its siblings were answered,
+  because answers are partial by design. Entries are only ever dropped whole,
+  and every omission is counted in a new `omitted` map. **Owner questions and
+  their options are never truncated:** if mandatory decision content exceeds the budget on its own,
+  the result instead carries `compact_overflow` and an empty `needs_review`,
+  stays `blocked`, and directs the reader to the full result before answering.
+  That overflow form is itself measured against the budget: optional scalars
+  are surrendered in a fixed order and listed in `omitted_fields`, and a
+  `run_dir` too long to print is replaced by a `{bytes, sha256}` stand-in so
+  it stays identifiable. `verdict`, `outcome`, `acceptance` and
+  `promotion_performed` are never surrendered.
+  Two consequences worth planning for: the budget engages on ordinary runs,
+  not only pathological ones - a routine repair of the committed fictional
+  Contoso report prints about 5,990 bytes and already trims guidance - and
+  `next_actions` and `blocked_reasons` were, as before, capped at 8 and 12
+  entries in the compact view, so their `omitted` counts are relative to that
+  capped view rather than to the sealed run. Use `--report-out <file>` or the
+  sealed envelope in `run_dir` whenever the complete result matters.
+- **Behaviour change:** `vqs premium --contract` now fails closed when the
+  supplied JSON is `null` or any other non-object, and a wrong-shaped archetype
+  is reported as a contract error (WP-35 / #144).
+- **Deferred to the v0.3 / acceptance track and not blocking this version:**
+  data/answer evidence parity (#131), analytical design critique (#142),
+  complete-envelope sealing (#149), and the native two-report demonstration
+  (#152, #16, #115-#120).
+
 ## v0.1.2 - verifiable decisions and regression gates
 
 Packages the functionality merged after v0.1.1 as one release, after a review

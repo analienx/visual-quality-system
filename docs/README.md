@@ -1,6 +1,6 @@
 # VQS documentation
 
-Choose a path based on what you want to do. The **latest release (v0.1.2)** is a source-level Power BI CLI/MCP distribution. [Release notes](RELEASE_NOTES_v0.1.2.md) · [Release history](RELEASES.md) · [Download and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2)
+Choose a path based on what you want to do. The **latest release (v0.2.0)** is a source-level Power BI CLI/MCP distribution. [Release notes](RELEASE_NOTES_v0.2.0.md) · [Release history](RELEASES.md) · [Download and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0)
 
 <a id="start-here"></a>
 <a id="the-everyday-loop"></a>
@@ -19,7 +19,7 @@ Choose a path based on what you want to do. The **latest release (v0.1.2)** is a
 
 ## Build or review VQS
 
-- [v0.2 delivery plan and dependencies](../roadmap/README.md#next-product-milestone-v020--prove-better-outcomes)
+- [v0.3 / acceptance-track plan and dependencies](../roadmap/README.md#v03-acceptance-track)
 - [Contribute and run tests](../CONTRIBUTING.md)
 - [Architecture](ARCHITECTURE.md) and [agent/repair workflow](AGENT_AUTOFIX_ARCHITECTURE.md)
 - [Acceptance gates and profiles](ACCEPTANCE_MATRIX.md)

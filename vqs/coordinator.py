@@ -77,6 +77,16 @@ def _child_id(run_id: str, stage: str) -> str:
     return f"{run_id}-{stage}"
 
 
+def _candidate_reload_pid(stages: list) -> int | None:
+    """Use only the latest successful reload and its positive Desktop PID."""
+    for entry in reversed(stages):
+        if isinstance(entry, dict) and entry.get("stage") == "candidate_reload":
+            evidence = entry.get("evidence")
+            pid = evidence.get("pid") if isinstance(evidence, dict) else None
+            return pid if entry.get("status") == "pass" and type(pid) is int and pid > 0 else None
+    return None
+
+
 def _unsupported_scope_answers(questions: Any) -> tuple[list[dict], list[dict]]:
     """Split DAX questions into supported and fail-closed unsupported ones.
 
@@ -554,6 +564,9 @@ def _answers_collect(questions: list, client: Any) -> dict:
     """
     from vqs.repair.answers import collect_answers
 
+    if not isinstance(questions, list) or not questions:
+        return {"verdict": "blocked", "reason": "answer questions are empty or malformed",
+                "questions": {}}
     supported, held = _unsupported_scope_answers(questions)
     collected: dict[str, Any] = {}
     if supported:
@@ -601,9 +614,6 @@ def _answers_baseline(params: dict, record: Any, adopted: dict,
     if not params["runtime"]:
         return record(_stage("answers_baseline", "blocked",
                              reason="static scope has no live model"))
-    prior = adopted.get("answers_baseline")
-    if prior is not None and _adoptable("answers_baseline", prior, ctx):
-        return record(prior)
     if not modeling_present():
         return record(_stage(
             "answers_baseline", "blocked",
@@ -617,42 +627,15 @@ def _answers_baseline(params: dict, record: Any, adopted: dict,
     if not isinstance(questions, list):
         return record(_stage("answers_baseline", "blocked",
                              reason="dax questions must be a list"))
-    client: Any = None
-    owned = False
-    try:
-        from vqs.powerbi.modeling import ModelingError
-
-        try:
-            client, owned, proof = _connect_modeling(params)
-        except (ModelingError, OSError, ValueError) as exc:
-            return record(_stage(
-                "answers_baseline", "blocked",
-                reason=f"no reachable live model: {exc}"))
-        result = _answers_collect(questions, client)
-        if result["verdict"] != "pass":
-            return record(_stage("answers_baseline", "blocked",
-                                 reason=result["reason"],
-                                 evidence={"proof": proof,
-                                           "questions": result.get(
-                                               "questions", {})}))
-        path = run_dir / "answers-baseline.json"
-        try:
-            path.write_text(json.dumps(result, indent=2,
-                                       ensure_ascii=False, default=str)
-                            + "\n", encoding="utf-8")
-        except OSError as exc:
-            return record(_stage(
-                "answers_baseline", "blocked",
-                reason=f"cannot persist answer evidence: {exc}"))
-        return record(_stage("answers_baseline", "pass", evidence={
-            "answers_path": str(path), "proof": proof,
-            "questions": result["questions"]}))
-    finally:
-        if owned:
-            try:
-                client.close()
-            except (OSError, ValueError, AttributeError):
-                pass
+    # Existing baseline receipts do not bind the actual loaded local model,
+    # selected Desktop PID and question scope to the report source. Reusing
+    # or collecting one here could query another model and report a false
+    # pass. Until the source-bound data-evidence contract is independently
+    # reviewed, do not connect and do not reuse legacy baseline receipts.
+    return record(_stage(
+        "answers_baseline", "blocked",
+        reason="source-bound Desktop/model answer evidence is unavailable; "
+               "a reviewed data-evidence contract is required (issue #131)"))
 
 
 def _runtime_sequence(run_dir: Any, rid: str, stages: list,
@@ -1055,6 +1038,9 @@ def _verify_sequence(run_dir: Any, rid: str, stages: list,
     elif not verified:
         record(_stage("candidate_reload", "not_run",
                       reason="candidate did not verify"))
+    elif not state.get("ready"):
+        record(_stage("candidate_reload", "blocked",
+                      reason="Desktop readiness or permission did not pass"))
     else:
         from vqs.repair.runtime import (
             BridgeUnavailable,
@@ -1114,6 +1100,13 @@ def _verify_sequence(run_dir: Any, rid: str, stages: list,
     elif not state.get("answers_path"):
         record(_stage("answer_regression", "not_run",
                       reason="no baseline answers to regress"))
+    elif not runtime or not state.get("ready"):
+        record(_stage("answer_regression", "blocked",
+                      reason="Desktop readiness or permission did not pass"))
+    elif _candidate_reload_pid(stages) is None:
+        record(_stage("answer_regression", "blocked",
+                      reason="candidate reload did not pass; "
+                             "cannot compare live answers"))
     else:
         record(_answer_regression(params, state, run_dir))
     # -- recapture (runtime only, needs a verified candidate) ------------
@@ -1126,11 +1119,17 @@ def _verify_sequence(run_dir: Any, rid: str, stages: list,
     elif not verified:
         record(_stage("recapture", "not_run",
                       reason="candidate did not verify"))
+    elif not state.get("ready"):
+        record(_stage("recapture", "blocked",
+                      reason="Desktop readiness or permission did not pass"))
+    elif _candidate_reload_pid(stages) is None:
+        record(_stage("recapture", "blocked",
+                      reason="candidate reload did not pass; cannot recapture"))
     else:
         renders = str(run_dir / "renders-candidate")
         state["candidate_renders"] = renders
         _capture_stage("recapture", state["candidate"], renders,
-                       params["pid"], record, adopted, ctx,
+                       _candidate_reload_pid(stages), record, adopted, ctx,
                        owned_candidate=bool(
                            state.get("candidate_owned", False)))
     # -- visual review handoff -------------------------------------------
@@ -1268,71 +1267,34 @@ def _handoff_stage(params: dict, state: dict, renders: str,
 
 
 def _answer_regression(params: dict, state: dict, run_dir: Any) -> dict:
-    """Re-collect answers after repair and compare rows identically."""
-    from vqs.repair.answers import answers_preserved
-
+    """Refuse legacy answer evidence lacking independent source binding."""
     try:
         baseline = json.loads(Path(state["answers_path"]).read_text(
             encoding="utf-8-sig"))
-    except (OSError, ValueError, TypeError) as exc:
+    except (OSError, ValueError, TypeError, KeyError) as exc:
         return _stage("answer_regression", "blocked",
                       reason=f"baseline answers unreadable: {exc}")
     questions = (baseline.get("questions")
                  if isinstance(baseline, dict) else None)
-    if not isinstance(questions, dict):
+    if not isinstance(questions, dict) or not questions:
         return _stage("answer_regression", "blocked",
-                      reason="baseline answers hold no questions map")
-    client: Any = None
-    owned = False
-    try:
-        from vqs.powerbi.modeling import ModelingError
-
-        try:
-            client, owned, _proof = _connect_modeling(params)
-        except (ModelingError, OSError, ValueError) as exc:
+                      reason="baseline answers hold no nonempty questions map")
+    for qid, item in questions.items():
+        if (not isinstance(qid, str) or not qid.strip()
+                or not isinstance(item, dict) or item.get("verdict") != "observed"
+                or not isinstance(item.get("dax"), str) or not item["dax"].strip()
+                or not isinstance(item.get("scope"), dict)
+                or not isinstance(item.get("rows"), list) or not item["rows"]
+                or any(not isinstance(row, dict) for row in item["rows"])):
             return _stage("answer_regression", "blocked",
-                          reason=f"no reachable live model: {exc}")
-        asked = [{"id": qid, "dax": item.get("dax", ""),
-                  "scope": item.get("scope", {})}
-                 for qid, item in questions.items()
-                 if isinstance(item, dict)
-                 and item.get("verdict") == "observed"]
-        result = _answers_collect(asked, client)
-        if result["verdict"] != "pass":
-            return _stage("answer_regression", "blocked",
-                          reason=result["reason"])
-        drifted: list[str] = []
-        for qid, item in result["questions"].items():
-            before = questions.get(qid, {})
-            scope_text = json.dumps(before.get("scope", {}), sort_keys=True,
-                                    ensure_ascii=False, default=str)
-            compared = answers_preserved(
-                scope_text, scope_text, before.get("rows"),
-                item.get("rows"))
-            if compared.get("verdict") != "pass":
-                drifted.append(qid)
-        if drifted:
-            return _stage("answer_regression", "fail",
-                          reason="answer regression: "
-                                 + ", ".join(sorted(drifted)),
-                          evidence={"questions": result["questions"]})
-        path = run_dir / "answers-regression.json"
-        try:
-            path.write_text(json.dumps(result, indent=2,
-                                       ensure_ascii=False, default=str)
-                            + "\n", encoding="utf-8")
-        except OSError as exc:
-            return _stage("answer_regression", "blocked",
-                          reason=f"cannot persist regression evidence: {exc}")
-        return _stage("answer_regression", "pass", evidence={
-            "answers_path": str(path),
-            "questions": result["questions"]})
-    finally:
-        if owned:
-            try:
-                client.close()
-            except (OSError, ValueError, AttributeError):
-                pass
+                          reason="baseline answer questions are incomplete or malformed")
+    # The old artifact has no trusted source/PID/model binding. Even a
+    # syntactically valid answer and matching rows are not enough to query
+    # another model or certify a regression. Re-enable only with a reviewed
+    # source-bound evidence producer (issue #131).
+    return _stage("answer_regression", "blocked",
+                  reason="baseline and candidate model/source binding is "
+                         "unproven; reviewed data evidence is required (issue #131)")
 
 
 def _finding_states(findings: Any) -> tuple[dict[str, str], bool]:

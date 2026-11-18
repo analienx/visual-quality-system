@@ -16,6 +16,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 from vqs.evidence import check_data_readiness
 from vqs.powerbi.modeling import ModelingScope, StdioModelingClient
 
@@ -63,3 +65,16 @@ def test_f06_count_only_readiness_blocks_data_gate(tmp_path: Path) -> None:
     finally:
         client.close()
     assert check_data_readiness(ready) != []
+
+
+@pytest.mark.parametrize("field", ["rowcount", "data_rows"])
+@pytest.mark.parametrize("invalid", [0, -1, True, False, None, "3", 1.5])
+def test_explicit_invalid_counts_block_readiness(field, invalid):
+    readiness = {"populated": True, "method": "modeling-mcp:repeat-query", field: invalid}
+    assert any(issue.get("verdict") == "blocked" for issue in check_data_readiness(readiness))
+
+
+def test_positive_and_absent_counts_preserve_legacy_behavior():
+    assert check_data_readiness({"populated": True, "method": "legacy"}) == []
+    assert check_data_readiness({"populated": True, "method": "modeling-mcp:repeat-query",
+                                 "rowcount": 1, "data_rows": 42}) == []

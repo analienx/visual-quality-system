@@ -6,19 +6,19 @@ VQS helps people and their agents improve Power BI reports with source-grounded 
 
 ## Release path
 
-### v0.1.2 — current published release
+### v0.2.0 — current release
 
-**Published 7 November 2026.** Source-only Power BI review, owner decisions, explicit candidate adoption and static pull-request gates. [Download the wheel and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.1.2) · [Release notes](../docs/RELEASE_NOTES_v0.1.2.md).
+**Scope frozen by [owner decision #159](https://github.com/analienx/visual-quality-system/issues/159) on 16 November 2026.** Experimental rendered pixel observations (overall verdict always blocked), a stage-ledger evidence report, a copyable agent/CI quality gate, and capture-readiness and guided-adoption hardening. [Download the wheel and checksums](https://github.com/analienx/visual-quality-system/releases/tag/v0.2.0) · [Release notes and limits](../docs/RELEASE_NOTES_v0.2.0.md).
 
-### v0.1.1 — previous release
+### v0.1.2 — previous release
+
+**Published 7 November 2026.** Source-only Power BI review, owner decisions, explicit candidate adoption and static pull-request gates. [Release notes](../docs/RELEASE_NOTES_v0.1.2.md).
+
+### v0.1.1 — earlier release
 
 **Published 30 October 2026.** Local CLI/MCP and candidate repairs. [Release notes](../docs/RELEASE_NOTES_v0.1.1.md).
 
-### v0.2.0 — in development
-
-Proposed improvements include data-aware validation and rendered regression evidence. **Scope and release date are not finalized.** Draft code and passing CI are not release or native-acceptance approval; see the milestone evidence below.
-
-The source-only v0.1.2 release does not certify native Desktop rendering, live-data parity or a whole report. Those claims require separate evidence and acceptance; see the [acceptance matrix](../docs/ACCEPTANCE_MATRIX.md).
+The source-only v0.2.0 release does not certify native Desktop rendering, live-data parity or a whole report. Those claims require separate evidence and acceptance; see the [acceptance matrix](../docs/ACCEPTANCE_MATRIX.md).
 
 ## Product direction
 
@@ -28,25 +28,28 @@ The source-only v0.1.2 release does not certify native Desktop rendering, live-d
 
 VQS inspects source, proposes bounded changes, repairs a copy and verifies what it can. The owner answers design questions and decides whether to adopt. An independent reviewer assesses the evidence for acceptance. Missing evidence is blocked, not a pass.
 
-### Next product milestone: v0.2.0 — prove better outcomes
+<a id="v03-acceptance-track"></a>
+<a id="next-product-milestone-v020--prove-better-outcomes"></a>
 
-**Status checked 14 November 2026.** GitHub issues and PRs are the live sources for current status; check their current heads and reviews before starting work. A draft implementation and passing tests do not by themselves establish independent acceptance. Milestone order below expresses dependencies, not a promised release date.
+### Next product milestone: v0.3 / acceptance track — prove better outcomes
+
+**Status checked 16 November 2026.** [Owner decision #159](https://github.com/analienx/visual-quality-system/issues/159) froze v0.2 scope: milestones 2, 4, 5 and 6 below were **moved out of v0.2 and no longer block that version**. They define the v0.3 / acceptance track. GitHub issues and PRs are the live sources for current status; check their current heads and reviews before starting work. A draft implementation and passing tests do not by themselves establish independent acceptance. Milestone order expresses dependencies, not a promised release date.
 
 **Status words:** *Released* means a published distribution; *draft implementation* means proposed code not integrated into a release; *blocked* means required evidence or capability is missing; *not started* means no implementation evidence has been identified; *independently verified* requires the applicable separate reviewer and proof. These describe different things and must not be inferred from a closed issue alone.
 
 1. **Integrate the candidate — draft implementation.** Combine the existing v0.2 branches with published `main` while preserving v0.1.2. Done when the exact combined revision has appropriate regression and installed-wheel checks and independent review. Green CI alone is not native acceptance. [Integration PR #160](https://github.com/analienx/visual-quality-system/pull/160) · [Issue #159](https://github.com/analienx/visual-quality-system/issues/159)
 
-2. **Prove data and answers — blocked.** Independently review a versioned contract, then build a producer and consumer binding loaded model, source, process, data snapshot, query and scope. Done when positive and negative controls cover wrong source/PID/model, changed data, roles/filters, truncation and missing evidence; unsupported contexts remain blocked. Equal row counts or echoed identities do not prove equal data. [Data evidence #131](https://github.com/analienx/visual-quality-system/issues/131)
+2. **Prove data and answers — v0.3 track; blocked.** Independently review a versioned contract, then build a producer and consumer binding loaded model, source, process, data snapshot, query and scope. Done when positive and negative controls cover wrong source/PID/model, changed data, roles/filters, truncation and missing evidence; unsupported contexts remain blocked. Equal row counts or echoed identities do not prove equal data. [Data evidence #131](https://github.com/analienx/visual-quality-system/issues/131)
 
-3. **Verify rendered regressions — draft implementation; verdict blocked.** Source-bound capture and pixel observations exist, but data/answer and interaction parity are not established. After milestone 2, demonstrate before/after results for supported states with stale-capture and changed-answer controls. Missing proof remains blocked. [Render integrity #130](https://github.com/analienx/visual-quality-system/issues/130) · [Answer regression #133](https://github.com/analienx/visual-quality-system/issues/133)
+3. **Verify rendered regressions — shipped experimental in v0.2.0; verdict always blocked.** `vqs compare-renders` reports source-bound pixel observations, but data/answer and interaction parity are not established, so it issues no overall regression verdict and always exits 2. Full verification is v0.3 track. After milestone 2, demonstrate before/after results for supported states with stale-capture and changed-answer controls. Missing proof remains blocked. [Render integrity #130](https://github.com/analienx/visual-quality-system/issues/130) · [Answer regression #133](https://github.com/analienx/visual-quality-system/issues/133)
 
-4. **Demonstrate on two reports — blocked.** Two unrelated fictional PBIP sources have been inspected; current populated native captures, interactions and independent acceptance remain incomplete. After the supported evidence path and authorized native work are available, run the required checks on both reports and independently review the actual evidence. [Second PBIP #152](https://github.com/analienx/visual-quality-system/issues/152) · [Acceptance gate #16](https://github.com/analienx/visual-quality-system/issues/16)
+4. **Demonstrate on two reports — v0.3 / acceptance track; blocked.** Two unrelated fictional PBIP sources have been inspected; current populated native captures, interactions and independent acceptance remain incomplete. After the supported evidence path and authorized native work are available, run the required checks on both reports and independently review the actual evidence. [Second PBIP #152](https://github.com/analienx/visual-quality-system/issues/152) · [Acceptance gate #16](https://github.com/analienx/visual-quality-system/issues/16)
 
-5. **Add analytical design critique — contract proposal.** Define owner-declared audience, questions and context, and map them to source/evidence without inventing business intent or causality. Done after independent interface review, a compatible implementation and false-positive/unknown-state controls. Its final inclusion in v0.2 requires scope confirmation. [Intent contract #142](https://github.com/analienx/visual-quality-system/issues/142) · [Benchmark #118](https://github.com/analienx/visual-quality-system/issues/118)
+5. **Add analytical design critique — v0.3 track; contract proposal.** Define owner-declared audience, questions and context, and map them to source/evidence without inventing business intent or causality. Done after independent interface review, a compatible implementation and false-positive/unknown-state controls. It is excluded from v0.2 by #159. [Intent contract #142](https://github.com/analienx/visual-quality-system/issues/142) · [Benchmark #118](https://github.com/analienx/visual-quality-system/issues/118)
 
-6. **Present complete evidence — draft partial implementation; contract proposed.** A stage-ledger report exists, but it does not bind the complete returned result or all actual changes. Done after independent contract review, compatible sealing and tamper/stale/partial-write tests. Final v0.2 scope requires confirmation. [Evidence report #145](https://github.com/analienx/visual-quality-system/issues/145) · [Envelope contract #149](https://github.com/analienx/visual-quality-system/issues/149)
+6. **Present complete evidence — stage-ledger report shipped in v0.2.0; complete binding is v0.3 track.** `vqs evidence-report` reports the sealed stage ledger, but it does not bind the complete returned result or list all actual changes. Done after independent contract review, compatible sealing and tamper/stale/partial-write tests. Excluded from v0.2 by #159. [Evidence report #145](https://github.com/analienx/visual-quality-system/issues/145) · [Envelope contract #149](https://github.com/analienx/visual-quality-system/issues/149)
 
-7. **Prepare distribution — not started for v0.2.** Finalize version, supported scope, installation, release notes and artifacts after the agreed milestones. Done with reviewed exact source, clean installs, checksums, documented limits and an owner release decision. This cannot substitute for a required report-acceptance gate. [Release history](../docs/RELEASES.md) · [Acceptance matrix](../docs/ACCEPTANCE_MATRIX.md)
+7. **Prepare distribution — in progress for v0.2.0.** Version, supported scope, installation and release notes are prepared; the remaining conditions are the owner's release decision and the distinct-model-family review named in #159. Done with reviewed exact source, clean installs, checksums, documented limits and an owner release decision. This cannot substitute for a required report-acceptance gate. [Release history](../docs/RELEASES.md) · [Acceptance matrix](../docs/ACCEPTANCE_MATRIX.md)
 
 **Success metric (retained planning goal):** verified **useful improvements per report**, not raw counts of findings, rules, tests or features. Measure adoption friction, false-positive rate, blocked-decision resolution, rendered regressions and evidence coverage so a green test suite is never mistaken for better user outcomes.
 

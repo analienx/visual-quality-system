@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -86,25 +87,374 @@ def test_posix_adopt_command_round_trips_through_shell(tmp_path):
         "--owner-approval", "owner: test", "--scope", "static"]
 
 
-def test_all_owner_questions_are_visible():
-    decisions = [{"status": "needs_owner_decision", "decision_id": f"q-{i}",
-                  "question": f"Question {i}?", "options": [
-                      {"id": "accept", "label": "Keep", "effect": "waive"},
-                      {"id": "change", "label": "Change", "effect": "apply"}]}
-                 for i in range(17)]
+def _questions(count: int) -> list[dict]:
+    return [{"status": "needs_owner_decision", "decision_id": f"q-{i}",
+             "question": f"Question {i}?", "options": [
+                 {"id": "accept", "label": "Keep", "effect": "waive"},
+                 {"id": "change", "label": "Change", "effect": "apply"}]}
+            for i in range(count)]
+
+
+def test_owner_questions_are_never_silently_truncated():
+    """Either every question is shown with its options, or overflow says so.
+
+    Owner questions are mandatory content: a subset would invite an answer
+    based on less than the decision covers. When they fit, all of them
+    appear; when they cannot, the result refuses to be answered from rather
+    than quietly dropping some.
+    """
     envelope = _envelope("/tmp/runs/run-1")
-    envelope["summary"]["repair_triage"] = {"decisions": decisions}
-    visible = summarize(envelope)["needs_review"]
-    assert [item["decision_id"] for item in visible] == [f"q-{i}" for i in range(17)]
+    envelope["summary"]["repair_triage"] = {"decisions": _questions(6)}
+    fits = summarize(envelope)
+    assert "compact_overflow" not in fits
+    assert [item["decision_id"] for item in fits["needs_review"]] == [
+        f"q-{i}" for i in range(6)]
     assert all([option["id"] for option in item["options"]] == ["accept", "change"]
-               for item in visible)
+               for item in fits["needs_review"])
+
+    # More than the budget can hold: explicit overflow, no partial subset.
+    envelope["summary"]["repair_triage"] = {"decisions": _questions(17)}
+    over = summarize(envelope)
+    assert over["needs_review"] == []
+    assert over["compact_overflow"]["owner_decisions_pending"] == 17
+    assert "Do not answer from this output" in (
+        over["compact_overflow"]["next_action"])
 
 
-def test_all_declared_changes_are_visible():
+def test_declared_changes_are_shown_in_order_and_omissions_counted():
+    """Changes are optional diagnostics: trimmed deterministically, counted.
+
+    They are no longer capped at an arbitrary 50; they are trimmed only as
+    far as the byte budget requires, from the tail, and whatever went is
+    reported so the reader knows to consult the full result.
+    """
     envelope = _envelope(str(Path("runs") / "run-1"))
     envelope["plan"] = {"operations": [
         {"type": "spacing.adjust", "selector": {"page": "P", "visual": f"v-{i}"},
          "path": ["visual", "objects", "position"], "old": i, "value": i + 1}
         for i in range(75)]}
-    changes = summarize(envelope)["changes"]
-    assert [item["visual"] for item in changes] == [f"v-{i}" for i in range(75)]
+    result = summarize(envelope)
+    changes = result["changes"]
+    # A prefix, in the original order, never a reordered or sampled subset.
+    assert [item["visual"] for item in changes] == [
+        f"v-{i}" for i in range(len(changes))]
+    assert result["omitted"]["changes"] == 75 - len(changes)
+    assert len(changes) + result["omitted"]["changes"] == 75
+
+
+# --- compact byte budget: owner questions are mandatory ----------------
+
+def _printed_bytes(result: dict) -> int:
+    """Exactly what the CLI writes: serialized form plus print's newline."""
+    return len(json.dumps(result, indent=2, ensure_ascii=False,
+                          default=str).encode("utf-8")) + 1
+
+
+def _budget_envelope(*, changes: int, decisions: int, question: str = "",
+              reason: str = "", diagnostics: int = 12) -> dict:
+    question = question or "Which size should cohort pivotTable/c{i} use?"
+    reason = reason or ("cohort pivotTable/c{i}: explicit visual-size "
+                        "declarations diverge; the PBIR does not prove which "
+                        "design size is correct")
+    return {
+        "tool": "vqs.run", "verdict": "blocked", "run_id": "r",
+        "run_dir": "/tmp/runs/r",
+        "blocked_reasons": [f"blocked reason {i}" for i in range(diagnostics)],
+        "next_actions": [f"next action {i}" for i in range(diagnostics)],
+        "plan": {"operations": [{
+            "type": "format.declare_explicit",
+            "selector": {"page": f"Page_{i}", "visual": f"visual-{i:08x}"},
+            "path": ["visual", "objects", "columnHeaders", 0, "properties",
+                     "fontSize", "expr", "Literal", "Value"],
+            "old": None, "value": "10D"} for i in range(changes)]},
+        "summary": {
+            "outcome": "blocked", "acceptance": False,
+            "candidate_status": {"status": "none", "candidate": None},
+            "resolved_findings": [f"check.fixed_{i}" for i in range(diagnostics)],
+            "remaining_findings": [f"check.left_{i}" for i in range(diagnostics)],
+            "repair_triage": {"decision_source_sha256": "a" * 64,
+                "decisions": [{
+                    "status": "needs_owner_decision",
+                    "decision_id": f"dec-{i:016x}",
+                    "check": "typography.format_declaration_consistency",
+                    "question": question.format(i=i),
+                    "reason": reason.format(i=i),
+                    "cohort": f"pivotTable/c{i}",
+                    "options": [
+                        {"id": "size:10D", "label": f"Use 10 across c{i}",
+                         "effect": "apply"},
+                        {"id": "accept", "label": "Keep as intentional",
+                         "effect": "waive"}],
+                } for i in range(decisions)]},
+        },
+    }
+
+
+def test_oversized_diagnostics_are_trimmed_and_the_omission_reported():
+    """Optional diagnostics give way; owner questions and options never do."""
+    result = summarize(_budget_envelope(changes=120, decisions=3, diagnostics=60))
+    assert _printed_bytes(result) <= 6000
+    assert "compact_overflow" not in result
+    # Every owner question survives, with its options intact.
+    assert len(result["needs_review"]) == 3
+    for item in result["needs_review"]:
+        assert item["question"] and item["reason"]
+        assert [o["id"] for o in item["options"]] == ["size:10D", "accept"]
+    # What went is counted, not silently dropped.
+    assert result["omitted"]
+    assert result["omitted"].get("changes", 0) > 0
+    assert all(count > 0 for count in result["omitted"].values())
+
+
+def test_budget_counts_encoded_bytes_not_characters():
+    """Non-ASCII costs what it costs on the wire."""
+    wide = ("Kterou velikost má použít vizuál v kohortě pivotTable/c{i}? "
+            "日本語のテキストも含まれます — ゼロ幅ではありません")
+    result = summarize(_budget_envelope(changes=90, decisions=3, question=wide,
+                                 diagnostics=40))
+    serialized = json.dumps(result, indent=2, ensure_ascii=False,
+                            default=str)
+    assert len(serialized.encode("utf-8")) > len(serialized)  # multi-byte
+    assert _printed_bytes(result) <= 6000
+    assert len(result["needs_review"]) == 3
+    assert "日本語" in result["needs_review"][0]["question"]
+
+
+def test_a_single_oversized_diagnostic_entry_is_trimmed():
+    envelope = _budget_envelope(changes=2, decisions=2, diagnostics=1)
+    envelope["blocked_reasons"] = ["x" * 9000, "second reason"]
+    result = summarize(envelope)
+    assert _printed_bytes(result) <= 6000
+    assert result["omitted"].get("blocked_reasons", 0) >= 1
+    assert len(result["needs_review"]) == 2
+
+
+def test_owner_decisions_over_budget_overflow_instead_of_truncating():
+    """Mandatory content that cannot fit must refuse to be answered from."""
+    result = summarize(_budget_envelope(changes=0, decisions=4,
+                                 reason="ó" * 1200))
+    assert _printed_bytes(result) <= 6000
+    overflow = result["compact_overflow"]
+    assert overflow["owner_decisions_pending"] == 4
+    assert overflow["budget_bytes"] == 6000
+    assert overflow["required_bytes"] > 6000
+    assert "--report-out" in overflow["next_action"]
+    assert "Do not answer from this output" in overflow["next_action"]
+    # No partial questions: a subset would invite an under-informed answer.
+    assert result["needs_review"] == []
+    # The run stays awaiting owner review rather than reading as settled.
+    assert result["verdict"] == "blocked"
+    assert result["outcome"] == "blocked"
+    assert result["acceptance"] is False
+    assert result["promotion_performed"] is False
+
+
+def test_trimming_is_deterministic():
+    envelope = _budget_envelope(changes=120, decisions=3, diagnostics=60)
+    first, second = summarize(envelope), summarize(envelope)
+    assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
+
+
+def test_answered_runs_give_up_the_question_echo_before_the_record():
+    """Unanswered questions are mandatory; answered ones are a redundant echo.
+
+    On an answered run the questions have served their purpose, and the
+    answered record plus the resulting changes are what the owner reads.
+    Trimming the echo first keeps `changes` and `waived` intact, which was
+    the whole point of reporting the run.
+    """
+    # Sized so pure diagnostics alone cannot pay for the budget, which is
+    # what makes the question echo the next thing to go.
+    envelope = _budget_envelope(changes=7, decisions=9, diagnostics=20)
+    envelope["summary"]["owner_decisions"] = {"answered": [
+        {"decision_id": f"dec-{i:016x}", "option": "size:10D",
+         "effect": "apply", "edits": 2} for i in range(9)]}
+    envelope["summary"]["waived_findings"] = ["insight.no_cross_page_duplicate_grain"]
+    result = summarize(envelope)
+    assert _printed_bytes(result) <= 6000
+    assert "compact_overflow" not in result
+    # The record of what was decided and done survives...
+    assert len(result["changes"]) == 7
+    assert result["waived"] == ["insight.no_cross_page_duplicate_grain"]
+    assert len(result["owner_decisions"]) == 9
+    # ...and the already-answered question echo is what paid for it.
+    assert result["omitted"].get("needs_review", 0) > 0
+
+
+def test_a_modest_overflow_keeps_what_the_repair_achieved():
+    """`fixed` is the result of the run, not commentary on it.
+
+    Regression guard. An earlier ordering treated `fixed` as a pure
+    diagnostic and gave it up first, so a repair that was barely over
+    budget reported an empty `fixed` list while still claiming a verified
+    candidate -- i.e. the output denied the very repair it had performed.
+    The clean-wheel runner caught it; no unit test did.
+
+    A result only slightly over budget must pay out of restatable
+    guidance and keep the record of what was repaired.
+    """
+    envelope = _budget_envelope(changes=20, decisions=2, diagnostics=30)
+    result = summarize(envelope)
+    assert _printed_bytes(result) <= 6000
+    assert "compact_overflow" not in result
+    # Guidance paid for the budget, and said so.
+    assert result["omitted"]
+    assert set(result["omitted"]) & {"next_actions", "remaining",
+                                     "blocked_reasons"}
+    # What the repair achieved survived whole.
+    assert result["fixed"] == [f"check.fixed_{i}" for i in range(30)]
+    assert "fixed" not in result["omitted"]
+    # Surviving changes stay decision-ready: whole entries, never halves.
+    for change in result["changes"]:
+        assert {"page", "visual", "property", "op", "from", "to"} <= set(change)
+
+
+def test_restatable_guidance_is_given_up_before_regressions():
+    """A regression is a safety signal, not advice; it outranks guidance."""
+    envelope = _budget_envelope(changes=4, decisions=2, diagnostics=30)
+    envelope["summary"]["new_regressions"] = ["layout.no_visual_overlap"]
+    # The compact view shows at most 8 next actions; make those 8 expensive.
+    envelope["next_actions"] = [f"next action {i}: " + "detail " * 40
+                                for i in range(8)]
+    result = summarize(envelope)
+    assert _printed_bytes(result) <= 6000
+    assert result["omitted"].get("next_actions", 0) > 0
+    assert result["regressions"] == ["layout.no_visual_overlap"]
+    assert "regressions" not in result["omitted"]
+
+
+# --- partial owner answers: only an answered question is expendable ----
+
+def _answer(envelope: dict, *indices: int) -> dict:
+    """Record answers for exactly these decision indices."""
+    envelope["summary"]["owner_decisions"] = {"answered": [
+        {"decision_id": f"dec-{i:016x}", "option": "size:10D",
+         "effect": "apply", "edits": 2} for i in indices]}
+    return envelope
+
+
+def _ids(result: dict) -> list[str]:
+    return [q["decision_id"] for q in result["needs_review"]]
+
+
+def test_one_answer_never_makes_the_other_questions_expendable():
+    """Regression guard for the partial-answer defect.
+
+    `answered = bool(result["owner_decisions"])` treated *any* answer as
+    licence to trim the whole question list, but answers are partial by
+    design: `vqs.repair.decisions` resolves only what the owner supplied.
+    A single answer therefore made four still-open questions eligible for
+    trimming, and a blocked run dropped questions the owner had to answer
+    while reporting only a count.
+    """
+    result = summarize(_answer(
+        _budget_envelope(changes=7, decisions=9, diagnostics=20), 0))
+    assert _printed_bytes(result) <= 6000
+    assert "compact_overflow" not in result
+    # Every unanswered question survives, with its options.
+    for index in range(1, 9):
+        question = next(q for q in result["needs_review"]
+                        if q["decision_id"] == f"dec-{index:016x}")
+        assert question["question"] and question["reason"]
+        assert [o["id"] for o in question["options"]] == ["size:10D", "accept"]
+    # The one answered echo is what paid, and it is counted.
+    assert f"dec-{0:016x}" not in _ids(result)
+    assert result["omitted"]["needs_review"] == 1
+
+
+def test_an_answered_question_between_unanswered_ones_is_the_only_one_dropped():
+    """Position must not matter: the echo is identified by its own id."""
+    result = summarize(_answer(
+        _budget_envelope(changes=7, decisions=9, diagnostics=20), 4))
+    assert _printed_bytes(result) <= 6000
+    assert _ids(result) == [f"dec-{i:016x}" for i in range(9) if i != 4]
+    assert result["omitted"]["needs_review"] == 1
+
+
+def test_an_all_answered_run_may_give_up_any_question():
+    """With nothing left open, every entry is a redundant echo.
+
+    Only as many are dropped as the budget needs -- the trim stops the
+    moment the result fits -- so what matters is that the whole list is
+    *eligible* and that the decision record survives instead.
+    """
+    answered = _answer(
+        _budget_envelope(changes=7, decisions=9, diagnostics=20), *range(9))
+    result = summarize(answered)
+    assert _printed_bytes(result) <= 6000
+    assert result["omitted"]["needs_review"] > 0
+    # Whatever survived is an echo of an answer the owner already holds.
+    held = {entry["decision_id"] for entry in result["owner_decisions"]}
+    assert all(q["decision_id"] in held for q in result["needs_review"])
+    # The record of what was decided and done is what survives instead.
+    assert len(result["owner_decisions"]) == 9
+    assert result["changes"]
+
+
+def test_an_unanswered_run_keeps_every_question_and_overflows_instead():
+    """No answers at all: nothing in the list is expendable."""
+    envelope = _budget_envelope(changes=7, decisions=9, diagnostics=20)
+    assert not envelope["summary"].get("owner_decisions")
+    result = summarize(envelope)
+    assert _printed_bytes(result) <= 6000
+    if "compact_overflow" in result:
+        assert result["needs_review"] == []
+        assert result["compact_overflow"]["owner_decisions_pending"] == 9
+    else:
+        assert _ids(result) == [f"dec-{i:016x}" for i in range(9)]
+        assert "needs_review" not in result.get("omitted", {})
+
+
+# --- the overflow form is itself bounded -------------------------------
+
+def test_overflow_bounds_its_own_oversized_scalar_metadata():
+    """Regression guard: `_overflow` used to return an unmeasured object.
+
+    It preserved `run_dir` and `candidate` in full and added its own
+    explanatory text, so long paths alone exceeded the budget the result
+    advertises -- 6,507 bytes against 6,000, while reporting that zero
+    owner decisions had caused it.
+    """
+    run_dir = "/tmp/" + "/".join(["č" * 70] * 20) + "/r"
+    candidate = run_dir + "/candidate/Fictional.Report"
+    # Representable POSIX paths: each component is 140 bytes, under NAME_MAX.
+    assert max(len(p.encode()) for p in run_dir.split("/") if p) <= 255
+    assert len(run_dir.encode()) > 2000
+    result = summarize({
+        "tool": "vqs.run", "verdict": "blocked", "run_id": "r",
+        "run_dir": run_dir,
+        "summary": {"outcome": "blocked", "acceptance": False,
+                    "candidate_status": {"status": "blocked",
+                                         "candidate": candidate},
+                    "repair_triage": {"decisions": []}}})
+    assert _printed_bytes(result) <= 6000
+    overflow = result["compact_overflow"]
+    # The cause is named honestly: no owner decision was involved.
+    assert overflow["owner_decisions_pending"] == 0
+    assert "mandatory result metadata" in overflow["reason"]
+    assert overflow["required_bytes"] > 6000
+    assert "candidate" in overflow["omitted_fields"]
+    # The run still reads as awaiting owner review.
+    assert result["verdict"] == "blocked"
+    assert result["outcome"] == "blocked"
+    assert result["acceptance"] is False
+    assert result["promotion_performed"] is False
+    assert result["needs_review"] == []
+
+
+def test_overflow_degrades_an_unprintable_run_dir_to_a_digest():
+    """When even the retrieval pointer cannot fit, identify it instead."""
+    run_dir = "/tmp/" + "/".join(["q" * 200] * 60)
+    result = summarize({
+        "tool": "vqs.run", "verdict": "blocked", "run_id": "r",
+        "run_dir": run_dir,
+        "summary": {"outcome": "blocked", "acceptance": False,
+                    "candidate_status": {"status": "blocked", "candidate": None},
+                    "repair_triage": {"decisions": []}}})
+    assert _printed_bytes(result) <= 6000
+    pointer = result["run_dir"]
+    assert isinstance(pointer, dict)
+    assert pointer["bytes"] == len(run_dir.encode())
+    assert re.fullmatch(r"[0-9a-f]{64}", pointer["sha256"])
+    assert result["verdict"] == "blocked"
+    assert result["acceptance"] is False

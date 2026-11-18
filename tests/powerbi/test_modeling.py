@@ -113,6 +113,8 @@ def test_connect_refuses_missing_identity_and_failed_connect(
 
 
 def test_readiness_proves_populated_and_repeatable(tmp_path: Path) -> None:
+    from vqs.capture import _validated_readiness
+
     rows = [{"n": 7}]
     client = _client(tmp_path, _connected({
         "model_operations/GetStats": {"tables": ["Sales"]},
@@ -131,6 +133,9 @@ def test_readiness_proves_populated_and_repeatable(tmp_path: Path) -> None:
                    default=str).encode("utf-8")).hexdigest()
     assert ready["scope_echo"]["model"] == "localhost:52383/AdventureWorks"
     assert ready["scope_echo"]["source_sha256"] == "abc"
+    accepted = _validated_readiness(ready, requested_scope=scope)
+    assert accepted["data_rows"] == 7
+    assert accepted["query_hash"] == ready["query_hash"]
     calls = [entry for entry in _logged(client)
              if entry["request"].get("operation") == "Execute"]
     assert len(calls) == 2  # the repeat-query contract: probed twice
